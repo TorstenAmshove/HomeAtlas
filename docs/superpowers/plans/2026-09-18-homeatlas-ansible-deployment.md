@@ -46,6 +46,10 @@ permissions:
   contents: read
   packages: write
 
+concurrency:
+  group: publish-images-${{ github.sha }}
+  cancel-in-progress: false
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -63,33 +67,51 @@ jobs:
               VITE_BUILD_SHA=${{ github.sha }}
               VITE_BUILD_TIME=${{ steps.build_metadata.outputs.time }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - id: build_metadata
         run: printf 'time=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/metadata-action@v5
+      - name: Reject an existing image tag
+        env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:sha-${{ github.sha }}
+        run: |
+          if output="$(docker buildx imagetools inspect "$IMAGE" 2>&1)"; then
+            printf '%s\n' "$output" >&2
+            echo "Refusing to overwrite immutable tag $IMAGE" >&2
+            exit 1
+          fi
+          case "$output" in
+            *"not found"*|*"manifest unknown"*|*"name unknown"*) ;;
+            *)
+              printf '%s\n' "$output" >&2
+              echo "Could not establish that $IMAGE is absent" >&2
+              exit 1
+              ;;
+          esac
+      - uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
         id: meta
         with:
           images: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
           tags: type=sha,format=long
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           build-args: ${{ matrix.build_args }}
 ```
 
 - [ ] **Step 2: Document manual workflow dispatch and the required image-tag format**
 
 ```markdown
-For the first Ansible deployment, start **Publish container images** in GitHub Actions on the desired commit. Use the generated `sha-<40-character-commit>` tag as `homeatlas_image_tag` in the Ansible command.
+For the first Ansible deployment, dispatch **Publish container images** from the desired branch or tag. Make both generated GHCR packages public, then use the generated `sha-<40-character-commit>` tag as `homeatlas_image_tag` in the Ansible command.
 ```
 
 - [ ] **Step 3: Validate the local source inputs**
@@ -125,7 +147,7 @@ git commit -m "ci: publish HomeAtlas images to GHCR"
   ansible.builtin.assert:
     that:
       - homeatlas_image_tag is defined
-      - homeatlas_image_tag is match('^sha-[0-9a-f]{40}$')
+      - homeatlas_image_tag is match('^sha-[0-9a-f]{40}\\Z')
     fail_msg: >-
       Set homeatlas_image_tag to the sha-<40-character-commit> tag published
       by HomeAtlas' Publish container images workflow.
