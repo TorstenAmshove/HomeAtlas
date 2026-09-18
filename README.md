@@ -38,10 +38,16 @@ oder ein **lokaler Ollama-Server** (dann verlässt kein einziges Byte das Haus).
 
 HomeAtlas wird dort als GHCR-Image durch
 [`ansible-docker.lan`](https://github.com/TorstenAmshove/ansible-docker.lan) ausgerollt. Starte
-zuerst den Workflow **Publish container images** auf dem gewünschten Branch oder Tag. Für einen
-einzelnen Commit zuerst einen Git-Tag auf diesem Commit anlegen und diesen im Workflow auswählen.
-Anschließend wird der vollständige, vom Workflow erzeugte Tag `sha-<40-stelliger-Commit>` an das
-Ansible-Playbook übergeben:
+zuerst den Workflow **Publish container images** auf dem gewünschten Branch. Für einen einzelnen
+Commit zuerst einen Git-Tag auf diesem Commit anlegen, den Tag pushen und den Workflow über die
+GitHub CLI auslösen:
+
+```bash
+gh workflow run publish-images.yml --ref <tag>
+```
+
+Anschließend wird der vollständige, vom Workflow erzeugte Tag
+`sha-<40-stelliger-Commit>` an das Ansible-Playbook übergeben:
 
 ```bash
 ansible-playbook --vault-password-file .secret/docker playbook.yml \

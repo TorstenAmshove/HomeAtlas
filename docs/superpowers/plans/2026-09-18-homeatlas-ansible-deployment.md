@@ -78,8 +78,11 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Reject an existing image tag
         env:
-          IMAGE: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:sha-${{ github.sha }}
+          OWNER: ${{ github.repository_owner }}
+          IMAGE_NAME: ${{ matrix.image }}
+          IMAGE_TAG: sha-${{ github.sha }}
         run: |
+          IMAGE="ghcr.io/${OWNER,,}/${IMAGE_NAME}:${IMAGE_TAG}"
           if output="$(docker buildx imagetools inspect "$IMAGE" 2>&1)"; then
             printf '%s\n' "$output" >&2
             echo "Refusing to overwrite immutable tag $IMAGE" >&2
@@ -111,7 +114,7 @@ jobs:
 - [ ] **Step 2: Document manual workflow dispatch and the required image-tag format**
 
 ```markdown
-For the first Ansible deployment, dispatch **Publish container images** from the desired branch or tag. Make both generated GHCR packages public, then use the generated `sha-<40-character-commit>` tag as `homeatlas_image_tag` in the Ansible command.
+For the first Ansible deployment, dispatch **Publish container images** from the desired branch. For a tag, use `gh workflow run publish-images.yml --ref <tag>`. Make both generated GHCR packages public, then use the generated `sha-<40-character-commit>` tag as `homeatlas_image_tag` in the Ansible command.
 ```
 
 - [ ] **Step 3: Validate the local source inputs**

@@ -15,7 +15,7 @@ GitHub Actions builds and publishes separate public GHCR images from the HomeAtl
 - `ghcr.io/torstenamshove/homeatlas-backend:sha-<40-character-commit>`
 - `ghcr.io/torstenamshove/homeatlas-frontend:sha-<40-character-commit>`
 
-Only commit-derived tags are published. The Ansible stack requires such a tag explicitly, so a deployment is tied to one immutable source revision. The workflow serializes runs per commit, refuses to overwrite an existing tag, and pins every write-capable third-party action to its full commit ID. It runs after pushes to `master` and can be dispatched manually from another branch or tag for the first deployment.
+Only commit-derived tags are published. The Ansible stack requires such a tag explicitly, so a deployment is tied to one immutable source revision. The workflow serializes runs per commit, refuses to overwrite an existing tag, and pins every write-capable third-party action to its full commit ID. It runs after pushes to `master` and can be dispatched manually from another branch. A tagged commit is dispatched through `gh workflow run --ref <tag>` for the first deployment.
 
 ## Ansible Stack
 

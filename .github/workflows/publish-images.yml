@@ -41,8 +41,11 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Reject an existing image tag
         env:
-          IMAGE: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:sha-${{ github.sha }}
+          OWNER: ${{ github.repository_owner }}
+          IMAGE_NAME: ${{ matrix.image }}
+          IMAGE_TAG: sha-${{ github.sha }}
         run: |
+          IMAGE="ghcr.io/${OWNER,,}/${IMAGE_NAME}:${IMAGE_TAG}"
           if output="$(docker buildx imagetools inspect "$IMAGE" 2>&1)"; then
             printf '%s\n' "$output" >&2
             echo "Refusing to overwrite immutable tag $IMAGE" >&2
