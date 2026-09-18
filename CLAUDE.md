@@ -129,6 +129,12 @@ is where session-cookie handling, FastAPI validation-error flattening, and the "
 elsewhere, force reload" behavior all live. Add new endpoints here rather than calling `fetch`
 directly from a page.
 
+## Git Workflow
+
+- After every repository change, create a Conventional Commit and open a pull request.
+- Check whether the change requires documentation updates (for example, `README.md`) and include
+  them when needed.
+
 Pages under `pages/` map roughly 1:1 to the nav items in `App.tsx`'s `NAV` array; several are
 admin-only both in the route guard (`isAdmin &&` around the `<Route>`) and on the corresponding
 backend routes — when adding an admin-only page, gate both sides.
