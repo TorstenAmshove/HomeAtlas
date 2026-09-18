@@ -34,10 +34,40 @@ oder ein **lokaler Ollama-Server** (dann verlässt kein einziges Byte das Haus).
 
 ## Installation
 
-### Auf dem Docker-Host (empfohlen)
+### Per Ansible auf docker.lan (empfohlen)
+
+HomeAtlas wird dort als GHCR-Image durch
+[`ansible-docker.lan`](https://github.com/TorstenAmshove/ansible-docker.lan) ausgerollt. Starte
+zuerst den Workflow **Publish container images** auf dem gewünschten Branch. Für einen einzelnen
+Commit zuerst einen Git-Tag auf diesem Commit anlegen, den Tag pushen und den Workflow über die
+GitHub CLI auslösen:
 
 ```bash
-git clone https://github.com/akofort/HomeAtlas.git
+gh workflow run publish-images.yml --ref <tag>
+```
+
+Anschließend wird der vollständige, vom Workflow erzeugte Tag
+`sha-<40-stelliger-Commit>` an das Ansible-Playbook übergeben:
+
+```bash
+ansible-playbook --vault-password-file .secret/docker playbook.yml \
+  -t traefik,uptimekuma,homeatlas \
+  -e homeatlas_image_tag=sha-<40-stelliger-Commit>
+```
+
+Die Anwendung ist danach über `https://homeatlas.malt10.de` erreichbar. Das persistente
+Verzeichnis `/opt/homeatlas` muss vollständig gesichert werden: Datenbank `homeatlas.db` und
+Verschlüsselungsschlüssel `secret.key` gehören zusammen. Das Administratorpasswort wird beim
+allerersten Start einmalig im Backend-Protokoll ausgegeben und nicht in Ansible hinterlegt.
+
+GitHub Packages legt neue Container-Packages zunächst privat an. Vor dem ersten Ansible-Deployment
+müssen `homeatlas-backend` und `homeatlas-frontend` in den jeweiligen Package-Einstellungen auf
+**public** gesetzt werden, weil der Docker-Host ohne GHCR-Anmeldedaten pullt.
+
+### Auf einem anderen Docker-Host
+
+```bash
+git clone https://github.com/TorstenAmshove/HomeAtlas.git
 cd HomeAtlas
 ./deploy.sh                      # deployt nach 192.168.1.110, Port 8280
 ```
