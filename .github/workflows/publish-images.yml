@@ -22,13 +22,9 @@ jobs:
           - image: homeatlas-backend
             context: ./backend
             file: ./backend/Dockerfile
-            build_args: ""
           - image: homeatlas-frontend
             context: ./frontend
             file: ./frontend/Dockerfile
-            build_args: |
-              VITE_BUILD_SHA=${{ github.sha }}
-              VITE_BUILD_TIME=${{ steps.build_metadata.outputs.time }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - id: build_metadata
@@ -71,4 +67,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: ${{ matrix.build_args }}
+          build-args: |
+            VITE_BUILD_SHA=${{ github.sha }}
+            VITE_BUILD_TIME=${{ steps.build_metadata.outputs.time }}
