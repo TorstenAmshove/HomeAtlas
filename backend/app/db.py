@@ -22,7 +22,7 @@ DB_PATH = os.environ.get("HOMEATLAS_DB_PATH", "/data/homeatlas.db")
 
 # Columns stored as JSON text. Kept in one place so `_row` and the writers can't drift apart.
 _JSON_COLUMNS = {"openPorts", "services", "extra", "summary", "toolCalls", "tags", "answers",
-                 "providerRaw", "monitorPorts"}
+                  "providerRaw", "monitorPorts", "facts"}
 
 
 def _now() -> str:
@@ -211,6 +211,30 @@ CREATE TABLE IF NOT EXISTS accounts (
     updatedAt TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_accounts_system ON accounts(systemId);
+
+-- Controller-synchronized network definitions (VLANs, WLANs and WAN interfaces). Technical
+-- fields are refreshed from the controller, while `manualMd` remains local documentation.
+CREATE TABLE IF NOT EXISTS networkResources (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    source TEXT NOT NULL,
+    sourceKey TEXT NOT NULL UNIQUE,
+    sourceAccountId TEXT NOT NULL,
+    ownerSystemId TEXT,
+    siteExternalId TEXT NOT NULL,
+    siteName TEXT NOT NULL DEFAULT '',
+    externalId TEXT NOT NULL,
+    name TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    active INTEGER NOT NULL DEFAULT 1,
+    facts TEXT,
+    manualMd TEXT NOT NULL DEFAULT '',
+    firstSeen TEXT NOT NULL,
+    lastSeen TEXT NOT NULL,
+    updatedAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_networkresources_kind ON networkResources(kind, active);
+CREATE INDEX IF NOT EXISTS idx_networkresources_account ON networkResources(sourceAccountId);
 
 -- Lets one credential profile (an `accounts` row) additionally apply to more than the single
 -- device its own `systemId` points at -- a whole device kind ("every switch"), a subnet ("every
@@ -895,6 +919,100 @@ def mark_systems_offline(seen_ids: set[str]) -> None:
 
 
 # --------------------------------------------------------------------------------------------
+# Controller-synchronized network resources
+# --------------------------------------------------------------------------------------------
+
+_NETWORK_RESOURCE_KINDS = {"network", "wifi", "wan"}
+
+
+def _network_resource_key(source: str, account_id: str, site_id: str, kind: str, external_id: str) -> str:
+    return f"{source}:{account_id}:{site_id}:{kind}:{external_id}"
+
+
+def get_network_resource(resource_id: str) -> dict | None:
+    with _conn() as conn:
+        return _row(conn.execute("SELECT * FROM networkResources WHERE id = ?", (resource_id,)).fetchone())
+
+
+def list_network_resources(kind: str | None = None, active_only: bool = False) -> list[dict]:
+    clauses, params = [], []
+    if kind:
+        clauses.append("kind = ?")
+        params.append(kind)
+    if active_only:
+        clauses.append("active = 1")
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    with _conn() as conn:
+        return _rows(conn.execute(
+            "SELECT * FROM networkResources" + where + " ORDER BY siteName COLLATE NOCASE, kind, name COLLATE NOCASE",
+            tuple(params),
+        ))
+
+
+def update_network_resource_manual(resource_id: str, manual_md: str) -> dict | None:
+    with _conn() as conn:
+        conn.execute("UPDATE networkResources SET manualMd = ?, updatedAt = ? WHERE id = ?",
+                     (manual_md, _now(), resource_id))
+    return get_network_resource(resource_id)
+
+
+def sync_network_resources(source_account_id: str, resources: list[dict],
+                           complete_scopes: list[tuple[str, str]]) -> list[dict]:
+    """Refreshes resources successfully read from a controller.
+
+    `complete_scopes` is deliberately separate from `resources`: a failed endpoint must never make
+    its old entries look deleted. Each tuple names one fully listed `(siteExternalId, kind)` scope.
+    """
+    now = _now()
+    refreshed_ids: list[str] = []
+    present_by_scope: dict[tuple[str, str], set[str]] = {}
+    with _conn() as conn:
+        for resource in resources:
+            kind = resource.get("kind") or ""
+            source = resource.get("source") or "unifi"
+            site_id = resource.get("siteExternalId") or ""
+            external_id = resource.get("externalId") or ""
+            if kind not in _NETWORK_RESOURCE_KINDS or not site_id or not external_id:
+                continue
+            source_key = _network_resource_key(source, source_account_id, site_id, kind, external_id)
+            existing = conn.execute("SELECT id FROM networkResources WHERE sourceKey = ?", (source_key,)).fetchone()
+            resource_id = existing["id"] if existing else _new_id()
+            conn.execute(
+                "INSERT INTO networkResources(id, kind, source, sourceKey, sourceAccountId, ownerSystemId, "
+                "siteExternalId, siteName, externalId, name, enabled, active, facts, firstSeen, lastSeen, updatedAt) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+                "ON CONFLICT(sourceKey) DO UPDATE SET "
+                "ownerSystemId = excluded.ownerSystemId, siteName = excluded.siteName, name = excluded.name, "
+                "enabled = excluded.enabled, active = 1, facts = excluded.facts, lastSeen = excluded.lastSeen, "
+                "updatedAt = excluded.updatedAt",
+                (resource_id, kind, source, source_key, source_account_id, resource.get("ownerSystemId") or None,
+                 site_id, resource.get("siteName") or "", external_id, resource.get("name") or external_id,
+                 1 if resource.get("enabled", True) else 0, 1, _dump(resource.get("facts") or {}), now, now, now),
+            )
+            refreshed_ids.append(resource_id)
+            present_by_scope.setdefault((site_id, kind), set()).add(source_key)
+
+        for site_id, kind in complete_scopes:
+            if kind not in _NETWORK_RESOURCE_KINDS or not site_id:
+                continue
+            present = present_by_scope.get((site_id, kind), set())
+            if present:
+                placeholders = ",".join("?" * len(present))
+                conn.execute(
+                    f"UPDATE networkResources SET active = 0, updatedAt = ? WHERE sourceAccountId = ? "
+                    f"AND siteExternalId = ? AND kind = ? AND sourceKey NOT IN ({placeholders})",
+                    (now, source_account_id, site_id, kind, *present),
+                )
+            else:
+                conn.execute(
+                    "UPDATE networkResources SET active = 0, updatedAt = ? WHERE sourceAccountId = ? "
+                    "AND siteExternalId = ? AND kind = ?",
+                    (now, source_account_id, site_id, kind),
+                )
+    return [resource for resource_id in refreshed_ids if (resource := get_network_resource(resource_id)) is not None]
+
+
+# --------------------------------------------------------------------------------------------
 # Accounts (credentials). `secretEnc` is written/read encrypted -- see crypto.py.
 # --------------------------------------------------------------------------------------------
 
@@ -1096,6 +1214,10 @@ def count_assignments_by_account() -> dict[str, int]:
 def delete_account(account_id: str) -> None:
     with _conn() as conn:
         conn.execute("DELETE FROM accountAssignments WHERE accountId = ?", (account_id,))
+        # Keep controller-derived documentation and any local notes, but never show it as current
+        # once its source credential is gone.
+        conn.execute("UPDATE networkResources SET active = 0, updatedAt = ? WHERE sourceAccountId = ?",
+                     (_now(), account_id))
         conn.execute("DELETE FROM accounts WHERE id = ?", (account_id,))
 
 
