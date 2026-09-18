@@ -34,10 +34,29 @@ oder ein **lokaler Ollama-Server** (dann verlässt kein einziges Byte das Haus).
 
 ## Installation
 
-### Auf dem Docker-Host (empfohlen)
+### Per Ansible auf docker.lan (empfohlen)
+
+HomeAtlas wird dort als GHCR-Image durch
+[`ansible-docker.lan`](https://github.com/TorstenAmshove/ansible-docker.lan) ausgerollt. Starte
+zuerst den Workflow **Publish container images** für den gewünschten Commit. Anschließend wird der
+vollständige, vom Workflow erzeugte Tag `sha-<40-stelliger-Commit>` an das Ansible-Playbook
+übergeben:
 
 ```bash
-git clone https://github.com/akofort/HomeAtlas.git
+ansible-playbook --vault-password-file .secret/docker playbook.yml \
+  -t traefik,uptimekuma,homeatlas \
+  -e homeatlas_image_tag=sha-<40-stelliger-Commit>
+```
+
+Die Anwendung ist danach über `https://homeatlas.malt10.de` erreichbar. Das persistente
+Verzeichnis `/opt/homeatlas` muss vollständig gesichert werden: Datenbank `homeatlas.db` und
+Verschlüsselungsschlüssel `secret.key` gehören zusammen. Das Administratorpasswort wird beim
+allerersten Start einmalig im Backend-Protokoll ausgegeben und nicht in Ansible hinterlegt.
+
+### Auf einem anderen Docker-Host
+
+```bash
+git clone https://github.com/TorstenAmshove/HomeAtlas.git
 cd HomeAtlas
 ./deploy.sh                      # deployt nach 192.168.1.110, Port 8280
 ```
