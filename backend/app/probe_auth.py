@@ -675,7 +675,7 @@ def _ha_format_last_triggered(value: str) -> str:
 async def _ha_self_check(client: httpx.AsyncClient, base_url: str) -> str:
     """Confirms the endpoint actually is a Home Assistant instance answering this token, before
     anything else is asked of it. HA's root `/api/` route -- unlike `/api/states` -- exists purely
-    as a health/identity check and always replies `{"message": "API running"}` once the token is
+    as a health/identity check and always replies `{"message": "API running."}` once the token is
     accepted, so checking it first turns "wrong URL, some other web server answered" or "token
     rejected" into one specific, actionable message here instead of a confusing JSON-parse failure
     two calls later while trying to read automation data that was never coming. Returns an error
@@ -695,7 +695,7 @@ async def _ha_self_check(client: httpx.AsyncClient, base_url: str) -> str:
         payload = response.json()
     except ValueError:
         payload = None
-    if not isinstance(payload, dict) or payload.get("message") != "API running":
+    if not isinstance(payload, dict) or payload.get("message") != "API running.":
         return (f"{base_url}/api/ hat nicht wie die Home-Assistant-API geantwortet -- Adresse "
                 "prüfen (Basis-URL ohne „/api“, z. B. http://homeassistant.local:8123).")
     return ""

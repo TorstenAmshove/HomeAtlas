@@ -1,7 +1,7 @@
 """Tests for probe_homeassistant's connection self-check: it used to go straight to /api/states
 and report every failure (wrong URL, some other web server answering, an invalid/expired token) as
 the same generic "nicht erreichbar" message. It now checks /api/ first (Home Assistant's own
-health/identity endpoint, which always answers {"message": "API running"} once the token is
+health/identity endpoint, which always answers {"message": "API running."} once the token is
 accepted) so an invalid token and an unreachable/wrong endpoint produce distinct, actionable
 errors."""
 import asyncio
@@ -24,11 +24,11 @@ def _fake_client(monkeypatch, handler) -> None:
     monkeypatch.setattr(probe_auth, "_decode_secret", lambda account: ("fake-token", ""))
 
 
-def test_self_check_passes_and_probe_proceeds_to_states(monkeypatch):
+def test_self_check_accepts_official_status_payload_and_probe_proceeds_to_states(monkeypatch):
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/api/":
             assert request.headers["authorization"] == "Bearer fake-token"
-            return httpx.Response(200, json={"message": "API running"})
+            return httpx.Response(200, json={"message": "API running."})
         if request.url.path.endswith("/api/states"):
             return httpx.Response(200, json=[
                 {"entity_id": "automation.a", "state": "on", "attributes": {"friendly_name": "A", "id": "1"}},
@@ -86,7 +86,7 @@ def test_states_call_rejected_after_self_check_passed_still_reports_auth_error(m
     # exception string from raise_for_status().
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/api/":
-            return httpx.Response(200, json={"message": "API running"})
+            return httpx.Response(200, json={"message": "API running."})
         return httpx.Response(401, json={"message": "401: Unauthorized"})
 
     _fake_client(monkeypatch, handler)
@@ -98,7 +98,7 @@ def test_states_call_rejected_after_self_check_passed_still_reports_auth_error(m
 def test_automation_line_includes_last_triggered_when_present(monkeypatch):
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/api/":
-            return httpx.Response(200, json={"message": "API running"})
+            return httpx.Response(200, json={"message": "API running."})
         if request.url.path.endswith("/api/states"):
             return httpx.Response(200, json=[
                 {"entity_id": "automation.a", "state": "on", "attributes": {
@@ -117,7 +117,7 @@ def test_automation_line_includes_last_triggered_when_present(monkeypatch):
 def test_automation_line_omits_last_triggered_when_never_fired(monkeypatch):
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/api/":
-            return httpx.Response(200, json={"message": "API running"})
+            return httpx.Response(200, json={"message": "API running."})
         if request.url.path.endswith("/api/states"):
             return httpx.Response(200, json=[
                 {"entity_id": "automation.b", "state": "off", "attributes": {
