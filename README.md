@@ -38,22 +38,18 @@ oder ein **lokaler Ollama-Server** (dann verlässt kein einziges Byte das Haus).
 ### Per Ansible auf docker.lan (empfohlen)
 
 HomeAtlas wird dort als GHCR-Image durch
-[`ansible-docker.lan`](https://github.com/TorstenAmshove/ansible-docker.lan) ausgerollt. Starte
-zuerst den Workflow **Publish container images** auf dem gewünschten Branch. Für einen einzelnen
-Commit zuerst einen Git-Tag auf diesem Commit anlegen, den Tag pushen und den Workflow über die
-GitHub CLI auslösen:
+[`ansible-docker.lan`](https://github.com/TorstenAmshove/ansible-docker.lan) ausgerollt. Wenn ein
+Pull Request mit einer Code-Änderung nach `master` gemergt wird, erzeugt der Workflow **Release
+container images** anhand der [Conventional Commits](https://www.conventionalcommits.org/)
+automatisch einen Git-Tag `vX.Y.Z` und veröffentlicht beide Images mit `X.Y.Z`, `X.Y` und
+`latest`. Ein manueller Workflow-Lauf dient für den ersten Release oder als Fallback.
 
-```bash
-gh workflow run publish-images.yml --ref <tag>
-```
-
-Anschließend wird der vollständige, vom Workflow erzeugte Tag
-`sha-<40-stelliger-Commit>` an das Ansible-Playbook übergeben:
+Das Ansible-Repository übernimmt neue vollständige Versionen per Dependabot. Für einen manuellen
+Deployment-Lauf ist keine Image-Tag-Variable mehr erforderlich:
 
 ```bash
 ansible-playbook --vault-password-file .secret/docker playbook.yml \
-  -t traefik,uptimekuma,homeatlas \
-  -e homeatlas_image_tag=sha-<40-stelliger-Commit>
+  -t traefik,uptimekuma,homeatlas
 ```
 
 Die Anwendung ist danach über `https://homeatlas.malt10.de` erreichbar. Das persistente
