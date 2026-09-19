@@ -15,6 +15,7 @@ import ChatPage from "./pages/ChatPage";
 import ScanPage from "./pages/ScanPage";
 import SettingsPage from "./pages/SettingsPage";
 import UsersPage from "./pages/UsersPage";
+import NetworksPage from "./pages/NetworksPage";
 
 interface AuthState {
   user: User | null;
@@ -36,6 +37,7 @@ const NAV = [
   { to: "/", label: "Übersicht", icon: "🏠", end: true },
   { to: "/geraete", label: "Geräte", icon: "🖧" },
   { to: "/plan", label: "Netzplan", icon: "🗺️" },
+  { to: "/netze", label: "Netze & WLAN", icon: "📡" },
   { to: "/zugaenge", label: "Zugänge", icon: "🔑", adminOnly: true },
   { to: "/dokumentation", label: "Dokumentation", icon: "📘" },
   { to: "/assistent", label: "KI-Assistent", icon: "💬" },
@@ -146,6 +148,7 @@ export default function App() {
             <Route path="/assistent" element={<ChatPage />} />
             {isAdmin && <Route path="/scan" element={<ScanPage />} />}
             <Route path="/plan" element={<PlanPage />} />
+            <Route path="/netze" element={<NetworksPage />} />
             {isAdmin && <Route path="/benutzer" element={<UsersPage />} />}
             {isAdmin && <Route path="/protokoll" element={<AccessLogPage />} />}
             <Route path="/einstellungen" element={<SettingsPage />} />

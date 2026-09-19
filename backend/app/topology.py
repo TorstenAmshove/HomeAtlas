@@ -16,6 +16,7 @@ Readability decisions, since this is meant for someone who does not read network
 from __future__ import annotations
 
 import html
+import ipaddress
 import re
 
 from . import db
@@ -645,8 +646,8 @@ def render_layer3(settings: dict | None = None) -> str:
     guest network, an IoT VLAN on the same switches) where the physical `render()` above still
     only shows one wire.
 
-    End-device subnet membership is derived purely from each system's own stored IP (this app has
-    no per-device VLAN tag to group by instead). Routers are placed more accurately: a router
+    End-device subnet membership uses a controller-provided CIDR whenever one contains its stored
+    IP, otherwise it falls back to the historic /24 approximation. Routers are placed more accurately: a router
     probed over SSH is checked against *every* subnet its own interface table shows an address in
     (see `_router_subnets`), not just the one its single stored `ip` field happens to fall into --
     and routers are chained by inferred upstream/downstream relationship (`_infer_router_hierarchy`)
@@ -671,8 +672,36 @@ def render_layer3(settings: dict | None = None) -> str:
     )
     others = [s for s in all_systems if s["kind"] != "router" and s.get("ip")]
 
-    raw_subnets = {r["id"]: _router_subnets(r) for r in routers}
+    controller_networks: list[tuple[ipaddress.IPv4Network, str | None, str | None]] = []
+    for resource in db.list_network_resources(kind="network", active_only=True):
+        try:
+            network = ipaddress.ip_network((resource.get("facts") or {}).get("cidr", ""), strict=False)
+        except ValueError:
+            continue
+        if isinstance(network, ipaddress.IPv4Network):
+            controller_networks.append((network, resource.get("ownerSystemId"),
+                                        str((resource.get("facts") or {}).get("vlanId") or "") or None))
+
+    def subnet_for(ip: str) -> str:
+        try:
+            address = ipaddress.ip_address(ip)
+        except ValueError:
+            return _subnet_of(ip)
+        matches = [network for network, _, _ in controller_networks if address in network]
+        return str(max(matches, key=lambda network: network.prefixlen)) if matches else _subnet_of(ip)
+
+    controller_subnets_by_owner: dict[str, set[str]] = {}
+    controller_vlans_by_owner: dict[str, dict[str, str]] = {}
+    for network, owner_id, vlan_id in controller_networks:
+        if owner_id:
+            controller_subnets_by_owner.setdefault(owner_id, set()).add(str(network))
+            if vlan_id:
+                controller_vlans_by_owner.setdefault(owner_id, {})[str(network)] = vlan_id
+
+    raw_subnets = {r["id"]: _router_subnets(r) | controller_subnets_by_owner.get(r["id"], set()) for r in routers}
     router_vlans = {r["id"]: _router_vlan_ids(r) for r in routers}
+    for router_id, vlans in controller_vlans_by_owner.items():
+        router_vlans.setdefault(router_id, {}).update(vlans)
     parent_by_id = _infer_router_hierarchy(routers, raw_subnets)
 
     own_subnets = {
@@ -682,7 +711,7 @@ def render_layer3(settings: dict | None = None) -> str:
 
     others_by_subnet: dict[str, list[dict]] = {}
     for s in others:
-        others_by_subnet.setdefault(_subnet_of(s["ip"]), []).append(s)
+        others_by_subnet.setdefault(subnet_for(s["ip"]), []).append(s)
 
     # First router (in the already name-sorted list) to claim a subnet as its own wins -- a tie is
     # only possible between two routers whose subnet sets are identical, which is not something

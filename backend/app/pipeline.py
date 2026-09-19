@@ -18,7 +18,7 @@ from datetime import datetime, timedelta, timezone
 
 from . import (
     adguard_probe, classify, crypto, db, discovery, docker_probe, docs, omada_probe, oui, probe_auth,
-    proxmox_probe,
+    proxmox_probe, unifi_probe,
 )
 
 
@@ -285,10 +285,30 @@ def _link_omada_topology() -> int:
     return linked
 
 
+def _link_unifi_topology() -> int:
+    """Resolve controller-local UniFi IDs to inventory parent IDs after all findings are upserted."""
+    systems = db.list_systems()
+    by_device_id = {
+        unifi.get("deviceId"): system["id"]
+        for system in systems
+        if (unifi := ((system.get("extra") or {}).get("unifi") or {})).get("deviceId")
+    }
+    linked = 0
+    for system in systems:
+        unifi = (system.get("extra") or {}).get("unifi") or {}
+        target_id = by_device_id.get(unifi.get("uplinkDeviceId"))
+        if not target_id or target_id == system["id"] or system.get("parentId") == target_id:
+            continue
+        db.update_system(system["id"], {"parentId": target_id})
+        linked += 1
+    return linked
+
+
 async def run_full_scan(scan_id: str) -> None:
     settings = db.get_settings()
     warnings: list[str] = []
     created = updated = 0
+    unifi_results: list[tuple[dict, dict]] = []
 
     def progress(phase: str, percent: int, log_line: str | None = None) -> None:
         db.update_scan(scan_id, phase=phase, progress=percent, log_line=log_line)
@@ -325,6 +345,29 @@ async def run_full_scan(scan_id: str) -> None:
                 warnings.append(docker_result["error"])
             else:
                 log("Docker-Socket nicht eingebunden -- Container werden übersprungen")
+
+        if settings.get("scanEnableUnifi", True):
+            unifi_accounts = [a for a in db.list_accounts()
+                              if a.get("category") == "unifi" and a.get("allowProbe")]
+            if unifi_accounts:
+                progress("UniFi-Geräte erfassen", 87, "Frage UniFi Network Controller ab")
+            for account in unifi_accounts:
+                api_key = crypto.decrypt(account.get("secretEnc") or "")
+                unifi_result = await unifi_probe.probe(
+                    account.get("url") or "", api_key, account["id"], account.get("systemId"),
+                )
+                if unifi_result["ok"]:
+                    findings += unifi_result["systems"]
+                    unifi_results.append((account, unifi_result))
+                    log(f"UniFi ({account['label']}): {len(unifi_result['systems'])} Geräte/Clients gefunden")
+                    for warning in unifi_result["warnings"]:
+                        warnings.append(warning)
+                        if account.get("systemId"):
+                            db.add_device_error_event(account["systemId"], "warning", warning)
+                else:
+                    warnings.append(f"UniFi Controller ({account['label']}): {unifi_result['error']}")
+                    if account.get("systemId"):
+                        db.add_device_error_event(account["systemId"], "error", unifi_result["error"])
 
         if settings.get("scanEnableOmada", True):
             omada_accounts = [a for a in db.list_accounts()
@@ -434,6 +477,16 @@ async def run_full_scan(scan_id: str) -> None:
         linked_omada = _link_omada_topology()
         if linked_omada:
             log(f"{linked_omada} Omada-Gerät(e)/Client(s) im Netzplan mit ihrem Uplink verknüpft")
+
+        linked_unifi = _link_unifi_topology()
+        if linked_unifi:
+            log(f"{linked_unifi} UniFi-Gerät(e)/Client(s) im Netzplan mit ihrem Uplink verknüpft")
+
+        for account, unifi_result in unifi_results:
+            synced = db.sync_network_resources(
+                account["id"], unifi_result["resources"], unifi_result["completeScopes"],
+            )
+            log(f"UniFi ({account['label']}): {len(synced)} Netze, WLANs und WANs aktualisiert")
 
         # Anything critical is worth watching continuously -- that is what "critical" means. Done
         # here rather than in the UI so it also covers devices a scan just promoted.

@@ -403,6 +403,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "scanEnableMdns": True,
     "scanEnableSsdp": True,
     "scanEnableDocker": True,
+    "scanEnableUnifi": True,
     "scanEnableOmada": True,
     "scanEnableProxmox": True,
     "scanEnableAdguard": True,

@@ -601,6 +601,25 @@ def _public_account(account: dict) -> dict:
     }
 
 
+class NetworkResourceManualBody(BaseModel):
+    manualMd: str = ""
+
+
+@app.get("/api/network-resources")
+async def list_network_resources(kind: str | None = None, activeOnly: bool = False,
+                                 _: dict = Depends(current_user)) -> dict:
+    return {"resources": db.list_network_resources(kind=kind, active_only=activeOnly)}
+
+
+@app.patch("/api/network-resources/{resource_id}")
+async def update_network_resource(resource_id: str, body: NetworkResourceManualBody,
+                                  _: dict = Depends(require_admin)) -> dict:
+    resource = db.update_network_resource_manual(resource_id, body.manualMd)
+    if resource is None:
+        raise HTTPException(status_code=404, detail="Netzwerkressource nicht gefunden.")
+    return {"resource": resource}
+
+
 @app.get("/api/accounts")
 async def list_accounts(_: dict = Depends(require_admin)) -> dict:
     assignment_counts = db.count_assignments_by_account()

@@ -48,3 +48,20 @@ def test_non_critical_vm_still_folds_into_host_summary(temp_db):
 
     assert f'data-system-id="{vm["id"]}"' not in svg
     assert "1 Container/VM" in svg
+
+
+def test_layer3_plan_uses_controller_cidr_instead_of_assuming_a_24(temp_db):
+    router = temp_db.create_system({"kind": "router", "name": "UCG", "ip": "192.168.20.1"})
+    account = temp_db.create_account({"systemId": router["id"], "label": "UCG", "category": "unifi"})
+    temp_db.sync_network_resources(account["id"], [{
+        "source": "unifi", "ownerSystemId": router["id"], "siteExternalId": "default", "siteName": "Haus",
+        "kind": "network", "externalId": "vlan-20", "name": "IoT",
+        "facts": {"cidr": "192.168.20.0/26", "vlanId": 20},
+    }], [("default", "network")])
+    for index in (2, 3):
+        temp_db.create_system({"kind": "iot", "name": f"Sensor {index}", "ip": f"192.168.20.{index}"})
+
+    svg = topology.render_layer3({})
+
+    assert "192.168.20.0/26" in svg
+    assert "192.168.20.0/24" not in svg

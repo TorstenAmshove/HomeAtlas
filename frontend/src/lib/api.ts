@@ -210,6 +210,25 @@ export interface Account {
   viaAssignment?: boolean;
 }
 
+export interface NetworkResource {
+  id: string;
+  kind: "network" | "wifi" | "wan";
+  source: string;
+  sourceAccountId: string;
+  ownerSystemId: string | null;
+  siteExternalId: string;
+  siteName: string;
+  externalId: string;
+  name: string;
+  enabled: number;
+  active: number;
+  facts: Record<string, any>;
+  manualMd: string;
+  firstSeen: string;
+  lastSeen: string;
+  updatedAt: string;
+}
+
 /** One group/multi-device target a credential profile additionally applies to, beyond its own
  *  `systemId` -- e.g. every device of a given kind ("router"), a subnet, or a further specific
  *  system. Resolved automatically at scan time (see the backend's db.list_probe_accounts) -- a
@@ -451,6 +470,12 @@ export const api = {
   deleteMcpToken: (id: string) => del<{ ok: boolean }>(`/settings/mcp-tokens/${id}`),
 
   listAccounts: () => get<{ accounts: Account[] }>("/accounts"),
+  listNetworkResources: (kind?: NetworkResource["kind"], activeOnly = true) =>
+    get<{ resources: NetworkResource[] }>(`/network-resources?${new URLSearchParams({
+      ...(kind ? { kind } : {}), ...(activeOnly ? { activeOnly: "true" } : {}),
+    })}`),
+  updateNetworkResource: (id: string, manualMd: string) =>
+    patch<{ resource: NetworkResource }>(`/network-resources/${id}`, { manualMd }),
   createAccount: (body: Record<string, any>) => post<{ account: Account }>("/accounts", body),
   updateAccount: (id: string, body: Record<string, any>) => patch<{ account: Account }>(`/accounts/${id}`, body),
   revealSecret: (id: string) => get<{ secret: string }>(`/accounts/${id}/secret`),

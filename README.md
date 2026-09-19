@@ -25,6 +25,7 @@ Läuft als Docker-Container im eigenen Netz. Keine Cloud, keine Registrierung.
 | **Zwei Rollen** | Administrator sieht und ändert alles; Mitglieder lesen die Doku und nutzen den Chat — ohne Passwörter |
 | **Dauerüberwachung** | Wichtige Geräte alle paar Sekunden per Port oder Ping geprüft, mit Ausfallverlauf |
 | **Übersichtsplan** | Automatisch erzeugter Netzplan vom Internet bis zu den Endgeräten |
+| **UniFi Network** | Liest Geräte, physische Uplinks, VLANs, WLANs und WANs direkt über die lokale UniFi-API aus |
 | **Anmeldeschutz** | Passwortrichtlinie, optional Zwei-Faktor per Authenticator-App, Zugriffsprotokoll |
 
 Der Anbieter für die KI ist frei wählbar: **Anthropic Claude, OpenAI, Google Gemini, DeepSeek**
@@ -175,6 +176,26 @@ Browser ── :8280 ──▶│ nginx (Frontend, React + TypeScript)         �
 (mDNS/SSDP). Über ein Docker-Bridge-Netz käme davon nichts an — die App würde nur das
 Docker-Netz sehen, nie das echte Heimnetz. Deshalb bindet das Backend bewusst nur an
 `127.0.0.1`: nginx ist das Einzige, was es erreicht.
+
+---
+
+## UniFi Network einrichten
+
+HomeAtlas nutzt ausschließlich die dokumentierte lokale UniFi Network Integration API unter
+`https://<controller>/proxy/network/integration/v1`. In UniFi Network einen API-Schlüssel mit
+lesenden Berechtigungen erstellen und ihn in HomeAtlas unter **Zugänge** als **UniFi Network
+(API-Key)** hinterlegen. Als Adresse dient die HTTPS-Adresse des Controllers, zum Beispiel
+`https://192.168.1.1`; Benutzername und Port bleiben leer. Erst mit dem Haken **Zum Auslesen
+verwenden** fragt der nächste Netzwerk-Scan den Controller ab.
+
+Der Import umfasst alle verfügbaren Sites und ist strikt lesend: HomeAtlas sendet nur `GET`
+Anfragen. API-Schlüssel bleiben verschlüsselt gespeichert, erscheinen weder in der Doku noch im
+KI-Kontext und werden nicht protokolliert. Nicht vertrauenswürdige lokale Zertifikate werden für
+den Controllerzugriff akzeptiert; deshalb darf die Controller-Adresse nur in einem vertrauenswürdigen
+Heimnetz hinterlegt werden.
+
+Unter **Netze & WLAN** stehen die übernommenen VLANs, SSIDs und WANs. Technische Controllerdaten
+werden bei jedem Scan aktualisiert; eigene Notizen bleiben dabei erhalten.
 
 ---
 

@@ -353,6 +353,34 @@ def _accounts_section() -> str:
     )
 
 
+def _network_resources_section() -> str:
+    """Render controller data separately from discovered devices; local notes remain visible."""
+    resources = db.list_network_resources(active_only=True)
+    if not resources:
+        return "_Noch keine VLAN-, WLAN- oder WAN-Daten vom Controller erfasst._\n"
+    sections: list[str] = []
+    tables = (
+        ("network", "### VLANs und Netze", ("VLAN", "Netzwerk"),
+         lambda facts: (str(facts.get("vlanId", "-")), facts.get("cidr", "-"))),
+        ("wifi", "### WLANs", ("Sicherheit",),
+         lambda facts: (facts.get("security", "-"),)),
+        ("wan", "### Internet-Anschlüsse", ("Typ", "Adresse"),
+         lambda facts: (facts.get("type", "-"), facts.get("ip", "-"))),
+    )
+    for kind, title, columns, values in tables:
+        items = [resource for resource in resources if resource["kind"] == kind]
+        if not items:
+            continue
+        headers = ("Name", "Standort", *columns, "Notiz")
+        lines = [title, "| " + " | ".join(headers) + " |", "| " + " | ".join("---" for _ in headers) + " |"]
+        for resource in items:
+            facts = resource.get("facts") or {}
+            row = (resource["name"], resource["siteName"], *values(facts), resource.get("manualMd") or "-")
+            lines.append("| " + " | ".join(_escape(str(value)) for value in row) + " |")
+        sections.append("\n".join(lines))
+    return "\n\n".join(sections) + "\n"
+
+
 def _emergency_section(context: dict) -> str:
     router = context.get("router")
     router_line = (
@@ -492,6 +520,9 @@ async def generate(settings: dict, use_llm: bool = True, log=None) -> list[str]:
             if topic.include_accounts:
                 sections.append("\n## Hinterlegte Zugänge\n")
                 sections.append(_accounts_section())
+            if topic.slug == "netzwerk":
+                sections.append("\n## Vom Controller erfasste Netze\n")
+                sections.append(_network_resources_section())
             if topic.kinds:
                 sections.append("\n## Geräte auf einen Blick\n")
                 sections.append(_device_table(systems))

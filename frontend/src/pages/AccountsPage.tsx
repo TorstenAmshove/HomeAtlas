@@ -8,6 +8,7 @@ const CATEGORIES: [string, string][] = [
   ["sshkey", "SSH-Schlüssel"],
   ["snmp", "SNMP (Community-Zeichenkette)"],
   ["omada", "Omada Controller (Open API)"],
+  ["unifi", "UniFi Network (API-Key)"],
   ["homeassistant", "Home Assistant (Long-Lived Access Token)"],
   ["proxmox", "Proxmox VE (API-Token)"],
   ["adguard", "AdGuard Home (Basic Auth)"],

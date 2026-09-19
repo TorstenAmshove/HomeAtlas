@@ -288,6 +288,7 @@ export default function SettingsPage() {
             ["scanEnableSsdp", "Geräte über UPnP finden (TVs, Router, Drucker)"],
             ["scanEnableHttpBanner", "Weboberflächen auslesen, um Geräte zu erkennen"],
             ["scanEnableDocker", "Docker-Container auf dem Server erfassen"],
+            ["scanEnableUnifi", "Geräte, VLANs und WLANs über UniFi Network erfassen"],
             ["scanEnableOmada", "Access Points und Switches über den Omada Controller erfassen"],
             ["scanEnableProxmox", "VMs und LXC-Container über Proxmox erfassen"],
             ["scanEnableAdguard", "DNS-Status und Clients über AdGuard Home erfassen"],

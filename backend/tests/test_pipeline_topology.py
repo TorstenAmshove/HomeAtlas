@@ -97,3 +97,30 @@ def test_link_omada_topology_ignores_unresolvable_uplink(temp_db):
     })
     assert pipeline._link_omada_topology() == 0
     assert temp_db.get_system(orphan["id"])["parentId"] is None
+
+
+def test_link_unifi_topology_resolves_controller_device_ids_instead_of_mac_addresses(temp_db):
+    gateway = temp_db.create_system({
+        "kind": "router", "name": "UCG Ultra", "mac": "aa:aa:aa:aa:aa:01",
+        "extra": {"unifi": {"deviceId": "gateway"}},
+    })
+    switch = temp_db.create_system({
+        "kind": "network", "name": "Switch", "mac": "aa:aa:aa:aa:aa:02",
+        "extra": {"unifi": {"deviceId": "switch", "uplinkDeviceId": "gateway"}},
+    })
+    access_point = temp_db.create_system({
+        "kind": "network", "name": "AP", "mac": "aa:aa:aa:aa:aa:03",
+        "extra": {"unifi": {"deviceId": "ap", "uplinkDeviceId": "switch"}},
+    })
+    client = temp_db.create_system({
+        "kind": "printer", "name": "Drucker", "mac": "aa:aa:aa:aa:aa:04",
+        "extra": {"unifi": {"clientId": "client", "uplinkDeviceId": "ap"}},
+    })
+
+    linked = pipeline._link_unifi_topology()
+
+    assert linked == 3
+    assert temp_db.get_system(switch["id"])["parentId"] == gateway["id"]
+    assert temp_db.get_system(access_point["id"])["parentId"] == switch["id"]
+    assert temp_db.get_system(client["id"])["parentId"] == access_point["id"]
+    assert pipeline._link_unifi_topology() == 0
