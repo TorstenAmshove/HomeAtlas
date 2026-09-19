@@ -30,7 +30,7 @@ from pydantic import BaseModel, Field
 
 from . import (auth, crypto, db, diagnostics, docker_admin, docker_probe, docs, llm_providers,
                mcp_server, model_catalog, monitor as monitor_module, oui, pipeline, probe_auth,
-               proxmox_admin, proxmox_probe, remote_admin, security, switch_admin, topology, tools)
+               proxmox_admin, proxmox_probe, remote_admin, security, switch_admin, topology, tools, unifi_probe)
 
 logger = logging.getLogger("homeatlas")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -1319,8 +1319,7 @@ async def restore_doc_version(slug: str, version_id: str, _: dict = Depends(requ
 
 @app.post("/api/systems/{system_id}/probe")
 async def probe_system(system_id: str, _: dict = Depends(require_admin)) -> dict:
-    """Runs the read-only login probe for one device on demand, so the result is visible
-    immediately instead of only after the next full scan."""
+    """Runs all read-only probes for one device, including a full UniFi controller sync."""
     system = db.get_system(system_id)
     if system is None:
         raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
@@ -1330,12 +1329,52 @@ async def probe_system(system_id: str, _: dict = Depends(require_admin)) -> dict
             "Für dieses Gerät ist kein Zugang freigegeben. Unter Zugänge beim gewünschten Eintrag "
             "„Zum Auslesen verwenden“ aktivieren."
         ))
-    outcome = await probe_auth.probe_system(system, accounts)
+    unifi_accounts = [account for account in accounts if account.get("category") == "unifi"]
+    other_accounts = [account for account in accounts if account.get("category") != "unifi"]
+    outcome = await probe_auth.probe_system(system, other_accounts) if other_accounts else {
+        "ran": False, "results": {}, "purpose": "", "reason": "",
+    }
+    results = dict(outcome["results"])
+    unifi_errors: list[str] = []
+    unifi_succeeded = False
+
+    for account in unifi_accounts:
+        result = await unifi_probe.probe(
+            account.get("url") or "", crypto.decrypt(account.get("secretEnc") or ""),
+            account["id"], account.get("systemId"),
+        )
+        key = f"unifi:{account['label']}"
+        if not result["ok"]:
+            results[key] = {"ok": False, "error": result["error"], "facts": {}}
+            unifi_errors.append(result["error"])
+            continue
+        for finding in result["systems"]:
+            db.upsert_discovered_system(finding)
+        db.sync_network_resources(account["id"], result["resources"], result["completeScopes"])
+        results[key] = {
+            "ok": True,
+            "error": "",
+            "facts": {"synchronisiert": {
+                "label": "Synchronisiert",
+                "value": f"{len(result['systems'])} Geräte/Clients, {len(result['resources'])} Netzwerkressourcen",
+            }},
+        }
+        unifi_succeeded = True
+
+    if unifi_succeeded:
+        pipeline._link_unifi_topology()
     if outcome["ran"]:
         db.update_system(system_id, {"extra": {**(system.get("extra") or {}), "probe": outcome["results"]}})
         if outcome.get("purpose") and not system.get("purpose"):
             db.update_system(system_id, {"purpose": outcome["purpose"]})
         probe_auth.persist_config_backups(system, outcome)
+    if unifi_succeeded:
+        outcome = {"ran": True, "results": results, "purpose": outcome.get("purpose", ""), "reason": ""}
+    elif unifi_errors and not outcome["ran"]:
+        outcome = {"ran": False, "results": results, "purpose": outcome.get("purpose", ""),
+                   "reason": " · ".join(unifi_errors)}
+    else:
+        outcome = {**outcome, "results": results}
     return {"outcome": outcome, "system": db.get_system(system_id)}
 
 

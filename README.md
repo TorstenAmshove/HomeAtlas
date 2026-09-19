@@ -182,7 +182,9 @@ HomeAtlas nutzt ausschließlich die dokumentierte lokale UniFi Network Integrati
 lesenden Berechtigungen erstellen und ihn in HomeAtlas unter **Zugänge** als **UniFi Network
 (API-Key)** hinterlegen. Als Adresse dient die HTTPS-Adresse des Controllers, zum Beispiel
 `https://192.168.1.1`; Benutzername und Port bleiben leer. Erst mit dem Haken **Zum Auslesen
-verwenden** fragt der nächste Netzwerk-Scan den Controller ab.
+verwenden** fragt der nächste Netzwerk-Scan den Controller ab. Auf der Detailseite des Controllers
+startet **Gerät auslesen** dieselbe vollständige Synchronisierung sofort, ohne auf den nächsten
+Vollscan zu warten.
 
 Der Import umfasst alle verfügbaren Sites und ist strikt lesend: HomeAtlas sendet nur `GET`
 Anfragen. API-Schlüssel bleiben verschlüsselt gespeichert, erscheinen weder in der Doku noch im
