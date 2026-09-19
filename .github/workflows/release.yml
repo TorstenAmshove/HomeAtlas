@@ -20,9 +20,9 @@ jobs:
     permissions:
       contents: write
     outputs:
-      tag: ${{ steps.pending_tag.outputs.tag || steps.version.outputs.new_tag }}
+      tag: ${{ steps.pending_tag.outputs.tag || steps.version.outputs.version_tag }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
           fetch-depth: 0
@@ -41,20 +41,24 @@ jobs:
           fi
       - id: version
         if: steps.pending_tag.outputs.tag == ''
-        uses: mathieudutour/github-tag-action@d28fa2ccfbd16e871a4bdf35e11b3ad1bd56c0c1 # v6.2
+        uses: PaulHatch/semantic-version@9f72830310d5ed81233b641ee59253644cd8a8fc # v6.0.2
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
           tag_prefix: v
-          dry_run: true
+          search_commit_body: true
       - if: steps.pending_tag.outputs.tag == ''
         env:
-          RELEASE_TAG: ${{ steps.version.outputs.new_tag }}
+          RELEASE_TAG: ${{ steps.version.outputs.version_tag }}
           TARGET_SHA: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
         run: |
           test -n "$RELEASE_TAG"
           pending_tag="homeatlas-pending-$RELEASE_TAG"
-          git tag "$pending_tag" "$TARGET_SHA"
-          git push origin "$pending_tag"
+          existing_sha="$(git rev-list -n 1 "$pending_tag" 2>/dev/null || true)"
+          if [ -n "$existing_sha" ]; then
+            test "$existing_sha" = "$TARGET_SHA"
+          else
+            git tag "$pending_tag" "$TARGET_SHA"
+            git push origin "refs/tags/$pending_tag"
+          fi
 
   publish:
     needs: version
@@ -72,13 +76,13 @@ jobs:
             context: ./frontend
             file: ./frontend/Dockerfile
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
       - id: build_metadata
         run: printf 'time=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
-      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -91,7 +95,7 @@ jobs:
             type=semver,pattern={{version}},value=${{ needs.version.outputs.tag }}
             type=semver,pattern={{major}}.{{minor}},value=${{ needs.version.outputs.tag }}
             type=raw,value=latest
-      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
@@ -108,18 +112,21 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
           fetch-depth: 0
-      - id: release_version
+      - name: Push release tag
         env:
           RELEASE_TAG: ${{ needs.version.outputs.tag }}
-        run: printf 'version=%s\n' "${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
-      - uses: mathieudutour/github-tag-action@d28fa2ccfbd16e871a4bdf35e11b3ad1bd56c0c1 # v6.2
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          custom_tag: ${{ steps.release_version.outputs.version }}
-      - env:
-          RELEASE_TAG: ${{ needs.version.outputs.tag }}
-        run: git push origin --delete "homeatlas-pending-$RELEASE_TAG"
+          TARGET_SHA: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+        run: |
+          test -n "$RELEASE_TAG"
+          existing_sha="$(git rev-list -n 1 "$RELEASE_TAG" 2>/dev/null || true)"
+          if [ -n "$existing_sha" ]; then
+            test "$existing_sha" = "$TARGET_SHA"
+          else
+            git tag "$RELEASE_TAG" "$TARGET_SHA"
+            git push origin "refs/tags/$RELEASE_TAG"
+          fi
+          git push origin --delete "homeatlas-pending-$RELEASE_TAG"
