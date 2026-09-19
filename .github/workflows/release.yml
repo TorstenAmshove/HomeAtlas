@@ -15,23 +15,37 @@ concurrency:
 
 jobs:
   version:
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    if: (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master') || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     outputs:
-      tag: ${{ steps.version.outputs.new_tag }}
+      tag: ${{ steps.resolved_tag.outputs.tag }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
           fetch-depth: 0
+      - id: existing_tag
+        env:
+          TARGET_SHA: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+        run: |
+          tag="$(git tag --points-at "$TARGET_SHA" --list 'v*' --sort=-version:refname | { IFS= read -r tag; printf '%s' "$tag"; })"
+          printf 'tag=%s\n' "$tag" >> "$GITHUB_OUTPUT"
       - id: version
+        if: steps.existing_tag.outputs.tag == ''
         uses: mathieudutour/github-tag-action@d28fa2ccfbd16e871a4bdf35e11b3ad1bd56c0c1 # v6.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           tag_prefix: v
-          dry_run: true
+      - id: resolved_tag
+        env:
+          EXISTING_TAG: ${{ steps.existing_tag.outputs.tag }}
+          NEW_TAG: ${{ steps.version.outputs.new_tag }}
+        run: |
+          tag="${EXISTING_TAG:-$NEW_TAG}"
+          test -n "$tag"
+          printf 'tag=%s\n' "$tag" >> "$GITHUB_OUTPUT"
 
   publish:
     needs: version
@@ -78,18 +92,3 @@ jobs:
           build-args: |
             VITE_BUILD_SHA=${{ github.sha }}
             VITE_BUILD_TIME=${{ steps.build_metadata.outputs.time }}
-
-  tag:
-    needs: [version, publish]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
-          fetch-depth: 0
-      - uses: mathieudutour/github-tag-action@d28fa2ccfbd16e871a4bdf35e11b3ad1bd56c0c1 # v6.2
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          tag_prefix: v

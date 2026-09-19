@@ -3,8 +3,6 @@ name: Build container images
 on:
   pull_request:
     branches: [master]
-    paths-ignore:
-      - "**/*.md"
 
 permissions:
   contents: read
