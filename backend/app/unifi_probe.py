@@ -76,10 +76,11 @@ def _device_system(site: dict, device: dict, detail: dict) -> dict | None:
         return None
     features = device.get("features") or []
     uplink = detail.get("uplink") or {}
+    unifi_name = (device.get("name") or "").strip()
     return {
         "discoveryKey": f"mac:{mac}",
         "kind": _kind(features),
-        "name": device.get("name") or device.get("model") or "UniFi-Gerät",
+        "name": unifi_name or device.get("model") or "UniFi-Gerät",
         "ip": device.get("ipAddress") or "",
         "mac": mac,
         "location": site.get("name") or "",
@@ -93,6 +94,7 @@ def _device_system(site: dict, device: dict, detail: dict) -> dict | None:
             "siteId": site.get("id") or "", "siteName": site.get("name") or "", "deviceId": device_id,
             "firmwareVersion": device.get("firmwareVersion") or "", "features": features,
             "interfaces": device.get("interfaces") or [], "uplinkDeviceId": uplink.get("deviceId") or "",
+            "name": unifi_name,
         }},
     }
 
@@ -103,9 +105,10 @@ def _client_system(site: dict, client: dict) -> dict | None:
     mac = oui.normalize_mac(client.get("macAddress") or "")
     if not mac:
         return None
+    unifi_name = (client.get("name") or "").strip()
     return {
         "discoveryKey": f"mac:{mac}",
-        "name": client.get("name") or "UniFi-Client",
+        "name": unifi_name or "UniFi-Client",
         "ip": client.get("ipAddress") or "",
         "mac": mac,
         "location": site.get("name") or "",
@@ -117,6 +120,7 @@ def _client_system(site: dict, client: dict) -> dict | None:
             "siteId": site.get("id") or "", "siteName": site.get("name") or "", "clientId": client.get("id") or "",
             "clientType": client.get("type") or "", "uplinkDeviceId": client.get("uplinkDeviceId") or "",
             "access": ((client.get("access") or {}).get("type") or ""),
+            "name": unifi_name,
         }},
     }
 

@@ -192,6 +192,10 @@ KI-Kontext und werden nicht protokolliert. Nicht vertrauenswürdige lokale Zerti
 den Controllerzugriff akzeptiert; deshalb darf die Controller-Adresse nur in einem vertrauenswürdigen
 Heimnetz hinterlegt werden.
 
+Ein in UniFi vergebener Geräte- oder Clientname ist in HomeAtlas der führende automatisch ermittelte
+Name. Er hat Vorrang vor DNS, mDNS, KI und anderen Datenquellen; ein manuell in HomeAtlas bearbeiteter
+Name bleibt davon unberührt.
+
 Unter **Netze & WLAN** stehen die übernommenen VLANs, SSIDs und WANs. Technische Controllerdaten
 werden bei jedem Scan aktualisiert; eigene Notizen bleiben dabei erhalten.
 
@@ -284,11 +288,12 @@ außen erreichbar macht, gehört hinter einen Reverse Proxy mit TLS — und soll
 | **mDNS + SSDP/UPnP** | Die mit Abstand beste Quelle für Consumer-Technik: Drucker, Fernseher, Lautsprecher und Smart-Home-Zentralen nennen ihren eigenen Namen, Hersteller und Modell |
 | **Docker-API** | Image, Compose-Projekt, Volumes, Port-Weiterleitungen, Neustart-Verhalten — genau die Fakten, die man ein halbes Jahr später sucht |
 
-Die Namensgebung folgt einer festen Rangfolge: Selbstauskunft (UPnP `friendlyName`, dann
-mDNS-Name) vor DNS-Hostname vor Webseiten-Titel vor „Hersteller + letztes IP-Oktett". Die
-KI-Einordnung läuft erst danach und nur über Geräte, die die Regeln nicht sicher zuordnen
-konnten — ein eindeutig erkannter FRITZ!Box kostet keine Tokens. Antworten mit niedriger
-Konfidenz werden verworfen: die regelbasierte Vermutung ist besser als ein Schulterzucken.
+Die Namensgebung folgt einer festen Rangfolge: ein manuell in HomeAtlas gepflegter Name vor einem
+in UniFi vergebenen Namen vor Selbstauskunft (UPnP `friendlyName`, dann mDNS-Name), DNS-Hostname,
+Webseiten-Titel und „Hersteller + letztes IP-Oktett". Die KI-Einordnung läuft erst danach und nur
+über Geräte, die die Regeln nicht sicher zuordnen konnten — ein eindeutig erkannter FRITZ!Box kostet
+keine Tokens. Antworten mit niedriger Konfidenz werden verworfen: die regelbasierte Vermutung ist
+besser als ein Schulterzucken.
 
 ---
 
