@@ -45,6 +45,11 @@ Full stack via Docker: `docker compose up -d --build`, then http://localhost:828
 admin credentials are printed once to `docker compose logs backend`. `ADMIN_USERNAME`/
 `ADMIN_PASSWORD` in `docker-compose.yml` only take effect when no user exists yet.
 
+Container releases are automated: a pull request against `master` builds both images without
+pushing. Merging a code-changing pull request to `master` derives a shared Semver release from
+Conventional Commits, creates `vX.Y.Z`, and publishes both GHCR images under `X.Y.Z`, `X.Y`, and
+`latest`. Documentation-only and `.github/**` pull requests do not release automatically.
+
 `./deploy.sh` deploys to a specific remote host over SSH (default `192.168.1.110`) — it's this
 project's real deployment target, not a generic template. Don't run it without confirming with
 the user first.
