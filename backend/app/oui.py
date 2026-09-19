@@ -100,7 +100,10 @@ async def refresh_from_ieee() -> tuple[bool, str]:
     global _loaded
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=15.0), follow_redirects=True) as client:
-            resp = await client.get(_IEEE_URL)
+            resp = await client.get(
+                _IEEE_URL,
+                headers={"User-Agent": "HomeAtlas/1.0 (+https://github.com/TorstenAmshove/HomeAtlas)"},
+            )
         if resp.status_code >= 400:
             return False, f"IEEE-Server antwortete mit HTTP {resp.status_code}."
     except httpx.HTTPError as exc:
