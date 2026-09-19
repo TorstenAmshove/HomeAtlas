@@ -881,12 +881,18 @@ def upsert_discovered_system(found: dict) -> tuple[dict, bool]:
         created = create_system({**found, "discovered": 1, "firstSeen": now, "lastSeen": now})
         return created, True
 
+    found_extra = found.get("extra") or {}
+    existing_extra = existing.get("extra") or {}
+    # The UniFi controller is the source of truth for its assigned device and client names. A
+    # non-UniFi finding must not replace one, but a later UniFi scan may update it.
+    unifi = found_extra["unifi"] if "unifi" in found_extra else existing_extra.get("unifi") or {}
+    unifi_name = (unifi.get("name") or "").strip()
     volatile = {
         "ip": found.get("ip") or existing["ip"],
         "status": found.get("status") or "online",
         "openPorts": found.get("openPorts"),
         "services": found.get("services"),
-        "extra": {**(existing.get("extra") or {}), **(found.get("extra") or {})},
+        "extra": {**existing_extra, **found_extra},
         "lastSeen": now,
         "discoveryKey": found.get("discoveryKey") or existing["discoveryKey"],
     }
@@ -896,6 +902,8 @@ def upsert_discovered_system(found: dict) -> tuple[dict, bool]:
             value = found.get(field)
             if value:
                 volatile[field] = value
+        if unifi_name:
+            volatile["name"] = unifi_name
     else:
         # Even for confirmed rows, fill fields that are still empty -- adding a MAC, a vendor or a
         # manufacturer manual to a hand-created entry is strictly new information, not an

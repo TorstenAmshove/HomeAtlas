@@ -83,10 +83,10 @@ history. When adding a new assistant capability, this boundary is the thing to p
 
 **Discovery (`discovery.py`) is intentionally multi-source**: ping/ARP, port scan, reverse-DNS,
 mDNS/SSDP, Docker API, each contributing because none alone sees everything. Naming precedence is
-fixed: self-reported name (UPnP `friendlyName`, then mDNS) > DNS hostname > page title > vendor +
-IP octet. `classify.py` (LLM-assisted identification) runs only over devices the rule-based guess
-in `discovery._guess` couldn't confidently place, and a low-confidence LLM answer is discarded
-rather than stored.
+fixed: manually maintained HomeAtlas name > assigned UniFi name > self-reported name (UPnP
+`friendlyName`, then mDNS) > DNS hostname > page title > vendor + IP octet. `classify.py`
+(LLM-assisted identification) runs only over devices the rule-based guess in `discovery._guess`
+couldn't confidently place, and a low-confidence LLM answer is discarded rather than stored.
 
 **`pipeline.py`** orchestrates a full scan (discovery → Docker → credentialed probing →
 classification → doc regeneration) and owns the scan `Scheduler`. **`docs.py`** renders the

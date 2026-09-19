@@ -87,6 +87,7 @@ def test_probe_normalizes_all_unifi_sites_without_persisting_api_key(monkeypatch
     assert ap["kind"] == "network"
     assert ap["status"] == "offline"
     assert ap["extra"]["unifi"]["uplinkDeviceId"] == "switch"
+    assert ap["extra"]["unifi"]["name"] == "Wohnzimmer AP"
     assert next(system for system in result["systems"] if system["name"] == "UCG Ultra")["kind"] == "router"
     network = next(resource for resource in result["resources"] if resource["kind"] == "network")
     assert network["facts"]["cidr"] == "192.168.20.0/24"

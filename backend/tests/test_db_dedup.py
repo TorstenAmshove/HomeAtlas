@@ -106,3 +106,38 @@ def test_upsert_does_not_merge_unrelated_devices(temp_db):
     _, created = db.upsert_discovered_system(finding)
     assert created
     assert len(db.list_systems()) == 2
+
+
+def test_upsert_keeps_unifi_name_over_other_discovery_sources(temp_db):
+    system, _ = db.upsert_discovered_system({
+        "discoveryKey": "mac:aa:bb:cc:dd:ee:ff", "name": "scanner-host", "mac": "aa:bb:cc:dd:ee:ff",
+    })
+    unifi, _ = db.upsert_discovered_system({
+        "discoveryKey": "mac:aa:bb:cc:dd:ee:ff", "name": "Kuechendrucker", "mac": "aa:bb:cc:dd:ee:ff",
+        "extra": {"unifi": {"name": "Kuechendrucker"}},
+    })
+    later, _ = db.upsert_discovered_system({
+        "discoveryKey": "mac:aa:bb:cc:dd:ee:ff", "name": "printer.local", "mac": "aa:bb:cc:dd:ee:ff",
+    })
+
+    assert unifi["id"] == system["id"]
+    assert later["name"] == "Kuechendrucker"
+
+
+def test_upsert_updates_unifi_name_but_preserves_confirmed_homeatlas_name(temp_db):
+    system, _ = db.upsert_discovered_system({
+        "discoveryKey": "mac:aa:bb:cc:dd:ee:ff", "name": "Alter UniFi-Name", "mac": "aa:bb:cc:dd:ee:ff",
+        "extra": {"unifi": {"name": "Alter UniFi-Name"}},
+    })
+    renamed, _ = db.upsert_discovered_system({
+        "discoveryKey": "mac:aa:bb:cc:dd:ee:ff", "name": "Neuer UniFi-Name", "mac": "aa:bb:cc:dd:ee:ff",
+        "extra": {"unifi": {"name": "Neuer UniFi-Name"}},
+    })
+    temp_db.update_system(system["id"], {"name": "HomeAtlas-Name", "confirmed": 1})
+    confirmed, _ = db.upsert_discovered_system({
+        "discoveryKey": "mac:aa:bb:cc:dd:ee:ff", "name": "Noch ein UniFi-Name", "mac": "aa:bb:cc:dd:ee:ff",
+        "extra": {"unifi": {"name": "Noch ein UniFi-Name"}},
+    })
+
+    assert renamed["name"] == "Neuer UniFi-Name"
+    assert confirmed["name"] == "HomeAtlas-Name"
