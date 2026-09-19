@@ -20,32 +20,41 @@ jobs:
     permissions:
       contents: write
     outputs:
-      tag: ${{ steps.resolved_tag.outputs.tag }}
+      tag: ${{ steps.pending_tag.outputs.tag || steps.version.outputs.new_tag }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
           fetch-depth: 0
-      - id: existing_tag
+      - id: pending_tag
         env:
           TARGET_SHA: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
         run: |
-          tag="$(git tag --points-at "$TARGET_SHA" --list 'v*' --sort=-version:refname | { IFS= read -r tag; printf '%s' "$tag"; })"
-          printf 'tag=%s\n' "$tag" >> "$GITHUB_OUTPUT"
+          pending_tag="$(git tag --list 'homeatlas-pending-v*' --sort=-version:refname | { IFS= read -r tag; printf '%s' "$tag"; })"
+          if [ -n "$pending_tag" ]; then
+            pending_sha="$(git rev-list -n 1 "$pending_tag")"
+            if [ "$pending_sha" != "$TARGET_SHA" ]; then
+              echo "Retry the incomplete release for $pending_tag before releasing another commit." >&2
+              exit 1
+            fi
+            printf 'tag=%s\n' "${pending_tag#homeatlas-pending-}" >> "$GITHUB_OUTPUT"
+          fi
       - id: version
-        if: steps.existing_tag.outputs.tag == ''
+        if: steps.pending_tag.outputs.tag == ''
         uses: mathieudutour/github-tag-action@d28fa2ccfbd16e871a4bdf35e11b3ad1bd56c0c1 # v6.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           tag_prefix: v
-      - id: resolved_tag
+          dry_run: true
+      - if: steps.pending_tag.outputs.tag == ''
         env:
-          EXISTING_TAG: ${{ steps.existing_tag.outputs.tag }}
-          NEW_TAG: ${{ steps.version.outputs.new_tag }}
+          RELEASE_TAG: ${{ steps.version.outputs.new_tag }}
+          TARGET_SHA: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
         run: |
-          tag="${EXISTING_TAG:-$NEW_TAG}"
-          test -n "$tag"
-          printf 'tag=%s\n' "$tag" >> "$GITHUB_OUTPUT"
+          test -n "$RELEASE_TAG"
+          pending_tag="homeatlas-pending-$RELEASE_TAG"
+          git tag "$pending_tag" "$TARGET_SHA"
+          git push origin "$pending_tag"
 
   publish:
     needs: version
@@ -92,3 +101,25 @@ jobs:
           build-args: |
             VITE_BUILD_SHA=${{ github.sha }}
             VITE_BUILD_TIME=${{ steps.build_metadata.outputs.time }}
+
+  tag:
+    needs: [version, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+          fetch-depth: 0
+      - id: release_version
+        env:
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
+        run: printf 'version=%s\n' "${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
+      - uses: mathieudutour/github-tag-action@d28fa2ccfbd16e871a4bdf35e11b3ad1bd56c0c1 # v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          custom_tag: ${{ steps.release_version.outputs.version }}
+      - env:
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
+        run: git push origin --delete "homeatlas-pending-$RELEASE_TAG"
