@@ -1,4 +1,5 @@
-name: Release container images
+---
+name: Release
 
 on:
   workflow_dispatch:
@@ -10,7 +11,7 @@ on:
       - "**/*.md"
 
 concurrency:
-  group: homeatlas-release
+  group: release
   cancel-in-progress: false
 
 jobs:
@@ -22,11 +23,13 @@ jobs:
     outputs:
       tag: ${{ steps.pending_tag.outputs.tag || steps.version.outputs.version_tag }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
           fetch-depth: 0
-      - id: pending_tag
+      - name: Resume pending release
+        id: pending_tag
         env:
           TARGET_SHA: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
         run: |
@@ -39,13 +42,15 @@ jobs:
             fi
             printf 'tag=%s\n' "${pending_tag#homeatlas-pending-}" >> "$GITHUB_OUTPUT"
           fi
-      - id: version
+      - name: Determine next version
+        id: version
         if: steps.pending_tag.outputs.tag == ''
-        uses: PaulHatch/semantic-version@4d6da96a9bc3116da3613309a11ff75fba58eb8d # v6.0.4
+        uses: PaulHatch/semantic-version@5ae1354e589c5a67345fb2c6e65b025ff676d7c7 # v6.0.7
         with:
           tag_prefix: v
           search_commit_body: true
-      - if: steps.pending_tag.outputs.tag == ''
+      - name: Push pending tag
+        if: steps.pending_tag.outputs.tag == ''
         env:
           RELEASE_TAG: ${{ steps.version.outputs.version_tag }}
           TARGET_SHA: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
@@ -76,26 +81,32 @@ jobs:
             context: ./frontend
             file: ./frontend/Dockerfile
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
-      - id: build_metadata
+      - name: Determine build time
+        id: build_metadata
         run: printf 'time=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
-      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
-      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Log in to GHCR
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - id: meta
-        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
           tags: |
             type=semver,pattern={{version}},value=${{ needs.version.outputs.tag }}
             type=semver,pattern={{major}}.{{minor}},value=${{ needs.version.outputs.tag }}
             type=raw,value=latest
-      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+      - name: Build and push image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
@@ -112,11 +123,12 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
           fetch-depth: 0
-      - name: Push release tag
+      - name: Push version tag
         env:
           RELEASE_TAG: ${{ needs.version.outputs.tag }}
           TARGET_SHA: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
