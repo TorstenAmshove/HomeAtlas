@@ -1,14 +1,15 @@
 ---
 version: 2
 updates:
+  # Base-Image-Updates täglich und ohne Cooldown: Docker-Images sind nicht
+  # durch Dependabot Security Updates abgedeckt, ein gepatchtes Image kommt
+  # nur über diesen Eintrag.
   - package-ecosystem: "docker"
     directories: 
       - "/backend"
       - "/frontend"
     schedule:
-      interval: "weekly"
-    cooldown:
-      default-days: 3
+      interval: "daily"
     commit-message:
       prefix: "fix"
       include: "scope"
