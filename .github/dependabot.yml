@@ -1,6 +1,70 @@
+---
 version: 2
 updates:
-  - package-ecosystem: github-actions
+  # Base-Image-Updates täglich und ohne Cooldown: Docker-Images sind nicht
+  # durch Dependabot Security Updates abgedeckt, ein gepatchtes Image kommt
+  # nur über diesen Eintrag.
+  - package-ecosystem: "docker"
+    directories: 
+      - "/backend"
+      - "/frontend"
+    schedule:
+      interval: "daily"
+    commit-message:
+      prefix: "fix"
+      include: "scope"
+    assignees:
+      - "TorstenAmshove"
+
+  # Alle Actions-Updates (inkl. Major) monatlich gebündelt in einem Sammel-PR.
+  - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: weekly
+      interval: "monthly"
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    assignees:
+      - "TorstenAmshove"
+
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      pip-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "fix"
+      prefix-development: "chore"
+      include: "scope"
+    assignees:
+      - "TorstenAmshove"
+
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      npm-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "fix"
+      prefix-development: "chore"
+      include: "scope"
+    assignees:
+      - "TorstenAmshove"
