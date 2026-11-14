@@ -1,0 +1,176 @@
+---
+name: Claude
+
+# Agent workflow on issues, driven by the repository owner only:
+#   @claude /triage     -> assess + label the issue                  (.github/claude/triage.md)
+#   @claude /plan       -> implementation plan with goldfish check   (.github/claude/plan.md)
+#   label status:approved -> implement the plan, open a PR           (.github/claude/implement.md)
+#   @claude <anything>  -> free-form request on an issue or PR (tag mode)
+#
+# Authentication uses the owner's Claude subscription: `claude setup-token` locally, stored as the
+# repository secret CLAUDE_CODE_OAUTH_TOKEN. The Claude GitHub App must be installed on the repo --
+# its token (not GITHUB_TOKEN) is what lets a PR opened by Claude trigger build/test/review.
+#
+# Every job is gated on the *actor* being the repository owner, on top of the action's own
+# write-access check: the repo is public, so anyone can open issues or comment.
+
+on:
+  issue_comment:
+    types: [created]
+  issues:
+    types: [labeled]
+
+# One run per issue at a time; different issues may run in parallel. Not cancelling keeps a
+# running implementation from being killed by a follow-up comment.
+concurrency:
+  group: claude-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  triage:
+    if: >-
+      github.event_name == 'issue_comment'
+      && !github.event.issue.pull_request
+      && github.event.comment.user.login == github.repository_owner
+      && startsWith(github.event.comment.body, '@claude /triage')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+      - name: Run Claude
+        uses: anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc # v1.0.276
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            ISSUE: ${{ github.event.issue.number }}
+            Lies .github/claude/triage.md und bearbeite dieses Issue genau danach.
+            Zusätzliche Hinweise des Owners (nach "/triage" im Kommentar): siehe `gh issue view ${{ github.event.issue.number }} --comments`, letzter Kommentar.
+          claude_args: |
+            --model sonnet
+            --max-turns 30
+            --allowedTools "Read,Grep,Glob,Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh issue comment:*),Bash(gh issue edit:*)"
+            --disallowedTools "Edit,Write,NotebookEdit,Bash(git push:*)"
+
+  plan:
+    if: >-
+      github.event_name == 'issue_comment'
+      && !github.event.issue.pull_request
+      && github.event.comment.user.login == github.repository_owner
+      && startsWith(github.event.comment.body, '@claude /plan')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+      - name: Run Claude
+        uses: anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc # v1.0.276
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            ISSUE: ${{ github.event.issue.number }}
+            Lies .github/claude/plan.md und erstelle für dieses Issue genau danach einen Umsetzungsplan.
+          claude_args: |
+            --max-turns 60
+            --allowedTools "Read,Grep,Glob,Task,Agent,Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh issue comment:*),Bash(gh issue edit:*)"
+            --disallowedTools "Edit,Write,NotebookEdit,Bash(git push:*)"
+
+  implement:
+    # Tag mode (prompt + track_progress) so the action creates the agent/ branch, tracks progress
+    # in a comment and commits through its own GitHub App token.
+    if: >-
+      github.event_name == 'issues'
+      && github.event.label.name == 'status:approved'
+      && github.event.sender.login == github.repository_owner
+      && !contains(github.event.issue.labels.*.name, 'needs-human')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+      - name: Install backend dev dependencies
+        run: pip install -r backend/requirements-dev.txt
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Run Claude
+        uses: anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc # v1.0.276
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          label_trigger: "status:approved"
+          track_progress: true
+          branch_prefix: "agent/"
+          prompt: |
+            REPO: ${{ github.repository }}
+            ISSUE: ${{ github.event.issue.number }}
+            Lies .github/claude/implement.md und setze den freigegebenen Plan dieses Issues genau danach um.
+          claude_args: |
+            --max-turns 150
+            --allowedTools "Read,Grep,Glob,Edit,Write,Task,Agent,Bash(python -m pytest:*),Bash(ruff check:*),Bash(cd backend && *),Bash(cd frontend && *),Bash(npm ci:*),Bash(npm run build:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git push:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh issue edit:*),Bash(gh pr create:*),Bash(gh pr view:*)"
+            --disallowedTools "Bash(./deploy.sh:*),Bash(bash deploy.sh:*),Bash(sh deploy.sh:*),Bash(git push --force:*),Bash(git push -f:*)"
+
+  mention:
+    # Free-form "@claude ..." on issues and PRs that is not one of the commands above.
+    if: >-
+      github.event_name == 'issue_comment'
+      && github.event.comment.user.login == github.repository_owner
+      && contains(github.event.comment.body, '@claude')
+      && !startsWith(github.event.comment.body, '@claude /triage')
+      && !startsWith(github.event.comment.body, '@claude /plan')
+      && !startsWith(github.event.comment.body, '@claude /review')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+      - name: Run Claude
+        uses: anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc # v1.0.276
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          branch_prefix: "agent/"
+          claude_args: |
+            --max-turns 60
+            --append-system-prompt "Halte dich an .github/claude/common.md."
+            --disallowedTools "Bash(./deploy.sh:*),Bash(bash deploy.sh:*),Bash(sh deploy.sh:*),Bash(git push --force:*),Bash(git push -f:*)"
