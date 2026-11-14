@@ -3,6 +3,11 @@ description: Etwas funktioniert nicht so, wie es soll.
 title: "[Bug] "
 labels: ["type:bug", "status:inbox"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        **Nach dem Anlegen:** `@claude /grill` (Idee schärfen) · `@claude /triage` (bewerten) ·
+        `@claude /plan` (planen) · Label `status:approved` (umsetzen lassen) · `@claude /help` (Übersicht)
   - type: textarea
     id: problem
     attributes:

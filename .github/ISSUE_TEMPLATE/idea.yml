@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         Ein Satz reicht. Danach `@claude /grill` kommentieren: Claude stellt Rückfragen, bis aus der
-        Idee eine planbare Spec geworden ist.
+        Idee eine planbare Spec geworden ist. Übersicht aller Befehle: `@claude /help`.
   - type: textarea
     id: idea
     attributes:

@@ -7,6 +7,7 @@ name: Claude
 #   @claude /plan       -> implementation plan with goldfish check   (.github/claude/plan.md)
 #   label status:approved -> implement the plan, open a PR           (.github/claude/implement.md)
 #   @claude <anything>  -> free-form request on an issue or PR (tag mode)
+#   @claude /help       -> post the command cheat sheet (no model call)
 #
 # Authentication uses the owner's Claude subscription: `claude setup-token` locally, stored as the
 # repository secret CLAUDE_CODE_OAUTH_TOKEN. The Claude GitHub App must be installed on the repo --
@@ -31,6 +32,35 @@ permissions:
   contents: read
 
 jobs:
+  help:
+    # Plain shell, no Claude run: answering "which commands are there?" should not cost quota.
+    if: >-
+      github.event_name == 'issue_comment'
+      && github.event.comment.user.login == github.repository_owner
+      && startsWith(github.event.comment.body, '@claude /help')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          sparse-checkout: .github/claude/help.md
+          sparse-checkout-cone-mode: false
+      - name: Post command overview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.issue.number }}
+        run: |
+          # Relative link in help.md points at the repo root of this repository.
+          sed "s#(\.\./blob/master/#(${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/blob/master/#" \
+            .github/claude/help.md > "$RUNNER_TEMP/help.md"
+          gh issue comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/help.md"
+
   grill:
     if: >-
       github.event_name == 'issue_comment'
@@ -181,6 +211,7 @@ jobs:
       github.event_name == 'issue_comment'
       && github.event.comment.user.login == github.repository_owner
       && contains(github.event.comment.body, '@claude')
+      && !startsWith(github.event.comment.body, '@claude /help')
       && !startsWith(github.event.comment.body, '@claude /grill')
       && !startsWith(github.event.comment.body, '@claude /triage')
       && !startsWith(github.event.comment.body, '@claude /plan')

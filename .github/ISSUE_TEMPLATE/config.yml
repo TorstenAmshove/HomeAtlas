@@ -1,1 +1,5 @@
 blank_issues_enabled: false
+contact_links:
+  - name: "So funktioniert der Workflow: Befehle (/grill, /triage, /plan, …)"
+    url: https://github.com/TorstenAmshove/HomeAtlas/blob/master/docs/ai-workflow/README.md
+    about: "Übersicht über den Ablauf und alle @claude-Befehle. Im Issue jederzeit: @claude /help"

@@ -6,6 +6,7 @@ damit Änderungen am Verhalten des Agenten als normale Diffs reviewbar sind.
 
 | Datei | Auslöser | Darf |
 |---|---|---|
+| `help.md` | Kommentar `@claude /help` | wird ohne Modellaufruf als Kommentar gepostet (Befehlsübersicht) |
 | `common.md` | wird von allen anderen eingebunden | — |
 | `grill.md` | Kommentar `@claude /grill` (nur Repo-Owner), beliebig oft | Rückfragen stellen, am Ende Spec posten, Labels setzen |
 | `triage.md` | Kommentar `@claude /triage` (nur Repo-Owner) | Issue lesen, kommentieren, Labels setzen |

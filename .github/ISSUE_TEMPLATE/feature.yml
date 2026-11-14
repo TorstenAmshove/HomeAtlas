@@ -3,6 +3,11 @@ description: Eine konkrete Verbesserung oder neue Funktion.
 title: "[Feature] "
 labels: ["type:feature", "status:inbox"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        **Nach dem Anlegen:** `@claude /grill` (Idee schärfen) · `@claude /triage` (bewerten) ·
+        `@claude /plan` (planen) · Label `status:approved` (umsetzen lassen) · `@claude /help` (Übersicht)
   - type: textarea
     id: problem
     attributes:

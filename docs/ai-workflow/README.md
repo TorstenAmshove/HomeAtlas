@@ -30,7 +30,12 @@ Issue über Formular (Bug / Feature / Idee)          status:inbox
 | Label `status:approved` | Issue | Branch `agent/…`, Umsetzung mit Tests, PR mit `Closes #N` | `claude.yml` → `implement.md` |
 | automatisch | PR von `agent/*` | Review: jedes Akzeptanzkriterium einzeln, Korrektheit, Sicherheit | `claude-review.yml` → `review.md` |
 | `@claude /review` | PR-Kommentar | dasselbe Review auf Zuruf, für beliebige PRs | `claude-review.yml` |
+| `@claude /help` | Issue/PR | Befehlsübersicht als Kommentar, ohne Modellaufruf, kostet kein Kontingent | `claude.yml` → `help.md` |
 | `@claude <freier Text>` | Issue/PR | freie Anfrage (Fragen, kleine Fixes) | `claude.yml` (`mention`) |
+
+**Befehle vergessen?** `@claude /help` in ein Issue schreiben. Die Übersicht steht außerdem in jedem
+Issue-Formular, und beim Anlegen eines Issues gibt es einen Link auf diese Seite. Jeder Kommentar von
+Claude endet mit dem empfohlenen nächsten Schritt.
 
 Alle Befehle wirken **nur für den Repo-Owner**. Das Repo ist öffentlich, Fremde können Issues
 anlegen, aber keinen Agenten starten.
@@ -55,7 +60,10 @@ Schritte auch von Hand in einer Claude-Code-Sitzung (lokal oder claude.ai/code):
    <https://github.com/apps/claude> öffnen und das Repo auswählen. Wichtig: Nur über den Token der
    App lösen von Claude geöffnete PRs die Build-, Test- und Review-Workflows aus.
 2. **Abo-Token anlegen:** einmalig auf einem Rechner mit Claude Code CLI `claude setup-token`
-   ausführen (die einzige Stelle, an der etwas außerhalb von GitHub nötig ist) und das Ergebnis unter
+   ausführen (die einzige Stelle, an der etwas außerhalb von GitHub nötig ist). Jeder Aufruf erzeugt
+   einen **neuen** Token (ca. 1 Jahr gültig), bestehende bleiben gültig. Einen eigenen Token je Projekt
+   anlegen, dann lässt er sich einzeln widerrufen (claude.ai → Einstellungen → Claude Code). Das
+   Ergebnis unter
    *Settings → Secrets and variables → Actions* als `CLAUDE_CODE_OAUTH_TOKEN` speichern.
 3. **Labels anlegen:** *Actions → Labels → Run workflow* (danach automatisch bei Änderungen an
    `.github/labels.yml`). Ohne diesen Schritt ignorieren die Issue-Formulare ihre Labels.

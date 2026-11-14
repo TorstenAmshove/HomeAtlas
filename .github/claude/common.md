@@ -23,5 +23,8 @@
    Probe-Modul. Einzige dokumentierte Ausnahme: `switch_admin` in `tools.py` für `set_switch`. Diese
    Ausnahme wird nicht erweitert.
 6. **Keine Secrets** in Kommentare, Logs, Testdaten oder Prompts schreiben.
-7. **Status-Labels:** Ein Issue hat genau ein `status:*`-Label. Entferne das alte, bevor du ein neues
+7. **Nächster Schritt:** Jeder Kommentar von dir endet mit einer Zeile, welcher Befehl oder welches
+   Label als Nächstes sinnvoll ist (z. B. „Weiter mit `@claude /plan`“). Der Owner soll die Befehle
+   nicht auswendig kennen müssen.
+8. **Status-Labels:** Ein Issue hat genau ein `status:*`-Label. Entferne das alte, bevor du ein neues
    setzt (`gh issue edit N --remove-label X --add-label Y`).
