@@ -1,5 +1,4 @@
 """Network-resource synchronization must preserve local notes and never treat partial API data as deletion."""
-from app import db
 
 
 def _network(name: str, external_id: str = "network-1") -> dict:

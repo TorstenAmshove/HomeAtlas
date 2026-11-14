@@ -2,7 +2,6 @@
 import asyncio
 
 import httpx
-import pytest
 
 from app import unifi_probe
 

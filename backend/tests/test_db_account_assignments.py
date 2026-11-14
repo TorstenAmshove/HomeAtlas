@@ -3,7 +3,6 @@ can apply to more than the single device its own `systemId` points at -- a whole
 subnet, in addition to specific further systems. list_probe_accounts is where a scan resolves that
 back to "which credentials apply to this device" -- these tests cover both ends: writing/validating
 assignments, and the resolution used at scan time."""
-from app import db
 
 
 def test_set_and_list_account_assignments(temp_db):

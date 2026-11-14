@@ -191,7 +191,7 @@ def test_probe_snmp_prefers_direct_brother_oid_when_nonzero(monkeypatch):
 
     async def fake_snmp_run(*args):
         calls.append(args)
-        binary, oid = args[0], args[-1]
+        oid = args[-1]
         if oid == "1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.8.0":  # Toner Schwarz
             return "INTEGER: 80"
         if oid == "1.3.6.1.2.1.1.5.0":
