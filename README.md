@@ -112,6 +112,21 @@ docker compose exec backend python -m app.reset_password admin neuespasswort   #
 
 Das legt den Benutzer auch neu als Administrator an, falls gar keiner mehr existiert.
 
+**Authenticator verloren?** Die Zwei-Faktor-Anmeldung lässt sich normalerweise nur von einem
+anderen Administrator zurücksetzen (*Benutzer*, Spalte Zwei-Faktor → *Zurücksetzen*). Gibt es keinen
+anderen, hilft dasselbe Werkzeug mit `--reset-mfa`:
+
+```bash
+docker compose exec backend python -m app.reset_password admin --reset-mfa                 # nur 2FA entfernen
+docker compose exec backend python -m app.reset_password admin neuespasswort --reset-mfa   # beides
+```
+
+Das entfernt den hinterlegten zweiten Faktor, beendet alle offenen Sitzungen des Benutzers und
+vermerkt den Vorgang im Zugriffsprotokoll (`mfa.reset`, ausgeführt von „(Kommandozeile)“). Beim
+nächsten Anmelden richtet der Benutzer die Zwei-Faktor-Anmeldung wie beim ersten Mal neu ein. Ein
+reiner Passwort-Reset ohne `--reset-mfa` lässt einen eingerichteten zweiten Faktor bewusst
+bestehen — wer nur das Passwort vergessen hat, verliert so nicht nebenbei den Schutz.
+
 ---
 
 ## Der erste Durchlauf
