@@ -1,0 +1,20 @@
+name: Idee
+description: Noch unausgegorener Gedanke – wird vor einer Planung erst geschärft.
+title: "[Idee] "
+labels: ["type:idea", "status:inbox"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ein Satz reicht. Danach `@claude /grill` kommentieren: Claude stellt Rückfragen, bis aus der
+        Idee eine planbare Spec geworden ist. Übersicht aller Befehle: `@claude /help`.
+  - type: textarea
+    id: idea
+    attributes:
+      label: Die Idee
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Warum wäre das gut?

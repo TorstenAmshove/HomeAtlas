@@ -26,7 +26,7 @@ import shutil
 import socket
 import subprocess
 import time
-from typing import Awaitable, Callable
+from typing import Callable
 
 import httpx
 

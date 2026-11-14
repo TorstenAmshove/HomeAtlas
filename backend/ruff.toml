@@ -1,0 +1,9 @@
+# Deliberately small rule set: real errors only (syntax, undefined names, unused imports, bare
+# `except`-style mistakes). The codebase has never been run through a formatter or a strict
+# linter, so `ruff format` and wider rule families would produce a repo-wide diff that buries
+# real changes. Widen this in a dedicated PR, not as a side effect of a feature.
+target-version = "py312"
+line-length = 120
+
+[lint]
+select = ["E4", "E7", "E9", "F"]

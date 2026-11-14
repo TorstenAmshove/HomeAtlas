@@ -1,0 +1,67 @@
+---
+name: Claude Review
+
+# Code + security review in a fresh session (no memory of the issue discussion -- see
+# .github/claude/review.md). Runs automatically on PRs from agent/ branches, and on demand on any
+# PR when the repository owner comments "@claude /review".
+#
+# Only same-repository PRs: fork PRs get no secrets, and their content must not drive an agent.
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    if: >-
+      (
+        github.event_name == 'pull_request'
+        && startsWith(github.head_ref, 'agent/')
+        && github.event.pull_request.head.repo.full_name == github.repository
+        && !github.event.pull_request.draft
+      ) || (
+        github.event_name == 'issue_comment'
+        && github.event.issue.pull_request
+        && github.event.comment.user.login == github.repository_owner
+        && startsWith(github.event.comment.body, '@claude /review')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          # issue_comment runs on the default branch; review the PR's code instead. Limited to the
+          # repository owner -- on a *fork* PR this checks out untrusted code into a job that has
+          # the Claude token, so only use /review there after reading the diff yourself.
+          ref: ${{ github.event_name == 'issue_comment' && format('refs/pull/{0}/head', github.event.issue.number) || '' }}
+      - name: Run Claude
+        uses: anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc # v1.0.276
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # PRs from agent/ branches are pushed by the Claude GitHub App, so the triggering actor
+          # is that bot; without this the action's actor check would skip the review.
+          allowed_bots: "claude"
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR: ${{ github.event.pull_request.number || github.event.issue.number }}
+            Lies .github/claude/review.md und prüfe diesen Pull Request genau danach.
+          claude_args: |
+            --max-turns 60
+            --allowedTools "Read,Grep,Glob,Task,Agent,mcp__github_inline_comment__create_inline_comment,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh issue view:*)"
+            --disallowedTools "Edit,Write,NotebookEdit,Bash(git push:*)"

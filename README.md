@@ -354,6 +354,14 @@ npm install
 npm run dev
 ```
 
+Tests und Lint fürs Backend: `pip install -r requirements-dev.txt`, dann `ruff check .` und
+`python -m pytest -q` (läuft auch in der CI). Architekturentscheidungen stehen in
+[`docs/adr/`](docs/adr/README.md).
+
+**Mitwirken / Issues.** Fehler, Wünsche und Ideen bitte über die Issue-Formulare melden.
+Bewertung, Planung und Umsetzung laufen teilweise über einen KI-Agenten mit menschlicher Freigabe –
+der Ablauf ist in [`docs/ai-workflow/`](docs/ai-workflow/README.md) beschrieben.
+
 Unter Windows fehlen `ip`, `ping` und `traceroute` in der Container-Form — Discovery und Diagnose
 sind dort eingeschränkt, die Oberfläche und alles andere funktionieren.
 

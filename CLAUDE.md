@@ -38,8 +38,17 @@ npm run build       # tsc -b && vite build — this IS the typecheck; there is n
 npm run preview
 ```
 
-There is no test suite and no linter configured in this repo (no pytest, no eslint config) —
-don't assume either exists.
+Backend tests and lint (from `backend/`, CI runs both in `.github/workflows/test.yml`):
+```bash
+pip install -r requirements-dev.txt
+ruff check .          # deliberately small rule set, see backend/ruff.toml; no formatter enforced
+python -m pytest -q   # tests/ -- use the `temp_db` fixture for anything touching db.py
+```
+The frontend has no linter or test runner; `npm run build` is its only check.
+
+Project hooks in `.claude/settings.json`: edited backend `.py` files are run through `ruff check
+--fix` (remaining errors are fed back), and editing or running `deploy.sh` always asks for
+confirmation.
 
 Full stack via Docker: `docker compose up -d --build`, then http://localhost:8280. First-run
 admin credentials are printed once to `docker compose logs backend`. `ADMIN_USERNAME`/
@@ -133,6 +142,23 @@ gating sequence; the same order is enforced independently on the backend (see `c
 is where session-cookie handling, FastAPI validation-error flattening, and the "MFA re-enrolled
 elsewhere, force reload" behavior all live. Add new endpoints here rather than calling `fetch`
 directly from a page.
+
+## Architecture decisions
+
+`docs/adr/` records the cross-cutting decisions above (read/write split, host network, LLM
+capability boundary, SQLite without ORM, provider-neutral LLM client, credential encryption, SVG
+topology). Read the relevant ADR before changing one of those areas. Never edit an accepted ADR
+to reverse it — propose a new ADR that supersedes it.
+
+## Agent workflow (GitHub)
+
+Issues are the single backlog; `status:*` labels are the state machine
+(inbox → triaged → planned → approved → in-progress → in-review). `@claude /grill` (async
+Q&A that turns a vague idea into a spec with acceptance criteria), `@claude /triage`,
+`@claude /plan` and the label `status:approved` drive `.github/workflows/claude.yml`; agent PRs
+come from `agent/*` branches and get an automatic review (`claude-review.yml`). The prompts live in
+`.github/claude/` — `common.md` holds the risk rule (`risk:high` + `needs-human` for auth, crypto,
+device-write modules, the `tools.py` boundary, deploy and CI). Details: `docs/ai-workflow/README.md`.
 
 ## Git Workflow
 

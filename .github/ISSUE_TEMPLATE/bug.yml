@@ -1,0 +1,58 @@
+name: Fehler melden
+description: Etwas funktioniert nicht so, wie es soll.
+title: "[Bug] "
+labels: ["type:bug", "status:inbox"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Nach dem Anlegen:** `@claude /grill` (Idee schärfen) · `@claude /triage` (bewerten) ·
+        `@claude /plan` (planen) · Label `status:approved` (umsetzen lassen) · `@claude /help` (Übersicht)
+  - type: textarea
+    id: problem
+    attributes:
+      label: Was ist passiert?
+      description: Möglichst konkret – welche Seite, welche Aktion, welche Fehlermeldung.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Was hätte passieren sollen?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Schritte zum Nachstellen
+      placeholder: |
+        1. Seite „Geräte“ öffnen
+        2. …
+  - type: dropdown
+    id: area
+    attributes:
+      label: Bereich
+      options:
+        - discovery (Netzwerk-Scan, Geräteerkennung)
+        - docs (Dokumentation, Handbuch)
+        - chat (Assistent, LLM, MCP)
+        - auth (Login, Rollen, 2FA)
+        - inventory (Geräte, Zugangsdaten, Konten)
+        - integrations (UniFi, Proxmox, Docker, Home Assistant …)
+        - monitor (Überwachung wichtiger Geräte)
+        - frontend (Oberfläche allgemein)
+        - deploy (Container, CI, Installation)
+        - weiß nicht
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Steht unten in der Navigation bzw. im Image-Tag.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Screenshots
+      description: "`docker compose logs backend` – bitte Passwörter, Tokens und interne Hostnamen schwärzen."
+      render: text

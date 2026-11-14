@@ -1,0 +1,35 @@
+---
+name: Labels
+
+# Creates/updates the labels listed in .github/labels.yml. Never deletes labels that are not in
+# the file, so manually created ones survive.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - ".github/labels.yml"
+
+permissions:
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Create or update labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          yq -o=json -I=0 '.[]' .github/labels.yml | while IFS= read -r label; do
+            name="$(jq -r .name <<<"$label")"
+            gh label create "$name" \
+              --repo "$GITHUB_REPOSITORY" \
+              --color "$(jq -r .color <<<"$label")" \
+              --description "$(jq -r .description <<<"$label")" \
+              --force
+          done
