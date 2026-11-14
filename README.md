@@ -26,7 +26,7 @@ Läuft als Docker-Container im eigenen Netz. Keine Cloud, keine Registrierung.
 | **Dauerüberwachung** | Wichtige Geräte alle paar Sekunden per Port oder Ping geprüft, mit Ausfallverlauf |
 | **Übersichtsplan** | Automatisch erzeugter Netzplan vom Internet bis zu den Endgeräten |
 | **UniFi Network** | Liest Geräte, physische Uplinks, VLANs, WLANs und WANs direkt über die lokale UniFi-API aus |
-| **Anmeldeschutz** | Passwortrichtlinie, optional Zwei-Faktor per Authenticator-App, Zugriffsprotokoll |
+| **Anmeldeschutz** | Passwortrichtlinie, verpflichtende Zwei-Faktor-Anmeldung per Authenticator-App, Zugriffsprotokoll |
 
 Der Anbieter für die KI ist frei wählbar: **Anthropic Claude, OpenAI, Google Gemini, DeepSeek**
 oder ein **lokaler Ollama-Server** (dann verlässt kein einziges Byte das Haus).
@@ -98,6 +98,11 @@ docker compose logs backend | grep -A4 Anmeldedaten
 Ein eigenes Passwort lässt sich stattdessen in `docker-compose.yml` über `ADMIN_USERNAME` /
 `ADMIN_PASSWORD` vorgeben (wirkt nur, solange noch kein Benutzer existiert).
 
+Direkt nach der ersten Anmeldung verlangt HomeAtlas die Einrichtung der Zwei-Faktor-Anmeldung:
+QR-Code mit einer Authenticator-App (z. B. Aegis, Google Authenticator, 1Password) scannen und den
+angezeigten Code bestätigen. Erst danach ist der Rest der Anwendung erreichbar — das gilt für jedes
+Konto, auch für später angelegte Mitglieder.
+
 ### Passwort verloren?
 
 Das generierte Passwort wird **genau einmal** ausgegeben — ins Startprotokoll des Containers, der
@@ -116,8 +121,9 @@ Das legt den Benutzer auch neu als Administrator an, falls gar keiner mehr exist
 
 ## Der erste Durchlauf
 
-1. **Anmelden** und den kurzen Einrichtungsassistenten ausfüllen — Name des Zuhauses, die
-   wichtigsten Geräte, die wichtigsten Konten. Alles optional und jederzeit änderbar.
+1. **Anmelden**, die Zwei-Faktor-Anmeldung einrichten und den kurzen Einrichtungsassistenten
+   ausfüllen — Name des Zuhauses, die wichtigsten Geräte, die wichtigsten Konten. Alles optional
+   und jederzeit änderbar.
 2. **Einstellungen → KI-Assistent**: Anbieter wählen, Schlüssel eintragen, *Verbindung testen*.
    Ohne diesen Schritt funktioniert HomeAtlas weiter, nur ohne KI-Texte und ohne Chat.
 3. **Netzwerk-Scan starten.** Der Durchlauf sucht Geräte, erkennt Dienste, fragt Docker ab, lässt
@@ -256,10 +262,14 @@ funktioniert weiter.
 
 **Anmeldeschutz.** Passwörter müssen mindestens 10 Zeichen haben und entweder drei der vier
 Zeichenarten enthalten oder ab 20 Zeichen als Wortfolge durchgehen — lange Passphrasen sind
-stärker *und* merkbarer als kurze Sonderzeichen-Akrobatik. Optional lässt sich pro Konto eine
-Zwei-Faktor-Anmeldung per Authenticator-App einschalten (TOTP nach RFC 6238, ohne externen
-Dienst). Sie wird erst scharf, nachdem ein funktionierender Code eingegeben wurde — eine
-abgebrochene Einrichtung kann also niemanden aussperren.
+stärker *und* merkbarer als kurze Sonderzeichen-Akrobatik. Die Zwei-Faktor-Anmeldung per
+Authenticator-App (TOTP nach RFC 6238, ohne externen Dienst) ist für **jedes Konto Pflicht**:
+Nach der ersten Anmeldung muss zuerst eine Authenticator-App eingerichtet werden, vorher
+verweigert die API alles außer der Einrichtung selbst und der Abmeldung. Der zweite Faktor wird
+erst scharf, nachdem ein funktionierender Code eingegeben wurde — eine abgebrochene Einrichtung
+kann also niemanden aussperren. Selbst abschalten lässt er sich nicht; geht das Telefon verloren,
+setzt ein Administrator den zweiten Faktor des Kontos zurück, und beim nächsten Anmelden wird er
+neu eingerichtet.
 
 **Zugriffsprotokoll.** Anmeldungen, Fehlversuche, Benutzeränderungen und *jedes Anzeigen eines
 gespeicherten Passworts* landen im Protokoll. Gerade Letzteres ist für einen Zugangsspeicher der
