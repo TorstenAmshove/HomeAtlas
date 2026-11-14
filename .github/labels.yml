@@ -1,0 +1,38 @@
+# Single source for the issue labels used by the agent workflow (docs/ai-workflow/README.md).
+# Applied by .github/workflows/labels.yml. Issue forms reference these names; GitHub silently
+# drops a form label that does not exist yet, so run that workflow once before using the forms.
+#
+# Format: one label per entry -- name, color (hex without #), description.
+
+# --- Type ---
+- {name: "type:bug",        color: "d73a4a", description: "Etwas funktioniert nicht wie vorgesehen"}
+- {name: "type:feature",    color: "a2eeef", description: "Konkreter Änderungswunsch"}
+- {name: "type:idea",       color: "c5def5", description: "Unausgegorene Idee, muss geschärft werden"}
+- {name: "type:chore",      color: "ededed", description: "Wartung, Abhängigkeiten, CI"}
+
+# --- Status (state machine; exactly one at a time) ---
+- {name: "status:inbox",       color: "fbca04", description: "Neu, noch nicht bewertet"}
+- {name: "status:triaged",     color: "f9d0c4", description: "Bewertet, wartet auf /plan"}
+- {name: "status:planned",     color: "bfd4f2", description: "Plan liegt vor, wartet auf Freigabe"}
+- {name: "status:approved",    color: "0e8a16", description: "Plan freigegeben – startet die Umsetzung durch Claude"}
+- {name: "status:in-progress", color: "1d76db", description: "Wird umgesetzt"}
+- {name: "status:in-review",   color: "5319e7", description: "PR offen, wartet auf Review/Merge"}
+
+# --- Area ---
+- {name: "area:discovery",    color: "006b75", description: "Netzwerk-Scan, Geräteerkennung, Klassifizierung"}
+- {name: "area:docs",         color: "006b75", description: "Generierte Dokumentation"}
+- {name: "area:chat",         color: "006b75", description: "Assistent, LLM-Provider, MCP, tools.py"}
+- {name: "area:auth",         color: "006b75", description: "Login, Rollen, 2FA, Sessions"}
+- {name: "area:inventory",    color: "006b75", description: "Geräte, Zugangsdaten, Konten"}
+- {name: "area:integrations", color: "006b75", description: "UniFi, Proxmox, Docker, Home Assistant, …"}
+- {name: "area:monitor",      color: "006b75", description: "Überwachung wichtiger Geräte"}
+- {name: "area:frontend",     color: "006b75", description: "Oberfläche"}
+- {name: "area:deploy",       color: "006b75", description: "Container, CI, Installation"}
+
+# --- Size / risk ---
+- {name: "size:S",      color: "c2e0c6", description: "Unter einer Stunde, wenige Dateien"}
+- {name: "size:M",      color: "fef2c0", description: "Ein Feature-Slice über Backend und Frontend"}
+- {name: "size:L",      color: "f9c4c4", description: "Zu groß für einen PR – in Teil-Issues zerlegen"}
+- {name: "risk:low",    color: "c2e0c6", description: "Keine sicherheitsrelevanten Module betroffen"}
+- {name: "risk:high",   color: "b60205", description: "Betrifft Auth, Secrets, Schreibzugriff auf Geräte oder die tools.py-Grenze"}
+- {name: "needs-human", color: "b60205", description: "Claude plant nur – Umsetzung durch einen Menschen oder mit ausdrücklicher Freigabe"}

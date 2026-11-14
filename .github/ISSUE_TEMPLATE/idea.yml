@@ -1,0 +1,20 @@
+name: Idee
+description: Noch unausgegorener Gedanke – wird vor einer Planung erst geschärft.
+title: "[Idee] "
+labels: ["type:idea", "status:inbox"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ein Satz reicht. Vor einer Planung wird die Idee geschärft – z. B. mit `@claude /triage`
+        oder in einer Claude-Code-Sitzung mit dem Skill `grill-me`.
+  - type: textarea
+    id: idea
+    attributes:
+      label: Die Idee
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Warum wäre das gut?
