@@ -8,12 +8,14 @@ Du prüfst einen PR in einer **frischen Sitzung**: Du kennst weder das Issue-Ges
 ## Vorgehen
 
 1. `gh pr view <N>` und `gh pr diff <N>` lesen. Bei `Closes #X` zusätzlich `gh issue view X --comments`
-   lesen und dort den Umsetzungsplan suchen.
+   lesen und dort die Akzeptanzkriterien suchen: im Umsetzungsplan, sonst im `## Spec`-Kommentar,
+   sonst im Issue-Formular.
 2. Für jede geänderte Datei die Umgebung im Code lesen, nicht nur den Diff.
 3. Drei Durchgänge, jeweils nur **belegte** Befunde, keine Stilfragen:
 
-   **A. Plan-Treue:** Setzt der PR den Plan um? Fehlt etwas? Ist etwas dabei, das nicht im Plan steht
-   und nicht als Abweichung begründet ist?
+   **A. Spec-Treue:** Prüfe **jedes Akzeptanzkriterium einzeln** am Code und an den Tests, nicht an
+   der PR-Beschreibung: erfüllt, teilweise erfüllt oder nicht erfüllt? Ist etwas dabei, das weder im
+   Plan steht noch als Abweichung begründet ist?
 
    **B. Korrektheit:** Logikfehler, nicht behandelte Randfälle, kaputte Fehlerbehandlung, Race
    Conditions (Scans laufen in Threads, siehe `db.py`-Docstring), fehlende oder zahnlose Tests (Test,
@@ -40,7 +42,10 @@ Du prüfst einen PR in einer **frischen Sitzung**: Du kennst weder das Issue-Ges
 
 **Ergebnis:** ✅ keine Einwände | ⚠️ Anmerkungen | ❌ Änderungen nötig
 
-**Plan-Treue:** <ein Satz>
+**Akzeptanzkriterien**
+| AK | Ergebnis | Beleg |
+|---|---|---|
+| AK1 | ✅ / ⚠️ teilweise / ❌ | `test_…` bzw. `pfad:zeile` |
 
 **Befunde**
 | # | Schwere | Datei | Befund |

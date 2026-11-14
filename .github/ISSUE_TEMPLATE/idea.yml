@@ -6,8 +6,8 @@ body:
   - type: markdown
     attributes:
       value: |
-        Ein Satz reicht. Vor einer Planung wird die Idee geschärft – z. B. mit `@claude /triage`
-        oder in einer Claude-Code-Sitzung mit dem Skill `grill-me`.
+        Ein Satz reicht. Danach `@claude /grill` kommentieren: Claude stellt Rückfragen, bis aus der
+        Idee eine planbare Spec geworden ist.
   - type: textarea
     id: idea
     attributes:

@@ -153,7 +153,8 @@ to reverse it — propose a new ADR that supersedes it.
 ## Agent workflow (GitHub)
 
 Issues are the single backlog; `status:*` labels are the state machine
-(inbox → triaged → planned → approved → in-progress → in-review). `@claude /triage`,
+(inbox → triaged → planned → approved → in-progress → in-review). `@claude /grill` (async
+Q&A that turns a vague idea into a spec with acceptance criteria), `@claude /triage`,
 `@claude /plan` and the label `status:approved` drive `.github/workflows/claude.yml`; agent PRs
 come from `agent/*` branches and get an automatic review (`claude-review.yml`). The prompts live in
 `.github/claude/` — `common.md` holds the risk rule (`risk:high` + `needs-human` for auth, crypto,

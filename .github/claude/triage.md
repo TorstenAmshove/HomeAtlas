@@ -34,8 +34,8 @@ Du bewertest ein einzelnes Issue. Du änderst **keinen Code** und legst keine Br
 1. …? – Vorschlag: …
 
 **Nächster Schritt:** <z. B. „bereit für `@claude /plan`“ | „bitte Fragen beantworten“ |
-„Idee schärfen, z. B. mit grill-me“ | „in Teil-Issues zerlegen“>
+„Idee schärfen mit `@claude /grill`“ | „in Teil-Issues zerlegen“>
 ```
 
-Halte den Kommentar kurz. Ist das Issue eine vage `type:idea`, stell höchstens drei Fragen, die die
-Richtung entscheiden, und empfiehl, die Idee vor der Planung zu schärfen.
+Halte den Kommentar kurz. Ist das Issue vage (typisch `type:idea`), stell keine eigene Fragenliste,
+sondern empfiehl `@claude /grill` als nächsten Schritt.

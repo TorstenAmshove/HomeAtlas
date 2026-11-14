@@ -7,6 +7,7 @@ damit Änderungen am Verhalten des Agenten als normale Diffs reviewbar sind.
 | Datei | Auslöser | Darf |
 |---|---|---|
 | `common.md` | wird von allen anderen eingebunden | — |
+| `grill.md` | Kommentar `@claude /grill` (nur Repo-Owner), beliebig oft | Rückfragen stellen, am Ende Spec posten, Labels setzen |
 | `triage.md` | Kommentar `@claude /triage` (nur Repo-Owner) | Issue lesen, kommentieren, Labels setzen |
 | `plan.md` | Kommentar `@claude /plan` (nur Repo-Owner) | Code lesen, Plan als Kommentar posten, Labels setzen |
 | `implement.md` | Label `status:approved` (nur Repo-Owner, nicht bei `needs-human`) | Branch, Code, Tests, PR |

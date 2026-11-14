@@ -10,7 +10,12 @@ also für sich allein verständlich sein.
 ## Schritte
 
 1. Issue samt Kommentaren lesen (`gh issue view <N> --comments`), einschließlich Triage und Antworten.
-   Ist Wesentliches offen, schreib Fragen (mit Vorschlag) statt eines Plans und hör auf.
+   Ist Wesentliches offen, schreib Fragen (mit Vorschlag) statt eines Plans und hör auf, oder
+   empfiehl `@claude /grill`.
+   **Akzeptanzkriterien bestimmen:** Gibt es einen `## Spec`-Kommentar, übernimm dessen
+   Akzeptanzkriterien wörtlich. Sonst nimm die aus dem Issue-Formular. Fehlen sie ganz, formuliere
+   selbst 2–5 prüfbare Kriterien und kennzeichne sie mit „(vorgeschlagen)“. Sie sind der Maßstab für
+   Umsetzung und Review.
 2. Code gründlich lesen: betroffene Module, deren Docstrings, ähnliche vorhandene Lösungen, die
    wiederverwendet werden können, und die passenden Tests in `backend/tests/`.
 3. **Plan entwerfen** (Format unten). Prinzipien:
@@ -25,7 +30,8 @@ also für sich allein verständlich sein.
    > „Du bekommst einen Umsetzungsplan für das Repo im aktuellen Verzeichnis. Du kennst das Ticket
    > nicht. (1) Erkläre in 3–5 Sätzen, was gebaut wird und wie. (2) Liste jede Stelle, an der du beim
    > Umsetzen raten müsstest. (3) Prüfe den Plan gegen `CLAUDE.md` und `docs/adr/` und nenne
-   > Widersprüche. (4) Nenne fehlende Tests oder Randfälle. Antworte knapp als Liste.“
+   > Widersprüche. (4) Nenne fehlende Tests oder Randfälle. (5) Gibt es ein Akzeptanzkriterium,
+   > das kein Task abdeckt oder das sich nicht prüfen lässt? Antworte knapp als Liste.“
 
    Vergleiche seine Zusammenfassung mit deiner Absicht. Überarbeite den Plan, bis keine wesentlichen
    Ratestellen oder Widersprüche übrig sind (höchstens 2 Runden). Was offen bleibt, kommt unter
@@ -45,8 +51,13 @@ also für sich allein verständlich sein.
 **Betroffene Dateien:** `…`, `…`
 **Wiederverwendet:** `pfad::funktion` – wofür
 
+### Akzeptanzkriterien
+- [ ] AK1: <prüfbar> – geprüft durch Task <n> / Test `…`
+- [ ] AK2: …
+
 ### Tasks
 - [ ] **1. <Titel>**
+  - Erfüllt: AK<n>
   - Test: `backend/tests/test_….py::test_…` – <was er prüft>
   - Änderung: <konkret, mit Datei und Funktion>
 - [ ] **2. …**

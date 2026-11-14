@@ -49,6 +49,10 @@ Closes #<N>
 ## Was
 <2–4 Stichpunkte>
 
+## Akzeptanzkriterien
+- [x] AK1: <Text> – <wie belegt: Test/Datei/manuell>
+- [ ] AK2: <falls nicht erfüllt: warum>
+
 ## Abweichungen vom Plan
 <oder „keine“>
 

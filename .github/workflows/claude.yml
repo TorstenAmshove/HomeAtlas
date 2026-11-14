@@ -2,6 +2,7 @@
 name: Claude
 
 # Agent workflow on issues, driven by the repository owner only:
+#   @claude /grill      -> sharpen a vague idea into a spec via Q&A  (.github/claude/grill.md)
 #   @claude /triage     -> assess + label the issue                  (.github/claude/triage.md)
 #   @claude /plan       -> implementation plan with goldfish check   (.github/claude/plan.md)
 #   label status:approved -> implement the plan, open a PR           (.github/claude/implement.md)
@@ -30,6 +31,36 @@ permissions:
   contents: read
 
 jobs:
+  grill:
+    if: >-
+      github.event_name == 'issue_comment'
+      && !github.event.issue.pull_request
+      && github.event.comment.user.login == github.repository_owner
+      && startsWith(github.event.comment.body, '@claude /grill')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+      - name: Run Claude
+        uses: anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc # v1.0.276
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            ISSUE: ${{ github.event.issue.number }}
+            Lies .github/claude/grill.md und führe für dieses Issue genau danach die nächste Runde durch.
+          claude_args: |
+            --max-turns 40
+            --allowedTools "Read,Grep,Glob,Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh issue comment:*),Bash(gh issue edit:*)"
+            --disallowedTools "Edit,Write,NotebookEdit,Bash(git push:*)"
+
   triage:
     if: >-
       github.event_name == 'issue_comment'
@@ -150,6 +181,7 @@ jobs:
       github.event_name == 'issue_comment'
       && github.event.comment.user.login == github.repository_owner
       && contains(github.event.comment.body, '@claude')
+      && !startsWith(github.event.comment.body, '@claude /grill')
       && !startsWith(github.event.comment.body, '@claude /triage')
       && !startsWith(github.event.comment.body, '@claude /plan')
       && !startsWith(github.event.comment.body, '@claude /review')

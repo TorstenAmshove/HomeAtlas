@@ -21,6 +21,7 @@ body:
     id: acceptance
     attributes:
       label: Woran erkennt man, dass es fertig ist?
+      description: Akzeptanzkriterien – der Maßstab für Plan und Review. Leer lassen geht, dann schlägt Claude welche vor.
       placeholder: |
         - [ ] …
   - type: dropdown

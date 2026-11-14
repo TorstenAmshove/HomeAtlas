@@ -1,63 +1,76 @@
 # Methoden und Skills für die KI-gestützte Entwicklung von HomeAtlas
 
 Stand: November 2026. Grundlage ist eine Web-Recherche (Quellen am Ende) und der Ist-Zustand des
-Repos. HomeAtlas nutzt bereits **Superpowers**, zu erkennen an `docs/superpowers/specs` und
-`docs/superpowers/plans`. Die Empfehlungen bauen darauf auf, statt ein zweites Framework daneben
-zu stellen.
+Repos.
 
-**Umgesetzt im Repo:** Goldfish-Prüfung im `/plan` (3), ADRs (4), ruff + Hooks (5), Security-Review
-im PR (6). Der Ablauf ist in [README.md](README.md) beschrieben. grill-me (2) installierst du lokal.
+**Grundannahme:** Gearbeitet wird **nur über GitHub-Issues**, nicht in lokalen Sitzungen. Alles, was nur
+interaktiv im Terminal läuft (Plugins, lokal installierte Skills), hilft daher nicht. Die Methoden sind
+deshalb als Prompts in `.github/claude/` eingebaut und laufen in der GitHub Action.
 
-## Kurzfassung: Was ich empfehle
+**Umgesetzt im Repo:** Spec-Driven Development über Issues (1), grill-me als `@claude /grill` (2),
+Goldfish-Prüfung im `/plan` (3), ADRs (4), ruff + Hooks (5), Security-Review im PR (6). Der Ablauf
+steht in [README.md](README.md).
 
-| # | Baustein | Wofür | Aufwand | Empfehlung |
-|---|---|---|---|---|
-| 1 | **Superpowers** (obra) | Brainstorming → Spec → Plan → Umsetzung mit Subagents, TDD, Debugging | schon im Einsatz | **behalten, als Rückgrat** |
-| 2 | **grill-me** (Matt Pocock) | vage Ideen vor dem Plan hart hinterfragen | 1 Befehl | **ja**, für Ideen-Issues |
-| 3 | **Elephant/Goldfish** (Google) | Plan von einer frischen Sitzung ohne Vorwissen prüfen lassen | gering | **ja, als Prinzip** im Workflow |
-| 4 | **ADRs** (`docs/adr/`) | Architekturentscheidungen dauerhaft festhalten | einmalig ca. 1 h | **ja** |
-| 5 | **Linter + Hooks** (ruff, tsc) | deterministische Prüfungen statt Bitten in CLAUDE.md | gering | **ja** |
-| 6 | **Eingebaute Skills** `/code-review`, `/security-review`, `/simplify` | Review vor dem Merge | keiner | **ja**, im PR-Review |
-| 7 | **to-issues** (Matt Pocock) | große Features in vertikale Slices als Issues zerlegen | 1 Befehl | optional, bei großen Features |
-| 8 | **frontend-design** (Anthropic) | bessere UI-Entwürfe für React-Seiten | 1 Befehl | optional |
-| 9 | Spec Kit / OpenSpec / BMAD | eigenes Spec-Driven-Framework | hoch | **nein**, überschneidet sich mit Superpowers |
+## Kurzfassung
 
-Wichtigste Regel: **wenige Skills, die sich nicht überschneiden.** Skills mit ähnlicher Beschreibung
-konkurrieren um denselben Auslöser. Dann ist schwer vorherzusagen, welcher läuft.
+| # | Baustein | Wofür | Status |
+|---|---|---|---|
+| 1 | **Spec-Driven Development** über Issues | erst festlegen, was „fertig“ heißt, dann planen und bauen | **umgesetzt** (Issue = Spec, `/plan`, Review gegen Akzeptanzkriterien) |
+| 2 | **grill-me**-Prinzip | vage Ideen per Rückfragen zu einer Spec schärfen | **umgesetzt** als `@claude /grill` |
+| 3 | **Elephant/Goldfish** (Google) | Plan von einer frischen Sitzung ohne Vorwissen prüfen lassen | **umgesetzt** in `/plan` |
+| 4 | **ADRs** (`docs/adr/`) | Architekturentscheidungen dauerhaft festhalten | **umgesetzt** |
+| 5 | **Linter + Hooks** (ruff, tsc) | deterministische Prüfungen statt Bitten in CLAUDE.md | **umgesetzt** |
+| 6 | **Security-Review** | Review vor dem Merge mit Blick aufs Bedrohungsmodell | **umgesetzt** in `claude-review.yml` |
+| 7 | **to-issues**-Prinzip | große Features in vertikale Slices als Issues zerlegen | teilweise: `/plan` schlägt bei Übergröße Teil-Issues vor |
+| 8 | Superpowers, Spec Kit, OpenSpec, BMAD | fertige Frameworks für Spec-Driven Development | **nicht nötig**, siehe Abschnitt 9 |
+
+Wichtigste Regel: **wenige Bausteine, die sich nicht überschneiden.**
 
 ---
 
-## 1. Superpowers: das Rückgrat
+## 1. Spec-Driven Development: was es ist und wie es hier läuft
 
-Superpowers ist ein Satz zusammenspielender Skills für den ganzen Entwicklungszyklus:
+Die Idee: **Bevor Code entsteht, wird schriftlich festgelegt, was gebaut wird und woran man erkennt,
+dass es fertig ist.** Plan, Code und Review richten sich danach. Ohne Spec rät der Agent, was gemeint
+ist. Mit Spec prüft er gegen etwas Festes.
 
-- `brainstorming`: stellt Rückfragen und schreibt eine Design-Spec nach `docs/superpowers/specs/`.
-- `writing-plans`: macht daraus einen Plan mit abhakbaren Tasks (`docs/superpowers/plans/`).
-- `subagent-driven-development`: startet je Task einen frischen Subagent. Dann folgt ein Review in zwei
-  Stufen: erst „passt es zur Spec?“, dann „ist der Code gut?“.
-- `test-driven-development`: Red → Green → Refactor.
-- `systematic-debugging`, `verification-before-completion`: gegen „sollte jetzt gehen“.
+Alle Frameworks folgen im Kern denselben Schritten:
 
-**Einordnung in den Issue-Workflow:**
-`@claude /plan` erzeugt Spec und Plan nach dem Superpowers-Schema. Nach `status:approved` setzt Claude den
-Plan mit `subagent-driven-development` um. Spec und Plan liegen im PR mit im Repo und sind damit
-gleichzeitig die Dokumentation der Änderung.
+1. **Spec, also das Was und Warum:** Problem, Ziel, Akzeptanzkriterien, Nicht-Ziele. Noch keine Technik.
+2. **Plan, also das Wie:** betroffene Dateien, Vorgehen, Risiken.
+3. **Tasks:** kleine, einzeln prüfbare Schritte mit Test.
+4. **Umsetzung**, danach das **Review gegen die Spec**: Ist jedes Akzeptanzkriterium erfüllt?
 
-Das **ist** bereits Spec-Driven Development. Deshalb rate ich von Spec Kit, OpenSpec oder BMAD ab
-(Abschnitt 9).
+So bildet der Issue-Workflow das ab:
 
-## 2. grill-me: Ideen hart hinterfragen
+| Schritt | In HomeAtlas |
+|---|---|
+| Spec | Issue-Formular (Problem, Vorschlag, Akzeptanzkriterien), bei vagen Ideen per `/grill` geschärft. Am Ende steht ein `## Spec`-Kommentar |
+| Plan + Tasks | `@claude /plan`: übernimmt die Akzeptanzkriterien und ordnet jedem Task ein Kriterium und einen Test zu |
+| Freigabe | Label `status:approved` |
+| Umsetzung | Claude auf `agent/*`, Test zuerst. Die PR-Beschreibung belegt jedes Akzeptanzkriterium |
+| Review | `claude-review.yml` prüft jedes Akzeptanzkriterium einzeln am Code, dazu Korrektheit und Sicherheit |
 
-Der Skill lässt Claude **eine Frage nach der anderen** stellen, jeweils mit einer empfohlenen Antwort.
-Das geht so lange, bis ihr euch verstanden habt. Fakten, die im Code stehen, schlägt Claude selbst nach.
-Dich fragt es nur nach echten Entscheidungen.
+Die Spec lebt im Issue, nicht als Datei im Repo. Nach dem Merge verweist der PR per `Closes #N`
+darauf. Für ein Ein-Personen-Projekt reicht das. Dauerhafte Spec-Dateien (wie bei OpenSpec) lohnen
+sich erst, wenn mehrere Leute am selben Verhalten arbeiten.
 
-- Sinnvoll bei `type:idea`-Issues, die nur aus einem Satz bestehen („Fritzbox-Integration wäre cool“).
-- Überschneidung: Superpowers-`brainstorming` stellt auch Rückfragen, aber milder. grill-me ist für
-  die Fälle, in denen du selbst noch nicht weißt, was du willst.
-- Einsatz: lokal oder in einer Cloud-Session, nicht in der GitHub Action, denn es braucht einen Dialog.
-  Das Ergebnis kommt als Kommentar ins Issue. Danach folgt `/plan`.
-- Installation: `npx skills add https://github.com/mattpocock/skills --skill grill-me`
+## 2. grill-me als `@claude /grill`
+
+Das Original (Skill von Matt Pocock) lässt Claude in einer Sitzung **eine Frage nach der anderen**
+stellen, jeweils mit einer empfohlenen Antwort, bis alles geklärt ist. Fakten aus dem Code schlägt
+Claude selbst nach und fragt nur nach echten Entscheidungen.
+
+Hier läuft dasselbe **asynchron über Kommentare** (`.github/claude/grill.md`):
+
+1. Unter eine vage Idee `@claude /grill` kommentieren.
+2. Claude postet die 1–3 wichtigsten offenen Fragen, jede mit Vorschlag und Alternativen.
+3. Im Kommentar antworten. „ok“ heißt: Vorschlag angenommen.
+4. Wieder `@claude /grill`. Claude liest den ganzen Verlauf und fragt weiter.
+5. Ist nichts Wesentliches mehr offen, postet Claude die **Spec** mit Akzeptanzkriterien und
+   Nicht-Zielen und setzt `status:triaged`. Danach kommt `/plan`.
+
+Jeder Lauf ist eine frische Sitzung, das Gedächtnis ist der Kommentarverlauf.
 
 ## 3. Elephant/Goldfish: der Plan muss für Fremde verständlich sein
 
@@ -92,34 +105,35 @@ Heute steht das in CLAUDE.md und in Modul-Docstrings. ADRs ergänzen das:
 
 ## 5. Linter, Typprüfung und Hooks
 
-Heute gibt es weder Tests noch Linter. Was nicht maschinell geprüft wird, ist für einen Agenten nur ein
-Vorschlag.
+Was nicht maschinell geprüft wird, ist für einen Agenten nur ein Vorschlag.
 
-- **Backend:** `ruff` (Lint + Format) und `pytest`. Optional `mypy` oder `pyright`, schrittweise.
-- **Frontend:** `npm run build` (tsc) gibt es schon. ESLint ist optional.
-- **Claude-Code-Hooks** in `.claude/settings.json`:
-  - `PostToolUse` nach Edit/Write auf `*.py` → `ruff format` + `ruff check --fix` für die Datei.
-  - `PreToolUse`-Schutz: Änderungen an `deploy.sh` und die Ausführung von `deploy.sh` blockieren.
+- **Backend:** `pytest` (vorhandene Suite) und `ruff` mit kleinem Regelsatz laufen in der CI
+  (`test.yml`). Später möglich: mehr ruff-Regeln, `mypy`/`pyright`, schrittweise.
+- **Frontend:** `npm run build` (tsc) läuft im Docker-Build. ESLint ist optional.
+- **Claude-Code-Hooks** in `.claude/settings.json` (greifen auch in der GitHub Action):
+  - `PostToolUse` nach Edit/Write auf `*.py` → `ruff check --fix`, verbleibende Fehler gehen an Claude zurück.
+  - `PreToolUse` für `deploy.sh` (ändern oder ausführen) → immer Rückfrage. In der Action heißt das: nein.
   - Faustregel: Was **immer** gelten muss, gehört in einen Hook oder in die CI. CLAUDE.md beschreibt
     Kontext und Gründe.
 
-## 6. Eingebaute Skills für das Review
+## 6. Review: Code und Sicherheit
 
-Gibt es in Claude Code bereits, ohne Installation:
+Claude Code hat eingebaute Skills `/code-review` und `/security-review`. Statt sich darauf zu
+verlassen, dass sie in der Action verfügbar sind, steckt ihr Inhalt projektspezifisch in
+`.github/claude/review.md`: Akzeptanzkriterien, Korrektheit und Sicherheit gegen das Bedrohungsmodell
+(README „Sicherheit“, ADRs). Das ist **wichtig für HomeAtlas**, weil das Projekt Zugangsdaten,
+SSH-Zugänge und den Docker-Socket verwaltet. Das Review läuft automatisch bei jedem Agenten-PR und
+auf `@claude /review` bei jedem anderen.
 
-- `/code-review`: sucht Fehler in der Logik. Läuft im Review-Job jedes Agenten-PRs.
-- `/security-review`: **wichtig für HomeAtlas**. Das Projekt verwaltet Zugangsdaten, SSH-Zugänge und den
-  Docker-Socket. Pflicht bei Issues mit `risk:high`, sinnvoll bei allen PRs.
-- `/simplify`: räumt auf (Wiederverwendung, Vereinfachung). Gelegentlich nutzen, nicht automatisch.
+## 7. Große Vorhaben zerlegen (to-issues-Prinzip)
 
-## 7. to-issues / to-prd (Matt Pocock), optional
+Der Skill `to-issues` (Matt Pocock) zerlegt einen großen Plan in **vertikale Slices**: kleine Issues,
+die jeweils für sich lauffähig sind, quer durch Backend und Frontend statt erst nur Backend. Hier
+übernimmt das `/plan`. Ist ein Vorhaben zu groß für einen PR, schlägt es Teil-Issues vor, statt einen
+Riesenplan zu schreiben. Die Teil-Issues legst du an, oder du bittest per `@claude` darum.
 
-- `to-issues` zerlegt einen großen Plan in **vertikale Slices**: kleine Issues, die jeweils für sich
-  lauffähig sind, quer durch Backend und Frontend statt erst nur Backend. Das passt gut zum Issue-Workflow
-  und hält PRs klein.
-- `improve-codebase-architecture`: hin und wieder ein Architektur-Check, der Refactoring-Vorschläge als
-  Issues anlegt. Er liest ADRs, wenn welche da sind.
-- Ohne Bedarf weglassen. `writing-plans` aus Superpowers deckt Features mittlerer Größe ab.
+Ein späterer Ausbau wäre ein `@claude /architecture`, das gelegentlich die Codebasis auf
+Refactoring-Bedarf prüft und Vorschläge als Issues anlegt. Vorbild ist `improve-codebase-architecture`.
 
 ## 8. Sprach- und Stack-spezifische Skills
 
@@ -128,20 +142,29 @@ gut. Der Hebel liegt bei **Werkzeugen** (ruff, pytest, tsc) und **projekteigenen
 ADRs). Lohnend sind höchstens:
 
 - **frontend-design** (Anthropic-Plugin): für neue Seiten und Redesigns, damit die UI nicht generisch
-  aussieht.
-- **Playwright** (vorinstalliert in Cloud-Sessions) bzw. der `/run`-Skill: Claude startet die App und
-  sieht sich die Änderung im Browser an, statt nur den Build zu prüfen.
+  aussieht. Ließe sich über das `plugins`-Input der Action einbinden, falls UI-Arbeit häufiger wird.
+- **Playwright-Screenshots im PR:** Die Action könnte die App starten und Screenshots geänderter Seiten
+  anhängen. Lohnt sich, sobald regelmäßig Frontend-PRs kommen.
 - Nicht empfohlen: Sammlungen wie „50 Python-Skills“. Sie überschneiden sich und konkurrieren um
   dieselben Auslöser.
 
-## 9. Bewusst nicht empfohlen
+## 9. Fertige Frameworks: bewusst nicht im Einsatz
 
+Alle laufen als Plugins bzw. Slash-Commands in interaktiven Sitzungen. Bei reiner Arbeit über Issues
+kommen sie nicht zum Zug, und ihre Methode steckt bereits in den Prompts.
+
+- **Superpowers** (obra): leichtgewichtiges Spec-Driven Development (brainstorming → Spec →
+  writing-plans → Umsetzung mit Subagents und TDD). Gute Vorlage, deren Ideen hier übernommen sind:
+  Test zuerst, frischer Kontext je Task, Review gegen die Spec. Die alten Dateien unter
+  `docs/superpowers/` bleiben als Dokumentation der damaligen Änderung liegen.
 - **GitHub Spec Kit**: mächtig, aber viele Dateien und Zeremonie (constitution → specify → plan →
-  tasks → implement). Doppelt sich mit Superpowers.
-- **OpenSpec**: schlanker als Spec Kit, doppelt sich aber ebenfalls mit Superpowers. Erst interessant,
-  wenn du Superpowers aufgibst.
-- **BMAD**: simuliert ein ganzes Team aus Rollen (PM, Architekt, Scrum Master). Für ein
-  Ein-Personen-Projekt zu schwer.
+  tasks → implement).
+- **OpenSpec**: schlank, mit dauerhaften Spec-Dateien zum aktuellen Verhalten. Interessant, falls
+  später mehrere Personen mitarbeiten.
+- **BMAD**: simuliert ein ganzes Team aus Rollen. Für ein Ein-Personen-Projekt zu schwer.
+
+Wer doch einmal lokal oder in einer Cloud-Sitzung arbeitet, kann die Prompts dort genauso nutzen:
+„Lies `.github/claude/plan.md` und plane Issue #N.“
 
 ## 10. Arbeitsweise (unabhängig von Werkzeugen)
 
@@ -158,14 +181,14 @@ ADRs). Lohnend sind höchstens:
 
 ```
 Issue (Formular)
-  └─ Idee vage?  → grill-me (lokal/Cloud-Session) → Ergebnis als Kommentar
+  └─ Idee vage?  → @claude /grill (mehrere Runden) → Spec mit Akzeptanzkriterien
   └─ @claude /triage   → Labels, Risiko, Rückfragen
-  └─ @claude /plan     → Superpowers: Spec + Plan
+  └─ @claude /plan     → Plan: Akzeptanzkriterien → Tasks → Tests
                          └─ Goldfish-Check durch einen frischen Subagent
                          └─ groß? → to-issues → Teil-Issues
-  └─ status:approved   → Superpowers: subagent-driven-development + TDD → PR
+  └─ status:approved   → Umsetzung Test zuerst, Subagents je Task → PR
   └─ PR                → CI (ruff, pytest, tsc, Docker-Build)
-                         + /code-review (+ /security-review bei risk:high)
+                         + Claude-Review: Akzeptanzkriterien, Korrektheit, Sicherheit
   └─ Merge (du)        → release.yml
 ```
 
