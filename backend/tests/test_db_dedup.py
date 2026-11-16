@@ -141,3 +141,98 @@ def test_upsert_updates_unifi_name_but_preserves_confirmed_homeatlas_name(temp_d
 
     assert renamed["name"] == "Neuer UniFi-Name"
     assert confirmed["name"] == "HomeAtlas-Name"
+
+
+# --- find_system_by_unique_controller_ip: routed devices seen by IP only ------------------------
+
+def _unifi_finding(ip="10.20.0.5", mac="aa:bb:cc:00:00:01", name="UniFi-Name"):
+    return {
+        "discoveryKey": f"mac:{mac}", "kind": "pc", "name": name, "mac": mac, "ip": ip,
+        "discoverySource": "unifi+ki", "extra": {"unifi": {"name": name}},
+    }
+
+
+def _scan_finding(ip="10.20.0.5"):
+    return {"discoveryKey": f"ip:{ip}", "kind": "other", "name": f"Gerät {ip}", "ip": ip,
+            "discoverySource": "ping", "extra": {}}
+
+
+def test_merge_ip_only_found_into_single_controller_row(temp_db):
+    row = temp_db.create_system(_unifi_finding())
+    system, created = temp_db.upsert_discovered_system(_scan_finding())
+    assert not created
+    assert system["id"] == row["id"]
+    assert len(temp_db.list_systems()) == 1
+
+
+def test_merge_controller_found_into_existing_ip_only_scan_row(temp_db):
+    """Pipeline order: network scan first (no MAC off-segment), controller second."""
+    scan_row, _ = temp_db.upsert_discovered_system(_scan_finding())
+    system, created = temp_db.upsert_discovered_system(_unifi_finding())
+    assert not created
+    assert system["id"] == scan_row["id"]
+    assert system["mac"] == "aa:bb:cc:00:00:01"
+    # a second identical run must neither duplicate nor flip the discoveryKey
+    for _ in range(2):
+        again, created = temp_db.upsert_discovered_system(_scan_finding())
+        assert not created and again["id"] == scan_row["id"]
+        again, created = temp_db.upsert_discovered_system(_unifi_finding())
+        assert not created and again["id"] == scan_row["id"]
+    assert len(temp_db.list_systems()) == 1
+    assert temp_db.get_system(scan_row["id"])["discoveryKey"] == "mac:aa:bb:cc:00:00:01"
+
+
+def test_no_merge_when_two_rows_share_ip(temp_db):
+    temp_db.create_system(_unifi_finding(mac="aa:bb:cc:00:00:01"))
+    temp_db.create_system(_unifi_finding(mac="aa:bb:cc:00:00:02"))
+    assert temp_db.find_system_by_unique_controller_ip(_scan_finding()) is None
+    _, created = temp_db.upsert_discovered_system(_scan_finding())
+    assert created
+
+
+def test_no_merge_when_no_controller_origin(temp_db):
+    temp_db.create_system({"discoveryKey": "mac:aa:bb:cc:00:00:09", "name": "X", "mac": "aa:bb:cc:00:00:09",
+                           "ip": "10.20.0.5", "discoverySource": "ping+mdns", "extra": {}})
+    assert temp_db.find_system_by_unique_controller_ip(_scan_finding()) is None
+    assert temp_db.find_system_by_unique_controller_ip({"ip": "10.20.0.5", "mac": "aa:bb:cc:00:00:10"}) is None
+
+
+def test_no_merge_when_macs_conflict(temp_db):
+    temp_db.create_system(_unifi_finding(mac="aa:bb:cc:00:00:01"))
+    other = {"discoveryKey": "mac:aa:bb:cc:00:00:02", "ip": "10.20.0.5", "mac": "aa:bb:cc:00:00:02",
+             "extra": {"unifi": {}}}
+    assert temp_db.find_system_by_unique_controller_ip(other) is None
+
+
+def test_no_merge_on_empty_ip(temp_db):
+    temp_db.create_system({"name": "A", "ip": "", "extra": {"unifi": {}}})
+    assert temp_db.find_system_by_unique_controller_ip({"ip": "", "extra": {"unifi": {}}}) is None
+
+
+def test_ip_hostname_rule_still_wins(temp_db):
+    temp_db.create_system(_unifi_finding(ip="10.20.0.7", mac="aa:bb:cc:00:00:07"))
+    by_host = temp_db.create_system({"name": "Laptop", "ip": "10.20.0.8", "hostname": "laptop.local"})
+    found = {"ip": "10.20.0.8", "hostname": "laptop.local", "extra": {"unifi": {}}}
+    assert temp_db.find_system_for_merge(found)["id"] == by_host["id"]
+
+
+def test_ip_merge_keeps_confirmed_manual_fields(temp_db):
+    row = temp_db.create_system({
+        "discoveryKey": "ip:10.20.0.5", "name": "Mein Drucker", "location": "Büro",
+        "descriptionMd": "Handgeschrieben", "kind": "printer", "importance": "high",
+        "ip": "10.20.0.5", "confirmed": 1, "discovered": 1,
+    })
+    system, created = temp_db.upsert_discovered_system(_unifi_finding(name="UniFi-Name"))
+    assert not created and system["id"] == row["id"]
+    assert system["name"] == "Mein Drucker"
+    assert system["location"] == "Büro"
+    assert system["descriptionMd"] == "Handgeschrieben"
+    assert system["kind"] == "printer"
+    assert system["importance"] == "high"
+    assert system["mac"] == "aa:bb:cc:00:00:01"  # empty field filled
+
+
+def test_ip_merge_unconfirmed_takes_unifi_name(temp_db):
+    scan_row, _ = temp_db.upsert_discovered_system(_scan_finding())
+    system, _ = temp_db.upsert_discovered_system(_unifi_finding(name="UniFi-Name"))
+    assert system["id"] == scan_row["id"] and system["name"] == "UniFi-Name"
