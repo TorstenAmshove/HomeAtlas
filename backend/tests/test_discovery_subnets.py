@@ -101,3 +101,35 @@ def test_discover_warns_once_per_routed_subnet(monkeypatch):
     assert not any("geroutetes Netz?" in w and "10.99.0.0" in w for w in result["warnings"])
     assert sum("10.98.0.0/29" in w for w in result["warnings"]) == 1
     assert not any("192.168.1.0/30" in w for w in result["warnings"])
+
+
+def _boom():
+    raise AssertionError("local_subnets must not be called")
+
+
+def test_selected_subnets_reports_source_name_and_vlan(monkeypatch):
+    monkeypatch.setattr(discovery, "local_subnets", _boom)
+    resources = [{**_net("a", "192.168.20.0/24"), "name": "IoT"}, _net("b", "10.0.0.0/24")]
+    settings = {"scanControllerNetworkIds": ["a"], "scanSubnets": ["10.0.0.5/24", "192.168.20.7/24", "bad"]}
+    assert discovery.selected_subnets(settings, resources) == [
+        {"cidr": "192.168.20.0/24", "source": "controller", "name": "IoT", "vlan": 1},
+        {"cidr": "10.0.0.0/24", "source": "freitext"},
+        {"cidr": "bad", "source": "freitext"},
+    ]
+
+
+def test_selected_subnets_empty_and_stale_selection(monkeypatch):
+    monkeypatch.setattr(discovery, "local_subnets", _boom)
+    resources = [_net("a", "10.0.0.0/24", active=0), _net("b", "10.0.1.0/24", enabled=0), _net("c", "")]
+    assert discovery.selected_subnets({}, resources) == []
+    assert discovery.selected_subnets(
+        {"scanControllerNetworkIds": "a", "scanSubnets": [" "]}, resources) == []
+    assert discovery.selected_subnets(
+        {"scanControllerNetworkIds": ["a", "b", "c", "gone"]}, resources) == []
+
+
+def test_selected_subnets_duplicate_keeps_controller_position():
+    resources = [_net("a", "10.0.0.0/24")]
+    result = discovery.selected_subnets(
+        {"scanControllerNetworkIds": ["a"], "scanSubnets": ["10.0.0.0/24"]}, resources)
+    assert [e["source"] for e in result] == ["controller"]
