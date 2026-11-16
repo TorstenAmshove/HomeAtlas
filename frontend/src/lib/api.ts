@@ -403,7 +403,7 @@ export interface DiagnosticResult {
 // Endpoints
 // ---------------------------------------------------------------------------------------------
 
-export type DuplicateReason = "hostname" | "selfName" | "vendorModel";
+export type DuplicateReason = "hostname" | "selfName";
 export interface DuplicateCandidate {
   aId: string; bId: string; aName: string; bName: string; reasons: DuplicateReason[];
 }
@@ -412,7 +412,6 @@ export interface SystemAlias { aliasKey: string; ip: string; mac: string; create
 export const DUPLICATE_REASON_LABEL: Record<DuplicateReason, string> = {
   hostname: "gleicher Hostname",
   selfName: "gleicher selbstgemeldeter Name",
-  vendorModel: "gleicher Hersteller und Modell",
 };
 
 export const api = {

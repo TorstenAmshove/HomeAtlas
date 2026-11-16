@@ -22,10 +22,11 @@ def test_same_vendor_only_not_flagged(temp_db):
     assert temp_db.find_duplicate_candidates() == []
 
 
-def test_vendor_and_model_flagged(temp_db):
+def test_identical_vendor_and_model_not_flagged(temp_db):
+    # Two identical devices are normal in a home, not a duplicate.
     _mk(temp_db, "a", vendor="AVM", model="7590")
     _mk(temp_db, "b", vendor="avm", model="7590")
-    assert list(_pairs(temp_db).values()) == [["vendorModel"]]
+    assert temp_db.find_duplicate_candidates() == []
 
 
 def test_self_reported_name_flagged(temp_db):
@@ -37,16 +38,22 @@ def test_self_reported_name_flagged(temp_db):
 
 
 def test_pair_with_several_reasons_is_one_entry(temp_db):
-    _mk(temp_db, "a", hostname="gw", vendor="X", model="Y")
-    _mk(temp_db, "b", hostname="gw", vendor="X", model="Y")
+    _mk(temp_db, "a", hostname="gw", extra={"mdns": [{"name": "Gateway"}]})
+    _mk(temp_db, "b", hostname="gw", extra={"mdns": [{"name": "gateway"}]})
     result = temp_db.find_duplicate_candidates()
-    assert len(result) == 1 and set(result[0]["reasons"]) == {"hostname", "vendorModel"}
+    assert len(result) == 1 and set(result[0]["reasons"]) == {"hostname", "selfName"}
 
 
 def test_three_devices_same_hostname_give_three_pairs(temp_db):
     for n in "abc":
         _mk(temp_db, n, hostname="gw")
     assert len(temp_db.find_duplicate_candidates()) == 3
+
+
+def test_generic_name_shared_by_many_not_flagged(temp_db):
+    for n in "abcd":
+        _mk(temp_db, n, hostname="espressif", extra={"mdns": [{"name": "Smart Plug"}]})
+    assert temp_db.find_duplicate_candidates() == []
 
 
 def test_dismissed_pair_not_suggested_after_rescan(temp_db):

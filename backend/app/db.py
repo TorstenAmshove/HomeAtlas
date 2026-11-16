@@ -821,9 +821,17 @@ def _hostname_key(system: dict) -> str:
     return host
 
 
+# A hostname or self-reported name carried by more rows than this is a generic default
+# ("espressif", "android", "Sonos Speaker"), not evidence that the rows are one device.
+_DUPLICATE_KEY_MAX_GROUP = 3
+
+
 def find_duplicate_candidates() -> list[dict]:
-    """Suggestions only -- nothing here ever merges. Pairs share a hostname (first DNS label), a
-    self-reported name, or vendor *and* model; vendor alone is too noisy. Grouped by key, so
+    """Suggestions only -- nothing here ever merges. Pairs share a hostname (first DNS label) or a
+    self-reported name. Vendor and model are deliberately not a reason: two identical devices
+    (two identical access points, a pair of the same smart plugs) are the normal case in a home,
+    not a duplicate, and flagging them buried the real hints. Keys shared by more than
+    _DUPLICATE_KEY_MAX_GROUP rows are generic defaults and are skipped too. Grouped by key, so
     no O(n^2) comparison over all rows. Dismissed pairs are left out."""
     systems = list_systems()
     by_id = {s["id"]: s for s in systems}
@@ -833,13 +841,12 @@ def find_duplicate_candidates() -> list[dict]:
         if _hostname_key(system):
             keys.append(("hostname", _hostname_key(system)))
         keys += [("selfName", n) for n in _self_reported_names(system)]
-        vendor, model = (system.get("vendor") or "").strip().lower(), (system.get("model") or "").strip().lower()
-        if vendor and model:
-            keys.append(("vendorModel", f"{vendor}\x00{model}"))
         for key in keys:
             groups.setdefault(key, set()).add(system["id"])
     pairs: dict[tuple[str, str], list[str]] = {}
     for (reason, _key), ids in groups.items():
+        if len(ids) > _DUPLICATE_KEY_MAX_GROUP:
+            continue
         ordered = sorted(ids)
         for i, a in enumerate(ordered):
             for b in ordered[i + 1:]:
