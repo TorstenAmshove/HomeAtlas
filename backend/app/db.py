@@ -192,6 +192,26 @@ CREATE TABLE IF NOT EXISTS systems (
 CREATE INDEX IF NOT EXISTS idx_systems_kind ON systems(kind);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_systems_identity ON systems(identityKey);
 
+-- Identities of rows folded into another system by merge_systems. A later scan that finds one of
+-- these keys is attributed to the surviving row instead of re-creating the merged-away duplicate.
+-- aliasKey is a discoveryKey or 'mac:<mac>'; ip/mac are what was seen under it ("Weitere IPs").
+CREATE TABLE IF NOT EXISTS systemAliases (
+    aliasKey TEXT PRIMARY KEY,
+    systemId TEXT NOT NULL,
+    ip TEXT NOT NULL DEFAULT '',
+    mac TEXT NOT NULL DEFAULT '',
+    createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_systemaliases_system ON systemAliases(systemId);
+
+-- Pairs a human marked "not a duplicate"; idA < idB so a pair has exactly one row.
+CREATE TABLE IF NOT EXISTS duplicateDismissals (
+    idA TEXT NOT NULL,
+    idB TEXT NOT NULL,
+    createdAt TEXT NOT NULL,
+    PRIMARY KEY (idA, idB)
+);
+
 CREATE TABLE IF NOT EXISTS accounts (
     id TEXT PRIMARY KEY,
     systemId TEXT,
@@ -682,6 +702,8 @@ def delete_system(system_id: str) -> None:
         conn.execute("DELETE FROM accountAssignments WHERE targetType = 'system' AND targetValue = ?",
                      (system_id,))
         conn.execute("DELETE FROM accounts WHERE systemId = ?", (system_id,))
+        conn.execute("DELETE FROM systemAliases WHERE systemId = ?", (system_id,))
+        conn.execute("DELETE FROM duplicateDismissals WHERE idA = ? OR idB = ?", (system_id, system_id))
         conn.execute("DELETE FROM systems WHERE id = ?", (system_id,))
 
 
@@ -692,7 +714,10 @@ def merge_systems(keep_id: str, remove_id: str) -> dict | None:
     since each interface only speaks on its own subnet) plus, commonly, a further hand-created row
     for the same box. There is no automatic detection for this -- unlike upsert's MAC/Proxmox/
     IP+hostname fallbacks, "two rows are actually the same multi-homed device" has no reliable
-    signal to key off of, so a human picks the pair and which one survives.
+    signal to key off of, so a human picks the pair and which one survives. Aliases keep the merge
+    permanent: the removed row's discoveryKey and MAC (plus the IP seen under them) are stored in
+    `systemAliases`, so a later scan finding them lands on `keep_id` instead of re-creating the
+    duplicate. "No automatic detection" stays true -- only the human's pick ever merges.
 
     `keep_id` wins every field conflict; blank fields on it are filled from `remove_id` (same
     "new information, not an overwrite" rule as upsert_discovered_system's confirmed-row branch),
@@ -731,6 +756,30 @@ def merge_systems(keep_id: str, remove_id: str) -> dict | None:
         update_system(keep_id, patch)
 
     with _conn() as conn:
+        now = _now()
+        keep_key = keep.get("discoveryKey") or ""
+        keep_mac = (keep.get("mac") or "").lower()
+        remove_mac = (remove.get("mac") or "").lower()
+        remove_ip = remove.get("ip") or ""
+        if remove_ip == (keep.get("ip") or ""):
+            remove_ip = ""
+        remove_key = remove.get("discoveryKey") or ""
+        if remove_key and remove_key != keep_key:
+            conn.execute(
+                "INSERT OR REPLACE INTO systemAliases(aliasKey, systemId, ip, mac, createdAt) VALUES(?,?,?,?,?)",
+                (remove_key, keep_id, remove_ip, remove_mac if remove_mac != keep_mac else "", now),
+            )
+        if remove_mac and remove_mac != keep_mac:
+            conn.execute(
+                "INSERT OR REPLACE INTO systemAliases(aliasKey, systemId, ip, mac, createdAt) VALUES(?,?,?,?,?)",
+                (f"mac:{remove_mac}", keep_id, remove_ip, remove_mac, now),
+            )
+        conn.execute("UPDATE systemAliases SET systemId = ? WHERE systemId = ?", (keep_id, remove_id))
+        if keep_key:
+            conn.execute("DELETE FROM systemAliases WHERE aliasKey = ?", (keep_key,))
+        if keep_mac:
+            conn.execute("DELETE FROM systemAliases WHERE aliasKey = ?", (f"mac:{keep_mac}",))
+        conn.execute("DELETE FROM duplicateDismissals WHERE idA = ? OR idB = ?", (remove_id, remove_id))
         conn.execute("UPDATE systems SET parentId = ? WHERE parentId = ?", (keep_id, remove_id))
         conn.execute("UPDATE accounts SET systemId = ? WHERE systemId = ?", (keep_id, remove_id))
         conn.execute(
@@ -742,6 +791,97 @@ def merge_systems(keep_id: str, remove_id: str) -> dict | None:
         conn.execute("UPDATE deviceErrorEvents SET systemId = ? WHERE systemId = ?", (keep_id, remove_id))
         conn.execute("DELETE FROM systems WHERE id = ?", (remove_id,))
     return get_system(keep_id)
+
+
+def _self_reported_names(system: dict) -> set[str]:
+    """UPnP friendlyName and mDNS names from `extra`; tolerant of missing/odd shapes."""
+    extra = system.get("extra")
+    extra = extra if isinstance(extra, dict) else {}
+    names: set[str] = set()
+    ssdp = extra.get("ssdp")
+    for entry in ssdp if isinstance(ssdp, list) else ():
+        description = entry.get("description") if isinstance(entry, dict) else None
+        name = description.get("friendlyName") if isinstance(description, dict) else None
+        if isinstance(name, str) and name.strip():
+            names.add(name.strip().lower())
+    mdns = extra.get("mdns")
+    for entry in mdns if isinstance(mdns, list) else ():
+        name = entry.get("name") if isinstance(entry, dict) else None
+        if isinstance(name, str) and name.strip():
+            names.add(name.strip().lower())
+    return names
+
+
+def _hostname_key(system: dict) -> str:
+    host = (system.get("hostname") or "").strip().lower().split(".")[0]
+    if not host or host.replace(".", "").isdigit():
+        return ""
+    return host
+
+
+def find_duplicate_candidates() -> list[dict]:
+    """Suggestions only -- nothing here ever merges. Pairs share a hostname (first DNS label), a
+    self-reported name, or vendor *and* model; vendor alone is too noisy. Grouped by key, so
+    no O(n^2) comparison over all rows. Dismissed pairs are left out."""
+    systems = list_systems()
+    by_id = {s["id"]: s for s in systems}
+    groups: dict[tuple[str, str], set[str]] = {}
+    for system in systems:
+        keys = []
+        if _hostname_key(system):
+            keys.append(("hostname", _hostname_key(system)))
+        keys += [("selfName", n) for n in _self_reported_names(system)]
+        vendor, model = (system.get("vendor") or "").strip().lower(), (system.get("model") or "").strip().lower()
+        if vendor and model:
+            keys.append(("vendorModel", f"{vendor}\x00{model}"))
+        for key in keys:
+            groups.setdefault(key, set()).add(system["id"])
+    pairs: dict[tuple[str, str], list[str]] = {}
+    for (reason, _key), ids in groups.items():
+        ordered = sorted(ids)
+        for i, a in enumerate(ordered):
+            for b in ordered[i + 1:]:
+                reasons = pairs.setdefault((a, b), [])
+                if reason not in reasons:
+                    reasons.append(reason)
+    with _conn() as conn:
+        dismissed = {(r["idA"], r["idB"]) for r in conn.execute("SELECT idA, idB FROM duplicateDismissals")}
+    return [
+        {"aId": a, "bId": b, "aName": by_id[a]["name"], "bName": by_id[b]["name"], "reasons": reasons}
+        for (a, b), reasons in sorted(pairs.items()) if (a, b) not in dismissed
+    ]
+
+
+def dismiss_duplicate(id_a: str, id_b: str) -> None:
+    a, b = sorted((id_a, id_b))
+    with _conn() as conn:
+        conn.execute("INSERT OR IGNORE INTO duplicateDismissals(idA, idB, createdAt) VALUES(?,?,?)",
+                     (a, b, _now()))
+
+
+def list_aliases(system_id: str) -> list[dict]:
+    with _conn() as conn:
+        return _rows(conn.execute(
+            "SELECT aliasKey, ip, mac, createdAt FROM systemAliases WHERE systemId = ? ORDER BY createdAt, aliasKey",
+            (system_id,),
+        ))
+
+
+def find_system_by_alias(alias_key: str) -> dict | None:
+    if not alias_key:
+        return None
+    with _conn() as conn:
+        return _row(conn.execute(
+            "SELECT s.* FROM systemAliases a JOIN systems s ON s.id = a.systemId WHERE a.aliasKey = ?",
+            (alias_key,),
+        ).fetchone())
+
+
+def _touch_alias_ip(alias_key: str, ip: str) -> None:
+    if not ip:
+        return
+    with _conn() as conn:
+        conn.execute("UPDATE systemAliases SET ip = ? WHERE aliasKey = ?", (ip, alias_key))
 
 
 def find_system_by_key(discovery_key: str) -> dict | None:
@@ -867,16 +1007,33 @@ def upsert_discovered_system(found: dict) -> tuple[dict, bool]:
     sweep, with no resolved MAC) merges into the row an earlier scan already created via another
     (say, Proxmox, keyed by MAC) instead of duplicating it. See its own docstring for why each
     fallback exists.
+
+    Between the exact/legacy-key lookups and `find_system_for_merge` sits the alias lookup: keys
+    (and `mac:<mac>`) of rows a human merged away are attributed to the surviving row. On such a
+    hit the survivor's own discoveryKey/ip/mac stay untouched (the alias row records the IP seen).
     """
-    existing = find_system_by_key(found.get("discoveryKey", ""))
+    found_key = found.get("discoveryKey", "")
+    existing = find_system_by_key(found_key)
     if existing is None:
         for legacy_key in found.get("legacyDiscoveryKeys") or ():
             existing = find_system_by_key(legacy_key)
             if existing is not None:
                 break
+    via_alias = ""
+    if existing is None:
+        found_mac = (found.get("mac") or "").strip().lower()
+        for candidate in (found_key, *(found.get("legacyDiscoveryKeys") or ()),
+                          f"mac:{found_mac}" if found_mac else ""):
+            existing = find_system_by_alias(candidate)
+            if existing is not None:
+                via_alias = candidate
+                break
     if existing is None:
         existing = find_system_for_merge(found)
     now = _now()
+    if via_alias:
+        _touch_alias_ip(via_alias, found.get("ip") or "")
+        found = {k: v for k, v in found.items() if k not in ("discoveryKey", "ip", "mac")}
     if existing is None:
         created = create_system({**found, "discovered": 1, "firstSeen": now, "lastSeen": now})
         return created, True

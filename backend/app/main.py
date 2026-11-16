@@ -519,6 +519,30 @@ async def list_systems(kind: str | None = None, _: dict = Depends(current_user))
             "kindLabels": docs.KIND_LABELS}
 
 
+@app.get("/api/systems/duplicates")
+async def duplicate_candidates(_: dict = Depends(require_admin)) -> dict:
+    """Merge suggestions only; merging itself stays the explicit POST .../merge."""
+    return {"candidates": db.find_duplicate_candidates()}
+
+
+@app.get("/api/systems/{system_id}/aliases")
+async def system_aliases(system_id: str, _: dict = Depends(require_admin)) -> dict:
+    if db.get_system(system_id) is None:
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
+    return {"aliases": db.list_aliases(system_id)}
+
+
+@app.post("/api/systems/{system_id}/not-duplicate")
+async def not_duplicate(system_id: str, body: dict = Body(...), _: dict = Depends(require_admin)) -> dict:
+    other_id = (body.get("otherId") or "").strip()
+    if not other_id or other_id == system_id:
+        raise HTTPException(status_code=400, detail="otherId fehlt oder entspricht dem Gerät selbst.")
+    if db.get_system(system_id) is None or db.get_system(other_id) is None:
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
+    db.dismiss_duplicate(system_id, other_id)
+    return {"ok": True}
+
+
 @app.get("/api/systems/{system_id}")
 async def get_system(system_id: str, _: dict = Depends(current_user)) -> dict:
     system = db.get_system(system_id)
