@@ -336,9 +336,11 @@ Inventar über die Auswahl mehrerer Geräte. Konten, Verlauf und Monitoring wand
 - **Dauerhaft:** Discovery-Schlüssel, IPs und MACs des entfernten Eintrags merkt sich das behaltene
   Gerät als Aliase. Spätere Scans ordnen diese Funde dem behaltenen Gerät zu, statt ein neues
   anzulegen. Die zusätzlichen Adressen zeigt die Detailansicht als „Weitere IPs".
-- **Hinweise „Doppelt?":** Bei gleichem Hostnamen, gleichem selbstgemeldetem Namen (UPnP/mDNS) oder
-  gleichem Hersteller *und* Modell schlägt HomeAtlas im Inventar und in der Detailansicht ein
-  Zusammenführen vor. Gleicher Hersteller allein genügt nicht.
+- **Hinweise „Doppelt?":** Bei gleichem Hostnamen oder gleichem selbstgemeldetem Namen (UPnP/mDNS)
+  schlägt HomeAtlas im Inventar und in der Detailansicht ein Zusammenführen vor. Gleicher Hersteller
+  und gleiches Modell sind kein Hinweis – zwei baugleiche Geräte sind normal. Teilen mehr als drei
+  Geräte denselben Namen (z. B. ein Werks-Hostname wie „espressif"), gilt er als generisch und
+  löst keinen Hinweis aus.
 - **„Kein Duplikat"** blendet einen Hinweis dauerhaft aus, auch nach neuen Scans.
 - **Ausnahme Controller-Funde:** Ein nur per IP gefundenes (geroutetes) Gerät wird automatisch mit
   dem UniFi-/Omada-Eintrag zusammengeführt, wenn genau ein Eintrag diese IP hat und die MACs nicht
