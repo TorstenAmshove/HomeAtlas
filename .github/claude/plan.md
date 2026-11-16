@@ -24,7 +24,8 @@ also für sich allein verständlich sein.
    - Bestehende Funktionen wiederverwenden und mit Pfad nennen.
    - Ist das Vorhaben zu groß für einen PR (mehr als ca. 400 geänderte Zeilen oder mehr als ein
      Feature), schlage stattdessen eine Aufteilung in Teil-Issues vor (Titel + je ein Satz).
-4. **Goldfish-Prüfung, bevor du postest.** Starte einen Subagent (Task-/Agent-Tool), der **nur** den
+4. **Goldfish-Prüfung, bevor du postest.** Starte einen Subagent (Task-/Agent-Tool, **im Vordergrund**,
+   `run_in_background: false`, siehe `common.md` Regel 10), der **nur** den
    Planentwurf (als Text im Prompt) und das Repo bekommt, **nicht** das Issue und nicht deine Überlegungen.
    Auftrag an ihn:
    > „Du bekommst einen Umsetzungsplan für das Repo im aktuellen Verzeichnis. Du kennst das Ticket

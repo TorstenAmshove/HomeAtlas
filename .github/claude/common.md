@@ -38,3 +38,7 @@
    ```
    Prüfe danach mit `gh issue view <N> --comments`, dass der Kommentar wirklich da ist. Ein Lauf,
    der ohne geposteten Kommentar endet, ist gescheitert, auch wenn er „success“ meldet.
+10. **Nichts im Hintergrund starten.** Der Lauf endet, sobald du deinen Turn beendest, und alles, was
+    dann noch im Hintergrund läuft, wird abgebrochen. Subagents (Task-/Agent-Tool) und Shell-Befehle
+    immer im Vordergrund starten (`run_in_background: false`) und auf ihr Ergebnis warten. Beende
+    deinen Turn nie mit „ich warte auf …“: Erst wenn der Kommentar gepostet ist, bist du fertig.

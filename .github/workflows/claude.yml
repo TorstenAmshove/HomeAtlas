@@ -35,6 +35,13 @@ concurrency:
 permissions:
   contents: read
 
+# Headless runs end when the model ends its turn, and that kills any subagent or shell command
+# still running in the background (issues #17/#18: the plan job started its goldfish subagent in
+# the background, said "waiting for the result", and the run ended without posting the plan).
+# Forcing everything into the foreground makes the model wait for results within the run.
+env:
+  CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: "1"
+
 jobs:
   help:
     # Plain shell, no Claude run: answering "which commands are there?" should not cost quota.
