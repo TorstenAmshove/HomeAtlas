@@ -112,6 +112,37 @@ def ip_in_network(ip: str, network) -> bool:
         return False
 
 
+def routed_subnet_warnings(networks: list, local: list[str], silent: set[str] | None = None) -> list[str]:
+    """One warning per scan network that overlaps no network directly attached to this host --
+    such a network is only reachable via the gateway, so there is no ARP/MAC (hence no vendor,
+    weaker identity) and no mDNS/SSDP. `networks` are ipaddress networks; `silent` holds CIDR
+    strings that get a no-reply note appended. Empty `local` (interface detection failed) means
+    "cannot judge" and yields nothing. See docs/multi-vlan.md."""
+    local_nets = []
+    for cidr in local:
+        try:
+            local_nets.append(ipaddress.ip_network(cidr, strict=False))
+        except ValueError:
+            continue
+    if not local_nets:
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for network in networks:
+        text = str(network)
+        if text in seen:
+            continue
+        seen.add(text)
+        if any(network.version == lan.version and network.overlaps(lan) for lan in local_nets):
+            continue
+        note = " Keine Adresse hat geantwortet." if silent and text in silent else ""
+        out.append(
+            f"{text} ist nur geroutet erreichbar: keine MAC/Hersteller, kein mDNS/SSDP.{note} "
+            "Siehe docs/multi-vlan.md"
+        )
+    return out
+
+
 def _normalize_cidr(value: object) -> str | None:
     """Canonical IPv4 network string, or None for anything that is not a valid IPv4 CIDR."""
     try:
@@ -760,7 +791,13 @@ async def discover(settings: dict, progress: ProgressFn, extra_targets: list[str
             continue
         if mac:
             alive[ip] = []
+    silent_nets = {str(n) for _s, n in valid_networks if not any(ip_in_network(ip, n) for ip in alive)}
+    routed_warnings = routed_subnet_warnings([n for _s, n in valid_networks], local_subnets(), silent_nets)
+    warnings.extend(routed_warnings)
+    routed_texts = {w.split(" ist nur geroutet", 1)[0] for w in routed_warnings}
     for subnet, network in valid_networks:
+        if str(network) in routed_texts:
+            continue  # already covered by the routed-network warning
         if not any(ip_in_network(ip, network) for ip in alive):
             warnings.append(
                 f"{subnet}: keine Adresse hat geantwortet (geroutetes Netz? ARP/mDNS reichen dort nicht)."

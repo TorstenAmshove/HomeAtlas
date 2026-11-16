@@ -59,6 +59,7 @@ def test_discover_uses_given_subnets_including_routed_network(monkeypatch):
 
 
 def test_warns_for_subnet_without_any_responding_host(monkeypatch):
+    monkeypatch.setattr(discovery, "local_subnets", lambda: ["10.1.0.0/29"])
     result = _run_discover(monkeypatch, {"scanExcludeIps": ["10.2.0.1"]},
                            ["10.1.0.0/29", "10.2.0.0/29"], alive={"10.1.0.2", "10.2.0.1"})
     text = "\n".join(result["warnings"])
@@ -69,3 +70,34 @@ def test_warns_for_subnet_without_any_responding_host(monkeypatch):
 def test_arp_hit_counts_as_responding(monkeypatch):
     result = _run_discover(monkeypatch, {}, ["10.3.0.0/29"], alive=set(), arp={"10.3.0.4": "aa:bb:cc:dd:ee:ff"})
     assert not any("geantwortet" in w for w in result["warnings"])
+
+
+import ipaddress  # noqa: E402
+
+
+def _nets(*cidrs):
+    return [ipaddress.ip_network(c) for c in cidrs]
+
+
+def test_routed_subnet_warnings_one_per_routed_subnet():
+    out = discovery.routed_subnet_warnings(
+        _nets("192.168.1.0/24", "10.20.0.0/24", "10.30.0.0/24"), ["192.168.1.0/24"])
+    assert len(out) == 2
+    assert "10.20.0.0/24" in out[0] and "docs/multi-vlan.md" in out[0]
+
+
+def test_routed_subnet_warnings_local_none_duplicates_once_and_unknown_local_none():
+    assert discovery.routed_subnet_warnings(_nets("192.168.1.0/24"), ["192.168.1.0/24"]) == []
+    assert len(discovery.routed_subnet_warnings(_nets("10.9.0.0/24", "10.9.0.0/24"), ["192.168.1.0/24"])) == 1
+    assert discovery.routed_subnet_warnings(_nets("10.9.0.0/24"), []) == []
+
+
+def test_discover_warns_once_per_routed_subnet(monkeypatch):
+    monkeypatch.setattr(discovery, "local_subnets", lambda: ["192.168.1.0/24"])
+    result = _run_discover(monkeypatch, {}, ["192.168.1.0/30", "10.99.0.0/29", "10.98.0.0/29"],
+                           alive={"192.168.1.1", "10.99.0.3"})
+    routed = [w for w in result["warnings"] if "nur geroutet" in w]
+    assert len(routed) == 2
+    assert not any("geroutetes Netz?" in w and "10.99.0.0" in w for w in result["warnings"])
+    assert sum("10.98.0.0/29" in w for w in result["warnings"]) == 1
+    assert not any("192.168.1.0/30" in w for w in result["warnings"])
