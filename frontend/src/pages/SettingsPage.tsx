@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, type ApiToken, type ModelOption, type PasswordPolicy, type SettingsResponse } from "../lib/api";
+import { api, type ApiToken, type ModelOption, type NetworkResource, type PasswordPolicy, type SettingsResponse } from "../lib/api";
 import { useAuth } from "../App";
 
 const KEY_FIELD: Record<string, string> = {
@@ -14,6 +14,9 @@ const BASE_URL_FIELD: Record<string, string> = {
   CLAUDE: "claudeBaseUrl", OPENAI: "openAiBaseUrl", DEEPSEEK: "deepseekBaseUrl", OLLAMA: "ollamaBaseUrl",
 };
 
+const validCidr = (value: unknown): value is string =>
+  typeof value === "string" && /^\d{1,3}(\.\d{1,3}){3}\/\d{1,2}$/.test(value.trim());
+
 type Tab = "general" | "llm" | "scan" | "monitor" | "mcp" | "account" | "about";
 
 export default function SettingsPage() {
@@ -23,6 +26,16 @@ export default function SettingsPage() {
   const [form, setForm] = useState<Record<string, any>>({});
   const [notice, setNotice] = useState<{ kind: "ok" | "error" | "info"; text: string } | null>(null);
   const [busy, setBusy] = useState("");
+
+  // UniFi networks selectable for scanning; null = not loaded / unavailable (free text only).
+  const [controllerNets, setControllerNets] = useState<NetworkResource[] | null>(null);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    api.listNetworkResources("network", true)
+      .then((r) => setControllerNets(r.resources.filter((n) => n.enabled && n.active && validCidr(n.facts?.cidr))))
+      .catch(() => setControllerNets(null));
+  }, [isAdmin]);
 
   useEffect(() => {
     api.getSettings().then((r) => {
@@ -205,8 +218,35 @@ export default function SettingsPage() {
         <div className="card">
           <h2>Netzwerk-Scan</h2>
 
+          {controllerNets && controllerNets.length > 0 ? (
+            <div className="field">
+              <label>Netze aus dem UniFi-Controller</label>
+              {controllerNets.map((n) => {
+                const checked: string[] = form.scanControllerNetworkIds ?? [];
+                const isNew = !(form.scanControllerNetworksSeen ?? []).includes(n.id);
+                return (
+                  <label key={n.id} className="row" style={{ marginBottom: 6, cursor: "pointer", fontWeight: 400, color: "var(--text)" }}>
+                    <input type="checkbox" style={{ width: "auto" }} checked={checked.includes(n.id)}
+                           onChange={(e) => set("scanControllerNetworkIds",
+                             e.target.checked ? [...checked, n.id] : checked.filter((id) => id !== n.id))} />
+                    {n.name}
+                    {n.facts?.vlanId != null && <span className="muted"> · VLAN {n.facts.vlanId}</span>}
+                    <span className="muted"> · {n.facts.cidr}</span>
+                    {isNew && <span className="badge"> neu</span>}
+                  </label>
+                );
+              })}
+              <div className="field-hint">
+                Angehakte Netze werden zusätzlich zum Freitext gescannt. Nichts angehakt und Freitext leer =
+                automatisch. Geroutete Netze: kein ARP/mDNS, höchstens 1024 Adressen pro Netz.
+              </div>
+            </div>
+          ) : (
+            <p className="field-hint">Controller-Netze nicht verfügbar (kein UniFi-Abgleich oder noch kein Sync).</p>
+          )}
+
           <div className="field">
-            <label>Netzwerk-Bereiche</label>
+            <label>{controllerNets && controllerNets.length > 0 ? "Weitere Netzwerk-Bereiche" : "Netzwerk-Bereiche"}</label>
             <input
               placeholder="192.168.1.0/24, 192.168.2.0/24 — leer = automatisch erkennen"
               value={(form.scanSubnets ?? []).join(", ")}
@@ -303,7 +343,7 @@ export default function SettingsPage() {
           ))}
 
           <div className="row" style={{ marginTop: 16 }}>
-            <button onClick={() => void save(form)} disabled={busy !== ""}>Speichern</button>
+            <button onClick={() => void save({ ...form, scanControllerNetworksSeen: (controllerNets ?? []).map((n) => n.id) })} disabled={busy !== ""}>Speichern</button>
             <button className="secondary" disabled={busy !== ""} onClick={async () => {
               setBusy("oui");
               const r = await api.refreshOui();

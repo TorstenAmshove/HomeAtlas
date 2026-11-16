@@ -326,13 +326,17 @@ async def run_full_scan(scan_id: str) -> None:
             if not ok:
                 warnings.append(f"Hersteller-Datenbank nicht geladen: {message}")
 
-        configured_subnets = settings.get("scanSubnets") or discovery.local_subnets()
+        configured_subnets = discovery.effective_subnets(
+            settings, db.list_network_resources(kind="network", active_only=True))
         extra = _extra_targets(settings, configured_subnets)
         if extra:
             log(f"Zusätzliche Einzelziele außerhalb der Bereiche: {', '.join(extra[:10])}")
 
-        result = await discovery.discover(settings, progress, extra_targets=extra)
+        result = await discovery.discover(
+            settings, progress, extra_targets=extra, subnets=configured_subnets)
         findings = result["findings"]
+        for w in result["warnings"]:
+            log(w)
         warnings += result["warnings"]
 
         if settings.get("scanEnableDocker", True):

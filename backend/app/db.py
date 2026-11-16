@@ -397,7 +397,9 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "providerModelCache": {},
     "systemPromptOverride": "",
     # Discovery
-    "scanSubnets": [],          # empty -> auto-detected from the host's own interfaces
+    "scanSubnets": [],          # free-text additions; empty + nothing checked -> host interfaces
+    "scanControllerNetworkIds": [],    # networkResources IDs (UniFi networks) ticked for scanning
+    "scanControllerNetworksSeen": [],  # IDs shown at last save; active network not in here = "neu"
     "scanTimeoutMs": 700,
     "scanConcurrency": 128,
     "scanEnableMdns": True,

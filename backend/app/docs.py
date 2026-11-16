@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from . import db, llm_providers, prompts
+from . import db, discovery, llm_providers, prompts
 
 KIND_LABELS = {
     "router": "Router", "network": "Netzwerk-Gerät", "server": "Server", "nas": "Netzwerkspeicher",
@@ -497,7 +497,7 @@ async def generate(settings: dict, use_llm: bool = True, log=None) -> list[str]:
         "router": next((s for s in all_systems if s["kind"] == "router"), None),
         "critical": [s for s in all_systems if s["importance"] == "critical"],
         "last_scan": db.latest_scan(),
-        "subnets": settings.get("scanSubnets") or [],
+        "subnets": discovery.effective_subnets(settings, db.list_network_resources(kind="network", active_only=True)),
     }
 
     written: list[str] = []

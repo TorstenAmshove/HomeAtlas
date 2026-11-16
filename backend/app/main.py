@@ -28,7 +28,7 @@ from fastapi import Body, Cookie, Depends, FastAPI, HTTPException, Request, Resp
 from fastapi.responses import PlainTextResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from . import (auth, crypto, db, diagnostics, docker_admin, docker_probe, docs, llm_providers,
+from . import (auth, crypto, db, diagnostics, discovery, docker_admin, docker_probe, docs, llm_providers,
                mcp_server, model_catalog, monitor as monitor_module, oui, pipeline, probe_auth,
                proxmox_admin, proxmox_probe, remote_admin, security, switch_admin, topology, tools, unifi_probe)
 
@@ -1411,7 +1411,8 @@ async def start_scan(request: Request, user: dict = Depends(require_admin)) -> d
     ip, agent = _client(request)
     db.log_access("scan.start", user=user, ip=ip, user_agent=agent)
     settings = db.get_settings()
-    scan_id = db.create_scan(", ".join(settings.get("scanSubnets") or []) or "automatisch")
+    chosen = discovery.effective_subnets(settings, db.list_network_resources(kind="network", active_only=True))
+    scan_id = db.create_scan(", ".join(chosen) or "automatisch")
     task = asyncio.create_task(pipeline.run_full_scan(scan_id))
     _background_tasks.add(task)
     task.add_done_callback(_background_tasks.discard)

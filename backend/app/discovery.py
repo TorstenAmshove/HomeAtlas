@@ -105,6 +105,50 @@ def local_subnets() -> list[str]:
     return found
 
 
+def ip_in_network(ip: str, network) -> bool:
+    try:
+        return ipaddress.ip_address(ip) in network
+    except ValueError:
+        return False
+
+
+def _normalize_cidr(value: object) -> str | None:
+    """Canonical IPv4 network string, or None for anything that is not a valid IPv4 CIDR."""
+    try:
+        return str(ipaddress.IPv4Network(str(value).strip(), strict=False))
+    except ValueError:
+        return None
+
+
+def effective_subnets(settings: dict, resources: list[dict]) -> list[str]:
+    """Networks a scan covers: checked controller networks first, then the free-text entries.
+
+    `resources` are `networkResources` rows (kind "network"); the caller loads them, so this module
+    stays free of db access. Only active + enabled resources with a valid IPv4 CIDR count -- a
+    stale ID in the selection is ignored. Entries are normalised (10.0.0.5/24 == 10.0.0.0/24) and
+    de-duplicated. Free text that is not a valid CIDR is passed through unchanged so `discover`
+    can warn about it. Nothing selected and no free text -> the host's own interfaces, as before.
+    """
+    selected = settings.get("scanControllerNetworkIds") or []
+    selected = set(selected) if isinstance(selected, list) else set()
+    found: list[str] = []
+    for resource in resources:
+        if resource.get("id") not in selected or not resource.get("active") or not resource.get("enabled"):
+            continue
+        cidr = _normalize_cidr((resource.get("facts") or {}).get("cidr") or "")
+        if cidr and cidr not in found:
+            found.append(cidr)
+    free = settings.get("scanSubnets") or []
+    for entry in free if isinstance(free, list) else []:
+        entry = str(entry).strip()
+        if not entry:
+            continue
+        entry = _normalize_cidr(entry) or entry
+        if entry not in found:
+            found.append(entry)
+    return found or local_subnets()
+
+
 def _local_interface_ips(subnets: list[str]) -> list[str]:
     """Local IPv4 addresses that lie inside one of the scanned subnets (invalid CIDRs ignored)."""
     networks = []
@@ -634,7 +678,8 @@ def _guess(open_ports: list[int], mdns: list[dict], ssdp: list[dict], banner: di
     return "other", model, "Gerät antwortet im Netzwerk, verrät aber keine Details", False
 
 
-async def discover(settings: dict, progress: ProgressFn, extra_targets: list[str] | None = None) -> dict:
+async def discover(settings: dict, progress: ProgressFn, extra_targets: list[str] | None = None,
+                   subnets: list[str] | None = None) -> dict:
     """Runs the whole network side of a scan. Returns findings ready for the inventory plus the
     raw context (gateway, DNS, Docker) the documentation generator needs.
 
@@ -642,6 +687,9 @@ async def discover(settings: dict, progress: ProgressFn, extra_targets: list[str
     a different segment (10.1.1.1 while the LAN is 192.168.1.0/24), a VM behind a bridge, anything
     routed rather than local. They get the full treatment (ping, ports, reverse DNS, banner); only
     the ARP lookup will come up empty for them, since they are not on this L2 segment.
+
+    `subnets` is the resolved list from `effective_subnets` (the caller supplies controller
+    networks from the DB); without it only the settings' free text / host interfaces are used.
     """
     warnings: list[str] = []
     timeout_s = max(0.1, settings.get("scanTimeoutMs", 700) / 1000)
@@ -649,7 +697,8 @@ async def discover(settings: dict, progress: ProgressFn, extra_targets: list[str
     excluded = {ip.strip() for ip in settings.get("scanExcludeIps") or [] if ip.strip()}
 
     progress("Netzwerk-Bereiche ermitteln", 2, "Scan gestartet")
-    subnets = [s for s in (settings.get("scanSubnets") or []) if s.strip()] or local_subnets()
+    if subnets is None:
+        subnets = effective_subnets(settings, [])
     if not subnets:
         raise RuntimeError(
             "Es konnte kein Netzwerk-Bereich ermittelt werden. Bitte unter Einstellungen -> "
@@ -657,12 +706,14 @@ async def discover(settings: dict, progress: ProgressFn, extra_targets: list[str
         )
 
     addresses: list[str] = []
+    valid_networks: list[tuple[str, ipaddress.IPv4Network | ipaddress.IPv6Network]] = []
     for subnet in subnets:
         try:
             network = ipaddress.ip_network(subnet, strict=False)
         except ValueError:
             warnings.append(f"'{subnet}' ist kein gültiger Netzwerk-Bereich und wurde übersprungen.")
             continue
+        valid_networks.append((subnet, network))
         hosts = list(network.hosts())
         if len(hosts) > _MAX_HOSTS_PER_SUBNET:
             warnings.append(
@@ -709,6 +760,11 @@ async def discover(settings: dict, progress: ProgressFn, extra_targets: list[str
             continue
         if mac:
             alive[ip] = []
+    for subnet, network in valid_networks:
+        if not any(ip_in_network(ip, network) for ip in alive):
+            warnings.append(
+                f"{subnet}: keine Adresse hat geantwortet (geroutetes Netz? ARP/mDNS reichen dort nicht)."
+            )
     progress("Dienste prüfen", 36, f"{len(alive)} Geräte gefunden")
 
     # Phase 2 -- full port scan of the hosts that answered.
