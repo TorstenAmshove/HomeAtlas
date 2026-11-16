@@ -10,7 +10,8 @@ Repo-Owners, die ihn ändern.
 
 - Das Issue hat **nicht** das Label `needs-human`.
 - Es gibt einen Umsetzungsplan. Ohne Plan wird nichts improvisiert.
-- Labels: `status:approved` → `status:in-progress`.
+- Labels: alle `status:*` (auch ein übrig gebliebenes `status:planned`) entfernen, `status:in-progress`
+  setzen. Pflicht, nicht überspringen.
 
 ## Umsetzung
 
@@ -63,4 +64,5 @@ Closes #<N>
 - [ ] Manuell zu prüfen: <was ein Mensch sich ansehen sollte>
 ```
 
-Danach Labels im Issue: `status:in-progress` → `status:in-review`.
+Danach Labels im Issue: `status:in-progress` → `status:in-review` (Pflicht). Prüfe mit
+`gh issue view <N> --json labels`, dass genau ein `status:*`-Label übrig ist.
