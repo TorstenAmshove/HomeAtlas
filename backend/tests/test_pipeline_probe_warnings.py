@@ -49,3 +49,16 @@ def test_probe_with_credentials_logs_failure_even_when_another_credential_on_sam
     events = db.list_device_error_events(system["id"])
     assert len(events) == 1
     assert "Zugriffstoken abgelehnt" in events[0]["message"]
+
+
+def test_pipeline_logs_discovery_warnings(temp_db, monkeypatch):
+    async def fake_discover(settings, progress, extra_targets=None, subnets=None):
+        return {"findings": [], "warnings": ["10.9.0.0/24: keine Adresse hat geantwortet"],
+                "gateway": "", "dnsServers": [], "hostIp": "", "routedTargets": [], "counts": {}}
+
+    monkeypatch.setattr(pipeline.discovery, "discover", fake_discover)
+    scan_id = temp_db.create_scan("test")
+    asyncio.run(pipeline.run_full_scan(scan_id))
+    scan = temp_db.latest_scan()
+    blob = str(scan)
+    assert blob.count("10.9.0.0/24: keine Adresse hat geantwortet") >= 1

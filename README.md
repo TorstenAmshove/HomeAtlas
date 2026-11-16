@@ -343,6 +343,15 @@ besser als ein Schulterzucken.
 Scan-Verhalten (Bereiche, Ausnahmen, Timeouts, welche Quellen aktiv sind, ob die KI mitarbeitet)
 wird in der Oberfläche unter *Einstellungen → Netzwerk-Scan* gepflegt.
 
+**Zu scannende Netze:** Ist ein UniFi-Controller synchronisiert, listet *Einstellungen →
+Netzwerk-Scan* dessen aktive Netze (Name, VLAN, CIDR) als Checkboxen. Der Scan nutzt die angehakten
+Netze plus die Einträge im Freitextfeld „Weitere Netzwerk-Bereiche“ (ohne Duplikate). Ist nichts
+angehakt und der Freitext leer, werden wie bisher die Netze der Host-Interfaces automatisch
+ermittelt. Neu synchronisierte Netze sind nicht angehakt und mit „neu“ markiert. Geroutete Netze
+(nicht am Host angeschlossen) werden gepingt, liefern aber weder ARP/MAC noch mDNS/SSDP; pro Netz
+werden höchstens 1024 Adressen geprüft. Ungültige, abgeschnittene und ergebnislose Netze erscheinen
+als Warnung im Scan-Log.
+
 ---
 
 ## Entwicklung
