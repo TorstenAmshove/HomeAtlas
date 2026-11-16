@@ -36,7 +36,9 @@ also für sich allein verständlich sein.
    Vergleiche seine Zusammenfassung mit deiner Absicht. Überarbeite den Plan, bis keine wesentlichen
    Ratestellen oder Widersprüche übrig sind (höchstens 2 Runden). Was offen bleibt, kommt unter
    „Offene Punkte“.
-5. Plan als **einen** Kommentar posten. Labels: `status:triaged`/`status:inbox` → `status:planned`.
+5. Plan als **einen** Kommentar posten (Heredoc wie in `common.md` Regel 9) und prüfen, dass er am
+   Issue steht. Gibst du den Plan nur als Endantwort aus, ist er verloren.
+   Labels: `status:triaged`/`status:inbox` → `status:planned`.
    Ist das Issue `risk:high`, steht oben im Plan:
    „⚠️ risk:high – Umsetzung nur durch einen Menschen oder nach ausdrücklicher Entfernung von `needs-human`.“
 

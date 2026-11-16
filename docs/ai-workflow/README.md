@@ -40,6 +40,14 @@ Claude endet mit dem empfohlenen nächsten Schritt.
 Alle Befehle wirken **nur für den Repo-Owner**. Das Repo ist öffentlich, Fremde können Issues
 anlegen, aber keinen Agenten starten.
 
+Ein Befehl darf **irgendwo im Kommentar** stehen, eigene Hinweise also gern davor oder danach
+(„Bitte beides umsetzen … `@claude /plan`“). Nur **ein Befehl pro Kommentar**: Nennt ein Kommentar
+zwei Befehle, starten beide Läufe. Ein zitierter Befehl (etwa aus Claudes „Weiter mit …“-Zeile)
+zählt ebenfalls.
+
+Der Plan-Lauf schreibt sein vollständiges Protokoll ins Actions-Log (`show_full_output`). Endet ein
+Lauf ohne Kommentar, steht dort, warum. Für andere Läufe hilft *Re-run jobs → Enable debug logging*.
+
 ### Risikoregel
 
 Berührt ein Vorhaben Auth/2FA/Krypto, schreibenden Gerätezugriff (`*_admin.py`, `remote_admin.py`),

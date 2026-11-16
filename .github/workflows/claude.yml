@@ -15,6 +15,10 @@ name: Claude
 #
 # Every job is gated on the *actor* being the repository owner, on top of the action's own
 # write-access check: the repo is public, so anyone can open issues or comment.
+#
+# Commands match anywhere in the comment (`contains`, not `startsWith`), so a comment like
+# "Bitte beides umsetzen ... @claude /plan" reaches the plan job instead of falling through to the
+# free-form mention job. One command per comment: a comment naming two commands starts both jobs.
 
 on:
   issue_comment:
@@ -37,7 +41,7 @@ jobs:
     if: >-
       github.event_name == 'issue_comment'
       && github.event.comment.user.login == github.repository_owner
-      && startsWith(github.event.comment.body, '@claude /help')
+      && contains(github.event.comment.body, '@claude /help')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -66,7 +70,7 @@ jobs:
       github.event_name == 'issue_comment'
       && !github.event.issue.pull_request
       && github.event.comment.user.login == github.repository_owner
-      && startsWith(github.event.comment.body, '@claude /grill')
+      && contains(github.event.comment.body, '@claude /grill')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -96,7 +100,7 @@ jobs:
       github.event_name == 'issue_comment'
       && !github.event.issue.pull_request
       && github.event.comment.user.login == github.repository_owner
-      && startsWith(github.event.comment.body, '@claude /triage')
+      && contains(github.event.comment.body, '@claude /triage')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -116,7 +120,7 @@ jobs:
             REPO: ${{ github.repository }}
             ISSUE: ${{ github.event.issue.number }}
             Lies .github/claude/triage.md und bearbeite dieses Issue genau danach.
-            Zusätzliche Hinweise des Owners (nach "/triage" im Kommentar): siehe `gh issue view ${{ github.event.issue.number }} --comments`, letzter Kommentar.
+            Zusätzliche Hinweise des Owners (im Kommentar mit "/triage"): siehe `gh issue view ${{ github.event.issue.number }} --comments`, letzter Kommentar.
           claude_args: |
             --model sonnet
             --max-turns 30
@@ -128,7 +132,7 @@ jobs:
       github.event_name == 'issue_comment'
       && !github.event.issue.pull_request
       && github.event.comment.user.login == github.repository_owner
-      && startsWith(github.event.comment.body, '@claude /plan')
+      && contains(github.event.comment.body, '@claude /plan')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -144,6 +148,10 @@ jobs:
         uses: anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc # v1.0.276
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Turn-by-turn log, so a run that ends "success" without posting a plan can be diagnosed.
+          # The repo is public and so are its logs: fine here, the plan job only reads repo code
+          # and issue text and has no secret in reach of its tools.
+          show_full_output: true
           prompt: |
             REPO: ${{ github.repository }}
             ISSUE: ${{ github.event.issue.number }}
@@ -211,11 +219,11 @@ jobs:
       github.event_name == 'issue_comment'
       && github.event.comment.user.login == github.repository_owner
       && contains(github.event.comment.body, '@claude')
-      && !startsWith(github.event.comment.body, '@claude /help')
-      && !startsWith(github.event.comment.body, '@claude /grill')
-      && !startsWith(github.event.comment.body, '@claude /triage')
-      && !startsWith(github.event.comment.body, '@claude /plan')
-      && !startsWith(github.event.comment.body, '@claude /review')
+      && !contains(github.event.comment.body, '@claude /help')
+      && !contains(github.event.comment.body, '@claude /grill')
+      && !contains(github.event.comment.body, '@claude /triage')
+      && !contains(github.event.comment.body, '@claude /plan')
+      && !contains(github.event.comment.body, '@claude /review')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
