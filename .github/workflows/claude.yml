@@ -28,8 +28,20 @@ on:
 
 # One run per issue at a time; different issues may run in parallel. Not cancelling keeps a
 # running implementation from being killed by a follow-up comment.
+#
+# Only events that can start a job share the per-issue group. GitHub keeps a single *pending* run
+# per group, so an unrelated event (a bot comment, a label the agent sets) in the same group would
+# replace a command run that is still queued. Everything else gets its own throwaway group.
 concurrency:
-  group: claude-${{ github.event.issue.number }}
+  group: >-
+    claude-${{ github.event.issue.number }}-${{
+    ((github.event_name == 'issue_comment'
+    && github.event.comment.user.login == github.repository_owner
+    && contains(github.event.comment.body, '@claude'))
+    || (github.event_name == 'issues'
+    && github.event.label.name == 'status:approved'
+    && github.event.sender.login == github.repository_owner))
+    && 'agent' || github.run_id }}
   cancel-in-progress: false
 
 permissions:
