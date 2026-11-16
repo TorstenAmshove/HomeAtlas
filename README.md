@@ -194,6 +194,12 @@ Browser ── :8280 ──▶│ nginx (Frontend, React + TypeScript)         �
 Docker-Netz sehen, nie das echte Heimnetz. Deshalb bindet das Backend bewusst nur an
 `127.0.0.1`: nginx ist das Einzige, was es erreicht.
 
+mDNS lauscht nur auf den Interfaces, deren Adresse in einem der Scan-Bereiche liegt — nicht auf
+jeder Docker-Bridge des Hosts. Erscheint im Scan-Log „mDNS-Erkennung übersprungen“ (z. B.
+`[Errno 105] No buffer space available`), ist das Limit `net.ipv4.igmp_max_memberships` des Hosts
+erschöpft. Der Scan läuft dann ohne mDNS-Daten weiter; Abhilfe: Scan-Bereiche prüfen oder das Limit
+per `sysctl` erhöhen.
+
 ---
 
 ## UniFi Network einrichten

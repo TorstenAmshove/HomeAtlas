@@ -20,6 +20,7 @@ or writes.
 from __future__ import annotations
 
 import asyncio
+import errno
 import ipaddress
 import re
 import shutil
@@ -68,9 +69,10 @@ def primary_ip() -> str:
         sock.close()
 
 
-def local_subnets() -> list[str]:
-    """IPv4 networks directly attached to this host, as CIDR strings."""
-    found: list[str] = []
+def _local_interface_addresses() -> list[tuple[str, ipaddress.IPv4Interface]]:
+    """(interface, address) for every usable local IPv4 address -- no loopback/link-local and none
+    of the virtual interfaces in `_SKIP_INTERFACES`. Empty when `ip` is unavailable."""
+    found: list[tuple[str, ipaddress.IPv4Interface]] = []
     for line in _run(["ip", "-o", "-4", "addr", "show"]).splitlines():
         parts = line.split()
         if len(parts) < 4 or parts[2] != "inet":
@@ -79,12 +81,20 @@ def local_subnets() -> list[str]:
         if _SKIP_INTERFACES.match(interface):
             continue
         try:
-            network = ipaddress.ip_interface(cidr).network
+            address = ipaddress.IPv4Interface(cidr)
         except ValueError:
             continue
-        if network.is_loopback or network.is_link_local:
+        if address.network.is_loopback or address.network.is_link_local:
             continue
-        text = str(network)
+        found.append((interface, address))
+    return found
+
+
+def local_subnets() -> list[str]:
+    """IPv4 networks directly attached to this host, as CIDR strings."""
+    found: list[str] = []
+    for _interface, address in _local_interface_addresses():
+        text = str(address.network)
         if text not in found:
             found.append(text)
 
@@ -93,6 +103,21 @@ def local_subnets() -> list[str]:
         if ip:
             found.append(str(ipaddress.ip_network(f"{ip}/24", strict=False)))
     return found
+
+
+def _local_interface_ips(subnets: list[str]) -> list[str]:
+    """Local IPv4 addresses that lie inside one of the scanned subnets (invalid CIDRs ignored)."""
+    networks = []
+    for subnet in subnets:
+        try:
+            networks.append(ipaddress.IPv4Network(subnet, strict=False))
+        except ValueError:
+            continue
+    ips: list[str] = []
+    for _interface, address in _local_interface_addresses():
+        if any(address.ip in network for network in networks) and str(address.ip) not in ips:
+            ips.append(str(address.ip))
+    return ips
 
 
 def default_gateway() -> str:
@@ -303,18 +328,66 @@ async def shelly_identity(ip: str) -> dict | None:
 # mDNS / Bonjour
 # ---------------------------------------------------------------------------------------------
 
-def _probe_mdns_blocking(duration: float) -> dict[str, list[dict]]:
+_IGMP_LIMIT_PATH = "/proc/sys/net/ipv4/igmp_max_memberships"
+
+
+def _read_igmp_limit() -> str:
+    """Kernel limit for multicast group memberships per socket; "" when unreadable."""
+    try:
+        with open(_IGMP_LIMIT_PATH, encoding="utf-8") as handle:
+            value = handle.read().strip()
+    except OSError:
+        return ""
+    return value if value.isdigit() else ""
+
+
+def _count_host_interfaces() -> int:
+    return sum(1 for line in _run(["ip", "-o", "link", "show"]).splitlines() if line.strip())
+
+
+def _mdns_error_hint(exc: Exception, interface_count: int) -> str:
+    """Plain-language scan-log message for a failed mDNS start."""
+    text = f"mDNS-Erkennung übersprungen: {exc}."
+    if getattr(exc, "errno", None) != errno.ENOBUFS:
+        return text
+    limit = _read_igmp_limit()
+    limit_text = f"net.ipv4.igmp_max_memberships = {limit}" if limit else "net.ipv4.igmp_max_memberships"
+    return (
+        f"{text} Der Host ist zu vielen Multicast-Gruppen beigetreten (Interfaces auf dem Host: "
+        f"{interface_count}, Limit {limit_text}) -- typisch bei vielen Docker-Bridges. Abhilfe: "
+        "Scan-Bereiche unter Einstellungen prüfen oder das Limit per sysctl erhöhen. "
+        "Der Scan läuft ohne mDNS-Daten weiter."
+    )
+
+
+def _probe_mdns_blocking(
+    duration: float, subnets: list[str] | None = None,
+) -> tuple[dict[str, list[dict]], list[str]]:
+    """Returns (results, warnings). Never raises for network errors: mDNS is best-effort."""
     try:
         from zeroconf import ServiceBrowser, ServiceListener, Zeroconf, ZeroconfServiceTypes
     except ImportError:
-        return {}
+        return {}, []
 
     by_ip: dict[str, list[dict]] = {}
-    zeroconf = Zeroconf()
+    warnings: list[str] = []
+    kwargs: dict = {}
+    if subnets:
+        # Zeroconf joins the multicast group on *every* interface by default; on a host with many
+        # Docker veth/bridge interfaces that exhausts igmp_max_memberships (ENOBUFS).
+        ips = _local_interface_ips(subnets)
+        if ips:
+            kwargs["interfaces"] = ips
+        else:
+            warnings.append(
+                "mDNS nutzt alle Interfaces des Hosts, da keins zu den Scan-Bereichen passt."
+            )
+    zeroconf = None
     try:
+        zeroconf = Zeroconf(**kwargs)
         types = list(ZeroconfServiceTypes.find(zc=zeroconf, timeout=duration))
         if not types:
-            return {}
+            return {}, warnings
         seen: list[tuple[str, str]] = []
 
         class Collector(ServiceListener):
@@ -353,15 +426,18 @@ def _probe_mdns_blocking(duration: float) -> dict[str, list[dict]]:
                     "port": info.port,
                     "properties": properties,
                 })
-    except (OSError, RuntimeError):
-        return by_ip
+    except (OSError, RuntimeError) as exc:
+        warnings.append(_mdns_error_hint(exc, _count_host_interfaces()))
     finally:
-        zeroconf.close()
-    return by_ip
+        if zeroconf is not None:
+            zeroconf.close()
+    return by_ip, warnings
 
 
-async def probe_mdns(duration: float = 5.0) -> dict[str, list[dict]]:
-    return await asyncio.to_thread(_probe_mdns_blocking, duration)
+async def probe_mdns(
+    duration: float = 5.0, subnets: list[str] | None = None,
+) -> tuple[dict[str, list[dict]], list[str]]:
+    return await asyncio.to_thread(_probe_mdns_blocking, duration, subnets)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -620,7 +696,7 @@ async def discover(settings: dict, progress: ProgressFn, extra_targets: list[str
 
     # Phase 1 -- liveness. Multicast discovery runs concurrently: it listens for announcements
     # rather than polling, so it costs nothing to overlap with the sweep and saves ~10s.
-    mdns_task = asyncio.create_task(probe_mdns(5.0)) if settings.get("scanEnableMdns", True) else None
+    mdns_task = asyncio.create_task(probe_mdns(5.0, subnets)) if settings.get("scanEnableMdns", True) else None
     ssdp_task = asyncio.create_task(probe_ssdp(5.0)) if settings.get("scanEnableSsdp", True) else None
 
     alive = await sweep_hosts(addresses, timeout_s, concurrency, progress, 5, 30)
@@ -659,8 +735,19 @@ async def discover(settings: dict, progress: ProgressFn, extra_targets: list[str
 
     # Phase 4 -- collect the multicast results started at the beginning.
     progress("Smart-Home-Geräte abfragen (mDNS/UPnP)", 76, None)
-    mdns = await mdns_task if mdns_task else {}
-    ssdp = await ssdp_task if ssdp_task else {}
+    mdns: dict = {}
+    if mdns_task:
+        try:
+            mdns, mdns_warnings = await mdns_task
+            warnings.extend(mdns_warnings)
+        except OSError as exc:
+            warnings.append(_mdns_error_hint(exc, _count_host_interfaces()))
+    ssdp: dict = {}
+    if ssdp_task:
+        try:
+            ssdp = await ssdp_task
+        except OSError as exc:
+            warnings.append(f"UPnP/SSDP-Erkennung übersprungen: {exc}. Der Scan läuft ohne SSDP-Daten weiter.")
     for ip in list(mdns) + list(ssdp):
         # A device can announce itself over multicast without answering a single TCP port or ping.
         if ip not in alive and ip not in excluded and any(
