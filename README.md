@@ -340,8 +340,11 @@ Inventar über die Auswahl mehrerer Geräte. Konten, Verlauf und Monitoring wand
   gleichem Hersteller *und* Modell schlägt HomeAtlas im Inventar und in der Detailansicht ein
   Zusammenführen vor. Gleicher Hersteller allein genügt nicht.
 - **„Kein Duplikat"** blendet einen Hinweis dauerhaft aus, auch nach neuen Scans.
-- Es wird **nie automatisch** zusammengeführt, nur nach Klick und Bestätigung. Ein Zusammenführen
-  lässt sich nicht rückgängig machen.
+- **Ausnahme Controller-Funde:** Ein nur per IP gefundenes (geroutetes) Gerät wird automatisch mit
+  dem UniFi-/Omada-Eintrag zusammengeführt, wenn genau ein Eintrag diese IP hat und die MACs nicht
+  widersprechen (siehe [docs/multi-vlan.md](docs/multi-vlan.md)).
+- Sonst wird **nie automatisch** zusammengeführt, nur nach Klick und Bestätigung. Ein
+  manuelles Zusammenführen lässt sich nicht rückgängig machen.
 
 ---
 
@@ -405,6 +408,9 @@ sind dort eingeschränkt, die Oberfläche und alles andere funktionieren.
   aktiv gescannt.
 - **Netzbereiche bis /22.** Ein größerer Bereich wird auf die ersten 1024 Adressen begrenzt —
   ein versehentliches /16 wären 65.000 Hosts und ein praktisch endloser Scan.
+- **Mehrere VLANs.** Netze, die nur über das Gateway erreichbar sind, liefern keine MAC/Hersteller
+  und kein mDNS/SSDP; HomeAtlas warnt dafür bei jedem Scan. Details und Gateway-Einstellungen:
+  [docs/multi-vlan.md](docs/multi-vlan.md).
 - **Zufällige MAC-Adressen.** Moderne Telefone wechseln ihre Netzwerkkennung regelmäßig und
   können deshalb mehrfach im Inventar erscheinen. Solche Geräte sind intern als
   `randomizedMac` markiert.

@@ -942,6 +942,36 @@ def find_system_by_ip_and_hostname(ip: str, hostname: str) -> dict | None:
         ).fetchone())
 
 
+def _has_controller_origin(system: dict) -> bool:
+    # `extra.unifi` / `extra.omada`, not `discoverySource`: that one gets suffixes ("unifi+ki").
+    extra = system.get("extra") or {}
+    return "unifi" in extra or "omada" in extra
+
+
+def find_system_by_unique_controller_ip(found: dict) -> dict | None:
+    """Last-resort identity for routed devices: the network scan sees them by IP only (no ARP-
+    resolved MAC off the local segment), the controller (UniFi/Omada) knows the same device by
+    MAC -- and often no hostname matches. Pipeline order is scan first, controller second, so the
+    rule works in both directions: at least one side must carry controller data.
+
+    Deliberately conservative, since an IP is weak identity (DHCP moves it): exactly one existing
+    row may hold the IP, and two rows with different non-empty MACs are different devices."""
+    ip = (found.get("ip") or "").strip()
+    if not ip:
+        return None
+    candidates = [s for s in list_systems() if (s.get("ip") or "").strip() == ip]
+    if len(candidates) != 1:
+        return None
+    candidate = candidates[0]
+    if not (_has_controller_origin(candidate) or _has_controller_origin(found)):
+        return None
+    found_mac = (found.get("mac") or "").strip().lower()
+    candidate_mac = (candidate.get("mac") or "").strip().lower()
+    if found_mac and candidate_mac and found_mac != candidate_mac:
+        return None
+    return candidate
+
+
 def find_system_for_merge(found: dict) -> dict | None:
     """Beyond `found`'s own exact discoveryKey (and its legacy keys, tried by the caller first),
     look for the same physical device under a different identity scheme entirely -- the case this
@@ -949,7 +979,8 @@ def find_system_for_merge(found: dict) -> dict | None:
     L2 segment) that another source -- an API integration -- already knows by MAC, or a Proxmox
     guest whose discoveryKey scheme flipped (see find_system_by_proxmox). Priority order matches
     how trustworthy each identity is on its own: MAC first, then a Proxmox guest's own (node,
-    vmid), then IP+hostname together as the weakest-but-still-useful fallback.
+    vmid), then IP+hostname together, and finally a unique IP involving a controller row (see
+    find_system_by_unique_controller_ip) as the weakest-but-still-useful fallback.
     """
     existing = find_system_by_mac(found.get("mac", ""))
     if existing is not None:
@@ -958,7 +989,10 @@ def find_system_for_merge(found: dict) -> dict | None:
     existing = find_system_by_proxmox(proxmox.get("node", ""), proxmox.get("vmid"))
     if existing is not None:
         return existing
-    return find_system_by_ip_and_hostname(found.get("ip", ""), found.get("hostname", ""))
+    existing = find_system_by_ip_and_hostname(found.get("ip", ""), found.get("hostname", ""))
+    if existing is not None:
+        return existing
+    return find_system_by_unique_controller_ip(found)
 
 
 def link_containers_to_host(host_ip: str) -> int:
@@ -1005,7 +1039,8 @@ def upsert_discovered_system(found: dict) -> tuple[dict, bool]:
 
     Beyond the exact-key (and legacy-key) lookups below, `find_system_for_merge` tries the same
     device under a different identity scheme entirely -- MAC, then Proxmox (node, vmid), then
-    IP+hostname, in that priority order -- so a device found this scan via one source (say, an ARP
+    IP+hostname, then a unique IP shared with a controller (UniFi/Omada) row, in that priority
+    order -- so a device found this scan via one source (say, an ARP
     sweep, with no resolved MAC) merges into the row an earlier scan already created via another
     (say, Proxmox, keyed by MAC) instead of duplicating it. See its own docstring for why each
     fallback exists.
@@ -1055,6 +1090,10 @@ def upsert_discovered_system(found: dict) -> tuple[dict, bool]:
         "lastSeen": now,
         "discoveryKey": found.get("discoveryKey") or existing["discoveryKey"],
     }
+    if not found.get("mac") and existing.get("mac") and existing["discoveryKey"].startswith("mac:"):
+        # An IP-only finding merged into a MAC-keyed row must not flip its key back and forth
+        # between scan and controller on every run.
+        volatile["discoveryKey"] = existing["discoveryKey"]
     if not existing["confirmed"]:
         for field in ("kind", "name", "hostname", "mac", "vendor", "model", "os", "location",
                       "purpose", "descriptionMd", "url", "docUrl", "docLink", "importance"):
