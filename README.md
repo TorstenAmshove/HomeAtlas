@@ -326,6 +326,23 @@ Webseiten-Titel und „Hersteller + letztes IP-Oktett". Die KI-Einordnung läuft
 keine Tokens. Antworten mit niedriger Konfidenz werden verworfen: die regelbasierte Vermutung ist
 besser als ein Schulterzucken.
 
+### Geräte zusammenführen
+
+Ein Gerät mit mehreren Interfaces (z. B. ein Gateway, das pro Subnetz einzeln gefunden wird) steht
+zunächst mehrfach in der Liste. Als Admin führst du die Einträge zusammen: in der Detailansicht über
+**„Zusammenführen…"** (dieses Gerät bleibt erhalten, du wählst das Duplikat und bestätigst) oder im
+Inventar über die Auswahl mehrerer Geräte. Konten, Verlauf und Monitoring wandern zum behaltenen Gerät.
+
+- **Dauerhaft:** Discovery-Schlüssel, IPs und MACs des entfernten Eintrags merkt sich das behaltene
+  Gerät als Aliase. Spätere Scans ordnen diese Funde dem behaltenen Gerät zu, statt ein neues
+  anzulegen. Die zusätzlichen Adressen zeigt die Detailansicht als „Weitere IPs".
+- **Hinweise „Doppelt?":** Bei gleichem Hostnamen, gleichem selbstgemeldetem Namen (UPnP/mDNS) oder
+  gleichem Hersteller *und* Modell schlägt HomeAtlas im Inventar und in der Detailansicht ein
+  Zusammenführen vor. Gleicher Hersteller allein genügt nicht.
+- **„Kein Duplikat"** blendet einen Hinweis dauerhaft aus, auch nach neuen Scans.
+- Es wird **nie automatisch** zusammengeführt, nur nach Klick und Bestätigung. Ein Zusammenführen
+  lässt sich nicht rückgängig machen.
+
 ---
 
 ## Konfiguration
