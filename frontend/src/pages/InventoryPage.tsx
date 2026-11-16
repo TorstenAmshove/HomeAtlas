@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { api, type System } from "../lib/api";
+import { api, DUPLICATE_REASON_LABEL, type DuplicateCandidate, type System } from "../lib/api";
 import { useAuth } from "../App";
 import { KindIcon } from "../lib/icons";
 
@@ -52,6 +52,29 @@ export default function InventoryPage() {
 
   const kind = searchParams.get("kind") ?? "";
   const parentId = searchParams.get("parentId") ?? "";
+
+  const [candidates, setCandidates] = useState<DuplicateCandidate[]>([]);
+
+  function reloadCandidates() {
+    if (!isAdmin) return;
+    api.getDuplicateCandidates().then((r) => setCandidates(r.candidates)).catch(() => setCandidates([]));
+  }
+
+  async function notDuplicate(c: DuplicateCandidate) {
+    try {
+      await api.markNotDuplicate(c.aId, c.bId);
+      reloadCandidates();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function keepAndMerge(c: DuplicateCandidate, keepId: string) {
+    await mergeSelected(keepId, keepId === c.aId ? c.bId : c.aId);
+    reloadCandidates();
+  }
+
+  useEffect(reloadCandidates, [isAdmin]);
 
   useEffect(() => {
     setLoading(true);
@@ -190,6 +213,28 @@ export default function InventoryPage() {
       </div>
 
       {error && <div className="notice error">{error}</div>}
+
+      {isAdmin && candidates.length > 0 && (
+        <div className="notice info">
+          <strong>Doppelt? {candidates.length} Verdachtsfälle</strong> – zusammengeführt wird nur nach deiner Bestätigung.
+          {candidates.map((c) => (
+            <div key={`${c.aId}-${c.bId}`} className="row" style={{ marginTop: 8 }}>
+              <span>
+                „{c.aName}" und „{c.bName}" ({c.reasons.map((r) => DUPLICATE_REASON_LABEL[r]).join(", ")})
+              </span>
+              <button className="secondary" disabled={bulkBusy} onClick={() => void keepAndMerge(c, c.aId)}>
+                Behalte {c.aName}
+              </button>
+              <button className="secondary" disabled={bulkBusy} onClick={() => void keepAndMerge(c, c.bId)}>
+                Behalte {c.bName}
+              </button>
+              <button className="secondary" disabled={bulkBusy} onClick={() => void notDuplicate(c)}>
+                Kein Duplikat
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {parentId && (
         <div className="notice info">

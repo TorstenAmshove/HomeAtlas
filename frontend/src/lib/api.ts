@@ -403,6 +403,18 @@ export interface DiagnosticResult {
 // Endpoints
 // ---------------------------------------------------------------------------------------------
 
+export type DuplicateReason = "hostname" | "selfName" | "vendorModel";
+export interface DuplicateCandidate {
+  aId: string; bId: string; aName: string; bName: string; reasons: DuplicateReason[];
+}
+export interface SystemAlias { aliasKey: string; ip: string; mac: string; createdAt: string }
+
+export const DUPLICATE_REASON_LABEL: Record<DuplicateReason, string> = {
+  hostname: "gleicher Hostname",
+  selfName: "gleicher selbstgemeldeter Name",
+  vendorModel: "gleicher Hersteller und Modell",
+};
+
 export const api = {
   health: () => get<{ status: string; setupCompleted: boolean; userCount: number }>("/health"),
 
@@ -457,6 +469,10 @@ export const api = {
   deleteSystem: (id: string) => del<{ ok: boolean }>(`/systems/${id}`),
   mergeSystems: (keepId: string, removeId: string) =>
     post<{ system: System }>(`/systems/${keepId}/merge`, { removeId }),
+  getDuplicateCandidates: () => get<{ candidates: DuplicateCandidate[] }>("/systems/duplicates"),
+  getSystemAliases: (id: string) => get<{ aliases: SystemAlias[] }>(`/systems/${id}/aliases`),
+  markNotDuplicate: (id: string, otherId: string) =>
+    post<{ ok: boolean }>(`/systems/${id}/not-duplicate`, { otherId }),
   probeSystem: (id: string) => post<{ outcome: ProbeOutcome; system: System }>(`/systems/${id}/probe`),
   listConfigVersions: (systemId: string) =>
     get<{ versions: ConfigVersion[] }>(`/systems/${systemId}/config-versions`),

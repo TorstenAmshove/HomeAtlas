@@ -8,6 +8,7 @@ import { useAuth } from "../App";
 import Markdown from "../components/Markdown";
 import { KindIcon } from "../lib/icons";
 import Terminal from "../components/Terminal";
+import MergePanel from "../components/MergePanel";
 
 /** Same eligibility test as backend/app/main.py's `_ssh_eligible` / probe_auth's SSH branch --
  *  keep these in sync. */
@@ -367,6 +368,10 @@ export default function SystemDetailPage() {
           </div>
         )}
       </div>
+
+      {isAdmin && !editing && (
+        <MergePanel key={system.id} system={system} onMerged={() => window.location.reload()} />
+      )}
 
       {probeNotice && <div className={`notice ${probeNotice.kind}`}>{probeNotice.text}</div>}
 
