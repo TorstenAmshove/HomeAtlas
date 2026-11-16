@@ -151,33 +151,45 @@ def _normalize_cidr(value: object) -> str | None:
         return None
 
 
-def effective_subnets(settings: dict, resources: list[dict]) -> list[str]:
-    """Networks a scan covers: checked controller networks first, then the free-text entries.
+def selected_subnets(settings: dict, resources: list[dict]) -> list[dict]:
+    """Networks the user selected for scanning, each with its origin. Pure: no db access.
 
-    `resources` are `networkResources` rows (kind "network"); the caller loads them, so this module
-    stays free of db access. Only active + enabled resources with a valid IPv4 CIDR count -- a
-    stale ID in the selection is ignored. Entries are normalised (10.0.0.5/24 == 10.0.0.0/24) and
-    de-duplicated. Free text that is not a valid CIDR is passed through unchanged so `discover`
-    can warn about it. Nothing selected and no free text -> the host's own interfaces, as before.
+    Checked controller networks first (`source="controller"`, plus `name` and `vlan`), then the
+    free-text entries (`source="freitext"`, no name/vlan). `resources` are `networkResources` rows
+    (kind "network"); the caller loads them. Only active + enabled resources with a valid IPv4 CIDR
+    count -- a stale ID in the selection is ignored. Entries are normalised (10.0.0.5/24 ==
+    10.0.0.0/24) and de-duplicated (the controller entry wins). Free text that is not a valid CIDR
+    is passed through unchanged so `discover` can warn about it. Nothing selected -> `[]`; unlike
+    `effective_subnets` this never falls back to the host interfaces (no subprocess).
     """
     selected = settings.get("scanControllerNetworkIds") or []
     selected = set(selected) if isinstance(selected, list) else set()
-    found: list[str] = []
+    found: list[dict] = []
+    seen: set[str] = set()
     for resource in resources:
         if resource.get("id") not in selected or not resource.get("active") or not resource.get("enabled"):
             continue
-        cidr = _normalize_cidr((resource.get("facts") or {}).get("cidr") or "")
-        if cidr and cidr not in found:
-            found.append(cidr)
+        facts = resource.get("facts") or {}
+        cidr = _normalize_cidr(facts.get("cidr") or "")
+        if cidr and cidr not in seen:
+            seen.add(cidr)
+            found.append({"cidr": cidr, "source": "controller",
+                          "name": resource.get("name"), "vlan": facts.get("vlanId")})
     free = settings.get("scanSubnets") or []
     for entry in free if isinstance(free, list) else []:
         entry = str(entry).strip()
         if not entry:
             continue
         entry = _normalize_cidr(entry) or entry
-        if entry not in found:
-            found.append(entry)
-    return found or local_subnets()
+        if entry not in seen:
+            seen.add(entry)
+            found.append({"cidr": entry, "source": "freitext"})
+    return found
+
+
+def effective_subnets(settings: dict, resources: list[dict]) -> list[str]:
+    """Networks a scan covers: `selected_subnets`, or the host's own interfaces if none selected."""
+    return [e["cidr"] for e in selected_subnets(settings, resources)] or local_subnets()
 
 
 def _local_interface_ips(subnets: list[str]) -> list[str]:

@@ -25,7 +25,7 @@ from __future__ import annotations
 import json
 import time
 
-from . import crypto, db, diagnostics, docker_probe, llm_providers, probe_auth, prompts, switch_admin
+from . import crypto, db, diagnostics, discovery, docker_probe, llm_providers, probe_auth, prompts, switch_admin
 from datetime import datetime, timezone
 
 # A tool result is fed straight back into the context window; an unbounded one (a /24 inventory, a
@@ -279,9 +279,11 @@ async def _dispatch(name: str, args: dict) -> object:
         settings = db.get_settings()
         scan = db.latest_scan()
         systems = db.list_systems()
+        subnet_sources = _scan_subnets(settings)
         return {
             "homeName": settings.get("homeName"),
-            "configuredSubnets": settings.get("scanSubnets") or "automatisch erkannt",
+            "configuredSubnets": [e["cidr"] for e in subnet_sources] or "automatisch erkannt",
+            "subnetSources": subnet_sources,
             "systemCount": len(systems),
             "onlineCount": sum(1 for s in systems if s["status"] == "online"),
             "byKind": {k: sum(1 for s in systems if s["kind"] == k) for k in sorted({s["kind"] for s in systems})},
@@ -405,6 +407,11 @@ async def _dispatch(name: str, args: dict) -> object:
 # Agent loop
 # ---------------------------------------------------------------------------------------------
 
+def _scan_subnets(settings: dict) -> list[dict]:
+    """Selected scan networks (controller + free text); read-only, never spawns a subprocess."""
+    return discovery.selected_subnets(settings, db.list_network_resources(kind="network", active_only=True))
+
+
 def _state_block(settings: dict) -> str:
     systems = db.list_systems()
     scan = db.latest_scan()
@@ -412,7 +419,7 @@ def _state_block(settings: dict) -> str:
         timestamp=datetime.now(timezone.utc).strftime("%d.%m.%Y %H:%M UTC"),
         system_count=len(systems),
         online_count=sum(1 for s in systems if s["status"] == "online"),
-        subnets=", ".join(settings.get("scanSubnets") or []) or "automatisch erkannt",
+        subnets=", ".join(e["cidr"] for e in _scan_subnets(settings)) or "automatisch erkannt",
         gateway=next((s["ip"] for s in systems if (s.get("extra") or {}).get("isGateway")), "nicht ermittelt"),
         last_scan=f"{scan['startedAt']} ({scan['status']})" if scan else "noch keiner",
     )
