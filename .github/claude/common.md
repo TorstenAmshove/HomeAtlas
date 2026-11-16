@@ -28,3 +28,13 @@
    nicht auswendig kennen müssen.
 8. **Status-Labels:** Ein Issue hat genau ein `status:*`-Label. Entferne das alte, bevor du ein neues
    setzt (`gh issue edit N --remove-label X --add-label Y`).
+9. **Ergebnis immer posten.** Deine Endantwort im Lauf sieht niemand, nur der Kommentar am Issue.
+   Poste mit einem Heredoc in einfachen Anführungszeichen, damit Backticks und `$` im Text nicht
+   von der Shell ausgeführt werden:
+   ```
+   gh issue comment <N> --body-file - <<'EOF'
+   …
+   EOF
+   ```
+   Prüfe danach mit `gh issue view <N> --comments`, dass der Kommentar wirklich da ist. Ein Lauf,
+   der ohne geposteten Kommentar endet, ist gescheitert, auch wenn er „success“ meldet.

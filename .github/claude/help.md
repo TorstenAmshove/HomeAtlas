@@ -13,5 +13,5 @@
 **Typischer Weg:** Idee → `/grill` (mehrere Runden) → `/plan` → `status:approved` → PR prüfen → Merge.
 Bei klaren Bugs: `/triage` → `/plan` → …
 
-Befehle wirken nur für den Repo-Owner. Zum Ändern eines Plans: Kommentar mit Änderungswunsch, dann erneut `/plan`.
+Befehle wirken nur für den Repo-Owner und dürfen irgendwo im Kommentar stehen, z. B. nach eigenen Hinweisen. Ein Befehl pro Kommentar. Zum Ändern eines Plans: Kommentar mit Änderungswunsch, dann erneut `/plan`.
 Ausführlich: [docs/ai-workflow/README.md](../blob/master/docs/ai-workflow/README.md)
