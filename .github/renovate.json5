@@ -1,0 +1,34 @@
+// Renovate (Mend Renovate App). Shared rules: github.com/TorstenAmshove/renovate-config
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: [
+    "local>TorstenAmshove/renovate-config",
+    "local>TorstenAmshove/renovate-config:container",
+  ],
+
+  // This repository is a fork: the Mend Renovate App skips forks unless this
+  // is set in the repository's own config.
+  forkProcessing: "enabled",
+
+  packageRules: [
+    {
+      // backend/Dockerfile's base image and the Python version of the test
+      // job (test.yml) must stay the same, so they move together.
+      matchManagers: ["dockerfile", "github-actions"],
+      matchDepNames: ["python"],
+      groupName: "python runtime",
+      semanticCommitType: "fix",
+    },
+    {
+      // Backend: ruff + ~260 pytest tests, API routes exercised through
+      // FastAPI's TestClient (fastapi, starlette, pydantic, httpx). Enough to
+      // merge minor updates unattended.
+      matchManagers: ["pip_requirements"],
+      matchUpdateTypes: ["minor"],
+      automerge: true,
+    },
+    // npm minor updates stay manual: the frontend is only checked by
+    // error TS5083: Cannot read file '/home/user/tsconfig.json'., nothing renders the app. See the issue
+    // "Frontend smoke test" for what is missing before enabling auto-merge.
+  ],
+}

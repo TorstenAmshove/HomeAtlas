@@ -36,3 +36,8 @@
 - {name: "risk:low",    color: "c2e0c6", description: "Keine sicherheitsrelevanten Module betroffen"}
 - {name: "risk:high",   color: "b60205", description: "Betrifft Auth, Secrets, Schreibzugriff auf Geräte oder die tools.py-Grenze"}
 - {name: "needs-human", color: "b60205", description: "Claude plant nur – Umsetzung durch einen Menschen oder mit ausdrücklicher Freigabe"}
+
+# Renovate (see .github/renovate.json5)
+- {name: "dependencies", color: "0366d6", description: "Abhängigkeits-Update (Renovate)"}
+- {name: "security",     color: "b60205", description: "Behebt eine bekannte Sicherheitslücke"}
+- {name: "major",        color: "e99695", description: "Major-Update, wird nie automatisch gemergt"}
