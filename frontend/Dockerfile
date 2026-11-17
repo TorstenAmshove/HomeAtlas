@@ -1,4 +1,4 @@
-FROM node:lts-alpine@sha256:c6ad9e9c1d80f6eb607c26b4b0a132ff7a2344fad1c78ea3baa2a7d4c8de6d94 AS build
+FROM node:26.13.1-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS build
 WORKDIR /app
 ARG VITE_BUILD_SHA=dev
 ARG VITE_BUILD_TIME=
@@ -9,10 +9,10 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# nginx's own "stable" line, digest-pinned (same idea as node:lts-alpine above): Renovate proposes
-# every rebuild - security fixes and the yearly move to the next stable branch - as a digest PR.
-# A fixed minor tag like 1.27-alpine stops receiving rebuilds once that branch is retired.
-FROM nginx:stable-alpine@sha256:901e593c95dc85f5a729f5765516321366ef4ac401821431d408897e95287d0a
+# Exact version + digest: Renovate proposes version updates as readable PRs (stable branch only,
+# i.e. even minor versions - see renovate-config) and upstream rebuilds of the same tag (security
+# fixes in Alpine) as digest PRs.
+FROM nginx:1.30.6-alpine@sha256:901e593c95dc85f5a729f5765516321366ef4ac401821431d408897e95287d0a
 COPY --from=build /app/dist /usr/share/nginx/html
 # The nginx image runs envsubst over /etc/nginx/templates/*.template at startup, which is how
 # HOMEATLAS_PORT reaches the config -- with network_mode host a compose `ports:` mapping is

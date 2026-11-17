@@ -59,7 +59,7 @@ pushing. Merging a code-changing pull request to `master` derives a shared Semve
 Conventional Commits, creates `vX.Y.Z`, and publishes both GHCR images under `X.Y.Z`, `X.Y`, and
 `latest`. Documentation-only and `.github/**` pull requests do not release automatically.
 
-Dependency updates come from the Mend Renovate App: `.github/renovate.json5` on top of the shared presets in [TorstenAmshove/renovate-config](https://github.com/TorstenAmshove/renovate-config). Patch/digest updates and pip minor updates are auto-merged by Renovate once Build and Test are green (so they release and deploy without a human); npm minor updates and all majors are merged by hand. The base images are digest-pinned (`python:3.12-slim`, `node:lts-alpine`, `nginx:stable-alpine`), and the Python version of `backend/Dockerfile` and `test.yml` moves together in one "python runtime" PR.
+Dependency updates come from the Mend Renovate App: `.github/renovate.json5` on top of the shared presets in [TorstenAmshove/renovate-config](https://github.com/TorstenAmshove/renovate-config). Patch/digest updates and pip minor updates are auto-merged by Renovate once Build and Test are green (so they release and deploy without a human); npm minor updates and all majors are merged by hand. The base images use exact versions plus digest (`python:3.12.16-slim@sha256:…`, `node:26.13.1-alpine@…`, `nginx:1.30.6-alpine@…`), and the Python version of `backend/Dockerfile` and `test.yml` moves together in one "python runtime" PR.
 
 `./deploy.sh` deploys to a specific remote host over SSH (default `192.168.1.110`) — it's this
 project's real deployment target, not a generic template. Don't run it without confirming with
