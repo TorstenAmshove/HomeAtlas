@@ -44,7 +44,18 @@ pip install -r requirements-dev.txt
 ruff check .          # deliberately small rule set, see backend/ruff.toml; no formatter enforced
 python -m pytest -q   # tests/ -- use the `temp_db` fixture for anything touching db.py
 ```
-The frontend has no linter or test runner; `npm run build` is its only check.
+The frontend has no linter or unit tests. Besides `npm run build`, CI runs a browser smoke test
+(`frontend/e2e/`, its own Playwright package, excluded from the image via `frontend/.dockerignore`)
+against the built images: job `smoke` in `build.yml` starts backend + frontend on the host network
+with a throwaway DB and walks login → MFA enrollment → setup wizard → dashboard, a Markdown doc page
+and a few routes; any console error or uncaught page error fails it. It needs a fresh backend each
+run (it enrolls the admin). Locally, with a fresh backend on :8000 and `npm run build && npx vite
+preview --port 8280` in `frontend/`:
+```bash
+cd frontend/e2e && npm ci
+SMOKE_ADMIN_PASSWORD=devpass123 SMOKE_CHROMIUM_PATH=/path/to/chrome npx playwright test
+```
+`SMOKE_CHROMIUM_PATH` is only for a pre-installed Chromium; otherwise run `npx playwright install chromium`.
 
 Project hooks in `.claude/settings.json`: edited backend `.py` files are run through `ruff check
 --fix` (remaining errors are fed back), and editing or running `deploy.sh` always asks for
@@ -59,7 +70,7 @@ pushing. Merging a code-changing pull request to `master` derives a shared Semve
 Conventional Commits, creates `vX.Y.Z`, and publishes both GHCR images under `X.Y.Z`, `X.Y`, and
 `latest`. Documentation-only and `.github/**` pull requests do not release automatically.
 
-Dependency updates come from the Mend Renovate App: `renovate.json` (repository root, not `.github/` - HomeAtlas is a fork, and Renovate only checks `forkProcessing` in the root `renovate.json`) on top of the shared presets in [TorstenAmshove/renovate-config](https://github.com/TorstenAmshove/renovate-config). Patch/digest updates and pip minor updates are auto-merged by Renovate once Build and Test are green (so they release and deploy without a human); npm minor updates and all majors are merged by hand. The base images use exact versions plus digest (`python:3.12.16-slim@sha256:…`, `node:26.13.1-alpine@…`, `nginx:1.30.6-alpine@…`), and the Python version of `backend/Dockerfile` and `test.yml` moves together in one "python runtime" PR.
+Dependency updates come from the Mend Renovate App: `renovate.json` (repository root, not `.github/` - HomeAtlas is a fork, and Renovate only checks `forkProcessing` in the root `renovate.json`) on top of the shared presets in [TorstenAmshove/renovate-config](https://github.com/TorstenAmshove/renovate-config). Patch/digest updates and pip and npm minor updates are auto-merged by Renovate once Build (including the browser smoke test) and Test are green (so they release and deploy without a human); all majors are merged by hand. The base images use exact versions plus digest (`python:3.12.16-slim@sha256:…`, `node:26.13.1-alpine@…`, `nginx:1.30.6-alpine@…`), and the Python version of `backend/Dockerfile` and `test.yml` moves together in one "python runtime" PR.
 
 `./deploy.sh` deploys to a specific remote host over SSH (default `192.168.1.110`) — it's this
 project's real deployment target, not a generic template. Don't run it without confirming with

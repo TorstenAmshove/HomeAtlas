@@ -11,8 +11,14 @@
   "forkProcessing": "enabled",
   "packageRules": [
     {
-      "description": "Backend: ruff + ~260 pytest tests, API routes exercised through FastAPI's TestClient (fastapi, starlette, pydantic, httpx). Enough to merge minor updates unattended. npm minor updates stay manual: the frontend is only checked by tsc + vite build, nothing renders the app (see issue #32).",
+      "description": "Backend: ruff + ~260 pytest tests, API routes exercised through FastAPI's TestClient (fastapi, starlette, pydantic, httpx). Enough to merge minor updates unattended.",
       "matchManagers": ["pip_requirements"],
+      "matchUpdateTypes": ["minor"],
+      "automerge": true
+    },
+    {
+      "description": "Frontend: tsc + vite build, plus a browser smoke test of the built images (build.yml, job smoke: login -> MFA -> setup -> app routes incl. Markdown). Enough to merge minor updates unattended.",
+      "matchManagers": ["npm"],
       "matchUpdateTypes": ["minor"],
       "automerge": true
     }
