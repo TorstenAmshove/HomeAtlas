@@ -9,7 +9,10 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM nginx:1.27-alpine
+# nginx's own "stable" line, digest-pinned (same idea as node:lts-alpine above): Renovate proposes
+# every rebuild - security fixes and the yearly move to the next stable branch - as a digest PR.
+# A fixed minor tag like 1.27-alpine stops receiving rebuilds once that branch is retired.
+FROM nginx:stable-alpine@sha256:901e593c95dc85f5a729f5765516321366ef4ac401821431d408897e95287d0a
 COPY --from=build /app/dist /usr/share/nginx/html
 # The nginx image runs envsubst over /etc/nginx/templates/*.template at startup, which is how
 # HOMEATLAS_PORT reaches the config -- with network_mode host a compose `ports:` mapping is

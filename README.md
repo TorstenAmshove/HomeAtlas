@@ -44,7 +44,7 @@ container images** anhand der [Conventional Commits](https://www.conventionalcom
 automatisch einen Git-Tag `vX.Y.Z` und veröffentlicht beide Images mit `X.Y.Z`, `X.Y` und
 `latest`. Ein manueller Workflow-Lauf dient für den ersten Release oder als Fallback.
 
-Das Ansible-Repository übernimmt neue vollständige Versionen per Dependabot. Für einen manuellen
+Das Ansible-Repository übernimmt neue vollständige Versionen per Renovate. Für einen manuellen
 Deployment-Lauf ist keine Image-Tag-Variable mehr erforderlich:
 
 ```bash
