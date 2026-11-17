@@ -1,0 +1,5 @@
+# Not part of the image: local installs and the browser smoke test (its own package, run by CI
+# against the built image -- see e2e/ and .github/workflows/build.yml).
+node_modules
+dist
+e2e
