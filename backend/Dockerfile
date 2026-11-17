@@ -1,4 +1,4 @@
-FROM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
+FROM python:3.12.16-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
 
 # iproute2 -> `ip neigh` / `ip route` (ARP table and default gateway, the backbone of discovery)
 # iputils-ping + traceroute -> the live diagnostics the assistant runs

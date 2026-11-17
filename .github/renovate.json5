@@ -12,14 +12,6 @@
 
   packageRules: [
     {
-      // backend/Dockerfile's base image and the Python version of the test
-      // job (test.yml) must stay the same, so they move together.
-      matchManagers: ["dockerfile", "github-actions"],
-      matchDepNames: ["python"],
-      groupName: "python runtime",
-      semanticCommitType: "fix",
-    },
-    {
       // Backend: ruff + ~260 pytest tests, API routes exercised through
       // FastAPI's TestClient (fastapi, starlette, pydantic, httpx). Enough to
       // merge minor updates unattended.
@@ -28,7 +20,7 @@
       automerge: true,
     },
     // npm minor updates stay manual: the frontend is only checked by
-    // error TS5083: Cannot read file '/home/user/tsconfig.json'., nothing renders the app. See the issue
-    // "Frontend smoke test" for what is missing before enabling auto-merge.
+    // `tsc -b && vite build`, nothing renders the app. See issue #32
+    // (frontend smoke test) for what is missing before enabling auto-merge.
   ],
 }
