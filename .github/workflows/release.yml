@@ -9,6 +9,7 @@ on:
     paths-ignore:
       - ".github/**"
       - "**/*.md"
+      - "renovate.json"
 
 concurrency:
   group: release

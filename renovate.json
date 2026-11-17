@@ -1,0 +1,20 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": [
+    "Renovate (Mend Renovate App). Shared rules: github.com/TorstenAmshove/renovate-config.",
+    "This file must be renovate.json in the repository root (not .github/renovate.json5): HomeAtlas is a fork, and for forks Renovate checks forkProcessing in renovate.json only, before it reads any other config file."
+  ],
+  "extends": [
+    "local>TorstenAmshove/renovate-config",
+    "local>TorstenAmshove/renovate-config:container"
+  ],
+  "forkProcessing": "enabled",
+  "packageRules": [
+    {
+      "description": "Backend: ruff + ~260 pytest tests, API routes exercised through FastAPI's TestClient (fastapi, starlette, pydantic, httpx). Enough to merge minor updates unattended. npm minor updates stay manual: the frontend is only checked by tsc + vite build, nothing renders the app (see issue #32).",
+      "matchManagers": ["pip_requirements"],
+      "matchUpdateTypes": ["minor"],
+      "automerge": true
+    }
+  ]
+}
