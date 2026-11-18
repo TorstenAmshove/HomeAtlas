@@ -112,8 +112,10 @@
 - **B3 [Impl]** Zwei Container mit `network_mode: host`; Backend bindet an `127.0.0.1:8281`, nginx
   im Frontend-Container auf `:8280` leitet `/api/*` weiter.
 - **B4 [Muss]** Kein HTTPS eingebaut; Zugriff von außen nur hinter einem Reverse Proxy mit TLS.
-- **B5 [Muss]** Der Docker-Socket ist optional und wird nur lesend benutzt; ohne ihn funktioniert
-  alles außer Container-Erkennung und lokaler Container-Steuerung.
+- **B5 [Muss]** Der Docker-Socket ist optional. Erkennung und Probing lesen nur (GET); schreibend
+  nutzt ihn nur die Container-Steuerung für ADMIN (siehe L4). Ohne Socket funktioniert alles außer
+  Container-Erkennung und lokaler Container-Steuerung.
+  > OFFEN: README „Sicherheit“ sagt „ausschließlich GET-Endpunkte“; das gilt nur für die Leseseite.
 - **B6 [Muss]** Die Erkennung arbeitet unter Windows/Docker Desktop nur eingeschränkt (keine
   `ip`/`ping`/`traceroute`); das ist eine bekannte Grenze, kein Fehler.
 
