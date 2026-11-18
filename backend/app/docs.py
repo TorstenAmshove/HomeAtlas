@@ -223,10 +223,34 @@ def _device_table(systems: list[dict]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _device_details(systems: list[dict], by_id: dict[str, dict], children_by_parent: dict[str, list[dict]]) -> str:
+def _compose_project(system: dict) -> str:
+    return (((system.get("extra") or {}).get("docker") or {}).get("composeProject") or "").strip()
+
+
+def _grouped_device_details(systems: list[dict], by_id: dict[str, dict],
+                            children_by_parent: dict[str, list[dict]]) -> str:
+    """Container chapter: one heading per compose stack, devices one level below. Without any
+    compose project the output is identical to the flat listing."""
+    projects = sorted({p for p in map(_compose_project, systems) if p}, key=str.lower)
+    if not projects:
+        return _device_details(systems, by_id, children_by_parent)
+    parts = []
+    for project in projects:
+        members = sorted((s for s in systems if _compose_project(s) == project), key=lambda s: s["name"].lower())
+        parts.append(f"### Stack: {_escape(project)}\n")
+        parts.append(_device_details(members, by_id, children_by_parent, level=4))
+    rest = [s for s in systems if not _compose_project(s)]
+    if rest:
+        parts.append("### Ohne Compose-Projekt\n")
+        parts.append(_device_details(rest, by_id, children_by_parent, level=4))
+    return "\n".join(parts)
+
+
+def _device_details(systems: list[dict], by_id: dict[str, dict], children_by_parent: dict[str, list[dict]],
+                    level: int = 3) -> str:
     parts: list[str] = []
     for s in systems:
-        parts.append(f"### {s['name']}\n")
+        parts.append(f"{'#' * level} {s['name']}\n")
         description = describe_device(s)
         if description:
             parts.append(f"{description}\n")
@@ -528,7 +552,8 @@ async def generate(settings: dict, use_llm: bool = True, log=None) -> list[str]:
                 sections.append(_device_table(systems))
                 if systems:
                     sections.append("\n## Die Geräte im Einzelnen\n")
-                    sections.append(_device_details(systems, by_id, children_by_parent))
+                    details = _grouped_device_details if topic.slug == "container-und-vms" else _device_details
+                    sections.append(details(systems, by_id, children_by_parent))
             body = "\n".join(sections)
             intro = topic.intro_hint
 

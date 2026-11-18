@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, DUPLICATE_REASON_LABEL, type DuplicateCandidate, type System } from "../lib/api";
 import { useAuth } from "../App";
@@ -22,6 +22,11 @@ function ipSortKey(ip: string): string {
   if (parts.length !== 4 || !parts.every((p) => /^\d{1,3}$/.test(p))) return ip;
   return parts.map((p) => p.padStart(3, "0")).join(".");
 }
+
+const projectOf = (s: System): string => {
+  const docker = (s.extra as { docker?: { composeProject?: string } } | undefined)?.docker;
+  return docker?.composeProject ?? "";
+};
 
 export default function InventoryPage() {
   const { isAdmin } = useAuth();
@@ -52,6 +57,22 @@ export default function InventoryPage() {
 
   const kind = searchParams.get("kind") ?? "";
   const parentId = searchParams.get("parentId") ?? "";
+  const project = searchParams.get("project") ?? "";
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  function setParam(name: string, value: string) {
+    const next = new URLSearchParams(searchParams);
+    if (value) next.set(name, value); else next.delete(name);
+    setSearchParams(next);
+  }
+
+  function toggleCollapsed(name: string) {
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
+  }
 
   const [candidates, setCandidates] = useState<DuplicateCandidate[]>([]);
 
@@ -93,6 +114,7 @@ export default function InventoryPage() {
     const filtered = systems.filter((s) => {
       if (kind && s.kind !== kind) return false;
       if (parentId && s.parentId !== parentId) return false;
+      if (project && projectOf(s) !== project) return false;
       if (!needle) return true;
       return [s.name, s.hostname, s.ip, s.mac, s.vendor, s.model, s.location, s.purpose]
         .join(" ")
@@ -114,7 +136,7 @@ export default function InventoryPage() {
       const va = value(a), vb = value(b);
       return va < vb ? -sign : va > vb ? sign : 0;
     });
-  }, [systems, kind, parentId, query, sort, kindLabels]);
+  }, [systems, kind, parentId, project, query, sort, kindLabels]);
 
   function toggleSelected(id: string) {
     setSelected((current) => {
@@ -188,6 +210,25 @@ export default function InventoryPage() {
     [systems],
   );
 
+  const projects = useMemo(
+    () => Array.from(new Set(systems.map(projectOf).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    [systems],
+  );
+
+  // Devices without a compose project keep their natural order and get no header; each project
+  // becomes one collapsible group (alphabetical), sorting/search apply within the groups.
+  const groups = useMemo(() => {
+    const byProject = new Map<string, System[]>();
+    const loose: System[] = [];
+    for (const s of visible) {
+      const p = projectOf(s);
+      if (!p) { loose.push(s); continue; }
+      byProject.set(p, [...(byProject.get(p) ?? []), s]);
+    }
+    const names = [...byProject.keys()].sort((a, b) => a.localeCompare(b));
+    return { loose, stacks: names.map((name) => ({ name, items: byProject.get(name)! })) };
+  }, [visible]);
+
   async function addSystem() {
     const name = window.prompt("Wie soll das neue Gerät heißen?");
     if (!name?.trim()) return;
@@ -197,6 +238,58 @@ export default function InventoryPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
+  }
+
+  function renderRow(s: System) {
+    return (
+      <tr key={s.id}>
+        {isAdmin && (
+          <td>
+            <input type="checkbox" style={{ width: "auto" }} checked={selected.has(s.id)}
+                   onChange={() => toggleSelected(s.id)} />
+          </td>
+        )}
+        <td>
+          <Link to={`/geraete/${s.id}`}>
+            <strong>{s.name}</strong>
+          </Link>
+          {s.importance === "critical" && (
+            <span className="badge warn" style={{ marginLeft: 8 }}>kritisch</span>
+          )}
+          {!!s.errorCount && (
+            <span className="badge danger" style={{ marginLeft: 8 }}
+                  title={`${s.errorCount} protokollierte(r) Fehler -- siehe Geräteseite`}>
+              ⚠ {s.errorCount}
+            </span>
+          )}
+          {(s.tags ?? []).some((t) => t.toLowerCase().includes("poe")) && (
+            <span className="badge warn" style={{ marginLeft: 8 }}
+                  title="Funktioniert ohne PoE-fähigen Switch oder Injector nicht">
+              ⚡ PoE
+            </span>
+          )}
+          {s.purpose && (
+            <div className="muted" style={{ fontSize: "0.83rem" }}>{s.purpose}</div>
+          )}
+        </td>
+        <td className="mono">
+          {s.ip || "—"}
+          {s.hostname && <div className="muted" style={{ fontSize: "0.8rem" }}>{s.hostname.split(".")[0]}</div>}
+        </td>
+        <td>
+          <span className="row" style={{ gap: 6, flexWrap: "nowrap" }}>
+            <KindIcon kind={s.kind} className="muted" />
+            {kindLabels[s.kind] ?? s.kind}
+          </span>
+        </td>
+        <td>{s.location || "—"}</td>
+        <td>
+          <span className={`badge ${s.status === "online" ? "ok" : s.status === "offline" ? "danger" : ""}`}>
+            {STATUS_LABEL[s.status] ?? s.status}
+          </span>
+        </td>
+      </tr>
+    );
   }
 
   return (
@@ -256,7 +349,7 @@ export default function InventoryPage() {
           <select
             style={{ width: "auto" }}
             value={kind}
-            onChange={(e) => setSearchParams(e.target.value ? { kind: e.target.value } : {})}
+            onChange={(e) => setParam("kind", e.target.value)}
           >
             <option value="">Alle Kategorien</option>
             {kinds.map((k) => (
@@ -265,6 +358,14 @@ export default function InventoryPage() {
               </option>
             ))}
           </select>
+          {projects.length > 0 && (
+            <select style={{ width: "auto" }} value={project} onChange={(e) => setParam("project", e.target.value)}>
+              <option value="">Alle Compose-Projekte</option>
+              {projects.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          )}
         </div>
 
         {isAdmin && selected.size > 0 && (
@@ -326,54 +427,17 @@ export default function InventoryPage() {
                 </tr>
               </thead>
               <tbody>
-                {visible.map((s) => (
-                  <tr key={s.id}>
-                    {isAdmin && (
-                      <td>
-                        <input type="checkbox" style={{ width: "auto" }} checked={selected.has(s.id)}
-                               onChange={() => toggleSelected(s.id)} />
+                {groups.loose.map(renderRow)}
+                {groups.stacks.map((g) => (
+                  <Fragment key={`stack:${g.name}`}>
+                    <tr style={{ cursor: "pointer" }} onClick={() => toggleCollapsed(g.name)}>
+                      <td colSpan={isAdmin ? 6 : 5} style={{ background: "var(--surface-2, rgba(128,128,128,0.08))" }}>
+                        <strong>{collapsed.has(g.name) ? "▸" : "▾"} Compose: {g.name}</strong>{" "}
+                        <span className="muted">({g.items.length} Container)</span>
                       </td>
-                    )}
-                    <td>
-                      <Link to={`/geraete/${s.id}`}>
-                        <strong>{s.name}</strong>
-                      </Link>
-                      {s.importance === "critical" && (
-                        <span className="badge warn" style={{ marginLeft: 8 }}>kritisch</span>
-                      )}
-                      {!!s.errorCount && (
-                        <span className="badge danger" style={{ marginLeft: 8 }}
-                              title={`${s.errorCount} protokollierte(r) Fehler -- siehe Geräteseite`}>
-                          ⚠ {s.errorCount}
-                        </span>
-                      )}
-                      {(s.tags ?? []).some((t) => t.toLowerCase().includes("poe")) && (
-                        <span className="badge warn" style={{ marginLeft: 8 }}
-                              title="Funktioniert ohne PoE-fähigen Switch oder Injector nicht">
-                          ⚡ PoE
-                        </span>
-                      )}
-                      {s.purpose && (
-                        <div className="muted" style={{ fontSize: "0.83rem" }}>{s.purpose}</div>
-                      )}
-                    </td>
-                    <td className="mono">
-                      {s.ip || "—"}
-                      {s.hostname && <div className="muted" style={{ fontSize: "0.8rem" }}>{s.hostname.split(".")[0]}</div>}
-                    </td>
-                    <td>
-                      <span className="row" style={{ gap: 6, flexWrap: "nowrap" }}>
-                        <KindIcon kind={s.kind} className="muted" />
-                        {kindLabels[s.kind] ?? s.kind}
-                      </span>
-                    </td>
-                    <td>{s.location || "—"}</td>
-                    <td>
-                      <span className={`badge ${s.status === "online" ? "ok" : s.status === "offline" ? "danger" : ""}`}>
-                        {STATUS_LABEL[s.status] ?? s.status}
-                      </span>
-                    </td>
-                  </tr>
+                    </tr>
+                    {!collapsed.has(g.name) && g.items.map(renderRow)}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
