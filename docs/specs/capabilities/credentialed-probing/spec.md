@@ -396,16 +396,18 @@ Quelle: `backend/app/docker_probe.py:54`, Test: `backend/tests/test_docker_probe
 Das System MUSS im Vollscan alle Zugänge der Kategorien `unifi`, `omada`, `proxmox`, `adguard` mit
 Freigabe abfragen – unabhängig von Gerätezuordnung – und ihre Funde ins Inventar übernehmen;
 Proxmox-Gäste unter den Host des Zugangs hängen; Fehler als Scan-Warnung und Fehlerereignis am
-Gerät des Zugangs. Jede Quelle ist per Einstellung abschaltbar (`scanEnableUnifi`/`Omada`/`Proxmox`/
-`Adguard`/`Docker`, Default an); das Auslesen per Zugangsdaten insgesamt per `scanUseCredentials`
-(Default an). **[Muss]**
+Gerät des Zugangs. Jede Quelle ist nur per eigener Einstellung abschaltbar (`scanEnableUnifi`/
+`Omada`/`Proxmox`/`Adguard`/`Docker`, Default an); `scanUseCredentials` (Default an) schaltet
+ausschließlich das Auslesen je Gerät (`_probe_with_credentials`, inkl. ARP-Lernen und
+Druckerfüllstände) ab, nicht die Controller-Probes. **[Muss]**
 
 #### Szenario: Auslesen abgeschaltet
-- **WENN** `scanUseCredentials = false`
+- **WENN** `scanUseCredentials = false` und ein freigegebener `unifi`-Zugang existiert
 - **DANN** protokolliert der Scan „Auslesen per Zugangsdaten ist in den Einstellungen abgeschaltet“
-  und meldet sich an keinem Gerät an
+  und liest kein Gerät einzeln aus (SSH/HTTP/SNMP/TR-064/HA), meldet sich aber weiterhin mit dem Zugang am
+  UniFi-Controller an (ebenso Omada, Proxmox, AdGuard, sofern deren `scanEnable*` an ist)
 
-Quelle: `backend/app/pipeline.py:376`, `backend/app/pipeline.py:521`
+Quelle: `backend/app/pipeline.py:376`, `backend/app/pipeline.py:387`–`:455`, `backend/app/pipeline.py:521`
 
 ### Requirement: Gerät manuell auslesen
 Das System MUSS Admins erlauben, ein Gerät sofort auszulesen: unbekanntes Gerät → 404; ohne
@@ -509,5 +511,9 @@ auslesen“, nur Admin und nur wenn ein Zugang `allowProbe` hat).
   ein Restore ist bewusst nicht vorgesehen, Nutzen der Speicherung ist unklar.
 - > OFFEN: Omada liest nur Seite 1 (Geräte 100, Clients 500); größere Sites werden still abgeschnitten.
   Ein `errorCode` bei Geräten überspringt auch die Clients der Site.
+- > OFFEN: README „Sicherheit“ sagt, das Verfahren lasse sich unter *Einstellungen → Netzwerk-Scan*
+  „komplett abschalten“. Trifft nur teilweise zu: `scanUseCredentials = false` stoppt nur das
+  Auslesen je Gerät; UniFi/Omada/Proxmox/AdGuard melden sich weiter mit Zugangsdaten an, solange
+  ihr `scanEnable*` an ist (`backend/app/pipeline.py:387`–`:455` vs. `:521`). Doku oder Verhalten anpassen?
 - > OFFEN: Klassisches Aruba braucht ein Konto, das direkt mit Manager-Rechten anmeldet; die UI
   weist darauf nicht hin.
