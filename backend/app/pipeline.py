@@ -304,6 +304,40 @@ def _link_unifi_topology() -> int:
     return linked
 
 
+def _make_names_unique(findings: list[dict]) -> None:
+    """Disambiguates names shared by several distinct devices in this scan.
+
+    A name shared by several devices reads as duplicates in the inventory even though each one is
+    a real, separate device with its own MAC/IP/discovery key -- some devices (many Shelly units,
+    for one) serve the exact same generic <title> on their local web UI, and the LLM step can
+    independently suggest the same generic name for visually-identical devices. Run once, after
+    every source and the LLM step have had their say -- doing it earlier just gets overwritten.
+
+    Docker containers all share their host's IP, so the IP-octet suffix means nothing for them
+    (their names already carry project and service). Only an exact duplicate on the same host
+    (e.g. `docker compose --scale`) gets a running counter.
+    """
+    name_counts: dict[str, int] = {}
+    for f in findings:
+        name_counts[f["name"]] = name_counts.get(f["name"], 0) + 1
+    # The running count within the (name, suffix) group keeps every entry unique even when two
+    # devices end up with the same name and the same last IP octet.
+    group_counts: dict[tuple[str, str], int] = {}
+    for f in findings:
+        if name_counts[f["name"]] <= 1:
+            continue
+        if "docker" in (f.get("extra") or {}):
+            key = (f["name"], "")
+            group_counts[key] = group_counts.get(key, 0) + 1
+            if group_counts[key] > 1:
+                f["name"] = f"{f['name']} ({group_counts[key]})"
+        elif f.get("ip"):
+            suffix = f["ip"].rsplit(".", 1)[-1]
+            group_counts[(f["name"], suffix)] = group_counts.get((f["name"], suffix), 0) + 1
+            occurrence = group_counts[(f["name"], suffix)]
+            f["name"] = f"{f['name']} ({suffix}{f'-{occurrence}' if occurrence > 1 else ''})"
+
+
 async def run_full_scan(scan_id: str) -> None:
     settings = db.get_settings()
     warnings: list[str] = []
@@ -441,26 +475,7 @@ async def run_full_scan(scan_id: str) -> None:
                 for f in findings
             ]
 
-        # A name shared by several distinct devices in this scan reads as duplicates in the
-        # inventory even though each one is a real, separate device with its own MAC/IP/discovery
-        # key -- some devices (many Shelly units, for one) serve the exact same generic <title> on
-        # their local web UI, and the LLM step above can independently suggest the same generic
-        # name for visually-identical devices it never compares against each other. Fixed up once,
-        # here, after every source (network scan, Docker, Omada, Proxmox) and the LLM step have
-        # all had their say -- doing this any earlier just gets overwritten by a later step.
-        name_counts: dict[str, int] = {}
-        for f in findings:
-            name_counts[f["name"]] = name_counts.get(f["name"], 0) + 1
-        # The IP's last octet alone still collides for Docker containers, which all share their
-        # host's IP -- a running count within the (name, suffix) group keeps every entry unique
-        # even when two containers on the same host end up with the same LLM-suggested name.
-        group_counts: dict[tuple[str, str], int] = {}
-        for f in findings:
-            if name_counts[f["name"]] > 1 and f.get("ip"):
-                suffix = f["ip"].rsplit(".", 1)[-1]
-                group_counts[(f["name"], suffix)] = group_counts.get((f["name"], suffix), 0) + 1
-                occurrence = group_counts[(f["name"], suffix)]
-                f["name"] = f"{f['name']} ({suffix}{f'-{occurrence}' if occurrence > 1 else ''})"
+        _make_names_unique(findings)
 
         progress("Inventar aktualisieren", 94, None)
         seen_ids: set[str] = set()

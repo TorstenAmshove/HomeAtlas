@@ -10,6 +10,9 @@ Deliberately additive, never destructive:
   doesn't cost tokens.
 * A low-confidence answer is discarded rather than written -- the rule-based guess is a better
   default than a shrug.
+* It never renames or re-kinds a device whose name comes from a source (manual, UniFi, Docker,
+  Proxmox, Omada). Docker containers are skipped entirely: they all share the host's IP, and the
+  answers are mapped back per IP, so one answer would otherwise hit every container of that host.
 * Failure of the whole step is non-fatal: the scan completes with rule-based results and a warning.
 """
 from __future__ import annotations
@@ -30,6 +33,20 @@ _VALID_KINDS = {
 _VALID_IMPORTANCE = {"critical", "normal", "low"}
 
 
+_NAME_SOURCES = ("docker", "proxmox", "unifi", "omada")
+
+
+def is_container(finding: dict) -> bool:
+    return "docker" in (finding.get("extra") or {})
+
+
+def has_source_name(finding: dict) -> bool:
+    """True if a source other than a guess supplied this device's name and kind."""
+    tokens = set((finding.get("discoverySource") or "").split("+"))
+    extra = finding.get("extra") or {}
+    return bool(tokens.intersection(_NAME_SOURCES)) or any(key in extra for key in _NAME_SOURCES)
+
+
 def needs_classification(finding: dict) -> bool:
     """Which devices are worth an LLM call.
 
@@ -41,6 +58,8 @@ def needs_classification(finding: dict) -> bool:
     last two are what makes the inventory readable, so they are worth filling even for hardware
     that was recognised.
     """
+    if is_container(finding):
+        return False
     evidence = finding.get("extra") or {}
     has_evidence = bool(
         finding.get("openPorts") or finding.get("vendor") or finding.get("hostname")
@@ -175,10 +194,13 @@ async def _drop_dead_links(by_ip: dict[str, dict], warnings: list[str], log) -> 
 def apply(finding: dict, classification: dict) -> dict:
     """Merges one classification into a finding. Empty strings from the model never overwrite a
     value the rules already found -- a blank answer is an absence of information, not a correction."""
+    if is_container(finding):
+        return finding
+    protected = ("kind", "name") if has_source_name(finding) else ()
     merged = dict(finding)
     for field in ("kind", "name", "vendor", "model", "purpose", "descriptionMd", "importance", "docUrl"):
         value = classification.get(field)
-        if value:
+        if value and field not in protected:
             merged[field] = value
     # A curated link always beats a suggested one -- it was verified by a human, not by an HTTP 200.
     if finding.get("docUrl"):

@@ -80,7 +80,11 @@ async def probe(host_ip: str = "") -> dict:
         labels = container.get("Labels") or {}
         project = labels.get("com.docker.compose.project", "")
         service = labels.get("com.docker.compose.service", "")
-        name = _clean_name(container.get("Names"))
+        container_name = _clean_name(container.get("Names"))
+        # Several compose projects commonly run a service with the same name (a postgres per
+        # stack); "<service> · <project>" keeps them apart and readable. Without both labels the
+        # plain Docker container name is the best identifier there is.
+        name = f"{service} · {project}" if project and service else container_name
         mounts = [
             m.get("Name") or m.get("Source") or ""
             for m in container.get("Mounts") or []
@@ -95,7 +99,7 @@ async def probe(host_ip: str = "") -> dict:
         # (used for the handful of non-compose containers) is just as stable. Only a bare `docker
         # run` container with no name at all falls back to its ID, and even that keeps the ID
         # constant across rescans since nothing there recreates it.
-        stable_key = f"{project}:{service}" if project and service else name or container.get("Id", "")[:12]
+        stable_key = f"{project}:{service}" if project and service else container_name or container.get("Id", "")[:12]
         # Before compose project+service became the key, every container was keyed on its own ID
         # (see the note above) -- an installation upgrading across that change would otherwise fail
         # to find its existing row by the new key and duplicate every compose-managed container.
