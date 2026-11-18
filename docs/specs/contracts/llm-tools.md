@@ -1,6 +1,8 @@
 # Werkzeuge des KI-Assistenten (In-App-Chat und MCP)
 
-> Stand: Commit 0159807. Erzeugt aus `backend/app/tools.py:TOOL_DEFINITIONS`. Derselbe Satz gilt
+> Stand: Commit 0159807. Übersicht zu `backend/app/tools.py:TOOL_DEFINITIONS`. Die vollständigen
+> Definitionen (Beschreibungstexte im Wortlaut, Parameter mit Typen, Enums, Defaults) stehen
+> maschinell erzeugt in [llm-tools.json](llm-tools.json). Derselbe Satz gilt
 > für den In-App-Chat und den externen MCP-Endpunkt `/api/mcp` (`backend/app/mcp_server.py:3`).
 > Verhalten und Ablauf: [assistent-chat-und-mcp](../capabilities/assistent-chat-und-mcp/spec.md).
 > Grenze: [ADR 0004](../../adr/0004-llm-faehigkeitsgrenze.md).
@@ -15,7 +17,7 @@
 - **[Muss]** Schreibende Admin-Funktionen (Container, Reboot, SSH-Konsole, Schlüssel ausrollen) sind
   über keine Werkzeuge erreichbar (`docs/adr/0002-lese-schreib-trennung.md`).
 - **[Impl]** Jedes Ergebnis wird auf 6000 Zeichen gekürzt; die Kürzung steht im Ergebnis, damit
-  das Modell gezielter nachfragt (`backend/app/tools.py:34`). Höchstens 8 Werkzeug-Runden pro
+  das Modell gezielter nachfragt (`backend/app/tools.py:34`). Höchstens 8 LLM-Aufrufe pro
   Antwort (`backend/app/tools.py:35`).
 - **[Muss]** Fehler eines Werkzeugs kommen als `{"error": …}` zurück, statt den Lauf abzubrechen
   (`backend/app/mcp_server.py:49`).
@@ -28,7 +30,7 @@
 |---|---|---|
 | `list_systems` | `kind`, `query`, `onlyOnline` | dokumentierte Geräte auflisten, umgangssprachliche Namen („der Drucker“) zu Gerät + IP auflösen |
 | `get_system` | **`idOrName`** | alle Details eines Geräts: Ports, Dienste, Beschreibung, Standort, Zweck |
-| `network_overview` | – | Adressbereiche, Router/Gateway, DNS-Server, Zusammenfassung des letzten Scans |
+| `network_overview` | – | Adressbereiche und Zusammenfassung des letzten Scans; Router/Gateway und DNS nur, soweit sie in dieser Zusammenfassung stehen |
 | `list_documentation` | – | Doku-Kapitel mit Titel und Kurzbeschreibung |
 | `get_documentation` | **`slug`** | vollständiger Text eines Kapitels |
 | `list_accounts` | `systemId` | Zugänge **ohne Passwörter**: Bezeichnung, Benutzername, Adresse, Notiz |

@@ -34,7 +34,9 @@
   Der zweite Faktor wird erst aktiv, wenn ein gültiger Code bestätigt wurde. Selbst abschalten
   ist nicht möglich; ein ADMIN kann ihn für ein Konto zurücksetzen.
 - **R4 [Muss]** Reihenfolge nach dem Login: Anmeldung → MFA-Einrichtung → Einrichtungsassistent
-  (nur beim ersten Mal) → App. Dieselbe Reihenfolge erzwingt der Server.
+  (nur beim ersten Mal) → App. Der Server erzwingt Anmeldung und MFA; den Einrichtungsassistenten
+  sperrt heute nur die Oberfläche (`setupCompleted` wird serverseitig nicht geprüft).
+  > OFFEN: Soll eine Alternative auch den Setup-Schritt serverseitig erzwingen?
 - **R5 [Muss]** Passwortrichtlinie: mindestens 10 Zeichen und entweder drei der vier Zeichenarten
   oder ab 20 Zeichen als Passphrase.
 - **R6 [Muss]** Zugriffsprotokoll für Anmeldungen, Fehlversuche, Benutzeränderungen und **jedes
@@ -50,10 +52,18 @@
   kann über eine Einstellung, einen Parameter oder ein KI-Werkzeug schreibend werden.
   ([ADR 0002](../adr/0002-lese-schreib-trennung.md))
 - **L2 [Muss]** Credentialed Probing ist **streng lesend**: SSH nur aus einer festen, im Code
-  stehenden Befehlsliste (nicht erweiterbar, nicht interaktiv, kein `sudo`, keine Umleitung);
+  stehenden Befehlsliste (nicht erweiterbar, nicht interaktiv, kein `sudo`, kein Paketmanager, keine
+  Dienststeuerung, keine schreibende Umleitung in Dateien; Pipes zu Lesewerkzeugen wie `base64` und
+  `2>/dev/null` sind erlaubt);
   HTTP nur GET; TR-064 nur `Get*`-Aktionen; Docker-API nur GET.
 - **L3 [Muss]** Ein Zugang wird nur benutzt, wenn er **ausdrücklich zum Auslesen freigegeben**
-  ist (Opt-in je Zugang, Default aus). Das Verfahren lässt sich global abschalten.
+  ist (Opt-in je Zugang, Default aus). Das Auslesen pro Gerät lässt sich global abschalten
+  (`scanUseCredentials`); Controller-Abfragen (UniFi, Omada, Proxmox, AdGuard) haben eigene Schalter.
+  > OFFEN: Die README verspricht „komplett abschaltbar“; heute schaltet `scanUseCredentials` die
+  > Controller-Abfragen nicht mit ab.
+- **L3a [Muss]** Manche Plattformen brauchen zum Lesen einen Befehl, der formal in einen
+  Konfigurationsmodus wechselt (TP-Link `configure` / `no clipaging` gegen Seitenumbruch). Erlaubt
+  ist das nur, um die Ausgabe lesbar zu machen, nie, um etwas zu ändern.
 - **L4 [Muss]** Schreibende Funktionen (Container steuern, Reboot, SSH-Konsole, Schlüssel ausrollen,
   Proxmox-Aktionen) sind nur für ADMIN und nur über die Oberfläche/API erreichbar, nie über
   Scan-Pipeline, Probes oder KI-Werkzeuge.
@@ -69,14 +79,14 @@
 ## 4. KI-Assistent
 
 - **K1 [Muss]** Die Werkzeugliste ist die **vollständige** Fähigkeitsgrenze des Modells: lesend
-  plus begrenzte Live-Diagnosen. ([ADR 0004](../adr/0004-llm-faehigkeitsgrenze.md),
+  plus begrenzte Live-Diagnosen plus die eine Ausnahme `set_switch` (L5). ([ADR 0004](../adr/0004-llm-faehigkeitsgrenze.md),
   [llm-tools](contracts/llm-tools.md))
 - **K2 [Muss]** Gespeicherte Secrets erreichen **nie** ein Modell, einen Prompt, Anbieter-Logs oder
   den Chatverlauf. Werkzeuge, die ein Secret brauchen, nutzen es serverseitig.
 - **K3 [Muss]** Live-Diagnosen laufen ohne Shell (Argumentliste), mit Timeout und mit strikt
   validierten Zielen (Hostname/IP/URL nach Muster).
 - **K4 [Muss]** Werkzeugergebnisse sind in der Größe begrenzt; eine Kürzung wird dem Modell
-  mitgeteilt. Die Zahl der Werkzeugrunden pro Antwort ist begrenzt.
+  mitgeteilt. Die Zahl der LLM-Aufrufe pro Antwort ist begrenzt.
 - **K5 [Muss]** Anbieter frei wählbar: Anthropic Claude, OpenAI, Google Gemini, DeepSeek, lokales
   Ollama. ([ADR 0006](../adr/0006-providerneutraler-llm-client.md))
 - **K6 [Impl]** Eigener HTTP-Client statt Vendor-SDKs; Struktur parallel zum Schwesterprojekt
@@ -93,7 +103,10 @@
 ## 5. Zugangsdaten
 
 - **Z1 [Muss]** Secrets (Passwörter, private Schlüssel, Passphrasen, Tokens, TOTP-Geheimnisse) sind
-  at rest verschlüsselt. Schutzziel: eine abhandengekommene **Datenbankkopie**, ausdrücklich nicht
+  at rest verschlüsselt.
+  > OFFEN: Heute gilt das nicht für LLM-API-Schlüssel (Klartext im Settings-JSON), MCP-Tokens und
+  > Session-Tokens (Klartext in ihren Tabellen) und nicht für die Kopie ausgelesener
+  > Konfigurationsexporte in `systems.extra.probe`. Siehe [offene-punkte](offene-punkte.md) 1 und 2. Schutzziel: eine abhandengekommene **Datenbankkopie**, ausdrücklich nicht
   root auf dem Host. ([ADR 0007](../adr/0007-credentials-fernet-schluessel-im-volume.md))
 - **Z2 [Muss]** Der Dienst startet nach einem Neustart **unbeaufsichtigt** (keine Passphrase beim Start).
 - **Z3 [Muss]** Ein Secret verlässt den Server nur **einzeln**, nur für ADMIN, und jedes Anzeigen
@@ -127,9 +140,11 @@
   ([ADR 0005](../adr/0005-sqlite-ohne-orm.md), [data-model](contracts/data-model.md))
 - **D3 [Muss]** Dokumentation ist versioniert; jeder frühere Stand jeder Seite bleibt abrufbar und
   wiederherstellbar. Manuelle Notizen werden von der Generierung nie verändert.
-- **D4 [Muss]** Der Netzplan ist ein für Laien lesbares Bild mit fester Schichtenfolge
-  (Internet → Router → Verteilung → Server → Endgeräte), nur wichtige Geräte als eigene Kästen,
-  der Rest gruppiert; Farbe nie das einzige Signal.
+- **D4 [Muss]** Der Netzplan ist ein für Laien lesbares Bild mit fester Schichtenfolge von oben
+  nach unten. Heute: Internet → Router → Verteilung → Wichtige Geräte; alle übrigen Geräte stehen
+  gruppiert als Liste unter dem Bild ([topologie](capabilities/topologie/spec.md)).
+  > OFFEN: ADR-0008 beschreibt „Server → Endgeräte“ als Ebenen und „Farbe nie einziges Signal“;
+  > der Code weicht ab (im Kasten ist Farbe das einzige Statussignal). Für die Alternative festlegen.
 - **D5 [Impl]** Netzplan wird serverseitig als SVG erzeugt, ohne Graph-Bibliothek im Browser,
   ohne Zoomen/Ziehen. ([ADR 0008](../adr/0008-topologie-als-server-svg.md))
 - **D6 [Impl]** Frontend: React + react-router ohne State-Bibliothek, ein zentraler typisierter

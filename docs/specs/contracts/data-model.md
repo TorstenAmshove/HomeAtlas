@@ -76,7 +76,7 @@ Schlüssel/Wert-Paare. Die Schlüssel und Defaults stehen in
 | discovered | durch Scan gefunden (vs. von Hand angelegt) |
 | confirmed | von Hand bearbeitet: danach dürfen Discovery, Klassifikation und Proxmox-Tags von Menschen gepflegte Felder nicht mehr überschreiben **[Muss]** (`backend/app/db.py:1137`) |
 | discoverySource | Quelle der Erkennung |
-| discoveryKey | stabile Wiedererkennung: `mac:<mac>`, `ip:<addr>` (außerhalb des L2-Segments) oder `docker:<container-id>`; leer bei manuellen Einträgen |
+| discoveryKey | stabile Wiedererkennung: `mac:<mac>`; `ip:<addr>` (außerhalb des L2-Segments); `docker:<projekt>:<service>` bzw. `docker:<containername>` (Altschlüssel `docker:<id12>` wird übernommen, `backend/app/docker_probe.py:102`); `proxmox:<node>:<kind>:<vmid>` für Gäste ohne MAC (`backend/app/proxmox_probe.py:165`); leer bei manuellen Einträgen. Suchreihenfolge bei der Wiedererkennung: [discovery-und-scan](../capabilities/discovery-und-scan/spec.md) |
 | identityKey | abgeleitet: `discoveryKey` oder `id:<id>`, eindeutig **[Muss: ein Gerät = eine Identität]** |
 | monitored, monitorPorts | Dauerüberwachung an/aus und zu prüfende Ports |
 | openPorts, services, tags, extra | JSON: offene Ports, erkannte Dienste, Tags, quellspezifische Zusatzdaten (Probing-Ergebnisse, Docker/Compose, UniFi …) |

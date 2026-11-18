@@ -10,7 +10,7 @@
 | **Erkennungsschlüssel (discoveryKey)** | Stabile Identität für die Wiedererkennung über Scans: `mac:…`, `ip:…` oder `docker:…`. |
 | **Alias** | Frühere Identität eines Systems (z. B. alte MAC) nach dem Zusammenführen. |
 | **Duplikat / Zusammenführen (Merge)** | Zwei Einträge für dasselbe Gerät; beim Zusammenführen bleiben die Gerätedetails erhalten, der zweite Eintrag wird zum Alias. |
-| **Namenspräzedenz** | Feste Reihenfolge, welcher Name gewinnt: manuell > UniFi > Eigenangabe (UPnP, dann mDNS) > DNS-Hostname > Seitentitel > Hersteller + IP-Oktett. |
+| **Namenspräzedenz** | Feste Reihenfolge, welcher Name gewinnt: manuell > UniFi > Eigenangabe (Shelly-API, UPnP, mDNS) > DNS-Hostname > Seitentitel > Hersteller + IP-Oktett. Exakt in [discovery-und-scan](capabilities/discovery-und-scan/spec.md). |
 | **Scan** | Ein vollständiger Lauf: Erkennung → Docker → Auslesen mit Zugangsdaten → Klassifikation → Doku neu erzeugen. Manuell oder per Zeitplan. |
 | **Erkennung (Discovery)** | Finden von Geräten ohne Zugangsdaten über Ping/ARP, Portscan, Reverse-DNS, mDNS, SSDP/UPnP, HTTP-Banner, Docker-API. |
 | **Auslesen (Credentialed Probing)** | Streng lesendes Anmelden an einem Gerät mit einem freigegebenen Zugang, um Eckdaten zu lesen. |
@@ -25,7 +25,12 @@
 | **Manuelle Notizen** | Eigener Abschnitt je Kapitel, den die Generierung nie anfasst. |
 | **Manueller Override** | Ganze Kapitelseite von Hand überschrieben; sie wird dann nicht mehr automatisch erzeugt, bis sie zurückgesetzt wird. |
 | **Version** | Früherer Stand eines Kapitels (oder einer Gerätekonfiguration), abrufbar und wiederherstellbar. |
-| **Netzplan (Topologie)** | Automatisch erzeugtes Bild des Netzes in festen Schichten: Internet → Router → Verteilung → Server → Endgeräte. Zusätzlich eine Layer-3-Ansicht (Netze/VLANs). |
+| **Netzplan (Topologie)** | Automatisch erzeugtes Bild des Netzes in festen Schichten: Internet → Router → Verteilung (Backbone: Switches, Access Points) → Wichtige Geräte; der Rest als Liste darunter. Zusätzlich eine Layer-3-Ansicht (Netze/VLANs). |
+| **Vollscan vs. manuelles Auslesen** | Vollscan: der ganze Scan-Ablauf über alle Geräte. Manuelles Auslesen: Knopf „Auslesen“ an einem einzelnen Gerät; nutzt nur einen Teil der Quellen (siehe [credentialed-probing](capabilities/credentialed-probing/spec.md)). |
+| **Platzhalter-Einordnung (guessConfident)** | Die regelbasierte Erkennung konnte Art/Name nicht sicher bestimmen; nur solche Geräte gehen an die KI-Klassifikation. |
+| **Namensquelle** | Woher der aktuelle Name eines Geräts stammt (manuell, UniFi, Docker, Proxmox, Omada, mDNS …); bestimmt, ob Automatik ihn ersetzen darf. |
+| **Plattform (SSH)** | Erkannte Gerätefamilie (z. B. Linux, MikroTik, Cisco, Aruba, TP-Link), von der die feste SSH-Befehlsliste abhängt. |
+| **Interface** | Netzwerkschnittstelle eines Geräts (IP/MAC), gespeichert unter `extra.interfaces`; ein Gerät kann mehrere haben. |
 | **Assistent** | Chat mit einem LLM, das über Werkzeuge das Inventar kennt und live nachmisst. |
 | **Werkzeug (Tool)** | Eine Fähigkeit des Assistenten; die Liste ist die vollständige Fähigkeitsgrenze des Modells. |
 | **MCP-Endpunkt** | Externer Zugang zu denselben Werkzeugen für andere KI-Clients (Model Context Protocol), abgesichert per Token. |

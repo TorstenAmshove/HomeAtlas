@@ -37,7 +37,7 @@ Sicherheitsrelevant. Die ersten beiden sind am Code nachgeprüft (Commit 0159807
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (165)
+## Alle Punkte je Fähigkeit (166)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (12)
 
@@ -75,7 +75,7 @@ Sicherheitsrelevant. Die ersten beiden sind am Code nachgeprüft (Commit 0159807
 17. WebSocket-Check akzeptiert fehlenden `Origin`-Header; Docstring nennt die Bedingung „same bar as current_user“, prüft aber zusätzlich ADMIN.
 18. `GET /api/health` ist unauthentifiziert und verrät `userCount`; das Frontend nutzt das Feld nicht.
 
-### [credentialed-probing](capabilities/credentialed-probing/spec.md) (12)
+### [credentialed-probing](capabilities/credentialed-probing/spec.md) (13)
 
 1. Konfigurationsexporte (`config_export` bis 60.000 Zeichen, `omada_backup` bis 4 MB) liegen zusätzlich unverschlüsselt in `systems.extra.probe`, werden über `GET /api/systems/{id}` an MEMBER ausgeliefert und in der Doku („Direkt vom Gerät ausgelesen“, bis 14 Fakten) gerendert, die das LLM über `get_documentation` liest (`backend/app/docs.py:283`, `backend/app/tools.py:303`). Widerspricht „Secrets nie in Doku/Prompt“, da Exporte Community-Strings/WLAN-Schlüssel enthalten können.
 2. `GET /api/systems/{id}/config-versions/{vid}` liefert entschlüsselte Konfiguration an MEMBER (`backend/app/main.py:1412`, `Depends(current_user)`). Gewollt?
@@ -88,7 +88,8 @@ Sicherheitsrelevant. Die ersten beiden sind am Code nachgeprüft (Commit 0159807
 9. Im Vollscan nutzen Controller-Probes alle freigegebenen Zugänge der Kategorie, beim manuellen Auslesen nur die dem Gerät (direkt/per Zuordnung) zugeordneten – uneinheitlich.
 10. `omada_backup` läuft auf jedem Linux-Host und wird Base64-kodiert als Fakt gespeichert; ein Restore ist bewusst nicht vorgesehen, Nutzen der Speicherung ist unklar.
 11. Omada liest nur Seite 1 (Geräte 100, Clients 500); größere Sites werden still abgeschnitten. Ein `errorCode` bei Geräten überspringt auch die Clients der Site.
-12. Klassisches Aruba braucht ein Konto, das direkt mit Manager-Rechten anmeldet; die UI weist darauf nicht hin.
+12. README „Sicherheit“ sagt, das Verfahren lasse sich unter *Einstellungen → Netzwerk-Scan* „komplett abschalten“. Trifft nur teilweise zu: `scanUseCredentials = false` stoppt nur das Auslesen je Gerät; UniFi/Omada/Proxmox/AdGuard melden sich weiter mit Zugangsdaten an, solange ihr `scanEnable*` an ist (`backend/app/pipeline.py:387`–`:455` vs. `:521`). Doku oder Verhalten anpassen?
+13. Klassisches Aruba braucht ein Konto, das direkt mit Manager-Rechten anmeldet; die UI weist darauf nicht hin.
 
 ### [dashboard](capabilities/dashboard/spec.md) (5)
 

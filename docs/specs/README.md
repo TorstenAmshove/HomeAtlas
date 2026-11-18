@@ -22,7 +22,8 @@ Abschnitt 11.
 | [capabilities/](capabilities/) | eine `spec.md` je Fähigkeit, Vorlage: [_template.md](capabilities/_template.md) |
 | [contracts/openapi.json](contracts/openapi.json) | REST-API, aus FastAPI erzeugt |
 | [contracts/data-model.md](contracts/data-model.md) | Entitäten und Felder |
-| [contracts/llm-tools.md](contracts/llm-tools.md) | Werkzeuge des KI-Assistenten und des MCP-Endpunkts |
+| [contracts/llm-tools.md](contracts/llm-tools.md) | Werkzeuge des KI-Assistenten und des MCP-Endpunkts, vollständig in [llm-tools.json](contracts/llm-tools.json) |
+| [contracts/catalogs.json](contracts/catalogs.json) | feste Kataloge: 55 Ports, Port-Hinweise, 41 Hersteller-Doku-Links, OUI-Fallback, verbotene Passwörter, Wortliste Erstpasswort |
 | [traceability.md](traceability.md) | Abdeckung: jede Route, Tabelle, jedes Werkzeug und jede Seite → Spec (erzeugt) |
 | [offene-punkte.md](offene-punkte.md) | alle `OFFEN`-Punkte gesammelt: vor einer Alternative entscheiden |
 
@@ -62,9 +63,8 @@ Die genauen Rechte je Route stehen in der jeweiligen Spec. Bei Abweichungen gilt
 - Verträge neu erzeugen und Abdeckung prüfen (aus dem Repo-Wurzelverzeichnis):
 
 ```bash
-cd backend && HOMEATLAS_DB_PATH=/tmp/ha.db HOMEATLAS_KEY_PATH=/tmp/ha.key python -c \
-  "import json; from app.main import app; json.dump(app.openapi(), open('../docs/specs/contracts/openapi.json','w'), indent=2, ensure_ascii=False, sort_keys=True)"
-cd .. && python docs/specs/trace_specs.py        # schreibt traceability.md, Exit 1 bei Lücken
+python docs/specs/export_contracts.py   # openapi.json, llm-tools.json, catalogs.json (braucht backend/requirements.txt)
+python docs/specs/trace_specs.py        # traceability.md + Liste in offene-punkte.md, Exit 1 bei Lücken
 ```
 
 ## An einen Coding-Agenten übergeben (Alternative bauen)
@@ -76,6 +76,9 @@ cd .. && python docs/specs/trace_specs.py        # schreibt traceability.md, Exi
 3. **Paket für den Agenten**: `constitution.md`, `glossary.md`, die gewünschten
    `capabilities/*/spec.md`, `contracts/`. Den Abschnitt „Ist-Implementierung“ nur mitgeben, wenn
    die Technik gleich bleibt.
+   Nicht in den Specs stehen die festen Texte: Systemprompts von Chat, Klassifikation und Doku
+   (`backend/app/prompts.py`), Kapitel-Einleitungen und Notfall-Checkliste (`backend/app/docs.py`).
+   Entweder als Anhang mitgeben oder dem Agenten ausdrücklich zur Neuformulierung freigeben.
 4. **Reihenfolge** (Abhängigkeiten): auth-und-rollen → setup-wizard → einstellungen-und-llm-provider
    → inventar → discovery-und-scan → zugangsdaten → credentialed-probing → netzwerkressourcen-vlans
    → dokumentation → topologie → dashboard → monitoring → diagnose → assistent-chat-und-mcp →

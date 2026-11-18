@@ -1,0 +1,685 @@
+{
+  "initialPassword.words": [
+    "Anker",
+    "Blume",
+    "Dachs",
+    "Eiche",
+    "Feder",
+    "Garten",
+    "Hafen",
+    "Insel",
+    "Kerze",
+    "Lampe",
+    "Mond",
+    "Nebel",
+    "Otter",
+    "Pfeil",
+    "Quelle",
+    "Regen",
+    "Sonne",
+    "Turm",
+    "Ufer",
+    "Vogel",
+    "Wolke",
+    "Zeder",
+    "Brunnen",
+    "Distel",
+    "Falke",
+    "Granit",
+    "Hummel",
+    "Kiesel",
+    "Linde",
+    "Marmor"
+  ],
+  "oui.fallback": {
+    "00:03:93": "Apple",
+    "00:04:0E": "AVM (Fritz!Box)",
+    "00:0C:29": "VMware (virtuelle Maschine)",
+    "00:15:5D": "Microsoft Hyper-V (virtuelle Maschine)",
+    "00:1B:63": "Apple",
+    "00:50:56": "VMware (virtuelle Maschine)",
+    "02:42:AC": "Docker-Container",
+    "08:00:27": "Oracle VirtualBox (virtuelle Maschine)",
+    "52:54:00": "QEMU/KVM (virtuelle Maschine)",
+    "B8:27:EB": "Raspberry Pi Foundation",
+    "DC:A6:32": "Raspberry Pi Trading",
+    "E4:5F:01": "Raspberry Pi Trading"
+  },
+  "passwordPolicy.forbidden": [
+    "12345678",
+    "123456789",
+    "1234567890",
+    "administrator",
+    "asdfghjkl",
+    "changeme",
+    "fussball",
+    "geheim",
+    "hallo123",
+    "homeatlas",
+    "iloveyou",
+    "letmein",
+    "monkey",
+    "password",
+    "passwort",
+    "qwertz",
+    "qwertzuiop",
+    "sonnenschein",
+    "test1234",
+    "willkommen"
+  ],
+  "passwordPolicy.passphraseLength": 20,
+  "ports.deviceHints": {
+    "11434": [
+      "server",
+      "Ollama",
+      "Server mit lokalem KI-Sprachmodell"
+    ],
+    "1400": [
+      "media",
+      "Sonos",
+      "Sonos-Lautsprecher"
+    ],
+    "1883": [
+      "smarthome",
+      "",
+      "Smart-Home-Nachrichten-Bus (MQTT-Broker)"
+    ],
+    "2049": [
+      "nas",
+      "",
+      "Netzwerkspeicher mit Linux-Dateifreigabe"
+    ],
+    "32400": [
+      "server",
+      "Plex",
+      "Medien-Server (Plex)"
+    ],
+    "5001": [
+      "nas",
+      "Synology",
+      "Netzwerkspeicher (NAS)"
+    ],
+    "502": [
+      "climate",
+      "",
+      "Technikgerät mit Modbus -- z. B. Wechselrichter, Wärmepumpe oder Stromzähler"
+    ],
+    "515": [
+      "printer",
+      "",
+      "Netzwerkdrucker"
+    ],
+    "554": [
+      "camera",
+      "",
+      "Überwachungs- oder Türkamera"
+    ],
+    "631": [
+      "printer",
+      "",
+      "Netzwerkdrucker"
+    ],
+    "8006": [
+      "server",
+      "Proxmox VE",
+      "Virtualisierungs-Server (Proxmox)"
+    ],
+    "8008": [
+      "media",
+      "Chromecast",
+      "Google-Chromecast-fähiges Gerät (Fernseher oder Streaming-Stick)"
+    ],
+    "8009": [
+      "media",
+      "Chromecast",
+      "Google-Chromecast-fähiges Gerät (Fernseher oder Streaming-Stick)"
+    ],
+    "8096": [
+      "server",
+      "Jellyfin",
+      "Medien-Server (Jellyfin)"
+    ],
+    "8123": [
+      "smarthome",
+      "Home Assistant",
+      "Smart-Home-Zentrale (Home Assistant)"
+    ],
+    "9100": [
+      "printer",
+      "",
+      "Netzwerkdrucker"
+    ]
+  },
+  "ports.services": {
+    "10000": {
+      "description": "Server-Verwaltungsoberfläche",
+      "name": "Webmin"
+    },
+    "110": {
+      "description": "E-Mail-Abruf",
+      "name": "POP3"
+    },
+    "111": {
+      "description": "Hilfsdienst für Dateifreigaben unter Linux",
+      "name": "RPC"
+    },
+    "11434": {
+      "description": "Lokaler KI-Sprachmodell-Server",
+      "name": "Ollama"
+    },
+    "135": {
+      "description": "Windows-interner Dienst",
+      "name": "MS-RPC"
+    },
+    "139": {
+      "description": "Ältere Windows-Dateifreigabe",
+      "name": "NetBIOS"
+    },
+    "1400": {
+      "description": "Steuerung von Sonos-Lautsprechern",
+      "name": "Sonos"
+    },
+    "143": {
+      "description": "E-Mail-Abruf",
+      "name": "IMAP"
+    },
+    "1883": {
+      "description": "Nachrichten-Bus, über den viele Smart-Home-Geräte reden",
+      "name": "MQTT"
+    },
+    "2049": {
+      "description": "Linux-Dateifreigabe",
+      "name": "NFS"
+    },
+    "21": {
+      "description": "Dateiübertragung (unverschlüsselt, veraltet)",
+      "name": "FTP"
+    },
+    "22": {
+      "description": "Verschlüsselte Fernwartung über die Kommandozeile",
+      "name": "SSH"
+    },
+    "23": {
+      "description": "Unverschlüsselte Fernwartung -- sollte abgeschaltet sein",
+      "name": "Telnet"
+    },
+    "2375": {
+      "description": "Docker-Fernsteuerung -- UNVERSCHLÜSSELT, ein Sicherheitsrisiko",
+      "name": "Docker API"
+    },
+    "2376": {
+      "description": "Docker-Fernsteuerung (verschlüsselt)",
+      "name": "Docker API"
+    },
+    "25": {
+      "description": "E-Mail-Versand",
+      "name": "SMTP"
+    },
+    "3000": {
+      "description": "Web-Oberfläche einer Anwendung (oft Grafana oder eine Node.js-App)",
+      "name": "HTTP"
+    },
+    "32400": {
+      "description": "Medien-Server für Filme und Serien",
+      "name": "Plex"
+    },
+    "3306": {
+      "description": "Datenbank",
+      "name": "MySQL"
+    },
+    "3389": {
+      "description": "Windows-Fernsteuerung des Bildschirms",
+      "name": "RDP"
+    },
+    "389": {
+      "description": "Zentrale Benutzerverwaltung",
+      "name": "LDAP"
+    },
+    "443": {
+      "description": "Verschlüsselte Web-Oberfläche",
+      "name": "HTTPS"
+    },
+    "445": {
+      "description": "Windows-Dateifreigabe -- hier liegen Netzlaufwerke",
+      "name": "SMB"
+    },
+    "5000": {
+      "description": "Web-Oberfläche (oft Synology DSM oder eine kleine App)",
+      "name": "HTTP"
+    },
+    "5001": {
+      "description": "Verschlüsselte Web-Oberfläche (oft Synology DSM)",
+      "name": "HTTPS"
+    },
+    "502": {
+      "description": "Steuerungsprotokoll für Technik wie Wechselrichter, Heizung oder Zähler",
+      "name": "Modbus"
+    },
+    "5060": {
+      "description": "Internet-Telefonie",
+      "name": "SIP"
+    },
+    "515": {
+      "description": "Klassischer Druckdienst",
+      "name": "LPD"
+    },
+    "51827": {
+      "description": "Apple-HomeKit-Zubehörbrücke",
+      "name": "HomeKit"
+    },
+    "53": {
+      "description": "Namensauflösung -- übersetzt Internetadressen in IP-Adressen",
+      "name": "DNS"
+    },
+    "5432": {
+      "description": "Datenbank",
+      "name": "PostgreSQL"
+    },
+    "548": {
+      "description": "Apple-Dateifreigabe",
+      "name": "AFP"
+    },
+    "554": {
+      "description": "Video-Livestream -- typisch für Überwachungskameras",
+      "name": "RTSP"
+    },
+    "587": {
+      "description": "E-Mail-Versand (Einlieferung)",
+      "name": "SMTP"
+    },
+    "5900": {
+      "description": "Fernsteuerung des Bildschirms",
+      "name": "VNC"
+    },
+    "631": {
+      "description": "Netzwerkdruck",
+      "name": "IPP"
+    },
+    "6379": {
+      "description": "Zwischenspeicher-Datenbank",
+      "name": "Redis"
+    },
+    "7000": {
+      "description": "Apple-Streaming",
+      "name": "AirPlay"
+    },
+    "80": {
+      "description": "Web-Oberfläche (unverschlüsselt)",
+      "name": "HTTP"
+    },
+    "8006": {
+      "description": "Web-Oberfläche des Proxmox-Virtualisierungsservers",
+      "name": "Proxmox"
+    },
+    "8008": {
+      "description": "Google-Streaming-Steuerung",
+      "name": "Chromecast"
+    },
+    "8009": {
+      "description": "Google-Streaming (Datenkanal)",
+      "name": "Chromecast"
+    },
+    "8080": {
+      "description": "Web-Oberfläche auf einem Ausweich-Port",
+      "name": "HTTP alt"
+    },
+    "8081": {
+      "description": "Web-Oberfläche auf einem Ausweich-Port",
+      "name": "HTTP alt"
+    },
+    "8096": {
+      "description": "Medien-Server für Filme und Serien",
+      "name": "Jellyfin"
+    },
+    "8123": {
+      "description": "Zentrale des Smart-Home-Systems Home Assistant",
+      "name": "Home Assistant"
+    },
+    "8443": {
+      "description": "Verschlüsselte Web-Oberfläche auf einem Ausweich-Port",
+      "name": "HTTPS alt"
+    },
+    "88": {
+      "description": "Web-Oberfläche auf einem Ausweich-Port",
+      "name": "HTTP alt"
+    },
+    "8883": {
+      "description": "Verschlüsselter Nachrichten-Bus für Smart-Home-Geräte",
+      "name": "MQTT/TLS"
+    },
+    "9000": {
+      "description": "Web-Oberfläche (oft Portainer zur Docker-Verwaltung)",
+      "name": "HTTP"
+    },
+    "9090": {
+      "description": "Web-Oberfläche (oft Prometheus oder Cockpit)",
+      "name": "HTTP"
+    },
+    "9100": {
+      "description": "Direktdruck -- fast immer ein Netzwerkdrucker",
+      "name": "JetDirect"
+    },
+    "9200": {
+      "description": "Suchdatenbank",
+      "name": "Elasticsearch"
+    },
+    "993": {
+      "description": "Verschlüsselter E-Mail-Abruf",
+      "name": "IMAPS"
+    },
+    "995": {
+      "description": "Verschlüsselter E-Mail-Abruf",
+      "name": "POP3S"
+    }
+  },
+  "vendorDocs.curated": [
+    {
+      "match": [
+        "fritz!repeater",
+        "fritzrepeater",
+        "fritz!wlan"
+      ],
+      "title": "AVM Service",
+      "url": "https://avm.de/service/"
+    },
+    {
+      "match": [
+        "fritz!box",
+        "fritzbox",
+        "avm"
+      ],
+      "title": "AVM FRITZ!Box Handbücher",
+      "url": "https://avm.de/service/handbuecher/"
+    },
+    {
+      "match": [
+        "synology",
+        "diskstation"
+      ],
+      "title": "Synology Knowledge Center",
+      "url": "https://kb.synology.com/"
+    },
+    {
+      "match": [
+        "qnap"
+      ],
+      "title": "QNAP Support",
+      "url": "https://www.qnap.com/en/support"
+    },
+    {
+      "match": [
+        "proxmox"
+      ],
+      "title": "Proxmox VE Dokumentation",
+      "url": "https://pve.proxmox.com/pve-docs/"
+    },
+    {
+      "match": [
+        "home assistant",
+        "hassio",
+        "homeassistant"
+      ],
+      "title": "Home Assistant Dokumentation",
+      "url": "https://www.home-assistant.io/docs/"
+    },
+    {
+      "match": [
+        "unifi",
+        "ubiquiti"
+      ],
+      "title": "Ubiquiti Help Center",
+      "url": "https://help.ui.com/"
+    },
+    {
+      "match": [
+        "openwrt"
+      ],
+      "title": "OpenWrt Dokumentation",
+      "url": "https://openwrt.org/docs/start"
+    },
+    {
+      "match": [
+        "raspberry pi",
+        "raspberrypi"
+      ],
+      "title": "Raspberry Pi Dokumentation",
+      "url": "https://www.raspberrypi.com/documentation/"
+    },
+    {
+      "match": [
+        "pi-hole",
+        "pihole"
+      ],
+      "title": "Pi-hole Dokumentation",
+      "url": "https://docs.pi-hole.net/"
+    },
+    {
+      "match": [
+        "nextcloud"
+      ],
+      "title": "Nextcloud Dokumentation",
+      "url": "https://docs.nextcloud.com/"
+    },
+    {
+      "match": [
+        "plex"
+      ],
+      "title": "Plex Support",
+      "url": "https://support.plex.tv/"
+    },
+    {
+      "match": [
+        "jellyfin"
+      ],
+      "title": "Jellyfin Dokumentation",
+      "url": "https://jellyfin.org/docs/"
+    },
+    {
+      "match": [
+        "sonos"
+      ],
+      "title": "Sonos Support",
+      "url": "https://support.sonos.com/"
+    },
+    {
+      "match": [
+        "philips hue",
+        "hue bridge",
+        "signify"
+      ],
+      "title": "Philips Hue Support",
+      "url": "https://www.philips-hue.com/de-de/support"
+    },
+    {
+      "match": [
+        "shelly"
+      ],
+      "title": "Shelly Knowledge Base",
+      "url": "https://kb.shelly.cloud/"
+    },
+    {
+      "match": [
+        "esphome"
+      ],
+      "title": "ESPHome Dokumentation",
+      "url": "https://esphome.io/"
+    },
+    {
+      "match": [
+        "tasmota"
+      ],
+      "title": "Tasmota Dokumentation",
+      "url": "https://tasmota.github.io/docs/"
+    },
+    {
+      "match": [
+        "zigbee2mqtt"
+      ],
+      "title": "Zigbee2MQTT Dokumentation",
+      "url": "https://www.zigbee2mqtt.io/"
+    },
+    {
+      "match": [
+        "brother"
+      ],
+      "title": "Brother Support",
+      "url": "https://support.brother.com/"
+    },
+    {
+      "match": [
+        "hewlett",
+        "hp inc",
+        "hp ",
+        "laserjet",
+        "officejet"
+      ],
+      "title": "HP Support",
+      "url": "https://support.hp.com/"
+    },
+    {
+      "match": [
+        "canon"
+      ],
+      "title": "Canon Support",
+      "url": "https://www.canon.de/support/"
+    },
+    {
+      "match": [
+        "epson"
+      ],
+      "title": "Epson Support",
+      "url": "https://www.epson.de/support"
+    },
+    {
+      "match": [
+        "netgear"
+      ],
+      "title": "Netgear Support",
+      "url": "https://www.netgear.com/support/"
+    },
+    {
+      "match": [
+        "tp-link",
+        "tplink"
+      ],
+      "title": "TP-Link Support",
+      "url": "https://www.tp-link.com/de/support/"
+    },
+    {
+      "match": [
+        "zyxel"
+      ],
+      "title": "Zyxel Support",
+      "url": "https://support.zyxel.eu/"
+    },
+    {
+      "match": [
+        "devolo"
+      ],
+      "title": "devolo Support",
+      "url": "https://www.devolo.de/support"
+    },
+    {
+      "match": [
+        "apple",
+        "airplay",
+        "apple tv"
+      ],
+      "title": "Apple Support",
+      "url": "https://support.apple.com/de-de"
+    },
+    {
+      "match": [
+        "samsung"
+      ],
+      "title": "Samsung Support",
+      "url": "https://www.samsung.com/de/support/"
+    },
+    {
+      "match": [
+        "sony"
+      ],
+      "title": "Sony Support",
+      "url": "https://www.sony.de/electronics/support"
+    },
+    {
+      "match": [
+        "docker"
+      ],
+      "title": "Docker Dokumentation",
+      "url": "https://docs.docker.com/"
+    },
+    {
+      "match": [
+        "portainer"
+      ],
+      "title": "Portainer Dokumentation",
+      "url": "https://docs.portainer.io/"
+    },
+    {
+      "match": [
+        "grafana"
+      ],
+      "title": "Grafana Dokumentation",
+      "url": "https://grafana.com/docs/"
+    },
+    {
+      "match": [
+        "ollama"
+      ],
+      "title": "Ollama Dokumentation",
+      "url": "https://github.com/ollama/ollama/tree/main/docs"
+    },
+    {
+      "match": [
+        "fronius"
+      ],
+      "title": "Fronius Support",
+      "url": "https://www.fronius.com/de-de/germany/solarenergie/service-support-de"
+    },
+    {
+      "match": [
+        "vaillant"
+      ],
+      "title": "Vaillant Hilfe & Service",
+      "url": "https://www.vaillant.de/hilfe-service/"
+    },
+    {
+      "match": [
+        "viessmann"
+      ],
+      "title": "Viessmann Service",
+      "url": "https://www.viessmann.de/de/hilfe.html"
+    },
+    {
+      "match": [
+        "go-e",
+        "go-echarger"
+      ],
+      "title": "go-e Support",
+      "url": "https://go-e.com/de-de/support"
+    },
+    {
+      "match": [
+        "homematic",
+        "eq-3"
+      ],
+      "title": "Homematic Support",
+      "url": "https://www.eq-3.de/service/downloads.html"
+    },
+    {
+      "match": [
+        "tado"
+      ],
+      "title": "tado° Support",
+      "url": "https://support.tado.com/"
+    },
+    {
+      "match": [
+        "netatmo"
+      ],
+      "title": "Netatmo Hilfe",
+      "url": "https://helpcenter.netatmo.com/"
+    }
+  ]
+}
