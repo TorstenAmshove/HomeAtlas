@@ -709,6 +709,93 @@ def delete_system(system_id: str) -> None:
         conn.execute("DELETE FROM systems WHERE id = ?", (system_id,))
 
 
+# `extra.interfaces` of a merged (multi-homed) system: {ip: {"openPorts", "services", "mac",
+# "lastSeen"}}. Only rows that went through merge_systems carry it; the row's own
+# openPorts/services are then the union over all its interfaces.
+_INTERFACES_KEY = "interfaces"
+
+
+def _interfaces_of(system: dict) -> dict:
+    """The per-address port data of `system`: its stored `extra.interfaces`, or -- for a row that
+    was never merged -- one entry for its own address built from its openPorts/services."""
+    extra = system.get("extra") if isinstance(system.get("extra"), dict) else {}
+    stored = extra.get(_INTERFACES_KEY)
+    if isinstance(stored, dict) and stored:
+        return {ip: dict(entry) for ip, entry in stored.items() if ip and isinstance(entry, dict)}
+    ip = (system.get("ip") or "").strip()
+    if not ip:
+        return {}
+    entry: dict = {"openPorts": system.get("openPorts") or [], "services": system.get("services") or []}
+    if system.get("mac"):
+        entry["mac"] = system["mac"]
+    if system.get("lastSeen"):
+        entry["lastSeen"] = system["lastSeen"]
+    return {ip: entry}
+
+
+def _union_interfaces(interfaces: dict) -> tuple[list, list]:
+    ports: set[int] = set()
+    services: dict = {}
+    for entry in interfaces.values():
+        for port in entry.get("openPorts") or ():
+            if isinstance(port, int):
+                ports.add(port)
+        for service in entry.get("services") or ():
+            if isinstance(service, dict) and isinstance(service.get("port"), int):
+                services.setdefault(service["port"], service)
+    return sorted(ports), [services[p] for p in sorted(services)]
+
+
+def _combine_interfaces(keep: dict, remove: dict) -> dict:
+    """`keep`'s entry wins per address, except that ports/services both rows saw on the same
+    address are united (a hand-created row and the scanned row for the same IP)."""
+    combined = {**remove, **keep}
+    for ip in keep.keys() & remove.keys():
+        ports, services = _union_interfaces({"a": keep[ip], "b": remove[ip]})
+        combined[ip] = {**remove[ip], **keep[ip], "openPorts": ports, "services": services}
+    return combined
+
+
+def _merge_extra(keep_extra: object, remove_extra: object) -> dict:
+    """`keep` wins per key; nested dicts (e.g. `probe`, keyed by probe target) are combined one
+    level deep so both rows' entries survive."""
+    keep_extra = keep_extra if isinstance(keep_extra, dict) else {}
+    remove_extra = remove_extra if isinstance(remove_extra, dict) else {}
+    merged = {**remove_extra, **keep_extra}
+    for key, value in remove_extra.items():
+        if key != _INTERFACES_KEY and isinstance(value, dict) and isinstance(keep_extra.get(key), dict):
+            merged[key] = {**value, **keep_extra[key]}
+    merged.pop(_INTERFACES_KEY, None)
+    return merged
+
+
+def _record_interface(existing: dict, seen_ip: str, previous_ip: str, via_alias: bool,
+                      found: dict, now: str) -> dict:
+    """Updates the entry for `seen_ip` in `existing`'s interfaces with what this finding saw. A
+    finding without `openPorts` (UniFi, Omada, Proxmox -- sources that don't port-scan) leaves the
+    entry's ports alone. `previous_ip` is the address this same interface had before (the alias's
+    recorded IP before this scan, or the row's own IP); if it moved, its stale entry is dropped --
+    unless another interface still has that address. Call after `_touch_alias_ip`."""
+    interfaces = _interfaces_of(existing)
+    if previous_ip and previous_ip != seen_ip:
+        still_used = {a["ip"] for a in list_aliases(existing["id"])}
+        if via_alias:
+            still_used.add(existing.get("ip") or "")
+        if previous_ip not in still_used:
+            interfaces.pop(previous_ip, None)
+    entry = dict(interfaces.get(seen_ip) or {})
+    if found.get("openPorts") is not None:
+        entry["openPorts"] = found.get("openPorts") or []
+        entry["services"] = found.get("services") or []
+    entry.setdefault("openPorts", [])
+    entry.setdefault("services", [])
+    if found.get("mac"):
+        entry["mac"] = found["mac"]
+    entry["lastSeen"] = now
+    interfaces[seen_ip] = entry
+    return interfaces
+
+
 def merge_systems(keep_id: str, remove_id: str) -> dict | None:
     """Folds `remove_id` into `keep_id` as one physical device on record under two inventory rows
     -- the case this exists for is a multi-homed router discovered once per subnet interface (no
@@ -744,6 +831,18 @@ def merge_systems(keep_id: str, remove_id: str) -> dict | None:
     fill_fields = ("ip", "hostname", "mac", "vendor", "model", "os", "location", "purpose",
                    "descriptionMd", "url", "docUrl", "docLink", "notes")
     patch = {f: remove[f] for f in fill_fields if remove.get(f) and not keep.get(f)}
+    # Discovered facts of the merged-away row (UniFi/mDNS/SSDP/probe data in `extra`, the open
+    # ports and services seen on its address) are information about the same device, not a
+    # conflicting value -- they are combined, with `keep` winning only where both say something.
+    # Ports/services are kept per address in `extra.interfaces`, so a later scan can refresh one
+    # interface without wiping what the others contributed (see `_record_interface`).
+    interfaces = _combine_interfaces(_interfaces_of(keep), _interfaces_of(remove))
+    extra = _merge_extra(keep.get("extra"), remove.get("extra"))
+    if interfaces:
+        extra[_INTERFACES_KEY] = interfaces
+        patch["openPorts"], patch["services"] = _union_interfaces(interfaces)
+    if extra:
+        patch["extra"] = extra
     # Same "never overwritten once confirmed" rule as upsert_discovered_system -- importance is a
     # human classification, not a discovered fact, so it only carries over from the merged-away row
     # while `keep` hasn't been confirmed yet.
@@ -884,6 +983,12 @@ def find_system_by_alias(alias_key: str) -> dict | None:
             "SELECT s.* FROM systemAliases a JOIN systems s ON s.id = a.systemId WHERE a.aliasKey = ?",
             (alias_key,),
         ).fetchone())
+
+
+def _alias_ip(alias_key: str) -> str:
+    with _conn() as conn:
+        row = conn.execute("SELECT ip FROM systemAliases WHERE aliasKey = ?", (alias_key,)).fetchone()
+    return (row["ip"] if row else "") or ""
 
 
 def _touch_alias_ip(alias_key: str, ip: str) -> None:
@@ -1054,7 +1159,10 @@ def upsert_discovered_system(found: dict) -> tuple[dict, bool]:
 
     Between the exact/legacy-key lookups and `find_system_for_merge` sits the alias lookup: keys
     (and `mac:<mac>`) of rows a human merged away are attributed to the surviving row. On such a
-    hit the survivor's own discoveryKey/ip/mac stay untouched (the alias row records the IP seen).
+    hit the survivor's own discoveryKey/ip/mac stay untouched (the alias row records the IP seen),
+    and the finding's ports/services land in that address's `extra.interfaces` entry rather than
+    replacing the other interfaces' (see `_record_interface`). A finding with no `openPorts` at all
+    (a controller or Proxmox source) never touches the stored ports.
     """
     found_key = found.get("discoveryKey", "")
     existing = find_system_by_key(found_key)
@@ -1075,8 +1183,12 @@ def upsert_discovered_system(found: dict) -> tuple[dict, bool]:
     if existing is None:
         existing = find_system_for_merge(found)
     now = _now()
+    seen_ip = (found.get("ip") or "").strip()
+    seen_mac = found.get("mac") or ""
+    previous_ip = (existing.get("ip") or "") if existing is not None else ""
     if via_alias:
-        _touch_alias_ip(via_alias, found.get("ip") or "")
+        previous_ip = _alias_ip(via_alias)
+        _touch_alias_ip(via_alias, seen_ip)
         found = {k: v for k, v in found.items() if k not in ("discoveryKey", "ip", "mac")}
     if existing is None:
         created = create_system({**found, "discovered": 1, "firstSeen": now, "lastSeen": now})
@@ -1091,12 +1203,20 @@ def upsert_discovered_system(found: dict) -> tuple[dict, bool]:
     volatile = {
         "ip": found.get("ip") or existing["ip"],
         "status": found.get("status") or "online",
-        "openPorts": found.get("openPorts"),
-        "services": found.get("services"),
         "extra": {**existing_extra, **found_extra},
         "lastSeen": now,
         "discoveryKey": found.get("discoveryKey") or existing["discoveryKey"],
     }
+    # Sources that don't port-scan (UniFi, Omada, Proxmox) send no openPorts at all -- that is
+    # "unknown", not "none open", so it must not wipe what the network scan found.
+    if found.get("openPorts") is not None:
+        volatile["openPorts"] = found.get("openPorts")
+        volatile["services"] = found.get("services")
+    if seen_ip and (via_alias or isinstance(existing_extra.get(_INTERFACES_KEY), dict)):
+        interfaces = _record_interface(existing, seen_ip, previous_ip, bool(via_alias),
+                                       {**found, "mac": seen_mac}, now)
+        volatile["extra"][_INTERFACES_KEY] = interfaces
+        volatile["openPorts"], volatile["services"] = _union_interfaces(interfaces)
     if not found.get("mac") and existing.get("mac") and existing["discoveryKey"].startswith("mac:"):
         # An IP-only finding merged into a MAC-keyed row must not flip its key back and forth
         # between scan and controller on every run.

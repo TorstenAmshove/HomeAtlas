@@ -36,7 +36,7 @@ export default function MergePanel({ system, onMerged }: { system: System; onMer
   async function merge(removeId: string, removeName: string) {
     if (!window.confirm(
       `„${removeName}" wird gelöscht, seine Zugänge und Historie werden zu „${system.name}" ` +
-      "übernommen (leere Felder von dort werden ebenfalls übernommen). Fortfahren?",
+      "übernommen; leere Felder, offene Ports, Dienste und Geräteinfos von dort werden ergänzt. Fortfahren?",
     )) return;
     setBusy(true);
     try {
