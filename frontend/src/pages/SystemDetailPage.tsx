@@ -281,6 +281,11 @@ export default function SystemDetailPage() {
   if (!system) return <span className="spinner" />;
 
   const docker = system.extra?.docker;
+  // Per-address ports of a merged multi-homed device -- see db.merge_systems / _record_interface.
+  const interfaceEntries = Object.entries(
+    (system.extra?.interfaces ?? {}) as Record<string, { openPorts?: number[] }>,
+  );
+  const multiHomed = interfaceEntries.length > 1;
   const probeResults = Object.entries((system.extra?.probe ?? {}) as Record<string, ProbeResult>);
   // Populated by pipeline.py after a scan with a Home Assistant credential -- see
   // probe_auth.extract_printer_supplies / pipeline._apply_printer_supplies.
@@ -831,11 +836,23 @@ export default function SystemDetailPage() {
           <h2>Erreichbare Dienste</h2>
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Port</th><th>Dienst</th><th>Was das bedeutet</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>Port</th>
+                  {multiHomed && <th>Adresse</th>}
+                  <th>Dienst</th>
+                  <th>Was das bedeutet</th>
+                </tr>
+              </thead>
               <tbody>
                 {system.services!.map((s) => (
                   <tr key={s.port}>
                     <td className="mono">{s.port}</td>
+                    {multiHomed && (
+                      <td className="mono">
+                        {interfaceEntries.filter(([, i]) => i.openPorts?.includes(s.port)).map(([ip]) => ip).join(", ")}
+                      </td>
+                    )}
                     <td>{s.service}</td>
                     <td className="muted">{s.explanation}</td>
                   </tr>

@@ -336,6 +336,11 @@ Inventar über die Auswahl mehrerer Geräte. Konten, Verlauf und Monitoring wand
 - **Dauerhaft:** Discovery-Schlüssel, IPs und MACs des entfernten Eintrags merkt sich das behaltene
   Gerät als Aliase. Spätere Scans ordnen diese Funde dem behaltenen Gerät zu, statt ein neues
   anzulegen. Die zusätzlichen Adressen zeigt die Detailansicht als „Weitere IPs".
+- **Infos werden ergänzt:** Bei Konflikten gewinnt das behaltene Gerät. Leere Felder, Geräteinfos
+  (UniFi, mDNS/UPnP, Prüfergebnisse) sowie offene Ports und Dienste des entfernten Eintrags kommen
+  hinzu. Ports und Dienste merkt sich HomeAtlas je Adresse: Ein Scan einer Schnittstelle aktualisiert
+  nur deren Ports, die der anderen bleiben erhalten. Die Dienste-Tabelle zeigt dann, unter welcher
+  Adresse ein Port offen ist.
 - **Hinweise „Doppelt?":** Bei gleichem Hostnamen oder gleichem selbstgemeldetem Namen (UPnP/mDNS)
   schlägt HomeAtlas im Inventar und in der Detailansicht ein Zusammenführen vor. Gleicher Hersteller
   und gleiches Modell sind kein Hinweis – zwei baugleiche Geräte sind normal. Teilen mehr als drei

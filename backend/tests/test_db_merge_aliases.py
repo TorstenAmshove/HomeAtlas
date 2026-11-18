@@ -78,3 +78,70 @@ def test_delete_system_removes_aliases_and_dismissals(temp_db):
     with temp_db._conn() as conn:
         assert conn.execute("SELECT COUNT(*) FROM systemAliases").fetchone()[0] == 0
         assert conn.execute("SELECT COUNT(*) FROM duplicateDismissals").fetchone()[0] == 0
+
+
+def _svc(port):
+    return {"port": port, "service": f"s{port}", "explanation": ""}
+
+
+def test_merge_keeps_extra_ports_and_services_of_removed_row(temp_db):
+    keep = temp_db.create_system({"name": "UCG", "ip": "192.168.42.2", "confirmed": 1,
+                                  "extra": {"probe": {"http:UCG": {"ok": True}}}})
+    gone = _mk(temp_db, "mac:aa", "192.168.178.20", "aa", openPorts=[22, 443],
+               services=[_svc(22), _svc(443)],
+               extra={"unifi": {"name": "UCG Ultra"}, "probe": {"ssh:x": {"ok": True}}})
+    merged = temp_db.merge_systems(keep["id"], gone["id"])
+    assert merged["extra"]["unifi"] == {"name": "UCG Ultra"}
+    assert set(merged["extra"]["probe"]) == {"http:UCG", "ssh:x"}
+    assert merged["openPorts"] == [22, 443]
+    assert [s["port"] for s in merged["services"]] == [22, 443]
+    assert set(merged["extra"]["interfaces"]) == {"192.168.42.2", "192.168.178.20"}
+
+
+def test_merge_same_ip_unites_ports(temp_db):
+    keep = temp_db.create_system({"name": "hand", "ip": "10.0.0.1"})
+    gone = _mk(temp_db, "mac:aa", "10.0.0.1", "aa", openPorts=[80], services=[_svc(80)])
+    merged = temp_db.merge_systems(keep["id"], gone["id"])
+    assert merged["openPorts"] == [80]
+    assert merged["extra"]["interfaces"]["10.0.0.1"]["openPorts"] == [80]
+
+
+def test_rescan_of_each_interface_keeps_the_others_ports(temp_db):
+    keep = _mk(temp_db, "k:b", "10.0.0.1", openPorts=[443], services=[_svc(443)])
+    gone = _mk(temp_db, "ip:192.168.1.1", "192.168.1.1", openPorts=[53], services=[_svc(53)])
+    temp_db.merge_systems(keep["id"], gone["id"])
+    system, _ = temp_db.upsert_discovered_system(
+        {"discoveryKey": "ip:192.168.1.1", "ip": "192.168.1.1", "openPorts": [53, 22],
+         "services": [_svc(53), _svc(22)]})
+    assert system["openPorts"] == [22, 53, 443]
+    system, _ = temp_db.upsert_discovered_system(
+        {"discoveryKey": "k:b", "ip": "10.0.0.1", "openPorts": [443, 80], "services": [_svc(443), _svc(80)]})
+    assert system["openPorts"] == [22, 53, 80, 443]
+    assert system["extra"]["interfaces"]["192.168.1.1"]["openPorts"] == [53, 22]
+    # The alias interface moved to a new address: the stale entry goes away.
+    system, _ = temp_db.upsert_discovered_system(
+        {"discoveryKey": "ip:192.168.1.1", "ip": "192.168.1.9", "openPorts": [53], "services": [_svc(53)]})
+    assert set(system["extra"]["interfaces"]) == {"10.0.0.1", "192.168.1.9"}
+    assert system["openPorts"] == [53, 80, 443]
+
+
+def test_alias_hit_on_row_merged_before_interfaces_existed(temp_db):
+    keep = _mk(temp_db, "k:b", "10.0.0.1", openPorts=[443], services=[_svc(443)])
+    gone = _mk(temp_db, "ip:192.168.1.1", "192.168.1.1")
+    temp_db.merge_systems(keep["id"], gone["id"])
+    with temp_db._conn() as conn:  # state as left by the old merge: no interfaces bookkeeping
+        conn.execute("UPDATE systems SET extra = '{}' WHERE id = ?", (keep["id"],))
+    system, _ = temp_db.upsert_discovered_system(
+        {"discoveryKey": "ip:192.168.1.1", "ip": "192.168.1.1", "openPorts": [53], "services": [_svc(53)]})
+    assert system["openPorts"] == [53, 443]
+
+
+def test_finding_without_ports_does_not_wipe_scanned_ports(temp_db):
+    row = _mk(temp_db, "mac:aa", "10.0.0.5", "aa", openPorts=[8006], services=[_svc(8006)])
+    system, _ = temp_db.upsert_discovered_system(
+        {"discoveryKey": "mac:aa", "ip": "10.0.0.5", "mac": "aa", "extra": {"unifi": {"name": "pve"}}})
+    assert system["id"] == row["id"]
+    assert system["openPorts"] == [8006] and system["services"][0]["port"] == 8006
+    system, _ = temp_db.upsert_discovered_system(
+        {"discoveryKey": "mac:aa", "ip": "10.0.0.5", "mac": "aa", "openPorts": [], "services": []})
+    assert system["openPorts"] == []
