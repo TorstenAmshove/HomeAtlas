@@ -23,6 +23,7 @@ steht in [README.md](README.md).
 | 6 | **Security-Review** | Review vor dem Merge mit Blick aufs Bedrohungsmodell | **umgesetzt** in `claude-review.yml` |
 | 7 | **to-issues**-Prinzip | große Features in vertikale Slices als Issues zerlegen | teilweise: `/plan` schlägt bei Übergröße Teil-Issues vor |
 | 8 | Superpowers, Spec Kit, OpenSpec, BMAD | fertige Frameworks für Spec-Driven Development | **nicht nötig**, siehe Abschnitt 9 |
+| 9 | **Specs zum Ist-Verhalten** (`docs/specs/`) | Überblick über alle Funktionen, Grundlage für Änderungen und eine mögliche Alternative | **umgesetzt**, siehe Abschnitt 11 |
 
 Wichtigste Regel: **wenige Bausteine, die sich nicht überschneiden.**
 
@@ -51,9 +52,8 @@ So bildet der Issue-Workflow das ab:
 | Umsetzung | Claude auf `agent/*`, Test zuerst. Die PR-Beschreibung belegt jedes Akzeptanzkriterium |
 | Review | `claude-review.yml` prüft jedes Akzeptanzkriterium einzeln am Code, dazu Korrektheit und Sicherheit |
 
-Die Spec lebt im Issue, nicht als Datei im Repo. Nach dem Merge verweist der PR per `Closes #N`
-darauf. Für ein Ein-Personen-Projekt reicht das. Dauerhafte Spec-Dateien (wie bei OpenSpec) lohnen
-sich erst, wenn mehrere Leute am selben Verhalten arbeiten.
+Die Spec einer Änderung lebt im Issue, nicht als Datei im Repo. Nach dem Merge verweist der PR per
+`Closes #N` darauf. Das Gesamtverhalten steht dagegen dauerhaft in `docs/specs/` (Abschnitt 11).
 
 ## 2. grill-me als `@claude /grill`
 
@@ -174,6 +174,26 @@ Wer doch einmal lokal oder in einer Cloud-Sitzung arbeitet, kann die Prompts dor
 - **CLAUDE.md kurz halten.** Befehle, Grenzen, Verweise. Begründungen gehören in ADRs und Docstrings.
 - **Der Mensch reviewt.** Der Agent schreibt schnell, du prüfst bewusst. Die Freigabe des Plans ist das
   billigste Tor.
+
+## 11. Specs zum Ist-Verhalten (`docs/specs/`)
+
+Rückwärts-SDD: Das bestehende Verhalten wird einmal aus dem Code zurückgewonnen und als dauerhafte
+Spec abgelegt. Zweck: ein Überblick über alle Funktionen und eine Grundlage, die man anpassen und
+einem Agenten geben kann, auch für eine Alternative mit anderer Technik.
+
+- **Format nach OpenSpec**: eine `spec.md` je Fähigkeit mit Requirements und Szenarien
+  (`WENN … DANN`), jede Anforderung mit Quellverweis `datei:zeile`.
+- **Constitution nach Spec Kit**: übergreifende Regeln aus ADRs und README „Sicherheit“, je Regel
+  **[Muss]** (gilt für jede Umsetzung) oder **[Impl]** (heutige Technikwahl).
+- **Verträge maschinell erzeugt**: OpenAPI aus FastAPI, Datenmodell aus dem Schema, KI-Werkzeuge
+  aus `tools.py`. `docs/specs/trace_specs.py` prüft, dass jede Route, Tabelle, jedes Werkzeug und
+  jede Seite in einer Spec vorkommt.
+- **Entstehung**: eine Fähigkeit pro frischem Agentenlauf, danach Goldfish-Prüfung: Ein Agent ohne
+  Vorwissen beantwortet Stichfragen nur aus den Specs.
+- **Pflege**: Ein PR, der Verhalten ändert, sollte die betroffene Spec mit anpassen. Unklare
+  Stellen stehen als `OFFEN` in den Specs und gesammelt in `docs/specs/offene-punkte.md`.
+
+Details und Übergabe an einen Agenten: [docs/specs/README.md](../specs/README.md).
 
 ---
 

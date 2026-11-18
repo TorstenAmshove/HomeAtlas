@@ -165,6 +165,11 @@ capability boundary, SQLite without ORM, provider-neutral LLM client, credential
 topology). Read the relevant ADR before changing one of those areas. Never edit an accepted ADR
 to reverse it — propose a new ADR that supersedes it.
 
+`docs/specs/` holds the as-is behavior spec recovered from the code: one OpenSpec-style `spec.md`
+per capability, a `constitution.md` with [Muss]/[Impl]-marked cross-cutting rules, and generated
+contracts (OpenAPI, data model, LLM tools). When a change alters behavior, update the affected spec
+and rerun `python docs/specs/trace_specs.py` (coverage check of routes/tables/tools/pages).
+
 ## Agent workflow (GitHub)
 
 Issues are the single backlog; `status:*` labels are the state machine

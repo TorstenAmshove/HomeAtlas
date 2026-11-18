@@ -401,7 +401,8 @@ Tests und Lint fürs Backend: `pip install -r requirements-dev.txt`, dann `ruff 
 `python -m pytest -q` (läuft auch in der CI). Fürs Frontend startet die CI zusätzlich die gebauten
 Images und klickt sich mit Playwright durch Login, MFA, Einrichtung und die wichtigsten Seiten
 (`frontend/e2e/`). Architekturentscheidungen stehen in
-[`docs/adr/`](docs/adr/README.md).
+[`docs/adr/`](docs/adr/README.md), die Spezifikation des heutigen Verhaltens (je Funktion, mit
+Funktionsübersicht) in [`docs/specs/`](docs/specs/README.md).
 
 **Mitwirken / Issues.** Fehler, Wünsche und Ideen bitte über die Issue-Formulare melden.
 Bewertung, Planung und Umsetzung laufen teilweise über einen KI-Agenten mit menschlicher Freigabe –
