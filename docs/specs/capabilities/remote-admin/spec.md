@@ -285,7 +285,7 @@ UI-Seite(n): `frontend/src/pages/SystemDetailPage.tsx` (Route `/geraete/:id`), T
 ## OFFEN
 
 - > OFFEN: `set_switch` (Assistent/MCP) erreicht `switch_admin` für **jede Rolle inkl. MEMBER und externe MCP-Clients**, ohne Rückfrage, während die gleichwertigen REST-Routen ADMIN-only sind. Laut ADR-0002/0004 dokumentierte Ausnahme; die Aufgabenbeschreibung „nie aus LLM-Tools erreichbar“ gilt also nur für die übrigen Schreibmodule. Bewusst übernehmen oder für die Alternative streichen? (`backend/app/tools.py:352`)
-- > OFFEN: `set_switch` mit `kind=shelly` prüft nicht, ob `systemId` tatsächlich ein Shelly ist (nur `list_switches` filtert nach Hersteller/Modell); jeder Inventar-Eintrag, der auf `/shelly` mit JSON antwortet, wird geschaltet. Gleiches gilt für `POST /shelly-switch` (UI zeigt den Bereich nur bei „shelly“ in Hersteller/Modell). (`backend/app/tools.py:359`, `backend/app/main.py:1176`)
+- > OFFEN: `set_switch` mit `kind=shelly` prüft nicht, ob `systemId` tatsächlich ein Shelly ist (nur `list_switches` filtert nach Hersteller/Modell); jeder Inventar-Eintrag, der auf `/shelly` mit JSON antwortet, wird geschaltet. Gleiches gilt für `POST /shelly-switch` (UI zeigt den Bereich nur bei „shelly“ in Hersteller/Modell). (`backend/app/tools.py:360`, `backend/app/main.py:1176`)
 - > OFFEN: Protokolleinträge `switch.assistant` haben weder Benutzer noch IP – nicht nachvollziehbar, wer (oder welcher MCP-Client) geschaltet hat. (`backend/app/tools.py:368`, `backend/app/tools.py:382`)
 - > OFFEN: Prompt-Injection-Risiko: Inhalte aus Inventar/Doku könnten das Modell zu `set_switch` ohne Rückfrage verleiten.
 - > OFFEN: Assistent schaltet bei Shelly immer Kanal 0; REST-Route akzeptiert beliebige `channel`-Ganzzahl ohne Bereichsprüfung.
