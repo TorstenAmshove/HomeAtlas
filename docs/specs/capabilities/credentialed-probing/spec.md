@@ -322,7 +322,7 @@ den Scan nicht. Fehlermeldungen enthalten nie ein Secret. **[Muss]**
 - **WENN** SSH erfolgreich ist und Home Assistant 401 liefert
 - **DANN** gilt das Gerät als ausgelesen, und es entsteht genau ein Fehlerereignis „…Zugriffstoken abgelehnt…“
 
-Quelle: `backend/app/pipeline.py:98`, Test: `backend/tests/test_pipeline_probe_warnings.py::test_probe_with_credentials_logs_failure_even_when_another_credential_on_same_system_succeeds`
+Quelle: `backend/app/pipeline.py:102`, Test: `backend/tests/test_pipeline_probe_warnings.py::test_probe_with_credentials_logs_failure_even_when_another_credential_on_same_system_succeeds`
 
 ### Requirement: UniFi Network lesen
 Das System MUSS mit API-Key (Header `X-API-Key`) nur feste GET-Endpunkte unter
