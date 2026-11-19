@@ -46,3 +46,57 @@ def test_classify_run_skips_containers(monkeypatch):
     monkeypatch.setattr(classify.llm_providers, "chat", fake_chat)
     by_ip, warnings = asyncio.run(classify.classify([_container("a", "p")], {}))
     assert by_ip == {} and warnings == [] and not calls
+
+
+def _self_reported(source, **extra):
+    return {"name": "Wohnzimmer", "kind": "other", "discoverySource": "ping/arp+ssdp",
+            "extra": {"nameSource": source, **extra}}
+
+
+def test_upnp_name_kept_kind_updated():
+    out = classify.apply(_self_reported("upnp"), CLS)
+    assert out["name"] == "Wohnzimmer" and out["kind"] == "vm"
+    assert out["purpose"] == "Zweck" and out["discoverySource"].endswith("+ki")
+    assert out["extra"]["aiConfidence"] == "high"
+
+
+def test_mdns_name_kept_kind_updated():
+    out = classify.apply(_self_reported("mdns"), CLS)
+    assert out["name"] == "Wohnzimmer" and out["kind"] == "vm"
+    assert out["purpose"] == "Zweck" and out["discoverySource"].endswith("+ki")
+
+
+def test_shelly_app_name_kept():
+    out = classify.apply(_self_reported("shelly"), CLS)
+    assert out["name"] == "Wohnzimmer" and out["kind"] == "vm"
+
+
+def test_hostname_title_vendor_names_still_replaced():
+    for source in ("hostname", "title", "vendor", "ip"):
+        out = classify.apply(_self_reported(source), CLS)
+        assert out["name"] == "Proxmox VM oder Container"
+
+
+def test_missing_or_unknown_name_source_unchanged():
+    for f in ({"name": "x", "kind": "other", "extra": {}},
+              {"name": "x", "kind": "other", "extra": None},
+              {"name": "x", "kind": "other", "extra": {"nameSource": "wat"}}):
+        assert classify.apply(f, CLS)["name"] == "Proxmox VM oder Container"
+
+
+def test_source_plus_self_reported_keeps_name_and_kind():
+    f = {"name": "Mein AP", "kind": "network", "discoverySource": "arp+unifi",
+         "extra": {"unifi": {}, "nameSource": "upnp"}}
+    out = classify.apply(f, CLS)
+    assert out["name"] == "Mein AP" and out["kind"] == "network"
+
+
+def test_container_with_name_source_untouched():
+    c = _container("x", "p")
+    c["extra"]["nameSource"] = "mdns"
+    assert classify.apply(c, CLS) == c
+
+
+def test_empty_ai_name_never_overwrites():
+    out = classify.apply(_self_reported("hostname"), {**CLS, "name": ""})
+    assert out["name"] == "Wohnzimmer"

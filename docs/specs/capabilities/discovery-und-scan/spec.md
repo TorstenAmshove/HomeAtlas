@@ -329,7 +329,7 @@ Quelle: `backend/app/discovery.py:896`, `backend/app/discovery.py:941`
 Jeder Fund MUSS mit Schlüssel `mac:<mac>` (sonst `ip:<ip>`) gespeichert werden und enthält Name,
 Hostname, IP, MAC, Hersteller, Modell, Zweck, URL der Weboberfläche, kuratierten Doku-Link, Status
 `online`, Quellen (`ping/arp[+portscan][+mdns][+ssdp][+http]`), offene Ports, Dienste und Belege
-(`extra.mdns, ssdp, httpBanner, randomizedMac, isGateway, routedTarget, guessConfident`). **[Muss]**
+(`extra.mdns, ssdp, httpBanner, randomizedMac, isGateway, routedTarget, guessConfident, nameSource`; `nameSource` = Herkunft des Namens: upnp/mdns/hostname/title/vendor/ip/shelly). **[Muss]**
 
 #### Szenario: Zufalls-MAC
 - **WENN** die MAC lokal administriert ist (Bit 1 im ersten Oktett)
@@ -606,6 +606,3 @@ solange der Scan läuft). Scan-Einstellungen in `frontend/src/pages/SettingsPage
 - > OFFEN: Namensvergabe für Nicht-Container ohne IP bei Duplikaten: kein Suffix, Duplikat bleibt.
 - > OFFEN: Abgeschaltete Quelle (`scanEnableDocker=false`, Controller aus) setzt alle bisher aus
   dieser Quelle entdeckten Geräte beim nächsten Scan auf `offline`.
-- > OFFEN: Eine KI-Namensempfehlung überschreibt bei nicht quellgeschützten Funden auch einen
-  Selbstauskunft-Namen (UPnP/mDNS) und widerspricht damit der Namenspräzedenz, siehe
-  [klassifikation-llm](../klassifikation-llm/spec.md).
