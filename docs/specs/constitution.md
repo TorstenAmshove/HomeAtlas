@@ -141,7 +141,7 @@
 - **D4 [Muss]** Der Netzplan ist ein für Laien lesbares Bild mit fester Schichtenfolge von oben
   nach unten. Heute: Internet → Router → Verteilung → Wichtige Geräte; alle übrigen Geräte stehen
   gruppiert als Liste unter dem Bild ([topologie](capabilities/topologie/spec.md)).
-  ([ADR 0009](../adr/0009-netzplan-ebenen-ist-stand.md), vorgeschlagen, ersetzt ADR-0008.)
+  ([ADR 0009](../adr/0009-netzplan-ebenen-ist-stand.md), ersetzt ADR-0008.)
   > OFFEN: Im Kasten ist Farbe heute das einzige Statussignal; ADR-0008/0009 verlangen ein zweites.
 - **D5 [Impl]** Netzplan wird serverseitig als SVG erzeugt, ohne Graph-Bibliothek im Browser,
   ohne Zoomen/Ziehen. ([ADR 0008](../adr/0008-topologie-als-server-svg.md))
