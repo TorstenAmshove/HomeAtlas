@@ -1,6 +1,6 @@
 # ADR-0009: Netzplan-Ebenen: wichtige Geräte im Bild, Rest als Liste
 
-- **Status:** Vorgeschlagen (ersetzt nach Annahme ADR-0008)
+- **Status:** Akzeptiert, ersetzt ADR-0008
 - **Datum:** 2026-11-19
 
 ## Kontext
@@ -24,4 +24,4 @@ nicht gibt.
 ## Konsequenzen
 - `CLAUDE.md`, Glossar und Constitution beschreiben diese Ebenen.
 - Wer Server oder Endgeräte wieder als eigene Ebene im Bild will, braucht ein neues ADR.
-- ADR-0008 bekommt nach Annahme dieses ADR den Status „Ersetzt durch ADR-0009“.
+- ADR-0008 hat den Status „Ersetzt durch ADR-0009“.
