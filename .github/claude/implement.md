@@ -37,7 +37,11 @@ Repo-Owners, die ihn ändern.
 ```bash
 cd backend && ruff check . && python -m pytest -q
 cd frontend && npm ci && npm run build      # nur wenn frontend/ geändert wurde
+python docs/specs/export_contracts.py && python docs/specs/trace_specs.py --check
 ```
+
+Der letzte Schritt läuft auch in CI (`specs.yml`): Verträge unter `docs/specs/contracts/`, die nicht
+zum Code passen, oder eine Route/Tabelle/ein Werkzeug/eine Seite ohne Spec machen den PR rot.
 
 Committen mit Conventional Commits (`feat(discovery): …`, `fix(auth): …`). Kleine, sinnvolle Commits.
 Den Commit-Typ bewusst wählen, denn `feat`/`fix` lösen beim Merge ein Release aus (siehe `release.yml`).
@@ -65,6 +69,7 @@ Closes #<N>
 - [x] `ruff check` ✔
 - [x] `pytest` – <Anzahl> passed
 - [x] `npm run build` ✔ / nicht betroffen
+- [x] Specs: `<docs/specs/capabilities/…/spec.md>` angepasst / nicht betroffen, weil <Grund>; `trace_specs.py --check` ✔
 - [ ] Manuell zu prüfen: <was ein Mensch sich ansehen sollte>
 ```
 

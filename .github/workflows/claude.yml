@@ -229,7 +229,7 @@ jobs:
             Lies .github/claude/implement.md und setze den freigegebenen Plan dieses Issues genau danach um.
           claude_args: |
             --max-turns 150
-            --allowedTools "Read,Grep,Glob,Edit,Write,Task,Agent,Bash(python -m pytest:*),Bash(ruff check:*),Bash(cd backend && *),Bash(cd frontend && *),Bash(npm ci:*),Bash(npm run build:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git push:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh issue edit:*),Bash(gh pr create:*),Bash(gh pr view:*)"
+            --allowedTools "Read,Grep,Glob,Edit,Write,Task,Agent,Bash(python -m pytest:*),Bash(ruff check:*),Bash(cd backend && *),Bash(cd frontend && *),Bash(npm ci:*),Bash(npm run build:*),Bash(python docs/specs/export_contracts.py:*),Bash(python docs/specs/trace_specs.py:*),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git push:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh issue edit:*),Bash(gh pr create:*),Bash(gh pr view:*)"
             --disallowedTools "Bash(./deploy.sh:*),Bash(bash deploy.sh:*),Bash(sh deploy.sh:*),Bash(git push --force:*),Bash(git push -f:*)"
 
   mention:

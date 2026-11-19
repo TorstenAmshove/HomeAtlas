@@ -18,7 +18,7 @@ Issue über Formular (Bug / Feature / Idee)          status:inbox
   ├─ Kommentar  @claude /plan     → Plan + Goldfish-Prüfung         status:planned
   ├─ DU: Label  status:approved   → Claude setzt um, öffnet PR      status:in-progress → in-review
   │      (nicht bei needs-human – dort setzt ein Mensch um)
-  ├─ PR: Build + Tests + Claude-Review (Akzeptanzkriterien, Code, Sicherheit)
+  ├─ PR: Build + Tests + Specs + Claude-Review (Akzeptanzkriterien, Code, Sicherheit)
   └─ DU: Merge                    → release.yml erstellt das Release
 ```
 
@@ -47,6 +47,22 @@ zählt ebenfalls.
 
 Der Plan-Lauf schreibt sein vollständiges Protokoll ins Actions-Log (`show_full_output`). Endet ein
 Lauf ohne Kommentar, steht dort, warum. Für andere Läufe hilft *Re-run jobs → Enable debug logging*.
+
+### Specs bleiben aktuell
+
+Die Ist-Specs unter `docs/specs/` werden im selben PR wie die Code-Änderung nachgezogen. Das ist an
+drei Stellen abgesichert:
+
+- **Plan** (`plan.md`): nennt die betroffenen Specs und Requirements.
+- **Umsetzung** (`implement.md`): passt die `spec.md` an, führt `export_contracts.py` und
+  `trace_specs.py` aus und belegt das in der PR-Beschreibung.
+- **CI** (`specs.yml`, bei jedem PR auf Backend, Seiten, Specs oder ADRs): Die erzeugten Verträge
+  (`contracts/openapi.json`, `llm-tools.json`, `catalogs.json`) müssen zum Code passen, und
+  `trace_specs.py --check` muss jede Route, Tabelle, jedes KI-Werkzeug und jede Seite in einer Spec
+  finden. Das gilt auch für PRs, die nicht vom Agenten kommen.
+
+Was CI nicht sehen kann: geändertes Verhalten an einer Route, die schon in einer Spec steht. Das
+prüft das Claude-Review (`review.md`, Durchgang A) und am Ende der Mensch beim Merge.
 
 ### Risikoregel
 

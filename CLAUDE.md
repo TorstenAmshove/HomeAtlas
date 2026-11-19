@@ -179,7 +179,10 @@ accepted ADR no rule links).
 `docs/specs/` holds the as-is behavior spec recovered from the code: one OpenSpec-style `spec.md`
 per capability, a `constitution.md` with [Muss]/[Impl]-marked cross-cutting rules, and generated
 contracts (OpenAPI, data model, LLM tools). When a change alters behavior, update the affected spec
-and rerun `python docs/specs/trace_specs.py` (coverage check of routes/tables/tools/pages).
+and rerun `python docs/specs/trace_specs.py` (coverage check of routes/tables/tools/pages); after new
+routes, tables or LLM tools run `python docs/specs/export_contracts.py` first. CI enforces both
+(`.github/workflows/specs.yml`: contracts must match the code, `trace_specs.py --check` must pass);
+whether an existing requirement still describes changed behaviour is only checked in review.
 
 ## Agent workflow (GitHub)
 
