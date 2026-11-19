@@ -78,5 +78,5 @@ jobs:
             Lies .github/claude/review.md und prüfe diesen Pull Request genau danach.
           claude_args: |
             --max-turns 60
-            --allowedTools "Read,Grep,Glob,Task,Agent,mcp__github_inline_comment__create_inline_comment,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh issue view:*)"
+            --allowedTools "Read,Grep,Glob,Task,Agent,mcp__github_inline_comment__create_inline_comment,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh issue view:*),Bash(python docs/specs/trace_specs.py --check:*)"
             --disallowedTools "Edit,Write,NotebookEdit,Bash(git push:*)"

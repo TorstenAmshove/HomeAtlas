@@ -1,0 +1,57 @@
+---
+name: Specs
+
+# Keeps docs/specs/ in step with the code: the generated contracts (OpenAPI, LLM tools, catalogs)
+# must match what export_contracts.py produces from the current code, and trace_specs.py --check
+# must find every route, table, LLM tool and page in a spec, every constitution rule on a live ADR,
+# and traceability.md/offene-punkte.md up to date. Behaviour changes inside an already covered
+# route are not machine-checkable; the review (.github/claude/review.md) covers those.
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - "backend/**"
+      - "frontend/src/pages/**"
+      - "docs/specs/**"
+      - "docs/adr/**"
+      - ".github/workflows/specs.yml"
+  push:
+    branches: [master]
+    paths:
+      - "backend/**"
+      - "frontend/src/pages/**"
+      - "docs/specs/**"
+      - "docs/adr/**"
+
+concurrency:
+  group: specs-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  specs:
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          # Same version as test.yml / backend/Dockerfile.
+          python-version: "3.12.16"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Generated contracts match the code
+        run: |
+          python docs/specs/export_contracts.py
+          if ! git diff --exit-code -- docs/specs/contracts; then
+            echo "::error::docs/specs/contracts veraltet: python docs/specs/export_contracts.py ausführen und committen"
+            exit 1
+          fi
+      - name: Spec coverage and traceability (trace_specs.py --check)
+        run: python docs/specs/trace_specs.py --check

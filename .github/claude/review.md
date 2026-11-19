@@ -16,8 +16,9 @@ Du prüfst einen PR in einer **frischen Sitzung**: Du kennst weder das Issue-Ges
    **A. Spec-Treue:** Prüfe **jedes Akzeptanzkriterium einzeln** am Code und an den Tests, nicht an
    der PR-Beschreibung: erfüllt, teilweise erfüllt oder nicht erfüllt? Ist etwas dabei, das weder im
    Plan steht noch als Abweichung begründet ist? Ändert der PR Verhalten, ohne die betroffene
-   Spec unter `docs/specs/capabilities/` anzupassen, ist das ein Befund. `python
-   docs/specs/trace_specs.py --check` muss grün sein.
+   Spec unter `docs/specs/capabilities/` anzupassen, ist das ein Befund – auch bei bestehenden
+   Routen, denn das prüft keine Maschine. `python docs/specs/trace_specs.py --check` ausführen; die
+   Abdeckung und die Aktualität der Verträge prüft zusätzlich der CI-Workflow `specs.yml`.
 
    **B. Korrektheit:** Logikfehler, nicht behandelte Randfälle, kaputte Fehlerbehandlung, Race
    Conditions (Scans laufen in Threads, siehe `db.py`-Docstring), fehlende oder zahnlose Tests (Test,
