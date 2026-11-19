@@ -105,7 +105,7 @@ other:
 **`tools.py` is the LLM's entire capability surface** (used by both the in-app chat and
 `mcp_server.py`'s external MCP endpoint). It is read-only plus bounded live diagnostics, with one
 documented exception (`set_switch`: Shelly relay / Home Assistant `switch`/`light` on/off, see
-ADR-0002/0004); nothing else reachable from here mutates inventory, docs, or devices, and `list_accounts` always strips
+ADR-0011/0004); nothing else reachable from here mutates inventory, docs, or devices, and `list_accounts` always strips
 passwords before they reach a model — secrets never enter a prompt, provider log, or chat
 history. When adding a new assistant capability, this boundary is the thing to preserve.
 

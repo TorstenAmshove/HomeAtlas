@@ -429,13 +429,13 @@ Quelle: `backend/app/main.py:1344`, Test: `backend/tests/test_main_unifi_probe.p
 ### Requirement: Lese-/Schreibtrennung
 Das System MUSS die lesenden Probe-Module strikt von schreibenden Modulen (Remote-Admin,
 Container-/Gast-Steuerung) trennen: kein Probe-Modul nutzt Schreibfunktionen, und das LLM erreicht
-keine Schreibfunktion über die Probes (ADR 0002). **[Muss]**
+keine Schreibfunktion über die Probes (ADR 0011). **[Muss]**
 
 #### Szenario: Kein Schreibpfad
 - **WENN** ein LLM-Werkzeug oder der Scan eine Probe auslöst
 - **DANN** kann dabei kein Befehl außerhalb der festen Leselisten an ein Gerät gehen
 
-Quelle: `backend/app/probe_auth.py:1`, `docs/adr/0002-lese-schreib-trennung.md`
+Quelle: `backend/app/probe_auth.py:1`, `docs/adr/0011-lese-schreib-trennung-routen-module.md`
 
 ## Daten
 

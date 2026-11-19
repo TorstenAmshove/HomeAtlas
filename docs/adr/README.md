@@ -21,7 +21,7 @@ Menschen und für KI-Agenten, die sonst bewusste Entscheidungen „wegrefaktorie
 | Nr. | Titel | Status |
 |---|---|---|
 | [0001](0001-adrs-festhalten.md) | Architekturentscheidungen als ADRs festhalten | Akzeptiert |
-| [0002](0002-lese-schreib-trennung.md) | Harte Trennung von lesenden und schreibenden Modulen | Akzeptiert |
+| [0002](0002-lese-schreib-trennung.md) | Harte Trennung von lesenden und schreibenden Modulen | Ersetzt durch ADR-0011 |
 | [0003](0003-host-netzwerk-und-loopback-backend.md) | Host-Netzwerk, Backend nur auf Loopback | Akzeptiert |
 | [0004](0004-llm-faehigkeitsgrenze.md) | `tools.py` als vollständige Fähigkeitsgrenze des LLM | Akzeptiert |
 | [0005](0005-sqlite-ohne-orm.md) | SQLite über ein flaches `db.py`, ohne ORM | Ersetzt durch ADR-0010 |
@@ -30,3 +30,4 @@ Menschen und für KI-Agenten, die sonst bewusste Entscheidungen „wegrefaktorie
 | [0008](0008-topologie-als-server-svg.md) | Netzplan als serverseitiges SVG | Ersetzt durch ADR-0009 |
 | [0009](0009-netzplan-ebenen-ist-stand.md) | Netzplan-Ebenen: wichtige Geräte im Bild, Rest als Liste | Akzeptiert |
 | [0010](0010-db-als-paket.md) | `db` als Paket je Entität, SQL weiterhin nur dort | Akzeptiert |
+| [0011](0011-lese-schreib-trennung-routen-module.md) | Lese-/Schreib-Trennung mit Routen-Modulen | Akzeptiert |

@@ -210,7 +210,7 @@ werden; Shelly-Befehle gehen nur an Geräte, deren Hersteller oder Modell „She
 Prüfung wie `list_switches` und die Oberfläche). Jeder Schaltversuch MUSS mit Aktion
 `switch.assistant`, Ziel, Ergebnis und Auslöser (angemeldeter Benutzer im Chat bzw. „MCP: <Token-
 Bezeichnung>“) ins Zugriffsprotokoll. `list_switches` liefert die Shelly-Geräte und höchstens 200
-HA-Entities der Domänen switch/light. **[Muss]** (Produktentscheidung, ADR 0002/0004, bestätigt in #43.)
+HA-Entities der Domänen switch/light. **[Muss]** (Produktentscheidung, ADR 0011/0004, bestätigt in #43.)
 
 #### Szenario: Kein Shelly
 - **WENN** `set_switch` mit `kind=shelly` und der `systemId` eines NAS aufgerufen wird
