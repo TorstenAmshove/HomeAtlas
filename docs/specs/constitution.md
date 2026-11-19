@@ -6,8 +6,18 @@
 > **[Impl]**: Technikwahl der heutigen Umsetzung. Eine Alternative darf sie ersetzen, solange die
 > zugehörigen [Muss]-Regeln weiter gelten.
 >
-> Wer eine [Muss]-Regel für die Alternative ändern will, ändert sie hier und markiert die Änderung,
-> statt sie in einer Capability-Spec still zu umgehen.
+> Woher eine Regel kommt und wie sie sich ändert:
+> - **Mit ADR-Verweis**: Die Regel fasst eine Architekturentscheidung aus `docs/adr/` zusammen. Die
+>   Begründung und die verworfenen Alternativen stehen nur im ADR, hier steht nur die Regel. In
+>   HomeAtlas selbst ändert sich eine solche Regel nur über ein neues ADR, das das alte ersetzt;
+>   danach wird sie hier nachgezogen und auf das neue ADR verlinkt.
+> - **Ohne ADR-Verweis**: Die Regel wird hier gepflegt. Wer sie ändern will, ändert sie hier und
+>   markiert die Änderung, statt sie in einer Capability-Spec still zu umgehen.
+> - Eine Alternative (ein anderes Produkt aus diesen Specs) ist an die ADRs nicht gebunden: [Impl]-Regeln
+>   darf sie ersetzen, eine [Muss]-Regel ändert sie hier und markiert die Änderung.
+>
+> `python docs/specs/trace_specs.py --check` scheitert, wenn eine Regel auf ein ersetztes oder
+> fehlendes ADR verweist oder ein akzeptiertes ADR hier nicht vorkommt.
 
 ## 1. Produkt
 
@@ -54,12 +64,13 @@
 
 - **L1 [Muss]** Lesender und schreibender Gerätezugriff sind getrennte Pfade. Kein lesender Pfad
   kann über eine Einstellung, einen Parameter oder ein KI-Werkzeug schreibend werden.
-  ([ADR 0002](../adr/0002-lese-schreib-trennung.md))
+  ([ADR-0002](../adr/0002-lese-schreib-trennung.md))
 - **L2 [Muss]** Credentialed Probing ist **streng lesend**: SSH nur aus einer festen, im Code
   stehenden Befehlsliste (nicht erweiterbar, nicht interaktiv, kein `sudo`, kein Paketmanager, keine
   Dienststeuerung, keine schreibende Umleitung in Dateien; Pipes zu Lesewerkzeugen wie `base64` und
   `2>/dev/null` sind erlaubt);
   HTTP nur GET; TR-064 nur `Get*`-Aktionen; Docker-API nur GET.
+  ([ADR-0002](../adr/0002-lese-schreib-trennung.md))
 - **L3 [Muss]** Ein Zugang wird nur benutzt, wenn er **ausdrücklich zum Auslesen freigegeben**
   ist (Opt-in je Zugang, Default aus). Das Auslesen pro Gerät lässt sich global abschalten
   (`scanUseCredentials`); Controller-Abfragen (UniFi, Omada, Proxmox, AdGuard) haben eigene Schalter.
@@ -70,13 +81,13 @@
   ist das nur, um die Ausgabe lesbar zu machen, nie, um etwas zu ändern.
 - **L4 [Muss]** Schreibende Funktionen (Container steuern, Reboot, SSH-Konsole, Schlüssel ausrollen,
   Proxmox-Aktionen) sind nur für ADMIN und nur über die Oberfläche/API erreichbar, nie über
-  Scan-Pipeline, Probes oder KI-Werkzeuge.
+  Scan-Pipeline, Probes oder KI-Werkzeuge. ([ADR-0002](../adr/0002-lese-schreib-trennung.md))
 - **L5 [Muss]** Einzige Ausnahme: Ein/Aus-Schalten von Shelly-Relais und Home-Assistant
   `switch`/`light` per KI-Werkzeug `set_switch`, für alle Rollen und MCP-Clients, ohne Rückfrage
   (bestätigt in #43). Nur echte Shelly-Geräte; jeder Vorgang wird mit Auslöser protokolliert.
-  Erweiterungen brauchen eine bewusste Entscheidung.
+  Erweiterungen brauchen ein neues ADR. ([ADR-0002](../adr/0002-lese-schreib-trennung.md), [ADR-0004](../adr/0004-llm-faehigkeitsgrenze.md))
 - **L6 [Impl]** Lese- und Schreibseite sind getrennte Module, die einander nicht importieren;
-  gemeinsamer Code wird eher dupliziert als geteilt.
+  gemeinsamer Code wird eher dupliziert als geteilt. ([ADR-0002](../adr/0002-lese-schreib-trennung.md))
 - **L7 [Muss, bewusste Abwägung]** SSH-Hostschlüssel werden nicht geprüft (kein Vertrauensspeicher;
   sonst wäre die Funktion im Zielnetz unbrauchbar). Eine Alternative darf das verbessern
   (z. B. Trust-on-first-use), muss es aber nicht.
@@ -84,21 +95,21 @@
 ## 4. KI-Assistent
 
 - **K1 [Muss]** Die Werkzeugliste ist die **vollständige** Fähigkeitsgrenze des Modells: lesend
-  plus begrenzte Live-Diagnosen plus die eine Ausnahme `set_switch` (L5). ([ADR 0004](../adr/0004-llm-faehigkeitsgrenze.md),
+  plus begrenzte Live-Diagnosen plus die eine Ausnahme `set_switch` (L5). ([ADR-0004](../adr/0004-llm-faehigkeitsgrenze.md),
   [llm-tools](contracts/llm-tools.md))
 - **K2 [Muss]** Gespeicherte Secrets erreichen **nie** ein Modell, einen Prompt, Anbieter-Logs oder
-  den Chatverlauf. Werkzeuge, die ein Secret brauchen, nutzen es serverseitig.
+  den Chatverlauf. Werkzeuge, die ein Secret brauchen, nutzen es serverseitig. ([ADR-0004](../adr/0004-llm-faehigkeitsgrenze.md))
 - **K3 [Muss]** Live-Diagnosen laufen ohne Shell (Argumentliste), mit Timeout und mit strikt
-  validierten Zielen (Hostname/IP/URL nach Muster).
+  validierten Zielen (Hostname/IP/URL nach Muster). ([ADR-0004](../adr/0004-llm-faehigkeitsgrenze.md))
 - **K4 [Muss]** Werkzeugergebnisse sind in der Größe begrenzt; eine Kürzung wird dem Modell
   mitgeteilt. Die Zahl der LLM-Aufrufe pro Antwort ist begrenzt.
 - **K5 [Muss]** Anbieter frei wählbar: Anthropic Claude, OpenAI, Google Gemini, DeepSeek, lokales
-  Ollama. ([ADR 0006](../adr/0006-providerneutraler-llm-client.md))
+  Ollama. ([ADR-0006](../adr/0006-providerneutraler-llm-client.md))
 - **K6 [Impl]** Eigener HTTP-Client statt Vendor-SDKs; Struktur parallel zum Schwesterprojekt
-  GlucoSphere-Web.
+  GlucoSphere-Web. ([ADR-0006](../adr/0006-providerneutraler-llm-client.md))
 - **K7 [Muss, solange Claude unterstützt wird]** An Anthropic keine Sampling-Parameter
-  (`temperature`, `top_p`, `top_k`) und kein explizites `thinking` senden (HTTP 400 auf aktuellen
-  Modellen). Signierte Thinking-Blöcke werden im nächsten Zug unverändert zurückgespielt.
+  (`temperature`, `top_p`, `top_k`) und kein explizites `thinking` senden. Signierte Thinking-Blöcke
+  werden im nächsten Zug unverändert zurückgespielt. ([ADR-0006](../adr/0006-providerneutraler-llm-client.md))
 - **K8 [Muss]** Dieselben Werkzeuge stehen über einen externen MCP-Endpunkt bereit, abgesichert
   über Tokens, die ein ADMIN anlegt und widerruft; der Tokenwert wird nur einmal angezeigt.
 - **K9 [Muss]** Ein LLM klassifiziert nur, was die Regeln nicht sicher einordnen können; Antworten
@@ -110,46 +121,47 @@
 - **Z1 [Muss]** Secrets (Passwörter, private Schlüssel, Passphrasen, Tokens, TOTP-Geheimnisse) sind
   at rest verschlüsselt; das gilt auch für LLM-API-Schlüssel und ausgelesene Konfigurationsexporte
   (keine Klartext-Kopie beim Gerät). Schutzziel: eine abhandengekommene **Datenbankkopie**,
-  ausdrücklich nicht root auf dem Host. ([ADR 0007](../adr/0007-credentials-fernet-schluessel-im-volume.md))
+  ausdrücklich nicht root auf dem Host. ([ADR-0007](../adr/0007-credentials-fernet-schluessel-im-volume.md))
   > OFFEN: MCP-Tokens und Session-Tokens liegen im Klartext in ihren Tabellen (Hashing erwägen).
 - **Z2 [Muss]** Der Dienst startet nach einem Neustart **unbeaufsichtigt** (keine Passphrase beim Start).
+  ([ADR-0007](../adr/0007-credentials-fernet-schluessel-im-volume.md))
 - **Z3 [Muss]** Ein Secret verlässt den Server nur **einzeln**, nur für ADMIN, und jedes Anzeigen
   wird protokolliert. Keine Route gibt Secrets gesammelt oder im Klartext aus; API-Schlüssel in den
-  Einstellungen kommen maskiert.
+  Einstellungen kommen maskiert. ([ADR-0007](../adr/0007-credentials-fernet-schluessel-im-volume.md))
 - **Z4 [Muss]** Secrets stehen nie in der generierten Dokumentation.
 - **Z5 [Impl]** Fernet mit Schlüsseldatei neben der Datenbank im selben Volume; Backups müssen
-  beides gemeinsam sichern.
+  beides gemeinsam sichern. ([ADR-0007](../adr/0007-credentials-fernet-schluessel-im-volume.md))
 
 ## 6. Betrieb und Netzwerk
 
 - **B1 [Muss]** Die Erkennung braucht direkten Zugang zum LAN des Hosts (ARP-Tabelle,
-  mDNS/SSDP-Multicast). ([ADR 0003](../adr/0003-host-netzwerk-und-loopback-backend.md))
+  mDNS/SSDP-Multicast). ([ADR-0003](../adr/0003-host-netzwerk-und-loopback-backend.md))
 - **B2 [Muss]** Die API ist nur über das Frontend bzw. einen davor liegenden Proxy erreichbar,
-  nicht direkt auf allen Schnittstellen des Hosts.
+  nicht direkt auf allen Schnittstellen des Hosts. ([ADR-0003](../adr/0003-host-netzwerk-und-loopback-backend.md))
 - **B3 [Impl]** Zwei Container mit `network_mode: host`; Backend bindet an `127.0.0.1:8281`, nginx
-  im Frontend-Container auf `:8280` leitet `/api/*` weiter.
+  im Frontend-Container auf `:8280` leitet `/api/*` weiter. ([ADR-0003](../adr/0003-host-netzwerk-und-loopback-backend.md))
 - **B4 [Muss]** Kein HTTPS eingebaut; Zugriff von außen nur hinter einem Reverse Proxy mit TLS.
 - **B5 [Muss]** Der Docker-Socket ist optional. Erkennung und Probing lesen nur (GET); schreibend
   nutzt ihn nur die Container-Steuerung für ADMIN (siehe L4). Ohne Socket funktioniert alles außer
   Container-Erkennung und lokaler Container-Steuerung.
 - **B6 [Muss]** Die Erkennung arbeitet unter Windows/Docker Desktop nur eingeschränkt (keine
-  `ip`/`ping`/`traceroute`); das ist eine bekannte Grenze, kein Fehler.
+  `ip`/`ping`/`traceroute`); das ist eine bekannte Grenze, kein Fehler. ([ADR-0003](../adr/0003-host-netzwerk-und-loopback-backend.md))
 
 ## 7. Datenhaltung und Darstellung
 
 - **D1 [Muss]** Eine Instanz, wenige tausend Datensätze; die Datenhaltung muss parallele Scans
-  (Hintergrund-Threads) und Webanfragen vertragen.
+  (Hintergrund-Threads) und Webanfragen vertragen. ([ADR-0005](../adr/0005-sqlite-ohne-orm.md))
 - **D2 [Impl]** SQLite (WAL) über ein flaches Modul ohne ORM, camelCase-Spalten, JSON-Spalten.
-  ([ADR 0005](../adr/0005-sqlite-ohne-orm.md), [data-model](contracts/data-model.md))
+  ([ADR-0005](../adr/0005-sqlite-ohne-orm.md), [data-model](contracts/data-model.md))
 - **D3 [Muss]** Dokumentation ist versioniert; jeder frühere Stand jeder Seite bleibt abrufbar und
   wiederherstellbar. Manuelle Notizen werden von der Generierung nie verändert.
 - **D4 [Muss]** Der Netzplan ist ein für Laien lesbares Bild mit fester Schichtenfolge von oben
   nach unten. Heute: Internet → Router → Verteilung → Wichtige Geräte; alle übrigen Geräte stehen
   gruppiert als Liste unter dem Bild ([topologie](capabilities/topologie/spec.md)).
-  ([ADR 0009](../adr/0009-netzplan-ebenen-ist-stand.md), ersetzt ADR-0008.)
+  ([ADR-0009](../adr/0009-netzplan-ebenen-ist-stand.md), ersetzt ADR-0008.)
   > OFFEN: Im Kasten ist Farbe heute das einzige Statussignal; ADR-0008/0009 verlangen ein zweites.
 - **D5 [Impl]** Netzplan wird serverseitig als SVG erzeugt, ohne Graph-Bibliothek im Browser,
-  ohne Zoomen/Ziehen. ([ADR 0008](../adr/0008-topologie-als-server-svg.md))
+  ohne Zoomen/Ziehen. ([ADR-0009](../adr/0009-netzplan-ebenen-ist-stand.md))
 - **D6 [Impl]** Frontend: React + react-router ohne State-Bibliothek, ein zentraler typisierter
   API-Client. Backend: Python/FastAPI, Routen in einem Modul je Fähigkeitsgruppe
   (`backend/app/routes/`), gemeinsame Rollenprüfung in `backend/app/deps.py`.
