@@ -23,4 +23,5 @@ Menschen und für KI-Agenten, die sonst bewusste Entscheidungen „wegrefaktorie
 | [0005](0005-sqlite-ohne-orm.md) | SQLite über ein flaches `db.py`, ohne ORM | Akzeptiert |
 | [0006](0006-providerneutraler-llm-client.md) | Providerneutraler LLM-Client ohne Vendor-SDK | Akzeptiert |
 | [0007](0007-credentials-fernet-schluessel-im-volume.md) | Credentials mit Fernet, Schlüssel im selben Volume | Akzeptiert |
-| [0008](0008-topologie-als-server-svg.md) | Netzplan als serverseitiges SVG | Akzeptiert |
+| [0008](0008-topologie-als-server-svg.md) | Netzplan als serverseitiges SVG | Ersetzt durch ADR-0009 |
+| [0009](0009-netzplan-ebenen-ist-stand.md) | Netzplan-Ebenen: wichtige Geräte im Bild, Rest als Liste | Akzeptiert |

@@ -1,0 +1,401 @@
+# Inventar
+
+> Status: Ist-Verhalten, aus dem Code zurückgewonnen (Stand 0159807). Quellen als `datei:zeile`.
+
+## Zweck
+
+Das Inventar ist die zentrale Liste aller Geräte, Container und VMs im Heimnetz, ob per Scan
+gefunden oder von Hand eingetragen. Der Haushalt schlägt dort nach, was ein Gerät ist, wo es steht
+und ob es erreichbar ist. Der Admin pflegt Namen, Zweck, Standort und Wichtigkeit; diese Angaben
+überstehen jeden späteren Scan. Doppelt erfasste Geräte (z. B. ein Router, der pro Subnetz einmal
+gefunden wird) führt der Admin bewusst von Hand zusammen.
+
+## Rollen und Rechte
+
+| Aktion | ADMIN | MEMBER |
+|---|---|---|
+| Geräteliste, Gerätedetail ansehen | ja | ja |
+| Konfigurationsversionen auflisten und Inhalt lesen | ja | ja (siehe OFFEN) |
+| Fehlerereignisse eines Geräts ansehen | ja | ja |
+| Gerät anlegen, bearbeiten, löschen | ja | nein (403) |
+| Duplikat-Vorschläge, Aliase ansehen | ja | nein (403) |
+| Zusammenführen, „kein Duplikat" markieren | ja | nein (403) |
+
+Rollenprüfung: `backend/app/main.py:509`, `:523`, `:529`, `:536`, `:547`, `:560`, `:568`, `:579`,
+`:585`, `:1406`, `:1413`, `:1421`. Test: `backend/tests/test_main_duplicates_api.py::test_endpoints_require_admin`.
+
+## Anforderungen
+
+### Requirement: Geräteliste
+Das System MUSS allen angemeldeten Rollen die Liste aller Geräte liefern, optional gefiltert nach
+exakt einer Art (`kind`), sortiert nach Wichtigkeit (`critical` → `normal` → alles andere) und dann
+Name ohne Groß/Klein; jedes Gerät mit der Anzahl direkt zugeordneter Zugänge (`accountCount`, ohne
+Zuordnungsregeln), der Anzahl gespeicherter Fehlerereignisse (`errorCount`) und einer abgeleiteten
+Kurzbeschreibung (`description`); dazu die Anzeigenamen der Arten (`kindLabels`). **[Muss]**
+
+#### Szenario: Filter und Reihenfolge
+- **WENN** `GET /api/systems?kind=router` aufgerufen wird
+- **DANN** enthält die Antwort nur Geräte mit `kind = router`, kritische zuerst, dann alphabetisch
+
+#### Szenario: Fehlerzähler
+- **WENN** Gerät A zwei, Gerät B ein und Gerät C kein Fehlerereignis hat
+- **DANN** ist `errorCount` 2 / 1 / 0
+- Test: `backend/tests/test_db_error_events.py::test_count_error_events_by_system_is_one_query_for_all_devices`
+
+Quelle: `backend/app/main.py:508`, `backend/app/db.py:626`, `backend/app/db.py:632`, `backend/app/db.py:1774`
+
+### Requirement: Abgeleitete Kurzbeschreibung
+Das System MUSS je Gerät eine Kurzbeschreibung liefern: die eigene Beschreibung (`descriptionMd`),
+sonst der Zweck (`purpose`, außer er beginnt mit „Gerät "), sonst ein Satz aus der Art plus dem
+aussagekräftigsten Dienst (bevorzugt Port 8123, 32400, 8096, 9100, 631, 445, 5001, 8006, 1883, 554,
+sonst der erste) und ggf. dem Container-Image; sonst leer. Sie wird nie gespeichert, sondern bei
+jedem Abruf berechnet. **[Muss]** (Formulierungen **[Impl]**)
+
+#### Szenario: Eigene Beschreibung hat Vorrang
+- **WENN** ein Gerät `descriptionMd` gesetzt hat
+- **DANN** ist `description` genau dieser Text, unabhängig von Diensten
+
+Quelle: `backend/app/docs.py:159`
+
+### Requirement: Gerätedetail
+Das System MUSS für ein Gerät liefern: alle gespeicherten Felder, die zugehörigen Zugänge
+(direkt zugeordnet mit `viaAssignment=false`, über Zuordnungsregeln mit `viaAssignment=true`, ein
+direkt zugeordneter Zugang erscheint nicht zusätzlich als Regel-Treffer), jeweils ohne Geheimnis,
+aber mit `hasSecret`/`hasPassphrase`; die abgeleitete Kurzbeschreibung; die effektiv überwachten
+Ports (`monitorPortsEffective`). Unbekannte ID → 404 „Gerät nicht gefunden.". **[Muss]**
+
+#### Szenario: Geheimnisse bleiben verborgen
+- **WENN** einem Gerät ein Zugang mit Passwort zugeordnet ist und das Detail abgerufen wird
+- **DANN** enthält der Zugang weder `secretEnc` noch `passphraseEnc`, aber `hasSecret: true`
+
+Quelle: `backend/app/main.py:546`, `backend/app/main.py:619`, `backend/app/db.py:1464`,
+`backend/app/monitor.py:40`
+
+### Requirement: Effektive Überwachungsports
+Das System MUSS die überwachten Ports so bestimmen: von Hand gesetzte `monitorPorts` (erste 3);
+sonst bis zu 3 bekannte offene Ports, die für die Art typisch sind; sonst die ersten 3 offenen
+Ports; sonst bis zu 3 für die Art typische Ports (nur Vermutung). Leere Liste = Ping. **[Muss]**
+
+#### Szenario: Handkonfiguration gewinnt
+- **WENN** `monitorPorts = [443, 445, 22, 80]`
+- **DANN** ist `monitorPortsEffective = [443, 445, 22]`
+
+Quelle: `backend/app/monitor.py:40`, Details: [monitoring](../monitoring/spec.md)
+
+### Requirement: Gerät von Hand anlegen
+Das System MUSS ADMIN erlauben, ein Gerät mit beliebigen Inventarfeldern anzulegen; es wird als
+„bestätigt" (`confirmed=1`) und „nicht gefunden" (`discovered=0`) gespeichert. Leere Felder erhalten
+Defaults: `kind=other`, `name="Unbenannt"`, `importance=normal`, `status=unknown`, Rest leer.
+`firstSeen`, `lastSeen`, `updatedAt` = jetzt (UTC, `YYYY-MM-DDTHH:MM:SSZ`). **[Muss]**
+
+#### Szenario: Anlegen über die Liste
+- **WENN** ADMIN in der Geräteliste „+ Gerät anlegen" wählt und einen Namen eingibt
+- **DANN** wird ein Gerät mit diesem Namen und `kind=other` angelegt und oben in der Liste gezeigt
+
+Quelle: `backend/app/main.py:559`, `backend/app/db.py:642`, `backend/app/db.py:655`,
+`frontend/src/pages/InventoryPage.tsx:232`
+
+### Requirement: Gerät bearbeiten
+Das System MUSS ADMIN erlauben, per Teil-Update genau diese Felder zu ändern: `kind, name,
+hostname, ip, mac, vendor, model, os, location, purpose, descriptionMd, url, docUrl, docLink, notes,
+importance, parentId, status, discovered, discoverySource, discoveryKey, monitored, monitorPorts,
+openPorts, services, tags, extra` sowie `lastSeen`. Andere Schlüssel werden ignoriert. Jede
+Bearbeitung setzt `confirmed=1`. Leerwerte fallen auf die Defaults (s. o.) zurück. Da die Route
+`confirmed=1` stets mitschreibt, setzt jeder `PATCH` `updatedAt` – auch ein leerer oder einer nur
+mit unbekannten Schlüsseln bzw. nur `lastSeen` (die Regel „nur bei Inventarfeld im Patch“ in
+`db.update_system` greift nur bei internen Aufrufen). Unbekannte ID → 404. **[Muss]**
+(dass auch technische Felder wie `status`/`discoveryKey`/`extra` schreibbar sind: **[Impl]**, siehe OFFEN)
+
+#### Szenario: Bearbeiten schützt vor Scans
+- **WENN** ADMIN den Namen eines gefundenen Containers ändert
+- **DANN** behält der nächste Scan diesen Namen bei
+- Test: `backend/tests/test_db_docker_names.py::test_confirmed_row_keeps_name`
+
+Quelle: `backend/app/main.py:567`, `backend/app/main.py:569`, `backend/app/db.py:618`, `backend/app/db.py:671`,
+`backend/app/db.py:675`, `backend/app/db.py:686`
+
+Editierbar in der UI (Formular „Gerät bearbeiten"): Name, Adresse, Hostname, Hersteller, Modell,
+Standort, Weboberfläche-URL, Hersteller-Doku-URL, eigene Doku-URL, Zweck, Art (17 Arten, siehe
+[data-model](../../contracts/data-model.md)), Bedeutung (`critical`/`normal`/`low`), Beschreibung
+(Markdown), interne Notiz, Schlagworte (kommagetrennt), „Dauerhaft überwachen", Prüfports (max. 3,
+1–65535). `frontend/src/pages/SystemDetailPage.tsx:389`.
+
+### Requirement: Gepflegte Angaben überstehen Scans
+Das System MUSS bei einem bestätigten Gerät (`confirmed=1`) durch Scans nur flüchtige Fakten
+aktualisieren (IP, Status, Ports/Dienste, `extra`, `lastSeen`, Discovery-Schlüssel) und leere Felder
+`hostname, mac, vendor, model, os, docUrl, docLink, purpose, location` ergänzen; `name`, `kind`,
+`importance`, `descriptionMd` u. a. bleiben unangetastet. **[Muss]**
+
+#### Szenario: Bestätigter Name bleibt trotz UniFi
+- **WENN** ein bestätigtes Gerät einen eigenen Namen hat und UniFi einen anderen meldet
+- **DANN** bleibt der HomeAtlas-Name
+- Test: `backend/tests/test_db_dedup.py::test_upsert_updates_unifi_name_but_preserves_confirmed_homeatlas_name`
+
+Quelle: `backend/app/db.py:1133`, `backend/app/db.py:1224`, `backend/app/db.py:1237`; Suchreihenfolge,
+Feldregeln für bestätigte/unbestätigte Geräte und UniFi-Namensvorrang: Requirement „Wiedererkennung
+bestehender Geräte“ in [discovery-und-scan](../discovery-und-scan/spec.md)
+
+### Requirement: „Kritisch" startet Überwachung sofort
+Das System MUSS jedes Gerät mit `importance=critical` und nicht-leerer IP oder Hostname sofort in
+die Dauerüberwachung aufnehmen (`monitored=1`): nach Anlegen, Bearbeiten, Zusammenführen, beim
+Start und vor jeder Überwachungsrunde – nicht erst beim nächsten Scan. **[Muss]**
+
+#### Szenario: Gerät wird kritisch
+- **WENN** ADMIN ein Gerät mit IP auf „kritisch" setzt
+- **DANN** ist es in der Antwort des PATCH bereits `monitored=1`
+
+Quelle: `backend/app/main.py:574`, `backend/app/db.py:1890`, `backend/app/monitor.py:144`
+
+### Requirement: Gerät löschen
+Das System MUSS ADMIN erlauben, ein Gerät zu löschen. Dabei MÜSSEN mitgelöscht werden: direkt
+zugeordnete Zugänge, deren Zuordnungsregeln, Zuordnungsregeln, die auf dieses Gerät zeigen, seine
+Aliase und „kein Duplikat"-Markierungen. Kinder (Container/VMs) verlieren ihren Host-Verweis
+(`parentId=NULL`), bleiben aber bestehen. Antwort immer `{"ok": true}`, auch für unbekannte IDs. **[Muss]**
+
+#### Szenario: Aliase und Markierungen verschwinden
+- **WENN** ein zusammengeführtes Gerät mit „kein Duplikat"-Markierung gelöscht wird
+- **DANN** existieren weder Aliase noch Markierungen mehr
+- Test: `backend/tests/test_db_merge_aliases.py::test_delete_system_removes_aliases_and_dismissals`,
+  `backend/tests/test_db_account_assignments.py::test_delete_system_removes_assignments_targeting_it_and_owned_by_its_accounts`
+
+Quelle: `backend/app/main.py:578`, `backend/app/db.py:692`
+
+### Requirement: Duplikat-Vorschläge
+Das System MUSS ADMIN Paare möglicher Duplikate vorschlagen, nie selbst zusammenführen. Grund
+`hostname`: gleicher erster DNS-Label des Hostnamens (ohne Groß/Klein; reine IP-Hostnamen zählen
+nicht). Grund `selfName`: gleicher selbstgemeldeter Name (UPnP `friendlyName` oder mDNS-Name, ohne
+Groß/Klein, getrimmt). Hersteller/Modell sind kein Grund. Ein Schlüssel, den mehr als 3 Geräte
+teilen, gilt als generisch und wird ignoriert. Ein Paar erscheint einmal mit allen Gründen
+(`{aId, bId, aName, bName, reasons}`, `aId < bId`); markierte Paare fehlen. **[Muss]**
+
+#### Szenario: Gleicher Hostname
+- **WENN** „Router.fritz.box" und „router" existieren, plus zwei Geräte mit Hostname „10.0.0.1"
+- **DANN** gibt es genau einen Vorschlag mit Grund `hostname`
+- Test: `backend/tests/test_db_duplicates.py::test_same_hostname_flagged`
+
+#### Szenario: Baugleiche Geräte
+- **WENN** zwei Geräte gleichen Hersteller und gleiches Modell haben
+- **DANN** gibt es keinen Vorschlag
+- Test: `backend/tests/test_db_duplicates.py::test_identical_vendor_and_model_not_flagged`
+
+#### Szenario: Generischer Name
+- **WENN** vier Geräte Hostname „espressif" tragen
+- **DANN** gibt es keinen Vorschlag; bei drei Geräten mit gleichem Namen gibt es 3 Paare
+- Test: `backend/tests/test_db_duplicates.py::test_generic_name_shared_by_many_not_flagged`,
+  `backend/tests/test_db_duplicates.py::test_three_devices_same_hostname_give_three_pairs`
+
+Weitere Tests: `test_db_duplicates.py::test_self_reported_name_flagged`,
+`::test_pair_with_several_reasons_is_one_entry`, `::test_same_vendor_only_not_flagged`,
+`::test_merged_pair_no_longer_suggested`, `test_main_duplicates_api.py::test_duplicates_route_not_shadowed`.
+
+Quelle: `backend/app/main.py:522`, `backend/app/db.py:897`, `backend/app/db.py:916`, `backend/app/db.py:925`, `backend/app/db.py:928`
+
+### Requirement: „Kein Duplikat" markieren
+Das System MUSS ADMIN erlauben, ein Paar dauerhaft (auch über künftige Scans) als „kein Duplikat"
+zu markieren. Die Markierung ist richtungsunabhängig und idempotent. Fehlt `otherId` oder ist es
+die eigene ID → 400; existiert eines der Geräte nicht → 404. **[Muss]**
+
+#### Szenario: Validierung und Wirkung
+- **WENN** `otherId` fehlt / gleich der eigenen ID / unbekannt / gültig ist
+- **DANN** 400 / 400 / 404 / `{"ok": true}` und der Vorschlag verschwindet
+- Test: `backend/tests/test_main_duplicates_api.py::test_not_duplicate_endpoint`,
+  `backend/tests/test_db_duplicates.py::test_dismissed_pair_not_suggested_after_rescan`
+
+Quelle: `backend/app/main.py:535`, `backend/app/db.py:963`
+
+### Requirement: Zusammenführen
+Das System MUSS ADMIN erlauben, ein Gerät (`removeId`) in ein anderes (Pfad-ID, „behalten")
+zusammenzuführen; nur auf ausdrückliche Anforderung, nicht umkehrbar. Regeln:
+- Bei Konflikten gewinnt das behaltene Gerät; leere Felder `ip, hostname, mac, vendor, model, os,
+  location, purpose, descriptionMd, url, docUrl, docLink, notes` werden vom entfernten gefüllt.
+- Quellspezifische Gerätedetails (`extra`) werden vereinigt, verschachtelte Objekte (z. B.
+  Probe-Ergebnisse je Ziel) eine Ebene tief; offene Ports und Dienste werden je Adresse
+  (`extra.interfaces`) geführt und als Vereinigung angezeigt.
+- `importance` des entfernten wird übernommen, solange das behaltene nicht bestätigt ist;
+  `confirmed` und `monitored` (+ `monitorPorts`) werden übernommen, wenn das behaltene sie nicht hat.
+- Zugänge, Zuordnungsregeln, Überwachungsereignisse, Konfigurationsversionen, Fehlerereignisse,
+  Kinder und Aliase des entfernten wandern zum behaltenen; danach wird das entfernte gelöscht.
+- `removeId` fehlt → 400 „removeId fehlt."; gleich der Pfad-ID → 400; eines unbekannt → 404.
+**[Muss]**
+
+#### Szenario: Historie bleibt erhalten
+- **WENN** B mit Zugang, Überwachungs- und Fehlerereignis in A zusammengeführt wird
+- **DANN** hängen Zugang und beide Ereignisse an A
+- Test: `backend/tests/test_db_merge_aliases.py::test_merge_keeps_accounts_and_history`
+
+#### Szenario: Ports und Gerätedetails
+- **WENN** ein Handeintrag mit einem gescannten Eintrag (UniFi-Daten, Ports 22/443) verschmilzt
+- **DANN** trägt das Ergebnis UniFi-Daten, beide Probe-Einträge, Ports `[22, 443]` und zwei Interfaces
+- Test: `backend/tests/test_db_merge_aliases.py::test_merge_keeps_extra_ports_and_services_of_removed_row`,
+  `::test_merge_same_ip_unites_ports`
+
+Quelle: `backend/app/main.py:584`, `backend/app/db.py:799`, `backend/app/db.py:831`, `backend/app/db.py:849`, `backend/app/db.py:853`
+
+### Requirement: Aliase machen das Zusammenführen dauerhaft
+Das System MUSS beim Zusammenführen Discovery-Schlüssel und MAC des entfernten Geräts (mit der dort
+gesehenen IP) als Aliase des behaltenen speichern (kein leerer Alias, keiner gleich dem eigenen
+Schlüssel/der eigenen MAC). Spätere Scans, die einen Alias finden, MÜSSEN das behaltene Gerät
+aktualisieren statt ein neues anzulegen; dabei bleiben dessen Schlüssel/IP/MAC unverändert, die
+Alias-IP wird nachgeführt, nur die Ports dieser Adresse werden ersetzt. Aliase sind transitiv. ADMIN
+kann die Aliase eines Geräts abrufen (`aliasKey, ip, mac, createdAt`; unbekanntes Gerät → 404). **[Muss]**
+
+#### Szenario: Erneuter Scan
+- **WENN** nach dem Zusammenführen der Schlüssel des entfernten Geräts wieder gefunden wird
+- **DANN** entsteht kein neues Gerät und die Alias-IP wird aktualisiert
+- Test: `backend/tests/test_db_merge_aliases.py::test_rescan_with_alias_key_does_not_recreate`,
+  `::test_rescan_with_alias_updates_alias_ip`, `::test_rescan_with_only_alias_mac_does_not_duplicate`,
+  `::test_transitive_aliases_survive_second_merge`, `::test_merge_records_aliases`,
+  `::test_merge_without_discovery_key_adds_no_empty_alias`, `::test_rescan_of_each_interface_keeps_the_others_ports`,
+  `test_main_duplicates_api.py::test_aliases_endpoint`
+
+Quelle: `backend/app/main.py:528`, `backend/app/db.py:799`, `backend/app/db.py:970`, `backend/app/db.py:1133`
+
+### Requirement: Eindeutige Namen pro Scan
+Das System MUSS gleichnamige, aber verschiedene Funde eines Scans unterscheidbar benennen:
+Nicht-Container erhalten das letzte IP-Oktett als Suffix (`Shelly (5)`; bei Kollision `(5-2)`),
+Container (teilen die Host-IP) nur bei exakt gleichem Namen einen Zähler ab dem zweiten
+(`web · app (2)`); eindeutige Namen bleiben unverändert. **[Muss]** (Suffixformat **[Impl]**)
+
+#### Szenario: Container und Geräte
+- **WENN** zwei Shelly mit IP .5/.6 und zwei Container „web · app" gefunden werden
+- **DANN** heißen sie „Shelly (5)", „Shelly (6)", „web · app", „web · app (2)"
+- Test: `backend/tests/test_pipeline_unique_names.py::test_non_containers_get_octet_suffix`,
+  `::test_identical_container_names_get_counter_not_octet`, `::test_distinct_container_names_untouched`,
+  `::test_container_without_ip_does_not_crash`
+
+Quelle: `backend/app/pipeline.py:307`, `backend/app/pipeline.py:478`
+
+### Requirement: Konfigurationsversionen
+Das System MUSS die gesicherten Textkonfigurationen eines Geräts als Liste liefern (neueste zuerst,
+ohne Inhalt, mit `id, systemId, label, source, createdAt, size`) und eine einzelne Version mit
+entschlüsseltem Inhalt. Eine Version eines anderen Geräts → 404 „Version nicht gefunden.".
+Je Gerät und Bezeichnung werden höchstens `configVersionKeep` Versionen behalten (Default 50,
+begrenzt auf 1–1000, älteste fallen weg). Inhalte sind verschlüsselt gespeichert und werden nie auf
+das Gerät zurückgeschrieben. **[Muss]**
+
+#### Szenario: Fremde Version
+- **WENN** `GET /api/systems/A/config-versions/<Version von B>` aufgerufen wird
+- **DANN** 404
+
+Quelle: `backend/app/main.py:1405`, `backend/app/main.py:1412`, `backend/app/db.py:1694`, `backend/app/db.py:1699`,
+`backend/app/db.py:1717`; Erzeugung: [credentialed-probing](../credentialed-probing/spec.md)
+
+### Requirement: Fehlerereignisse je Gerät
+Das System MUSS je Gerät die letzten 50 Fehlerereignisse (neueste zuerst; `id, systemId, level,
+message, createdAt`) liefern; unbekanntes Gerät → 404. Gespeichert werden höchstens 100 pro Gerät
+(älteste fallen weg), Meldungen auf 2000 Zeichen gekürzt, `level` Default `error`. Ereignisse ohne
+Gerätezuordnung werden verworfen. Es gibt keine Löschfunktion. **[Muss]** (Grenzen **[Impl]**)
+
+#### Szenario: Reihenfolge und Begrenzung
+- **WENN** 10 Fehler bei Limit 3 gespeichert werden
+- **DANN** bleiben die 3 neuesten, der neueste zuerst
+- Test: `backend/tests/test_db_error_events.py::test_add_and_list_device_error_events`,
+  `::test_error_events_are_capped_per_device`, `::test_add_device_error_event_is_a_noop_without_a_system_id`
+
+Quelle: `backend/app/main.py:1420`, `backend/app/db.py:1741`, `backend/app/db.py:1744`, `backend/app/db.py:1766`;
+Erzeuger: `backend/app/pipeline.py:92`, `backend/app/monitor.py:172`
+
+### Requirement: Geräteliste in der Oberfläche
+Die Geräteliste MUSS Freitextsuche (Name, Hostname, IP, MAC, Hersteller, Modell, Standort, Zweck),
+Filter nach Art, nach Host (`parentId`) und nach Compose-Projekt (URL-Parameter `kind`, `parentId`,
+`project`) sowie Sortierung nach Name/Adresse (IPv4 numerisch)/Art/Standort/Zustand bieten.
+Container mit Compose-Projekt (`extra.docker.composeProject`) werden je Projekt in einer
+einklappbaren Gruppe („Compose: <projekt> (n Container)", alphabetisch) nach den übrigen Geräten
+gezeigt; Suche/Sortierung wirken innerhalb der Gruppen. Badges: kritisch, Fehleranzahl, PoE
+(Schlagwort enthält „poe"). ADMIN zusätzlich: Mehrfachauswahl mit Löschen, bei genau 2 Geräten
+Zusammenführen mit Wahl des Behaltenen, Duplikat-Hinweise mit „Behalte X"/„Kein Duplikat". **[Muss]**
+(Layout **[Impl]**)
+
+#### Szenario: Compose-Gruppe
+- **WENN** drei Container des Projekts „immich" und zwei Geräte ohne Projekt vorhanden sind
+- **DANN** stehen die zwei Geräte oben, darunter eine Gruppe „Compose: immich (3 Container)"
+
+Quelle: `frontend/src/pages/InventoryPage.tsx:26`, `:112`, `:218`, `:310`, `:371`
+
+### Requirement: Detailseite
+Die Detailseite MUSS zeigen: Kopf (Name, Zweck, Zustand, kritisch, Fehleranzahl als Schalter zum
+Fehlerprotokoll, PoE, überwacht mit Port/Ping, „automatisch gefunden", Links Weboberfläche /
+Hersteller-Doku / eigene Doku), Beschreibung (eigene oder abgeleitet mit Hinweis) und Notiz,
+technische Daten (IP, Hostname, MAC, Hersteller, Modell, Standort, zuletzt/erstmals gesehen,
+Quelle; nur befüllte), je nach Daten: Verbrauchsmaterial (Drucker, Balken rot ≤ 15 %), AdGuard Home,
+Container-Details, „Direkt vom Gerät ausgelesen", Konfigurationsverlauf (nur Art `router`/`network`,
+Ansehen/Herunterladen; Base64-Inhalt als `.cfg`, sonst `.txt`), erreichbare Dienste (mit
+Adressspalte bei mehreren Interfaces). ADMIN zusätzlich: Bearbeiten, Löschen, Auslesen, Neustart,
+Zusammenführen-Bereich („Weitere IPs/MACs", Duplikat-Hinweise, „Zusammenführen…"), Schalten,
+Zugänge, Container-Steuerung. **[Impl]** (Inhalte fachlich **[Muss]**: Mitglieder sehen keine
+Zugänge und keine Schreibaktionen)
+
+#### Szenario: Mitglied
+- **WENN** ein MEMBER die Detailseite öffnet
+- **DANN** sieht er keine Buttons zum Bearbeiten/Löschen/Zusammenführen und keinen Bereich „Zugänge"
+
+Quelle: `frontend/src/pages/SystemDetailPage.tsx:59`, `:317`, `:359`, `:377`, `:786`,
+`frontend/src/components/MergePanel.tsx:4`
+
+## Daten
+
+Aus [data-model](../../contracts/data-model.md):
+- `systems`: gelesen und geschrieben (alle Felder; `confirmed`, `monitored` gezielt).
+- `systemAliases`, `duplicateDismissals`: geschrieben bei Merge/Markierung, gelöscht bei Delete.
+- `accounts`, `accountAssignments`: gelesen (Detail, Zähler), umgehängt (Merge), gelöscht (Delete).
+- `deviceConfigVersions`, `deviceErrorEvents`, `monitorEvents`: gelesen, bei Merge umgehängt.
+- `settings`: `configVersionKeep` (gelesen beim Speichern einer Version).
+
+## Schnittstellen
+
+| Methode | Pfad | Rolle | Zweck |
+|---|---|---|---|
+| GET | /api/systems | MEMBER | Geräteliste (+`accountCount`, `errorCount`, `description`, `kindLabels`), Query `kind` |
+| POST | /api/systems | ADMIN | Gerät anlegen → `{system}` |
+| GET | /api/systems/duplicates | ADMIN | Duplikat-Vorschläge → `{candidates}` |
+| GET | /api/systems/{system_id} | MEMBER | Detail → `{system, accounts, description, monitorPortsEffective}` |
+| PATCH | /api/systems/{system_id} | ADMIN | Teil-Update → `{system}` |
+| DELETE | /api/systems/{system_id} | ADMIN | Löschen → `{ok}` |
+| GET | /api/systems/{system_id}/aliases | ADMIN | Aliase → `{aliases}` |
+| POST | /api/systems/{system_id}/merge | ADMIN | Body `{removeId}` → `{system}` |
+| POST | /api/systems/{system_id}/not-duplicate | ADMIN | Body `{otherId}` → `{ok}` |
+| GET | /api/systems/{system_id}/config-versions | MEMBER | Versionsliste → `{versions}` |
+| GET | /api/systems/{system_id}/config-versions/{version_id} | MEMBER | Version mit Klartext → `{version}` |
+| GET | /api/systems/{system_id}/errors | MEMBER | Fehlerereignisse → `{events}` |
+
+Berührte fremde Routen (nur verlinkt): Auslesen `POST /api/systems/{id}/probe`
+([credentialed-probing](../credentialed-probing/spec.md)), Container/Neustart/Schalten/Konsolen
+([remote-admin](../remote-admin/spec.md)), Zugänge ([zugangsdaten](../zugangsdaten/spec.md)).
+LLM-Lesezugriff aufs Inventar: [llm-tools](../../contracts/llm-tools.md).
+
+UI-Seite(n): `frontend/src/pages/InventoryPage.tsx` (Route `/geraete`),
+`frontend/src/pages/SystemDetailPage.tsx` (Route `/geraete/:id`), `frontend/src/components/MergePanel.tsx`.
+
+## Nicht-Ziele und Grenzen
+
+- Kein automatisches Zusammenführen aus Vorschlägen; einzige Ausnahme ist die Wiedererkennung beim
+  Scan (Schlüssel, Alt-Schlüssel, Alias, MAC, Proxmox, IP+Hostname, Controller-IP), Requirement
+  „Wiedererkennung bestehender Geräte“ in [discovery-und-scan](../discovery-und-scan/spec.md).
+- Kein Rückgängigmachen eines Merges, kein Entfernen einzelner Aliase, kein Aufheben von
+  „kein Duplikat".
+- Keine Löschung/Quittierung von Fehlerereignissen, kein Bearbeiten oder Zurückspielen von
+  Konfigurationsversionen.
+- Keine serverseitige Suche/Paginierung; die Liste wird komplett geliefert und im Client gefiltert.
+
+## Ist-Implementierung (nur Referenz, [Impl])
+
+- IDs sind UUID-Hex; Zeitstempel als Text `YYYY-MM-DDTHH:MM:SSZ`; JSON-Felder als Text in SQLite.
+- Eindeutigkeit über generierte Spalte `identityKey` (`discoveryKey` oder `id:<id>`), Unique-Index.
+- Kein Fremdschlüssel in SQLite; Kaskaden bei Delete/Merge sind handgeschrieben.
+- UI speichert beim Bearbeiten das gesamte Gerät als Patch (`setDraft(system)`), nicht nur Änderungen.
+- Konfigurationsverlauf wird in der UI nur für `router`/`network` abgefragt; die API liefert für alle.
+- Merge in der UI lädt danach die Seite neu (`window.location.reload()`).
+
+## OFFEN
+
+- > OFFEN: MEMBER kann über `GET …/config-versions/{version_id}` den entschlüsselten Inhalt einer Gerätekonfiguration lesen (`backend/app/main.py:1413`, `:1417`), obwohl diese laut Schema SNMP-Communities, RADIUS-Secrets, WLAN-Schlüssel enthalten kann (`backend/app/db.py:292`). Widerspricht „MEMBER sieht nie ein Klartext-Geheimnis".
+- > OFFEN: Die Probe-Ergebnisse inkl. vollständigem `config_export` (bis 60000 Zeichen) landen unverschlüsselt in `systems.extra.probe` (`backend/app/pipeline.py:115`, `backend/app/main.py:1391`) und gehen per `GET /api/systems` / `GET /api/systems/{id}` an MEMBER. Untergräbt die Verschlüsselung der Konfigurationsversionen.
+- > OFFEN: `GET /api/systems/{id}` liefert MEMBER die Zugangs-Metadaten (Label, Benutzername, URL, Notizen) des Geräts; nur die UI blendet sie aus. Gewollt?
+- > OFFEN: PATCH validiert nichts: `kind`/`importance` beliebig, `status`, `discoveryKey`, `discovered`, `extra`, `openPorts`, `lastSeen` frei schreibbar. Ein `discoveryKey`, den schon ein anderes Gerät hat, verletzt den Unique-Index → vermutlich HTTP 500.
+- > OFFEN: Da die UI das komplette Gerät zurückschickt, überschreibt Speichern zwischenzeitliche Änderungen von Scan/Überwachung (`status`, `extra`, `openPorts`, `lastSeen`) mit dem alten Stand (Lost Update).
+- > OFFEN: POST übernimmt eine vom Client mitgeschickte `id` (`backend/app/db.py:643`); mit vorhandener ID vermutlich 500.
+- > OFFEN: DELETE lässt `deviceConfigVersions`, `deviceErrorEvents` und `monitorEvents` des Geräts verwaist zurück (`backend/app/db.py:692`), obwohl Merge sie bewusst umhängt; antwortet `ok` auch für unbekannte IDs.
+- > OFFEN: Ist das behaltene Gerät Kind des entfernten, setzt Merge `parentId` des behaltenen auf sich selbst (`backend/app/db.py:884`).
+- > OFFEN: Ein kritisches Gerät lässt sich nicht aus der Überwachung nehmen (`monitored=0` wird in der nächsten Runde wieder 1); wird „kritisch" entfernt, bleibt die Überwachung an. Gewollt?
+- > OFFEN: `monitorPorts` wird serverseitig nicht auf 3 Einträge/gültige Ports begrenzt; nur die UI und `effective_ports` kürzen.
+- > OFFEN: Der Fehler-Badge verschwindet nie, weil Fehlerereignisse nicht quittiert oder gelöscht werden können (nur Kappung bei 100).

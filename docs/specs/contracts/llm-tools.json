@@ -1,0 +1,254 @@
+[
+  {
+    "description": "Listet die dokumentierten Geräte des Haushalts. Nutze das, um einen umgangssprachlichen Namen wie 'der Drucker' oder 'die Heizung' in ein konkretes Gerät mit IP-Adresse aufzulösen, bevor du misst.",
+    "inputSchema": {
+      "properties": {
+        "kind": {
+          "description": "Optionaler Filter auf eine Kategorie, z. B. printer, router, server, nas, smarthome, heating, camera.",
+          "type": "string"
+        },
+        "onlyOnline": {
+          "description": "Nur Geräte, die beim letzten Scan erreichbar waren.",
+          "type": "boolean"
+        },
+        "query": {
+          "description": "Optionaler Suchbegriff für Name, Hostname, IP, Hersteller oder Modell.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_systems"
+  },
+  {
+    "description": "Liefert alle Details zu einem Gerät: Ports, Dienste, Beschreibung, Standort, Zweck.",
+    "inputSchema": {
+      "properties": {
+        "idOrName": {
+          "description": "Geräte-ID, Name oder IP-Adresse.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "idOrName"
+      ],
+      "type": "object"
+    },
+    "name": "get_system"
+  },
+  {
+    "description": "Überblick über das Netzwerk: Adressbereiche, Router/Gateway, DNS-Server und eine Zusammenfassung des letzten Scans. Guter erster Aufruf bei unklaren Problemen.",
+    "inputSchema": {
+      "properties": {},
+      "type": "object"
+    },
+    "name": "network_overview"
+  },
+  {
+    "description": "Listet die Kapitel der Heimnetz-Dokumentation mit Titel und Kurzbeschreibung.",
+    "inputSchema": {
+      "properties": {},
+      "type": "object"
+    },
+    "name": "list_documentation"
+  },
+  {
+    "description": "Liefert den vollständigen Text eines Dokumentationskapitels.",
+    "inputSchema": {
+      "properties": {
+        "slug": {
+          "description": "Kürzel des Kapitels aus list_documentation.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "slug"
+      ],
+      "type": "object"
+    },
+    "name": "get_documentation"
+  },
+  {
+    "description": "Listet hinterlegte Zugänge und Konten OHNE Passwörter -- nur Bezeichnung, Benutzername, Adresse und Notiz. Damit kannst du sagen, wo ein Zugang gespeichert ist; das Passwort selbst liest die Person in der App nach.",
+    "inputSchema": {
+      "properties": {
+        "systemId": {
+          "description": "Optional: nur Zugänge zu diesem Gerät.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_accounts"
+  },
+  {
+    "description": "Listet die Docker-Container auf dem Server: Image, Status, veröffentlichte Ports, Volumes.",
+    "inputSchema": {
+      "properties": {},
+      "type": "object"
+    },
+    "name": "list_containers"
+  },
+  {
+    "description": "Listet schaltbare Shelly-Geräte und Home-Assistant-Entities (nur switch/light) mit den IDs, die set_switch braucht. Immer zuerst aufrufen, um einen umgangssprachlichen Namen wie 'das Wohnzimmerlicht' einem konkreten Ziel zuzuordnen, bevor geschaltet wird.",
+    "inputSchema": {
+      "properties": {},
+      "type": "object"
+    },
+    "name": "list_switches"
+  },
+  {
+    "description": "Schaltet ein Shelly-Relais oder eine Home-Assistant-switch/light-Entity ein oder aus. Vorher list_switches aufrufen, um die passende ID zu finden. Wird sofort ausgeführt, ohne Rückfrage -- nur für Ein/Aus-Schalten, nicht für Schlösser, Rollläden, Heizung oder Alarmanlage (die bietet dieses Werkzeug gar nicht erst an).",
+    "inputSchema": {
+      "properties": {
+        "accountId": {
+          "description": "Für kind='ha': die accountId aus list_switches.",
+          "type": "string"
+        },
+        "entityId": {
+          "description": "Für kind='ha': die entityId aus list_switches, z. B. switch.wohnzimmer_stecker.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "'shelly' für ein Shelly-Gerät, 'ha' für eine Home-Assistant-Entity.",
+          "enum": [
+            "shelly",
+            "ha"
+          ],
+          "type": "string"
+        },
+        "on": {
+          "description": "true = einschalten, false = ausschalten.",
+          "type": "boolean"
+        },
+        "systemId": {
+          "description": "Für kind='shelly': die systemId aus list_switches.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "on"
+      ],
+      "type": "object"
+    },
+    "name": "set_switch"
+  },
+  {
+    "description": "Prüft die Internetverbindung in drei Schichten (Erreichbarkeit, Namensauflösung, Webseiten) und sagt, auf welcher Ebene es klemmt. Erster Griff bei 'Internet geht nicht'.",
+    "inputSchema": {
+      "properties": {},
+      "type": "object"
+    },
+    "name": "internet_check"
+  },
+  {
+    "description": "Prüft, ob ein Gerät im Netzwerk antwortet, und wie stabil die Verbindung ist.",
+    "inputSchema": {
+      "properties": {
+        "count": {
+          "description": "Anzahl Versuche, 1 bis 10. Standard 3.",
+          "type": "integer"
+        },
+        "host": {
+          "description": "IP-Adresse oder Hostname.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "host"
+      ],
+      "type": "object"
+    },
+    "name": "ping_host"
+  },
+  {
+    "description": "Prüft, ob ein bestimmter Dienst auf einem Gerät erreichbar ist, z. B. 80/443 für eine Weboberfläche, 445 für Dateifreigaben, 9100 für Drucker.",
+    "inputSchema": {
+      "properties": {
+        "host": {
+          "description": "IP-Adresse oder Hostname.",
+          "type": "string"
+        },
+        "port": {
+          "description": "Portnummer 1-65535.",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "host",
+        "port"
+      ],
+      "type": "object"
+    },
+    "name": "check_port"
+  },
+  {
+    "description": "Prüft, ob ein Name in eine IP-Adresse übersetzt wird (Namensauflösung/DNS).",
+    "inputSchema": {
+      "properties": {
+        "name": {
+          "description": "Zu prüfender Name, z. B. www.google.com.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "name": "dns_lookup"
+  },
+  {
+    "description": "Ermittelt den Gerätenamen zu einer IP-Adresse.",
+    "inputSchema": {
+      "properties": {
+        "ip": {
+          "description": "IP-Adresse.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ip"
+      ],
+      "type": "object"
+    },
+    "name": "reverse_dns"
+  },
+  {
+    "description": "Ruft eine Weboberfläche auf und meldet Statuscode, Titel und Antwortzeit.",
+    "inputSchema": {
+      "properties": {
+        "url": {
+          "description": "Vollständige Adresse mit http:// oder https://.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "type": "object"
+    },
+    "name": "http_check"
+  },
+  {
+    "description": "Zeigt den Weg zu einem Ziel über die Zwischenstationen. Nützlich, um zu unterscheiden, ob ein Problem im Heimnetz oder beim Internetanbieter liegt.",
+    "inputSchema": {
+      "properties": {
+        "host": {
+          "description": "IP-Adresse oder Hostname.",
+          "type": "string"
+        },
+        "maxHops": {
+          "description": "Maximale Zwischenstationen, 1 bis 30. Standard 15.",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "host"
+      ],
+      "type": "object"
+    },
+    "name": "traceroute"
+  }
+]

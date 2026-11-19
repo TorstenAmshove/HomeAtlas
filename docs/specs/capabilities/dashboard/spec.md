@@ -1,0 +1,171 @@
+# Dashboard
+
+> Status: Ist-Verhalten, aus dem Code zurückgewonnen (Stand 0159807). Quellen als `datei:zeile`.
+
+## Zweck
+
+Die Startseite nach dem Login gibt jedem im Haushalt auf einen Blick den Zustand des Heimnetzes:
+wie viele Geräte dokumentiert und erreichbar sind, ob die wichtigsten Geräte gerade laufen, was es
+im Netz gibt und wann zuletzt gescannt wurde. Sie ist der Einstieg bei „Internet geht nicht" –
+mit einem Knopf für den Internet-Schnelltest – und weist den Admin auf fehlende Einrichtung hin.
+
+## Rollen und Rechte
+
+| Aktion | ADMIN | MEMBER |
+|---|---|---|
+| Dashboard-Daten abrufen | ja | ja |
+| Internet-Schnelltest starten | ja | ja |
+| Knopf „Netzwerk scannen" sehen | ja | nein |
+| Hinweise „KI-Assistent nicht eingerichtet" / „Überwachung aus" sehen | ja | nein |
+
+Rollenprüfung: `backend/app/main.py:1608` (`Depends(current_user)`); UI-Gating
+`frontend/src/pages/DashboardPage.tsx:77`, `:87`, `:159`.
+
+## Anforderungen
+
+### Requirement: Kennzahlen
+Das System MUSS folgende Zähler über das gesamte Inventar liefern: `total` (alle Geräte), `online`
+(`status = online`), `offline` (`status = offline`), `critical` (`importance = critical`),
+`accounts` (alle gespeicherten Zugänge), `documented` (Geräte mit nicht-leerer eigener
+Beschreibung `descriptionMd`). Die Oberfläche zeigt vier Kacheln: Geräte insgesamt, gerade
+erreichbar (grün), kritisch fürs Haus (gelb, wenn > 0), hinterlegte Zugänge. **[Muss]**
+
+#### Szenario: Zählung
+- **WENN** 5 Geräte existieren, davon 3 `online`, 1 `offline`, 1 `unknown`, 2 `critical`
+- **DANN** ist `counts = {total: 5, online: 3, offline: 1, critical: 2, …}`
+
+#### Szenario: Leeres Inventar
+- **WENN** noch kein Gerät existiert
+- **DANN** zeigt die Kopfzeile „Noch nichts dokumentiert. Ein Netzwerk-Scan findet die Geräte im Haus automatisch."
+- **SONST** „<total> Geräte dokumentiert, davon <online> gerade erreichbar."
+
+Quelle: `backend/app/main.py:1616`, `frontend/src/pages/DashboardPage.tsx:68`, `:97`
+
+### Requirement: Geräte nach Art
+Das System MUSS je vorkommender Art (`kind`) die Anzahl Geräte liefern (`byKind`, nur Arten mit
+mindestens einem Gerät) sowie die deutschen Anzeigenamen (`kindLabels`). Die Oberfläche listet sie
+absteigend nach Anzahl („Was es im Netz gibt"); jeder Eintrag verlinkt auf die gefilterte
+Geräteliste `/geraete?kind=<art>`. **[Muss]**
+
+#### Szenario: Drill-down
+- **WENN** der Nutzer auf „Router (2)" klickt
+- **DANN** öffnet sich die Geräteliste, gefiltert auf Art `router`
+
+Quelle: `backend/app/main.py:1624`, `backend/app/docs.py:21`, `frontend/src/pages/DashboardPage.tsx:175`
+
+### Requirement: Wichtigste Geräte live
+Das System MUSS die als kritisch markierten Geräte (höchstens 10, in Inventar-Standardreihenfolge,
+d. h. nach Name ohne Groß/Klein) mit allen Gerätefeldern und den effektiv überwachten Ports
+(`monitorPortsEffective`) liefern. Die Oberfläche zeigt je Gerät Name (Link zur Detailseite),
+IP (oder „—"), „Port a, b" bzw. „Ping" und den Zustand: `online` → „erreichbar", `offline` → „nicht
+erreichbar", sonst „wird geprüft…". Ohne kritische Geräte erscheint ein Hinweis, wie man Geräte als
+kritisch markiert. **[Muss]**
+
+#### Szenario: Neu als kritisch markiert
+- **WENN** ADMIN ein Gerät mit IP als kritisch markiert und das Dashboard neu lädt
+- **DANN** erscheint es in der Liste und wird bereits überwacht (nicht dauerhaft „wird geprüft…")
+
+Quelle: `backend/app/main.py:1626`, `backend/app/main.py:1629`, `backend/app/db.py:632`, `backend/app/db.py:1890`,
+`backend/app/monitor.py:40`, `frontend/src/pages/DashboardPage.tsx:128`
+
+### Requirement: Überwachungsstatus und automatische Aktualisierung
+Das System MUSS `monitorEnabled` (Default `true`) und `monitorIntervalSeconds` (Default 10) aus den
+Einstellungen liefern. Die Oberfläche MUSS bei aktiver Überwachung „live · alle <n> s" anzeigen und
+die Daten im Takt von max(5, `monitorIntervalSeconds`) Sekunden neu laden – nur solange der Tab
+sichtbar ist. Bei abgeschalteter Überwachung: Badge „Überwachung aus", kein automatisches Neuladen,
+für ADMIN ein Hinweis mit Link auf Einstellungen → Überwachung. **[Muss]** (Untergrenze 5 s **[Impl]**)
+
+#### Szenario: Hintergrund-Tab
+- **WENN** der Browser-Tab in den Hintergrund wechselt
+- **DANN** stoppt das periodische Neuladen und startet beim Zurückkehren wieder
+
+Quelle: `backend/app/main.py:1630`, `backend/app/db.py:443`, `backend/app/db.py:444`, `frontend/src/pages/DashboardPage.tsx:30`
+
+### Requirement: Letzter Scan
+Das System MUSS den zuletzt gestarteten Scan (nach Startzeit) liefern oder `null`, wenn es keinen
+gibt. Die Oberfläche zeigt „Letzter Scan: <Datum/Uhrzeit de-DE> (<status>)". **[Muss]**
+
+#### Szenario: Noch nie gescannt
+- **WENN** kein Scan existiert
+- **DANN** ist `lastScan = null` und die Zeile entfällt
+
+Quelle: `backend/app/main.py:1633`, `backend/app/db.py:1817`, `frontend/src/pages/DashboardPage.tsx:192`
+
+### Requirement: Einrichtungsstand
+Das System MUSS `homeName` (Default „Mein Zuhause", Seitentitel), `setupCompleted` (Default
+`false`) und `llmConfigured` liefern. `llmConfigured` ist wahr, wenn der gewählte Anbieter Ollama
+ist oder für den gewählten Anbieter ein API-Schlüssel hinterlegt ist. Ist er falsch, sieht ADMIN
+einen Hinweis mit Link auf Einstellungen → KI-Assistent. Der API-Schlüssel selbst wird nicht
+ausgeliefert. **[Muss]**
+
+#### Szenario: Ollama ohne Schlüssel
+- **WENN** `llmProvider = OLLAMA` und kein Schlüssel gesetzt ist
+- **DANN** ist `llmConfigured = true`
+
+Quelle: `backend/app/main.py:1614`, `backend/app/main.py:1634`, `backend/app/llm_providers.py:88`,
+`frontend/src/pages/DashboardPage.tsx:87`, `backend/app/db.py:409`
+
+### Requirement: Zuletzt geänderte Geräte
+Das System liefert die 8 zuletzt geänderten Geräte (`recentlyChanged`, absteigend nach
+`updatedAt`). Die heutige Oberfläche zeigt sie nicht an. **[Impl]**
+
+#### Szenario: Reihenfolge
+- **WENN** 10 Geräte existieren
+- **DANN** enthält `recentlyChanged` die 8 mit dem jüngsten `updatedAt`, jüngstes zuerst
+
+Quelle: `backend/app/main.py:1632`
+
+### Requirement: Internet-Schnelltest
+Die Oberfläche MUSS jedem angemeldeten Nutzer einen Knopf „Internet prüfen" bieten, der den
+Diagnose-Test `internet_check` ausführt und das Ergebnis als Hinweis zeigt (grün nur, wenn
+Internet erreichbar, DNS funktioniert und Webseiten laden; sonst rot), mit der Erklärung im Klartext. **[Muss]**
+
+#### Szenario: DNS defekt
+- **WENN** der Test meldet, dass DNS nicht funktioniert
+- **DANN** erscheint die Erklärung als roter Hinweis
+
+Quelle: `frontend/src/pages/DashboardPage.tsx:45`, `:82`, `backend/app/main.py:1471`;
+Details: [diagnose](../diagnose/spec.md)
+
+## Daten
+
+Aus [data-model](../../contracts/data-model.md), nur lesend:
+- `systems`: alle Felder (Zähler, Arten, kritische Geräte, zuletzt geändert).
+- `accounts`: nur Anzahl.
+- `scans`: jüngste Zeile komplett (`id, startedAt, finishedAt, status, subnets, progress, phase, summary, log`).
+- `settings`: `homeName`, `setupCompleted`, `llmProvider`, API-Schlüssel des gewählten Anbieters
+  (nur geprüft, ob gesetzt), `monitorEnabled`, `monitorIntervalSeconds`.
+
+## Schnittstellen
+
+| Methode | Pfad | Rolle | Zweck |
+|---|---|---|---|
+| GET | /api/dashboard | MEMBER | `{homeName, setupCompleted, counts, byKind, kindLabels, criticalSystems, monitorIntervalSeconds, monitorEnabled, recentlyChanged, lastScan, llmConfigured}` |
+
+Berührte fremde Routen: `POST /api/diagnostics` ([diagnose](../diagnose/spec.md)); Links auf
+`/scan` ([discovery-und-scan](../discovery-und-scan/spec.md)), `/einstellungen`
+([einstellungen-und-llm-provider](../einstellungen-und-llm-provider/spec.md)), `/geraete`
+([inventar](../inventar/spec.md)).
+
+UI-Seite(n): `frontend/src/pages/DashboardPage.tsx` (Route `/`).
+
+## Nicht-Ziele und Grenzen
+
+- Keine eigene Datenhaltung, keine Historie/Diagramme; Status kommt aus der Überwachung
+  ([monitoring](../monitoring/spec.md)) bzw. dem letzten Scan.
+- Kein Push (WebSocket/SSE); Aktualität nur durch periodisches Neuladen.
+- Keine Konfiguration der Kacheln.
+
+## Ist-Implementierung (nur Referenz, [Impl])
+
+- Alle Zähler werden bei jedem Aufruf aus der vollständigen Geräteliste im Speicher berechnet.
+- `counts.offline`, `counts.documented` und `recentlyChanged` werden geliefert, aber nicht angezeigt.
+- Reihenfolge von `byKind` im JSON: alphabetisch nach Art; sortiert wird erst im Client.
+
+## OFFEN
+
+- > OFFEN: `lastScan` liefert die komplette Scan-Zeile inkl. vollständigem `log` und `summary` an MEMBER (`backend/app/main.py:1633`); die UI braucht nur `startedAt`/`status`. Unnötige Datenmenge und Offenlegung von Scan-Details.
+- > OFFEN: Kritische Geräte ohne IP und Hostname werden nie überwacht (`backend/app/db.py:1900`) und stehen dauerhaft als „wird geprüft…" auf dem Dashboard – irreführend.
+- > OFFEN: Bei mehr als 10 kritischen Geräten werden still nur die ersten 10 (alphabetisch) gezeigt; die Kachel nennt die volle Zahl, ein Hinweis auf weitere fehlt.
+- > OFFEN: Status `unknown` und jeder andere Wert erscheinen gleichermaßen als „wird geprüft…", auch wenn die Überwachung abgeschaltet ist (dann wird nichts geprüft).
+- > OFFEN: `counts.offline`, `counts.documented`, `recentlyChanged` ohne Abnehmer – entfernen oder anzeigen?

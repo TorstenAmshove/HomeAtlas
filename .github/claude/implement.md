@@ -27,6 +27,10 @@ Repo-Owners, die ihn ändern.
    kommentiere im Issue, statt einen anderen Plan umzusetzen.
 5. Doku anpassen, wo der Plan es sagt und wo sich Verhalten für Nutzer ändert (`README.md`). Bei
    einer neuen Architekturentscheidung ein neues ADR anlegen (`docs/adr/`).
+6. **Specs nachziehen:** Ändert sich Verhalten, die betroffene `docs/specs/capabilities/*/spec.md`
+   im selben PR anpassen (Requirement/Szenario, erledigte `OFFEN`-Punkte entfernen). Danach
+   `python docs/specs/trace_specs.py` ausführen und das Ergebnis committen; bei neuen Routen,
+   Tabellen oder KI-Werkzeugen vorher `python docs/specs/export_contracts.py`.
 
 ## Abschluss: alles muss grün sein
 

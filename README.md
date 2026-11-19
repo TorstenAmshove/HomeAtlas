@@ -250,7 +250,8 @@ Mensch in der App.
 gespeichertes Passwort nur über `GET /api/accounts/{id}/secret` — genau eines, nur für
 Administratoren. Es gibt keine Route, die den Zugangsspeicher im Klartext ausgibt.
 
-**Diagnose-Werkzeuge ohne Shell.** Alles, was der Assistent ausführen kann, ist lesend, hat ein
+**Diagnose-Werkzeuge ohne Shell.** Alles, was der Assistent ausführen kann, ist lesend (einzige
+bewusste Ausnahme: Shelly-Relais und Home-Assistant-Lichter/-Schalter ein- und ausschalten), hat ein
 Timeout und läuft über `create_subprocess_exec` mit Argumentliste. Ein Hostname mit `;` oder
 Backticks ist ein Hostname, kein Befehl — und wird vorher gegen ein striktes Muster geprüft.
 
@@ -277,10 +278,11 @@ Funktion in genau dem Netz unbrauchbar machen, das sie dokumentieren soll.
 unterliegen denselben Regeln: nie in der Doku, nie beim KI-Anbieter, nur einzeln über die
 Admin-Route abrufbar.
 
-**Der Docker-Socket ist root-äquivalent.** Read-only eingebunden und es werden ausschließlich
-GET-Endpunkte aufgerufen — aber wer den Socket lesen kann, kann auf dem Host viel. Wem das zu
-weit geht, entfernt die Zeile in `docker-compose.yml`; alles außer der Container-Erkennung
-funktioniert weiter.
+**Der Docker-Socket ist root-äquivalent.** Die Erkennung ruft ausschließlich GET-Endpunkte auf.
+Schreibend nutzt ihn nur die Container-Steuerung für Administratoren (Starten, Stoppen, Neustarten,
+Konsole). Das `:ro` in `docker-compose.yml` schützt nur die Socket-Datei, nicht die API dahinter:
+Wer den Socket erreicht, kann auf dem Host viel. Wem das zu weit geht, entfernt die Zeile in
+`docker-compose.yml`; alles außer Container-Erkennung und -Steuerung funktioniert weiter.
 
 **Anmeldeschutz.** Passwörter müssen mindestens 10 Zeichen haben und entweder drei der vier
 Zeichenarten enthalten oder ab 20 Zeichen als Wortfolge durchgehen — lange Passphrasen sind
@@ -401,7 +403,8 @@ Tests und Lint fürs Backend: `pip install -r requirements-dev.txt`, dann `ruff 
 `python -m pytest -q` (läuft auch in der CI). Fürs Frontend startet die CI zusätzlich die gebauten
 Images und klickt sich mit Playwright durch Login, MFA, Einrichtung und die wichtigsten Seiten
 (`frontend/e2e/`). Architekturentscheidungen stehen in
-[`docs/adr/`](docs/adr/README.md).
+[`docs/adr/`](docs/adr/README.md), die Spezifikation des heutigen Verhaltens (je Funktion, mit
+Funktionsübersicht) in [`docs/specs/`](docs/specs/README.md).
 
 **Mitwirken / Issues.** Fehler, Wünsche und Ideen bitte über die Issue-Formulare melden.
 Bewertung, Planung und Umsetzung laufen teilweise über einen KI-Agenten mit menschlicher Freigabe –
