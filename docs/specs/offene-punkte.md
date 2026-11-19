@@ -26,7 +26,7 @@ ein GitHub-Issue.
 ## Widersprüche zwischen Doku und Code
 
 Bereinigt in #50: README (Docker-Socket, Ausnahme `set_switch`), `CLAUDE.md` (Scan-Reihenfolge,
-Netzplan-Ebenen, `set_switch`), ADR-0009 (vorgeschlagen) für die Netzplan-Ebenen. Offen bleiben:
+Netzplan-Ebenen, `set_switch`), ADR-0009 für die Netzplan-Ebenen. Offen bleiben:
 
 - Farbe ist im Netzplan-Kasten das einzige Statussignal (topologie).
 - Der KI-Name überschreibt Selbstauskunft-Namen (UPnP/mDNS), entgegen der Namenspräzedenz
@@ -211,7 +211,7 @@ Netzplan-Ebenen, `set_switch`), ADR-0009 (vorgeschlagen) für die Netzplan-Ebene
 
 ### [topologie](capabilities/topologie/spec.md) (12)
 
-1. ADR-0008 und CLAUDE.md beschreiben die Ebenen „Server → Endgeräte“ und „Container innerhalb ihres Hosts“; das Bild zeichnet aber nur „Wichtige Geräte“, Server/Endgeräte stehen als HTML-Listen darunter, Container nur als Zähler bei kritischen Hosts. Spec folgt dem Code; ADR-0009 (vorgeschlagen) hält diesen Stand fest.
+1. ADR-0008 und CLAUDE.md beschreiben die Ebenen „Server → Endgeräte“ und „Container innerhalb ihres Hosts“; das Bild zeichnet aber nur „Wichtige Geräte“, Server/Endgeräte stehen als HTML-Listen darunter, Container nur als Zähler bei kritischen Hosts. Spec folgt dem Code; ADR-0009 hält diesen Stand fest.
 2. Farbe ist im Kasten das einzige Statussignal (kein Wort wie „nicht erreichbar“), entgegen ADR-0008 und Modul-Docstring; der Layer-3-Plan hat zudem keine Legende.
 3. Router über 6, Verteiler über 10 und kritische Geräte über 10 verschwinden ersatzlos – die Listen unter dem Plan enthalten weder Router/Verteiler noch kritische Geräte.
 4. Ein kritischer Router oder Verteiler erscheint doppelt (Backbone-Ebene und „Wichtige Geräte“).
