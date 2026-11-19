@@ -3,12 +3,13 @@
 Moved out of main.py unchanged; see main.py for the cross-cutting rules."""
 from __future__ import annotations
 
-from __future__ import annotations
 import secrets as _secrets
+
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
-from .. import (auth, crypto, db, security)
-from ..deps import (_client, current_user, require_admin, session_user)
+
+from .. import auth, crypto, db, security
+from ..deps import _client, current_user, require_admin, session_user
 
 router = APIRouter()
 

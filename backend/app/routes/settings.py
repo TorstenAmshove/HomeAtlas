@@ -4,13 +4,13 @@ one-time startup migration of secrets older versions stored readably.
 Moved out of main.py unchanged; see main.py for the cross-cutting rules."""
 from __future__ import annotations
 
-from __future__ import annotations
 import json
+
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel, Field
-from .. import (auth, crypto, db, docker_probe, docs, llm_providers,
-               model_catalog, oui, probe_auth)
-from ..deps import (current_user, logger, require_admin)
+
+from .. import auth, crypto, db, docker_probe, docs, llm_providers, model_catalog, oui, probe_auth
+from ..deps import current_user, logger, require_admin
 
 router = APIRouter()
 

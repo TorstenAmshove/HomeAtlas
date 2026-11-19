@@ -3,13 +3,13 @@
 Moved out of main.py unchanged; see main.py for the cross-cutting rules."""
 from __future__ import annotations
 
-from __future__ import annotations
 from fastapi import APIRouter, Body, Depends, HTTPException, Response
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
-from .. import (crypto, db, diagnostics, docs, llm_providers,
-               monitor as monitor_module, topology)
-from ..deps import (current_user, require_admin)
+
+from .. import crypto, db, diagnostics, docs, llm_providers, topology
+from .. import monitor as monitor_module
+from ..deps import current_user, require_admin
 
 router = APIRouter()
 

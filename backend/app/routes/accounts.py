@@ -4,11 +4,11 @@
 Moved out of main.py unchanged; see main.py for the cross-cutting rules."""
 from __future__ import annotations
 
-from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
-from .. import (crypto, db)
-from ..deps import (_client, _public_account, current_user, require_admin)
+
+from .. import crypto, db
+from ..deps import _client, _public_account, current_user, require_admin
 
 router = APIRouter()
 

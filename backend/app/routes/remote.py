@@ -5,16 +5,16 @@ tools.py, mcp_server.py or pipeline.py.
 Moved out of main.py unchanged; see main.py for the cross-cutting rules."""
 from __future__ import annotations
 
-from __future__ import annotations
 import asyncio
 import json
 import time
+
 from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from .. import (crypto, db, docker_admin, probe_auth,
-               proxmox_admin, proxmox_probe, remote_admin, switch_admin)
-from ..deps import (_client, _public_account, _ws_authenticate, _ws_client, require_admin)
+
+from .. import crypto, db, docker_admin, probe_auth, proxmox_admin, proxmox_probe, remote_admin, switch_admin
+from ..deps import _client, _public_account, _ws_authenticate, _ws_client, require_admin
 
 router = APIRouter()
 

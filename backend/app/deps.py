@@ -3,13 +3,12 @@ main.py unchanged): session/role dependencies, client identity, WebSocket auth a
 small helpers several route groups share. Importing nothing from routes/ keeps it a leaf."""
 from __future__ import annotations
 
-from __future__ import annotations
 import asyncio
 import logging
+
 from fastapi import Cookie, Depends, HTTPException, Request, WebSocket, status
-from . import (auth)
 
-
+from . import auth
 
 logger = logging.getLogger("homeatlas")
 

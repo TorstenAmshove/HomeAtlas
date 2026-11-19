@@ -4,11 +4,11 @@ read-only credentialed probe of a single device (see probe_auth).
 Moved out of main.py unchanged; see main.py for the cross-cutting rules."""
 from __future__ import annotations
 
-from __future__ import annotations
 from fastapi import APIRouter, Body, Depends, HTTPException
-from .. import (crypto, db, docs, monitor as monitor_module, pipeline, probe_auth,
-               unifi_probe)
-from ..deps import (_public_account, current_user, require_admin)
+
+from .. import crypto, db, docs, pipeline, probe_auth, unifi_probe
+from .. import monitor as monitor_module
+from ..deps import _public_account, current_user, require_admin
 
 router = APIRouter()
 
