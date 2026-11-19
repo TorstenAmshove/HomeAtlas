@@ -160,7 +160,7 @@ Lücken: **0**
 | `SystemDetailPage` | [credentialed-probing](capabilities/credentialed-probing/spec.md), [inventar](capabilities/inventar/spec.md), [klassifikation-llm](capabilities/klassifikation-llm/spec.md), [monitoring](capabilities/monitoring/spec.md), [remote-admin](capabilities/remote-admin/spec.md) |
 | `UsersPage` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
 
-## ADRs in der Constitution (9)
+## ADRs in der Constitution (10)
 
 Quelle links sind die Dateien in `docs/adr/`, rechts die Regeln in [constitution.md](constitution.md),
 die auf das ADR verlinken.
@@ -171,8 +171,9 @@ die auf das ADR verlinken.
 | [ADR-0002](../adr/0002-lese-schreib-trennung.md) | Akzeptiert (nachträglich dokumentiert) | L1, L2, L4, L5, L6 |  |
 | [ADR-0003](../adr/0003-host-netzwerk-und-loopback-backend.md) | Akzeptiert (nachträglich dokumentiert) | B1, B2, B3, B6 |  |
 | [ADR-0004](../adr/0004-llm-faehigkeitsgrenze.md) | Akzeptiert (nachträglich dokumentiert) | L5, K1, K2, K3 |  |
-| [ADR-0005](../adr/0005-sqlite-ohne-orm.md) | Akzeptiert (nachträglich dokumentiert) | D1, D2 |  |
+| [ADR-0005](../adr/0005-sqlite-ohne-orm.md) | Ersetzt durch ADR-0010 | – |  |
 | [ADR-0006](../adr/0006-providerneutraler-llm-client.md) | Akzeptiert (nachträglich dokumentiert) | K5, K6, K7 |  |
 | [ADR-0007](../adr/0007-credentials-fernet-schluessel-im-volume.md) | Akzeptiert (nachträglich dokumentiert) | Z1, Z2, Z3, Z5 |  |
 | [ADR-0008](../adr/0008-topologie-als-server-svg.md) | Ersetzt durch ADR-0009 (ursprünglich akzeptiert, nachträglich dokumentiert) | – |  |
 | [ADR-0009](../adr/0009-netzplan-ebenen-ist-stand.md) | Akzeptiert, ersetzt ADR-0008 | D4, D5 |  |
+| [ADR-0010](../adr/0010-db-als-paket.md) | Akzeptiert, ersetzt ADR-0005 | D1, D2 |  |

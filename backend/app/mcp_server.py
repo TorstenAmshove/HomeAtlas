@@ -10,7 +10,7 @@ way, same as any household member already can from in-app chat. `apiTokens` carr
 column, so there is no narrower gate available here; that is the explicit trade-off the "every
 role, every client" scope decision made (see `main.py`'s module docstring, `tools.py`'s).
 
-Auth is a flat Bearer token (`apiTokens` in db.py), checked by `_BearerAuth` before a request ever
+Auth is a flat Bearer token (`apiTokens` in db/users.py), checked by `_BearerAuth` before a request ever
 reaches the MCP session manager. Deliberately not the MCP SDK's own `TokenVerifier`/`AuthSettings`
 machinery -- that models a full OAuth resource server (mandatory `issuer_url`,
 `resource_server_url`, discovery endpoints) for dynamic client registration, which is more than a

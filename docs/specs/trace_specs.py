@@ -9,7 +9,7 @@ Aufruf aus dem Repo-Wurzelverzeichnis:
 
 Quellen sind der Code selbst, nicht die Specs: REST-Routen aus contracts/openapi.json (zuvor neu
 erzeugen, siehe README.md), WebSocket-Routen und Mounts aus backend/app/main.py und routes/, Tabellen aus
-backend/app/db.py, Werkzeuge aus backend/app/tools.py, Seiten aus frontend/src/pages/, ADRs und ihr
+backend/app/db/*.py, Werkzeuge aus backend/app/tools.py, Seiten aus frontend/src/pages/, ADRs und ihr
 Status aus docs/adr/. Eine Lücke ist auch: eine Constitution-Regel verweist auf ein ersetztes oder
 fehlendes ADR, oder ein akzeptiertes ADR wird von keiner Regel verwiesen.
 Nur Standardbibliothek, damit es ohne Backend-Abhängigkeiten läuft.
@@ -47,7 +47,7 @@ def routes() -> list[tuple[str, str]]:
 
 
 def tables() -> list[str]:
-    db = (ROOT / "backend" / "app" / "db.py").read_text(encoding="utf-8")
+    db = "\n".join(p.read_text(encoding="utf-8") for p in sorted((ROOT / "backend" / "app" / "db").glob("*.py")))
     return sorted(set(re.findall(r"CREATE TABLE IF NOT EXISTS (\w+)", db)))
 
 

@@ -1,8 +1,8 @@
 # Datenmodell
 
-> Stand: Commit 0159807. Erzeugt aus dem Schema, das `backend/app/db.py:init_db` anlegt
-> (frische DB, `.schema`), ergänzt um die Bedeutung der Felder. Schema-Quelle: `backend/app/db.py`
-> (`_SCHEMA` und Migrationen in `init_db`, `backend/app/db.py:394`).
+> Stand: Commit 0159807. Erzeugt aus dem Schema, das `backend/app/db/_core.py:init_db` anlegt
+> (frische DB, `.schema`), ergänzt um die Bedeutung der Felder. Schema-Quelle: `backend/app/db/`
+> (`_SCHEMA` und Migrationen in `init_db`, `backend/app/db/_core.py`).
 
 Technik-Hinweis **[Impl]**: SQLite ohne ORM, IDs sind zufällige Text-IDs, Zeitstempel sind
 ISO-8601-Text in UTC, JSON-Felder (`openPorts`, `services`, `tags`, `extra`, `facts`, `summary`,
@@ -54,7 +54,7 @@ chats ── chatMessages
 
 ### apiTokens — Tokens für den externen MCP-Endpunkt
 `label`, `token` (eindeutig), `createdAt`, `lastUsedAt`. Der Rohwert wird nur beim Anlegen einmal
-ausgegeben, Listen liefern ihn nie (`backend/app/db.py:575`) **[Muss]**.
+ausgegeben, Listen liefern ihn nie (`backend/app/db/users.py`) **[Muss]**.
 > OFFEN: Der Token wird im Klartext gespeichert (nicht gehasht). Für eine Alternative Hashing erwägen.
 
 ### settings — Einstellungen
@@ -75,7 +75,7 @@ Schlüssel/Wert-Paare. Die Schlüssel und Defaults stehen in
 | parentId | Host eines Containers/einer VM |
 | status | z. B. `unknown`, `online`, `offline` |
 | discovered | durch Scan gefunden (vs. von Hand angelegt) |
-| confirmed | von Hand bearbeitet: danach dürfen Discovery, Klassifikation und Proxmox-Tags von Menschen gepflegte Felder nicht mehr überschreiben **[Muss]** (`backend/app/db.py:1137`) |
+| confirmed | von Hand bearbeitet: danach dürfen Discovery, Klassifikation und Proxmox-Tags von Menschen gepflegte Felder nicht mehr überschreiben **[Muss]** (`backend/app/db/:1137`) |
 | discoverySource | Quelle der Erkennung |
 | discoveryKey | stabile Wiedererkennung: `mac:<mac>`; `ip:<addr>` (außerhalb des L2-Segments); `docker:<projekt>:<service>` bzw. `docker:<containername>` (Altschlüssel `docker:<id12>` wird übernommen, `backend/app/docker_probe.py:102`); `proxmox:<node>:<kind>:<vmid>` für Gäste ohne MAC (`backend/app/proxmox_probe.py:165`); leer bei manuellen Einträgen. Suchreihenfolge bei der Wiedererkennung: [discovery-und-scan](../capabilities/discovery-und-scan/spec.md) |
 | identityKey | abgeleitet: `discoveryKey` oder `id:<id>`, eindeutig **[Muss: ein Gerät = eine Identität]** |
@@ -84,7 +84,7 @@ Schlüssel/Wert-Paare. Die Schlüssel und Defaults stehen in
 | firstSeen, lastSeen, updatedAt | |
 
 Standardsortierung: `importance` (critical → normal → low), dann Name ohne Groß/Klein
-(`backend/app/db.py:632`).
+(`backend/app/db/systems.py`).
 
 ### systemAliases — Frühere Identitäten
 `aliasKey` (z. B. alte `mac:`/`ip:`-Identität), `systemId`, `ip`, `mac`. Nach einem Merge

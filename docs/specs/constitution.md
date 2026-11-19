@@ -150,9 +150,9 @@
 ## 7. Datenhaltung und Darstellung
 
 - **D1 [Muss]** Eine Instanz, wenige tausend Datensätze; die Datenhaltung muss parallele Scans
-  (Hintergrund-Threads) und Webanfragen vertragen. ([ADR-0005](../adr/0005-sqlite-ohne-orm.md))
-- **D2 [Impl]** SQLite (WAL) über ein flaches Modul ohne ORM, camelCase-Spalten, JSON-Spalten.
-  ([ADR-0005](../adr/0005-sqlite-ohne-orm.md), [data-model](contracts/data-model.md))
+  (Hintergrund-Threads) und Webanfragen vertragen. ([ADR-0010](../adr/0010-db-als-paket.md))
+- **D2 [Impl]** SQLite (WAL) ohne ORM; SQL nur im Paket `backend/app/db/` (ein Modul je Entität),
+  camelCase-Spalten, JSON-Spalten. ([ADR-0010](../adr/0010-db-als-paket.md), [data-model](contracts/data-model.md))
 - **D3 [Muss]** Dokumentation ist versioniert; jeder frühere Stand jeder Seite bleibt abrufbar und
   wiederherstellbar. Manuelle Notizen werden von der Generierung nie verändert.
 - **D4 [Muss]** Der Netzplan ist ein für Laien lesbares Bild mit fester Schichtenfolge von oben
