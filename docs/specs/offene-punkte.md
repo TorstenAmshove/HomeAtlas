@@ -15,10 +15,10 @@ ein GitHub-Issue.
 | 1 | **Behoben (fix/secrets-at-rest).** **Konfigurationsexporte im Klartext für MEMBER und LLM** (nachgeprüft). Ausgelesene Gerätekonfigurationen (`config_export`, `omada_backup`) liegen verschlüsselt in den Konfigurationsversionen, zusätzlich aber unverschlüsselt in `systems.extra.probe` (`backend/app/pipeline.py:115`, `backend/app/main.py:1391`). Von dort gehen sie über `GET /api/systems*` an MEMBER und landen in der generierten Doku (`backend/app/docs.py:283`), die das LLM per `get_documentation` liest. Zusätzlich gibt `GET …/config-versions/{id}` den entschlüsselten Inhalt an MEMBER (`backend/app/main.py:1413`). Exporte können SNMP-Communities, RADIUS-Secrets und WLAN-Schlüssel enthalten. Verstößt gegen Constitution R1, K2, Z4. | credentialed-probing, inventar, dokumentation | #41 |
 | 2 | **Behoben (fix/secrets-at-rest).** **LLM-API-Schlüssel im Klartext gespeichert** (nachgeprüft). `claudeApiKey` usw. liegen unverschlüsselt im Settings-JSON (`backend/app/db.py:474`); der Kommentar in `backend/app/db.py:447` behauptet das Gegenteil. Die API maskiert sie korrekt. Verstößt gegen Z1. | einstellungen-und-llm-provider | #42 |
 | 3 | **`set_switch` ohne Rolle und Bestätigung.** Jede Rolle und jeder MCP-Token kann Shelly-Relais und HA-`switch`/`light` schalten (ADR-0002/0004 erlauben das ausdrücklich). Offen sind: keine Prüfung, ob das Ziel wirklich ein Shelly ist; kein Benutzer oder Token im Protokoll; Prompt-Injection kann einen Schaltvorgang auslösen; README und MCP-Tab sagen „nur lesend“. | assistent-chat-und-mcp, remote-admin | #43 |
-| 4 | **`http_check` als SSRF-Fläche.** MEMBER, Assistent und MCP-Clients können serverseitig beliebige URLs abrufen, auch `127.0.0.1` und interne Dienste. Das Gleiche gilt für die Linkprüfung der Klassifikation und für „Testen“/„Modelle laden“ mit frei eingebbarer Adresse. | diagnose, klassifikation-llm, einstellungen-und-llm-provider | #44 |
+| 4 | **Behoben (fix/diagnostics-and-defaults) für `http_check`/`check_port`; Linkprüfung der Klassifikation und frei eingebbare LLM-Adresse offen.** **`http_check` als SSRF-Fläche.** MEMBER, Assistent und MCP-Clients können serverseitig beliebige URLs abrufen, auch `127.0.0.1` und interne Dienste. Das Gleiche gilt für die Linkprüfung der Klassifikation und für „Testen“/„Modelle laden“ mit frei eingebbarer Adresse. | diagnose, klassifikation-llm, einstellungen-und-llm-provider | #44 |
 | 5 | **Behoben (fix/login-hardening).** **Kein Brute-Force-Schutz, keine TOTP-Replay-Sperre.** Weder Rate-Limit noch Kontosperre; ein TOTP-Code ist im ~90-s-Fenster mehrfach gültig. | auth-und-rollen | #45 |
-| 6 | **Standard: KI-Einordnung an, Anbieter DeepSeek.** Jeder Scan schickt Geräteangaben an DeepSeek, auch ohne API-Schlüssel (dann 401). Netzwerkfehler des Anbieters lassen den ganzen Scan scheitern. | klassifikation-llm, discovery-und-scan | #46 |
-| 7 | **`PATCH /api/accounts/{id}` setzt bei Teil-Body Felder zurück**, auch das Opt-in `allowProbe`. Beim Ausrollen eines SSH-Schlüssels wird der editierbare Notizinhalt nach `authorized_keys` geschrieben. | zugangsdaten | #47 |
+| 6 | **Behoben (fix/diagnostics-and-defaults).** **Standard: KI-Einordnung an, Anbieter DeepSeek.** Jeder Scan schickt Geräteangaben an DeepSeek, auch ohne API-Schlüssel (dann 401). Netzwerkfehler des Anbieters lassen den ganzen Scan scheitern. | klassifikation-llm, discovery-und-scan | #46 |
+| 7 | **Behoben (fix/diagnostics-and-defaults).** **`PATCH /api/accounts/{id}` setzt bei Teil-Body Felder zurück**, auch das Opt-in `allowProbe`. Beim Ausrollen eines SSH-Schlüssels wird der editierbare Notizinhalt nach `authorized_keys` geschrieben. | zugangsdaten | #47 |
 | 8 | **MEMBER sieht Zugangs-Metadaten** (Benutzername, URL, Notizen) über `GET /api/systems/{id}`, die Doku und `list_accounts`, obwohl die Zugangs-API admin-only ist. | inventar, dokumentation, assistent-chat-und-mcp, zugangsdaten | #48 |
 | 9 | **Chats ohne Besitzer.** Jeder Benutzer sieht und löscht alle Chats. | assistent-chat-und-mcp | #49 |
 | 10 | **README-Aussage zum Docker-Socket stimmt nicht.** Die README sagt „nur GET“; `docker_admin` sendet POST (Container steuern). | remote-admin | #50 |
@@ -38,7 +38,7 @@ Netzplan-Ebenen, `set_switch`), ADR-0009 für die Netzplan-Ebenen. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (160)
+## Alle Punkte je Fähigkeit (148)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (12)
 
@@ -96,33 +96,27 @@ Netzplan-Ebenen, `set_switch`), ADR-0009 für die Netzplan-Ebenen. Offen bleiben
 4. Status `unknown` und jeder andere Wert erscheinen gleichermaßen als „wird geprüft…", auch wenn die Überwachung abgeschaltet ist (dann wird nichts geprüft).
 5. `counts.offline`, `counts.documented`, `recentlyChanged` ohne Abnehmer – entfernen oder anzeigen?
 
-### [diagnose](capabilities/diagnose/spec.md) (8)
+### [diagnose](capabilities/diagnose/spec.md) (3)
 
-1. `http_check` ist für MEMBER (und den Assistenten/MCP) ein serverseitiger GET auf beliebige URLs – inkl. `127.0.0.1`, des Backends selbst und anderer interner Dienste; Titel und `Server`-Header werden zurückgegeben (SSRF-Fläche). Keine Ziel-Einschränkung. (`backend/app/diagnostics.py:150`)
-2. `http_check` lädt den gesamten Antwortkörper in den Speicher; das Timeout gilt je Lesevorgang, nicht gesamt – eine langsame/endlose Antwort ist nicht größenbegrenzt.
-3. Nicht-numerische `count`/`maxHops` (z. B. `"abc"`) lösen `ValueError` statt `DiagnosticError` aus → HTTP 500 statt 400. (`backend/app/diagnostics.py:74`, `backend/app/diagnostics.py:176`)
-4. `/api/diagnostics/dns` fängt `DiagnosticError` nicht ab – ein ungültiger Name in `names` oder `dnsTestNames` führt zu HTTP 500. (`backend/app/main.py:1595`)
-5. Keine Ratenbegrenzung/Parallelitätssperre: jeder MEMBER kann Speedtests (35 MB Verkehr) und lange Traceroutes beliebig oft parallel auslösen.
-6. Die Latenz des Speedtests ist die erste Anfrage auf einer neuen Verbindung und enthält TCP- und TLS-Aufbau – systematisch zu hoch.
-7. REST-Tool-Namen weichen von den LLM-Werkzeugnamen ab (`ping` vs. `ping_host`); Alternative vereinheitlichen?
-8. Keine Tests für `diagnostics.py` und die drei Routen.
+1. Keine Ratenbegrenzung/Parallelitätssperre: jeder MEMBER kann Speedtests (35 MB Verkehr) und lange Traceroutes beliebig oft parallel auslösen.
+2. Die Latenz des Speedtests ist die erste Anfrage auf einer neuen Verbindung und enthält TCP- und TLS-Aufbau – systematisch zu hoch.
+3. REST-Tool-Namen weichen von den LLM-Werkzeugnamen ab (`ping` vs. `ping_host`); Alternative vereinheitlichen?
 
-### [discovery-und-scan](capabilities/discovery-und-scan/spec.md) (12)
+### [discovery-und-scan](capabilities/discovery-und-scan/spec.md) (11)
 
-1. CLAUDE.md nennt die Reihenfolge „Discovery → Docker → credentialed Probing → Klassifikation → Doku“; der Code klassifiziert *vor* dem Zusammenführen und fragt Zugänge erst danach ab (`pipeline.py:469` vs. `:521`). Fakten aus der Zugangs-Abfrage fließen daher erst beim nächsten Scan in die KI-Einordnung.
-2. Fortschritt springt rückwärts (94 % „Inventar aktualisieren“, dann 93 % Zugangs-Abfrage, `pipeline.py:480`/`:522`).
-3. Einzelziele umfassen IPs *aller* Inventar-Geräte außerhalb der Bereiche (auch entdeckte Controller-Clients/Proxmox-Gäste), nicht nur „von Hand eingetragene“ wie der Docstring sagt (`pipeline.py:42`). Kann viele geroutete Ziele erzeugen.
-4. Ungültiger Freitext-Bereich (z. B. „bad“) plus ein mDNS/SSDP-Fund außerhalb von `alive` führt in `discovery.py:859` zu `ValueError` aus `ip_network` und lässt den ganzen Scan scheitern.
-5. README behauptet, IPv6-Geräte erscheinen per mDNS/SSDP; der Code nimmt nur IPs in IPv4-Scan-Bereichen auf (`discovery.py:859`), IPv6-Funde werden verworfen.
-6. Port 81 steht in der Banner-Portliste, aber nicht im Port-Katalog, wird also nie als offen erkannt (`discovery.py:341`, `ports.py:12`).
-7. Ohne geladenes OUI-Register versucht jeder Scan erneut den Download (bis 120 s), auch offline.
-8. MEMBER darf `GET /api/scans*` inkl. Protokoll lesen (Gerätenamen, Fehlertexte der Zugangs-Abfrage), obwohl die Scan-Seite admin-only ist. Absicht?
-9. Start-Prüfung „läuft schon ein Scan“ und Anlegen sind nicht atomar (Rennen Zeitplan/manuell theoretisch möglich).
-10. Namensvergabe für Nicht-Container ohne IP bei Duplikaten: kein Suffix, Duplikat bleibt.
-11. Abgeschaltete Quelle (`scanEnableDocker=false`, Controller aus) setzt alle bisher aus dieser Quelle entdeckten Geräte beim nächsten Scan auf `offline`.
-12. Eine KI-Namensempfehlung überschreibt bei nicht quellgeschützten Funden auch einen Selbstauskunft-Namen (UPnP/mDNS) und widerspricht damit der Namenspräzedenz, siehe [klassifikation-llm](../klassifikation-llm/spec.md).
+1. Fortschritt springt rückwärts (94 % „Inventar aktualisieren“, dann 93 % Zugangs-Abfrage, `pipeline.py:480`/`:522`).
+2. Einzelziele umfassen IPs *aller* Inventar-Geräte außerhalb der Bereiche (auch entdeckte Controller-Clients/Proxmox-Gäste), nicht nur „von Hand eingetragene“ wie der Docstring sagt (`pipeline.py:42`). Kann viele geroutete Ziele erzeugen.
+3. Ungültiger Freitext-Bereich (z. B. „bad“) plus ein mDNS/SSDP-Fund außerhalb von `alive` führt in `discovery.py:859` zu `ValueError` aus `ip_network` und lässt den ganzen Scan scheitern.
+4. README behauptet, IPv6-Geräte erscheinen per mDNS/SSDP; der Code nimmt nur IPs in IPv4-Scan-Bereichen auf (`discovery.py:859`), IPv6-Funde werden verworfen.
+5. Port 81 steht in der Banner-Portliste, aber nicht im Port-Katalog, wird also nie als offen erkannt (`discovery.py:341`, `ports.py:12`).
+6. Ohne geladenes OUI-Register versucht jeder Scan erneut den Download (bis 120 s), auch offline.
+7. MEMBER darf `GET /api/scans*` inkl. Protokoll lesen (Gerätenamen, Fehlertexte der Zugangs-Abfrage), obwohl die Scan-Seite admin-only ist. Absicht?
+8. Start-Prüfung „läuft schon ein Scan“ und Anlegen sind nicht atomar (Rennen Zeitplan/manuell theoretisch möglich).
+9. Namensvergabe für Nicht-Container ohne IP bei Duplikaten: kein Suffix, Duplikat bleibt.
+10. Abgeschaltete Quelle (`scanEnableDocker=false`, Controller aus) setzt alle bisher aus dieser Quelle entdeckten Geräte beim nächsten Scan auf `offline`.
+11. Eine KI-Namensempfehlung überschreibt bei nicht quellgeschützten Funden auch einen Selbstauskunft-Namen (UPnP/mDNS) und widerspricht damit der Namenspräzedenz, siehe [klassifikation-llm](../klassifikation-llm/spec.md).
 
-### [dokumentation](capabilities/dokumentation/spec.md) (12)
+### [dokumentation](capabilities/dokumentation/spec.md) (11)
 
 1. Reset eines Kapitels erzeugt alle 12 Kapitel neu (Laufzeit/KI-Kosten, neue Versionen auf anderen Seiten). Absicht oder sollte nur das eine Kapitel neu entstehen?
 2. `POST /api/docs/{slug}/reset` mit unbekanntem Slug liefert 200 mit `page: null` statt 404.
@@ -132,10 +126,9 @@ Netzplan-Ebenen, `set_switch`), ADR-0009 für die Netzplan-Ebenen. Offen bleiben
 6. UI-Bestätigung beim Reset sagt „Änderungen gehen verloren“, tatsächlich bleiben sie im Verlauf.
 7. Kapitel, deren Slug nicht mehr definiert ist, werden nie gelöscht (`db.delete_doc_page` ungenutzt).
 8. Benutzernamen und URLs von Zugängen sind über die Doku für MEMBER sichtbar, obwohl die Zugangs-API admin-only ist. Ebenso Gerätenotizen und ausgelesene Gerätewerte — falls dort Geheimnisse stehen, landen sie in der Doku.
-9. Ohne Schlüssel/erreichbaren Anbieter wird der KI-Aufruf trotzdem je Kapitel versucht (Timeout 120 s, sequentiell) — kann die Generierung stark verzögern.
-10. Keine Sperre gegen gleichzeitige Generierungen (Scan + manueller Lauf) — mögliche doppelte Versionen/Race.
-11. Bei mehreren Routern nimmt die Notfall-Seite den ersten aus der Inventarreihenfolge.
-12. `useLlm: true` im Request wird ignoriert, wenn `scanUseLlm` aus ist (die Einleitung prüft die Einstellung erneut).
+9. Keine Sperre gegen gleichzeitige Generierungen (Scan + manueller Lauf) — mögliche doppelte Versionen/Race.
+10. Bei mehreren Routern nimmt die Notfall-Seite den ersten aus der Inventarreihenfolge.
+11. `useLlm: true` im Request wird ignoriert, wenn `scanUseLlm` aus ist (die Einleitung prüft die Einstellung erneut).
 
 ### [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md) (9)
 
@@ -161,16 +154,14 @@ Netzplan-Ebenen, `set_switch`), ADR-0009 für die Netzplan-Ebenen. Offen bleiben
 8. `monitorPorts` wird serverseitig nicht auf 3 Einträge/gültige Ports begrenzt; nur die UI und `effective_ports` kürzen.
 9. Der Fehler-Badge verschwindet nie, weil Fehlerereignisse nicht quittiert oder gelöscht werden können (nur Kappung bei 100).
 
-### [klassifikation-llm](capabilities/klassifikation-llm/spec.md) (8)
+### [klassifikation-llm](capabilities/klassifikation-llm/spec.md) (6)
 
-1. Netzwerkfehler des Providers (Timeout, Verbindungsabbruch, Ollama nicht erreichbar) werden vom LLM-Client nicht in `ProviderError` umgewandelt; `classify` fängt nur `ProviderError`/ `ValueError` (`classify.py:134`). Ein solcher Fehler lässt den *ganzen Scan* scheitern – Widerspruch zum Docstring „Failure … is non-fatal“.
-2. Default ist `llmProvider=DEEPSEEK` und `scanUseLlm=true`. Ohne eingetragenen Schlüssel sendet jeder Scan Geräte-Belege (IPs, Hostnamen, Hersteller, Seitentitel) an den DeepSeek-Endpunkt und bekommt 401. Datenschutz/Absicht klären (z. B. nur aufrufen, wenn ein Schlüssel gesetzt ist).
-3. Weil `importance` nach Normalisierung nie leer ist, überschreibt die KI-Wichtigkeit immer die regelbasierte – auch beim Gateway (`critical`), sobald es Kandidat ist (z. B. kein kuratierter Doku-Link bei Nicht-AVM-Routern). Ebenso überschreibt eine ungültige KI-`kind` (→ `other`) eine korrekte Regel-Art wie `router`.
-4. Für nicht quellgeschützte Funde ersetzt der KI-Name auch einen Selbstauskunft-Namen (UPnP `friendlyName`, mDNS, Shelly-App-Name). Ein sicher erkanntes Gerät wird schon Kandidat, wenn nur der Doku-Link fehlt. Widerspricht der Namenspräzedenz in CLAUDE.md/README.
-5. Nur exakt `"low"` wird verworfen; „LOW“, „niedrig“ o. Ä. gelten als akzeptiert.
-6. Die Link-Prüfung führt GET auf beliebige vom Modell gelieferte URLs vom Server aus, auch auf LAN-Adressen (SSRF-artig); kein Ausschluss privater Ziele.
-7. Gleiche IP in mehreren Funden (Netzwerk-Fund plus UniFi/Omada/Proxmox/AdGuard) – mehrere Belegsätze pro IP im selben Stapel möglich, der letzte gewinnt, und das Ergebnis wird auf alle Funde dieser IP angewandt.
-8. Der Prompt verlangt dieselbe Reihenfolge wie die Eingabe; der Code ordnet ausschließlich per IP zu (Reihenfolge irrelevant) – unschädlich, aber Anforderung an Modell überflüssig.
+1. Weil `importance` nach Normalisierung nie leer ist, überschreibt die KI-Wichtigkeit immer die regelbasierte – auch beim Gateway (`critical`), sobald es Kandidat ist (z. B. kein kuratierter Doku-Link bei Nicht-AVM-Routern). Ebenso überschreibt eine ungültige KI-`kind` (→ `other`) eine korrekte Regel-Art wie `router`.
+2. Für nicht quellgeschützte Funde ersetzt der KI-Name auch einen Selbstauskunft-Namen (UPnP `friendlyName`, mDNS, Shelly-App-Name). Ein sicher erkanntes Gerät wird schon Kandidat, wenn nur der Doku-Link fehlt. Widerspricht der Namenspräzedenz in CLAUDE.md/README.
+3. Nur exakt `"low"` wird verworfen; „LOW“, „niedrig“ o. Ä. gelten als akzeptiert.
+4. Die Link-Prüfung führt GET auf beliebige vom Modell gelieferte URLs vom Server aus, auch auf LAN-Adressen (SSRF-artig); kein Ausschluss privater Ziele.
+5. Gleiche IP in mehreren Funden (Netzwerk-Fund plus UniFi/Omada/Proxmox/AdGuard) – mehrere Belegsätze pro IP im selben Stapel möglich, der letzte gewinnt, und das Ergebnis wird auf alle Funde dieser IP angewandt.
+6. Der Prompt verlangt dieselbe Reihenfolge wie die Eingabe; der Code ordnet ausschließlich per IP zu (Reihenfolge irrelevant) – unschädlich, aber Anforderung an Modell überflüssig.
 
 ### [monitoring](capabilities/monitoring/spec.md) (7)
 
@@ -233,17 +224,14 @@ Netzplan-Ebenen, `set_switch`), ADR-0009 für die Netzplan-Ebenen. Offen bleiben
 11. Kommentar an `_MAX_CRITICAL_BOXES` nennt eine „readability floor“ der Kastenbreite; `_row` hat keine Untergrenze, bei vielen Layer-3-Knoten werden Kästen beliebig schmal.
 12. Mischt ein Router /24-Näherungen aus Probe-Fakten mit exakten Controller-CIDRs (z. B. /26), können beide als getrennte Subnetze in die Ketteninferenz eingehen.
 
-### [zugangsdaten](capabilities/zugangsdaten/spec.md) (12)
+### [zugangsdaten](capabilities/zugangsdaten/spec.md) (9)
 
 1. Ein nicht entschlüsselbares Secret wird als leerer String ausgeliefert und als erfolgreicher Abruf (`ok=1`) protokolliert; Admin und Protokoll sehen nicht, dass der Schlüssel fehlt (`backend/app/crypto.py:49`).
 2. Kategorie wird serverseitig nicht validiert; beliebige Werte werden gespeichert.
-3. PATCH ist faktisch ein Voll-Ersatz (siehe Requirement „Ändern ersetzt alle übrigen Felder“); ein API-Client mit Teil-PATCH setzt Felder unbemerkt zurück, u. a. `allowProbe`.
-4. Secret und Passphrase lassen sich über die API nicht mehr leeren (leer = unverändert).
-5. Ausrollen schreibt den Inhalt des frei editierbaren Notizfelds nach `authorized_keys` – wird die Notiz geändert, landet beliebiger Text dort (`backend/app/main.py:782`).
-6. Ausrollen akzeptiert jede Kategorie als Login-Zugang (z. B. `snmp`, `wifi`); das Secret wird dann als SSH-Passwort benutzt.
-7. `systemId` wird beim Anlegen/Ändern nicht auf Existenz geprüft.
-8. Löschen eines unbekannten Zugangs liefert `{ok: true}` statt 404.
-9. Anlegen, Ändern und Löschen von Zugängen werden nicht im Zugriffsprotokoll erfasst, nur Abruf, Erzeugung und Ausrollen.
-10. Gesicherte Gerätekonfigurationen und Probe-Fakten können Secrets enthalten und sind für MEMBER/LLM sichtbar – siehe OFFEN in [credentialed-probing](../credentialed-probing/spec.md).
-11. MEMBER sehen über Geräteansicht und Doku Benutzernamen, URLs und Notizen aller Zugänge; ob Notizen sensibel sein dürfen, ist nicht geregelt.
-12. Löschen eines Geräts löscht dessen Zugänge unwiderruflich mit, ohne Rückfrage auf API-Ebene.
+3. Secret und Passphrase lassen sich über die API nicht mehr leeren (leer = unverändert).
+4. Ausrollen akzeptiert jede Kategorie als Login-Zugang (z. B. `snmp`, `wifi`); das Secret wird dann als SSH-Passwort benutzt.
+5. `systemId` wird beim Anlegen/Ändern nicht auf Existenz geprüft.
+6. Löschen eines unbekannten Zugangs liefert `{ok: true}` statt 404.
+7. Anlegen, Ändern und Löschen von Zugängen werden nicht im Zugriffsprotokoll erfasst, nur Abruf, Erzeugung und Ausrollen.
+8. MEMBER sehen über Geräteansicht und Doku Benutzernamen, URLs und Notizen aller Zugänge; ob Notizen sensibel sein dürfen, ist nicht geregelt.
+9. Löschen eines Geräts löscht dessen Zugänge unwiderruflich mit, ohne Rückfrage auf API-Ebene.

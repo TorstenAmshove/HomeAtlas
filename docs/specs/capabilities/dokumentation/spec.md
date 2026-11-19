@@ -394,7 +394,6 @@ UI-Seite(n): `frontend/src/pages/DocsPage.tsx` (Routen `/dokumentation`, `/dokum
 - > OFFEN: UI-Bestätigung beim Reset sagt „Änderungen gehen verloren“, tatsächlich bleiben sie im Verlauf.
 - > OFFEN: Kapitel, deren Slug nicht mehr definiert ist, werden nie gelöscht (`db.delete_doc_page` ungenutzt).
 - > OFFEN: Benutzernamen und URLs von Zugängen sind über die Doku für MEMBER sichtbar, obwohl die Zugangs-API admin-only ist. Ebenso Gerätenotizen und ausgelesene Gerätewerte — falls dort Geheimnisse stehen, landen sie in der Doku.
-- > OFFEN: Ohne Schlüssel/erreichbaren Anbieter wird der KI-Aufruf trotzdem je Kapitel versucht (Timeout 120 s, sequentiell) — kann die Generierung stark verzögern.
 - > OFFEN: Keine Sperre gegen gleichzeitige Generierungen (Scan + manueller Lauf) — mögliche doppelte Versionen/Race.
 - > OFFEN: Bei mehreren Routern nimmt die Notfall-Seite den ersten aus der Inventarreihenfolge.
 - > OFFEN: `useLlm: true` im Request wird ignoriert, wenn `scanUseLlm` aus ist (die Einleitung prüft die Einstellung erneut).

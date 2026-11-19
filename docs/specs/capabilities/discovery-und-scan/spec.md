@@ -585,10 +585,6 @@ solange der Scan läuft). Scan-Einstellungen in `frontend/src/pages/SettingsPage
 
 ## OFFEN
 
-- > OFFEN: CLAUDE.md nennt die Reihenfolge „Discovery → Docker → credentialed Probing →
-  Klassifikation → Doku“; der Code klassifiziert *vor* dem Zusammenführen und fragt Zugänge erst
-  danach ab (`pipeline.py:469` vs. `:521`). Fakten aus der Zugangs-Abfrage fließen daher erst beim
-  nächsten Scan in die KI-Einordnung.
 - > OFFEN: Fortschritt springt rückwärts (94 % „Inventar aktualisieren“, dann 93 % Zugangs-Abfrage,
   `pipeline.py:480`/`:522`).
 - > OFFEN: Einzelziele umfassen IPs *aller* Inventar-Geräte außerhalb der Bereiche (auch entdeckte

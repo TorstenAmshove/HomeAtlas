@@ -709,7 +709,9 @@ async def create_account(body: AccountBody, _: dict = Depends(require_admin)) ->
 
 @app.patch("/api/accounts/{account_id}")
 async def update_account(account_id: str, body: AccountBody, _: dict = Depends(require_admin)) -> dict:
-    patch = body.model_dump(exclude={"secret", "passphrase"})
+    # Only the fields the client actually sent (#47): a partial body must not reset the others --
+    # least of all `allowProbe`, the opt-in that decides whether a credential is used at all.
+    patch = body.model_dump(exclude={"secret", "passphrase"}, exclude_unset=True)
     # An empty secret means "leave it alone" -- the edit form never receives the stored value, so
     # treating blank as "clear it" would silently delete the password on every unrelated edit.
     if body.secret:
@@ -825,7 +827,16 @@ async def deploy_ssh_key(account_id: str, body: DeployKeyBody, request: Request,
     if not host:
         raise HTTPException(status_code=400, detail="Für dieses Gerät ist keine Adresse hinterlegt.")
 
-    result = await remote_admin.deploy_public_key(host, login_account, key_account["notes"], port=body.port)
+    # Derived from the stored private key, not taken from the editable `notes` field (#47).
+    try:
+        public_line = remote_admin.public_line_for(
+            crypto.decrypt(key_account.get("secretEnc") or ""),
+            crypto.decrypt(key_account.get("passphraseEnc") or ""),
+            comment=f"homeatlas@{system['name']}",
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    result = await remote_admin.deploy_public_key(host, login_account, public_line, port=body.port)
     ip, agent = _client(request)
     db.log_access("sshkey.deploy", user=user, ip=ip, user_agent=agent, ok=result["ok"],
                   detail=f"{system['name']} über {login_account['label']}")
@@ -1569,7 +1580,7 @@ async def send_message(chat_id: str, body: ChatBody, _: dict = Depends(current_u
     provider = settings.get("llmProvider", "")
     # Ollama runs without a key; every cloud provider needs one, and failing here gives a usable
     # message instead of a raw 401 from the provider.
-    if provider != "OLLAMA" and not llm_providers.api_key_for(provider, settings):
+    if not llm_providers.is_configured(provider, settings):
         raise HTTPException(status_code=400, detail=(
             "Es ist noch kein KI-Zugang eingerichtet. Bitte unter Einstellungen -> KI-Assistent "
             "einen Anbieter und einen Schlüssel hinterlegen."
@@ -1645,7 +1656,10 @@ async def topology_layer3_svg(_: dict = Depends(current_user)) -> Response:
 async def dns_diagnostic(body: dict = Body(default={}), _: dict = Depends(current_user)) -> dict:
     settings = db.get_settings()
     names = body.get("names") or settings.get("dnsTestNames") or []
-    return {"result": await diagnostics.dns_check(names)}
+    try:
+        return {"result": await diagnostics.dns_check(names)}
+    except diagnostics.DiagnosticError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/diagnostics/speedtest")
@@ -1680,7 +1694,7 @@ async def dashboard(_: dict = Depends(current_user)) -> dict:
         "monitorEnabled": settings.get("monitorEnabled", True),
         "recentlyChanged": sorted(systems, key=lambda s: s["updatedAt"], reverse=True)[:8],
         "lastScan": scan,
-        "llmConfigured": provider == "OLLAMA" or bool(llm_providers.api_key_for(provider, settings)),
+        "llmConfigured": llm_providers.is_configured(provider, settings),
     }
 
 

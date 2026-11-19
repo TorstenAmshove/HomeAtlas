@@ -92,6 +92,15 @@ def api_key_for(provider_type: str, settings: dict) -> str:
     return crypto.decrypt(settings.get(_KEY_SETTING_FIELD.get(provider_type, ""), "") or "")
 
 
+def is_configured(provider_type: str, settings: dict) -> bool:
+    """Whether a request to this provider can be made at all. Cloud providers need a key; Ollama
+    runs without one. Callers that run unattended (scan classification, doc intros) check this
+    first, so a fresh install never sends device data to a provider nobody set up."""
+    if provider_type == "OLLAMA":
+        return True
+    return provider_type in _KEY_SETTING_FIELD and bool(api_key_for(provider_type, settings))
+
+
 def resolved_model_for(provider_type: str, settings: dict, purpose: str = "CHAT") -> str:
     field_name = _MODEL_SETTING_FIELD.get(provider_type)
     if field_name is None:
@@ -339,13 +348,20 @@ async def chat(provider_type: str, settings: dict, system_prompt: str, messages:
     if not model.strip():
         raise ProviderError("Kein Modell ausgewählt -- bitte unter Einstellungen -> KI-Assistent eines wählen.")
     key = api_key_for(provider_type, settings)
-    if provider_type == "CLAUDE":
-        return await _chat_anthropic(key, base_url_for(provider_type, settings), model, system_prompt, messages, tools)
-    if provider_type == "GEMINI":
-        return await _chat_gemini(key, model, system_prompt, messages, tools)
-    if provider_type in catalog.OPENAI_COMPATIBLE:
-        return await _chat_openai_compatible(key, base_url_for(provider_type, settings), model,
-                                             system_prompt, messages, tools)
+    try:
+        if provider_type == "CLAUDE":
+            return await _chat_anthropic(key, base_url_for(provider_type, settings), model, system_prompt,
+                                         messages, tools)
+        if provider_type == "GEMINI":
+            return await _chat_gemini(key, model, system_prompt, messages, tools)
+        if provider_type in catalog.OPENAI_COMPATIBLE:
+            return await _chat_openai_compatible(key, base_url_for(provider_type, settings), model,
+                                                 system_prompt, messages, tools)
+    except httpx.HTTPError as exc:
+        # Timeouts, refused connections (Ollama not running), DNS failures: callers handle
+        # ProviderError as "the provider did not answer", so a scan or a chat turn degrades instead
+        # of failing with an unrelated exception type.
+        raise ProviderError(f"Netzwerkfehler beim Anbieter ({exc.__class__.__name__}: {exc})") from exc
     raise ProviderError(f"Unbekannter Anbieter: {provider_type}")
 
 
