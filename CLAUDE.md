@@ -58,8 +58,7 @@ SMOKE_ADMIN_PASSWORD=devpass123 SMOKE_CHROMIUM_PATH=/path/to/chrome npx playwrig
 `SMOKE_CHROMIUM_PATH` is only for a pre-installed Chromium; otherwise run `npx playwright install chromium`.
 
 Project hooks in `.claude/settings.json`: edited backend `.py` files are run through `ruff check
---fix` (remaining errors are fed back), and editing or running `deploy.sh` always asks for
-confirmation.
+--fix` (remaining errors are fed back).
 
 Full stack via Docker: `docker compose up -d --build`, then http://localhost:8280. First-run
 admin credentials are printed once to `docker compose logs backend`. `ADMIN_USERNAME`/
@@ -72,9 +71,8 @@ Conventional Commits, creates `vX.Y.Z`, and publishes both GHCR images under `X.
 
 Dependency updates come from the Mend Renovate App: `renovate.json` (repository root, not `.github/` - HomeAtlas is a fork, and Renovate only checks `forkProcessing` in the root `renovate.json`) on top of the shared presets in [TorstenAmshove/renovate-config](https://github.com/TorstenAmshove/renovate-config). Patch/digest updates and pip and npm minor updates are auto-merged by Renovate once Build (including the browser smoke test) and Test are green (so they release and deploy without a human); all majors are merged by hand. The base images use exact versions plus digest (`python:3.12.16-slim@sha256:…`, `node:26.13.1-alpine@…`, `nginx:1.30.6-alpine@…`), and the Python version of `backend/Dockerfile` and `test.yml` moves together in one "python runtime" PR.
 
-`./deploy.sh` deploys to a specific remote host over SSH (default `192.168.1.110`) — it's this
-project's real deployment target, not a generic template. Don't run it without confirming with
-the user first.
+Production deployment is not done from this repository: `ansible-docker.lan` rolls out the
+published GHCR images on docker.lan (see README "Installation").
 
 Windows containers lack `ip`/`ping`/`traceroute`, so discovery and diagnostics are degraded there;
 this only matters when reasoning about cross-platform behavior, not for normal development.

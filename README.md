@@ -62,30 +62,23 @@ GitHub Packages legt neue Container-Packages zunächst privat an. Vor dem ersten
 müssen `homeatlas-backend` und `homeatlas-frontend` in den jeweiligen Package-Einstellungen auf
 **public** gesetzt werden, weil der Docker-Host ohne GHCR-Anmeldedaten pullt.
 
-### Auf einem anderen Docker-Host
+### Auf einem anderen Docker-Host per docker compose
+
+Direkt auf dem Docker-Host, auf dem HomeAtlas laufen soll (beide Container nutzen das Host-Netz):
 
 ```bash
 git clone https://github.com/TorstenAmshove/HomeAtlas.git
 cd HomeAtlas
-./deploy.sh                      # deployt nach 192.168.1.110, Port 8280
-```
-
-Anderes Ziel oder andere Ports:
-
-```bash
-HOMEATLAS_HOST=192.168.1.50 HOMEATLAS_PORT=8380 HOMEATLAS_API_PORT=8381 ./deploy.sh
-```
-
-`deploy.sh` prüft vorab, ob beide Ports auf dem Zielhost frei sind, und nennt im Konfliktfall den
-Prozess, der sie belegt.
-
-### Direkt per docker compose
-
-```bash
 docker compose up -d --build
 ```
 
 Danach: **http://<host>:8280**
+
+Sind die Ports dort schon belegt, andere wählen:
+
+```bash
+HOMEATLAS_PORT=8380 HOMEATLAS_API_PORT=8381 docker compose up -d --build
+```
 
 ### Erste Anmeldung
 
