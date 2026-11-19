@@ -22,8 +22,15 @@ konfiguriertes Modell funktioniert der Scan weiter, nur ohne diese Ergänzungen.
 ## Anforderungen
 
 ### Requirement: Abschaltbar und optional
-Das System MUSS die KI-Einordnung nur ausführen, wenn `scanUseLlm` (Default an) gesetzt ist, und
-ohne sie vollständig nutzbare, regelbasierte Ergebnisse liefern. **[Muss]**
+Das System MUSS die KI-Einordnung nur ausführen, wenn `scanUseLlm` (Default an) gesetzt ist **und**
+für den gewählten Anbieter ein Zugang eingerichtet ist (Cloud-Anbieter: API-Schlüssel; Ollama:
+immer), und ohne sie vollständig nutzbare, regelbasierte Ergebnisse liefern. Fehlt der Zugang,
+werden keine Gerätedaten gesendet; der Scan meldet „KI-Einordnung übersprungen …“ als Hinweis.
+**[Muss]**
+
+#### Szenario: Frische Installation ohne Schlüssel
+- **WENN** der Standard-Anbieter DEEPSEEK ohne Schlüssel eingestellt ist
+- **DANN** findet kein LLM-Aufruf statt (Test: `backend/tests/test_llm_defaults_and_accounts.py::test_classify_without_key_sends_nothing`)
 
 #### Szenario: Abgeschaltet
 - **WENN** `scanUseLlm=false`
@@ -121,7 +128,8 @@ deren `confidence` `low` ist. Unbekannte `kind` werden zu `other`, unbekannte `i
 Quelle: `backend/app/classify.py:29`, `backend/app/classify.py:140`, `backend/app/classify.py:146`
 
 ### Requirement: Fehler nie fatal
-Ein Provider-Fehler, eine unparsebare Antwort oder ungültiges JSON MUSS nur den betroffenen Stapel
+Ein Provider-Fehler (auch Netzwerkfehler wie Timeout oder nicht erreichbares Ollama, die der
+LLM-Client als `ProviderError` meldet), eine unparsebare Antwort oder ungültiges JSON MUSS nur den betroffenen Stapel
 überspringen und die Warnung „KI-Einordnung für N Geräte fehlgeschlagen: …“ erzeugen; der Scan endet
 mit den Regel-Ergebnissen. **[Muss]**
 
@@ -229,13 +237,6 @@ Warnungen in `frontend/src/pages/ScanPage.tsx` (Route `/scan`).
 
 ## OFFEN
 
-- > OFFEN: Netzwerkfehler des Providers (Timeout, Verbindungsabbruch, Ollama nicht erreichbar) werden
-  vom LLM-Client nicht in `ProviderError` umgewandelt; `classify` fängt nur `ProviderError`/
-  `ValueError` (`classify.py:134`). Ein solcher Fehler lässt den *ganzen Scan* scheitern –
-  Widerspruch zum Docstring „Failure … is non-fatal“.
-- > OFFEN: Default ist `llmProvider=DEEPSEEK` und `scanUseLlm=true`. Ohne eingetragenen Schlüssel
-  sendet jeder Scan Geräte-Belege (IPs, Hostnamen, Hersteller, Seitentitel) an den DeepSeek-Endpunkt
-  und bekommt 401. Datenschutz/Absicht klären (z. B. nur aufrufen, wenn ein Schlüssel gesetzt ist).
 - > OFFEN: Weil `importance` nach Normalisierung nie leer ist, überschreibt die KI-Wichtigkeit immer
   die regelbasierte – auch beim Gateway (`critical`), sobald es Kandidat ist (z. B. kein kuratierter
   Doku-Link bei Nicht-AVM-Routern). Ebenso überschreibt eine ungültige KI-`kind` (→ `other`) eine

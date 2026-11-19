@@ -87,6 +87,24 @@ Das System MUSS die Erreichbarkeit per ICMP prüfen und `host`, `reachable` (Ver
 
 Quelle: `backend/app/diagnostics.py:72`–`backend/app/diagnostics.py:94`
 
+### Requirement: Keine Ziele auf dem Server selbst (SSRF)
+Port- und HTTP-Prüfung MÜSSEN Ziele ablehnen (400 bzw. Werkzeugfehler), die auf Loopback
+(127.0.0.0/8, ::1), Link-Local (169.254.0.0/16 inkl. Cloud-Metadaten, fe80::/10), unspezifizierte,
+Multicast- oder reservierte Adressen zeigen; bei Namen gilt das für jede aufgelöste Adresse, bei
+HTTP auch für jedes Weiterleitungsziel. Adressen im Heimnetz (privat) bleiben erlaubt. Ping und
+Traceroute sind nicht betroffen. **[Muss]** Restrisiko: DNS-Rebinding zwischen Prüfung und Verbindung.
+
+#### Szenario: Backend über Loopback
+- **WENN** ein MEMBER oder der Assistent `http_check` mit `http://127.0.0.1:8281/` aufruft
+- **DANN** lehnt das System ab, ohne eine Verbindung aufzubauen
+
+#### Szenario: Weiterleitung auf eine verbotene Adresse
+- **WENN** eine erlaubte Seite auf `http://169.254.169.254/` weiterleitet
+- **DANN** lehnt das System ab
+
+Quelle: `backend/app/diagnostics.py` (`_ensure_allowed_target`, `_fetch_page`), Tests:
+`backend/tests/test_diagnostics.py`
+
 ### Requirement: Port-Prüfung
 Das System MUSS per TCP-Verbindungsaufbau prüfen, ob ein Port offen ist, und drei Fälle unterscheiden: offen (`open: true`, `elapsedMs`), keine Antwort (Timeout – Dienst aus oder Firewall verwirft) und aktiv abgelehnt (Dienst läuft nicht). Das Ergebnis nennt den Dienstnamen aus dem Port-Katalog. **[Muss]**
 
@@ -106,7 +124,7 @@ Das System MUSS einen Namen über den Resolver des Servers auflösen und `resolv
 Quelle: `backend/app/diagnostics.py:97`–`backend/app/diagnostics.py:111`
 
 ### Requirement: HTTP-Prüfung
-Das System MUSS eine Web-Adresse per GET abrufen, Weiterleitungen folgen und Zertifikatsfehler ignorieren (Heimgeräte nutzen selbstsignierte Zertifikate); Ergebnis: `reachable`, `status`, `title` (aus den ersten 20 000 Zeichen, Leerraum normalisiert, max. 120 Zeichen), `server`-Header, `elapsedMs`, Erklärung. **[Muss]**
+Das System MUSS eine Web-Adresse per GET abrufen, höchstens 5 Weiterleitungen folgen (jede Zieladresse wird erneut geprüft) und Zertifikatsfehler ignorieren (Heimgeräte nutzen selbstsignierte Zertifikate). Gelesen werden höchstens 256 KiB der Antwort, die ganze Prüfung dauert höchstens 15 s. Ergebnis: `reachable`, `status`, `title` (aus den ersten 20 000 Zeichen, Leerraum normalisiert, max. 120 Zeichen), `server`-Header, `elapsedMs`, Erklärung. **[Muss]**
 
 #### Szenario: Router-Oberfläche mit Selbstsigniert-Zertifikat
 - **WENN** `https://192.168.1.1` geprüft wird
@@ -188,11 +206,6 @@ UI-Seite(n): `frontend/src/pages/DashboardPage.tsx` (Route `/`, Internet-Check),
 
 ## OFFEN
 
-- > OFFEN: `http_check` ist für MEMBER (und den Assistenten/MCP) ein serverseitiger GET auf beliebige URLs – inkl. `127.0.0.1`, des Backends selbst und anderer interner Dienste; Titel und `Server`-Header werden zurückgegeben (SSRF-Fläche). Keine Ziel-Einschränkung. (`backend/app/diagnostics.py:150`)
-- > OFFEN: `http_check` lädt den gesamten Antwortkörper in den Speicher; das Timeout gilt je Lesevorgang, nicht gesamt – eine langsame/endlose Antwort ist nicht größenbegrenzt.
-- > OFFEN: Nicht-numerische `count`/`maxHops` (z. B. `"abc"`) lösen `ValueError` statt `DiagnosticError` aus → HTTP 500 statt 400. (`backend/app/diagnostics.py:74`, `backend/app/diagnostics.py:176`)
-- > OFFEN: `/api/diagnostics/dns` fängt `DiagnosticError` nicht ab – ein ungültiger Name in `names` oder `dnsTestNames` führt zu HTTP 500. (`backend/app/main.py:1595`)
 - > OFFEN: Keine Ratenbegrenzung/Parallelitätssperre: jeder MEMBER kann Speedtests (35 MB Verkehr) und lange Traceroutes beliebig oft parallel auslösen.
 - > OFFEN: Die Latenz des Speedtests ist die erste Anfrage auf einer neuen Verbindung und enthält TCP- und TLS-Aufbau – systematisch zu hoch.
 - > OFFEN: REST-Tool-Namen weichen von den LLM-Werkzeugnamen ab (`ping` vs. `ping_host`); Alternative vereinheitlichen?
-- > OFFEN: Keine Tests für `diagnostics.py` und die drei Routen.

@@ -63,6 +63,25 @@ def generate_keypair(comment: str = "") -> tuple[str, str]:
     return private_pem, public_line
 
 
+def public_line_for(private_pem: str, passphrase: str = "", comment: str = "") -> str:
+    """The authorized_keys line for a stored private key, derived from the key itself. Deploying
+    this instead of the account's free-text `notes` means an edited or reset notes field can never
+    change what lands in a device's authorized_keys (no extra keys, no `command=` options).
+    Raises ValueError if the key cannot be read."""
+    try:
+        private_key = serialization.load_ssh_private_key(
+            private_pem.encode(), password=passphrase.encode() if passphrase else None,
+        )
+    except (ValueError, TypeError) as exc:
+        raise ValueError(f"Der gespeicherte private Schlüssel lässt sich nicht lesen ({exc}).") from exc
+    line = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.OpenSSH,
+        format=serialization.PublicFormat.OpenSSH,
+    ).decode()
+    comment = " ".join((comment or "").split())
+    return f"{line} {comment}" if comment else line
+
+
 def _decode_secret(account: dict) -> tuple[str, str]:
     """Local copy of probe_auth._decode_secret's logic -- see module docstring for why this isn't
     a shared import."""

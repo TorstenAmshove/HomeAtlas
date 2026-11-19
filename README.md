@@ -254,6 +254,9 @@ Administratoren. Es gibt keine Route, die den Zugangsspeicher im Klartext ausgib
 bewusste Ausnahme: Shelly-Relais und Home-Assistant-Lichter/-Schalter ein- und ausschalten), hat ein
 Timeout und läuft über `create_subprocess_exec` mit Argumentliste. Ein Hostname mit `;` oder
 Backticks ist ein Hostname, kein Befehl — und wird vorher gegen ein striktes Muster geprüft.
+Port- und Webseiten-Prüfungen lehnen Ziele auf dem HomeAtlas-Server selbst (Loopback) und
+Link-Local-Adressen ab, auch nach einer Weiterleitung; Geräte im Heimnetz bleiben prüfbar. Ohne
+eingerichteten KI-Zugang schickt der Scan keine Gerätedaten an einen Anbieter.
 
 **Anmelden ja, verändern nie.** Ist für ein Gerät ein Zugang hinterlegt *und* ausdrücklich zum
 Auslesen freigegeben, meldet sich HomeAtlas an und liest Eckdaten. Dass dabei nichts verändert

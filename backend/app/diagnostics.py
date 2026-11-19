@@ -9,6 +9,12 @@ of the design rather than an afterthought:
 * Arguments are validated against a strict pattern before they reach a subprocess at all.
 * Every check is read-only and bounded by a timeout -- nothing here reconfigures a device, logs
   in anywhere, or runs unbounded.
+* Checks that open a TCP connection or fetch a page (`check_port`, `http_check`) refuse targets on
+  the Docker host's loopback, link-local (cloud metadata) and unspecified/multicast addresses. With
+  host networking, 127.0.0.1 is the host itself, including the backend's own loopback-only port;
+  any role and the LLM can call these, so they must not become a way past nginx (SSRF). LAN
+  addresses stay allowed -- checking the router's web interface is the point. Residual risk: a
+  name that resolves differently between the check and the connection (DNS rebinding).
 
 The `explanation` field on each result is what the UI and the chat actually show; a layperson
 needs "der Router antwortet, aber das Internet dahinter nicht" rather than a packet-loss table.
@@ -16,6 +22,7 @@ needs "der Router antwortet, aber das Internet dahinter nicht" rather than a pac
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import os
 import re
 import shutil
@@ -38,6 +45,46 @@ def _validate_host(host: str) -> str:
     if not _HOST_RE.match(host):
         raise DiagnosticError(f"'{host}' ist kein gültiger Hostname und keine gültige IP-Adresse.")
     return host
+
+
+def _bounded_int(value, default: int, low: int, high: int, what: str) -> int:
+    if value in (None, ""):
+        return default
+    try:
+        number = int(value)
+    except (TypeError, ValueError) as exc:
+        raise DiagnosticError(f"'{value}' ist keine gültige Zahl für {what}.") from exc
+    return max(low, min(high, number))
+
+
+def _is_forbidden_address(address: str) -> bool:
+    try:
+        ip = ipaddress.ip_address(address.split("%", 1)[0])
+    except ValueError:
+        return True
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
+        ip = ip.ipv4_mapped
+    return ip.is_loopback or ip.is_link_local or ip.is_unspecified or ip.is_multicast or ip.is_reserved
+
+
+async def _ensure_allowed_target(host: str) -> None:
+    """Rejects a target that is, or resolves to, a forbidden address (see module docstring).
+    Every address a name resolves to must be allowed, not just the first."""
+    host = host.strip("[]")
+    try:
+        addresses = [str(ipaddress.ip_address(host.split("%", 1)[0]))]
+    except ValueError:
+        loop = asyncio.get_running_loop()
+        try:
+            infos = await asyncio.wait_for(loop.getaddrinfo(host, None, proto=socket.IPPROTO_TCP), timeout=6.0)
+        except (socket.gaierror, asyncio.TimeoutError, OSError):
+            return  # unresolvable: the check itself reports "nicht erreichbar"
+        addresses = [info[4][0] for info in infos]
+    if any(_is_forbidden_address(a) for a in addresses):
+        raise DiagnosticError(
+            f"'{host}' zeigt auf den HomeAtlas-Server selbst oder eine interne Sonderadresse. "
+            "Solche Ziele prüft HomeAtlas nicht; bitte die Adresse des Geräts im Heimnetz angeben."
+        )
 
 
 def _validate_port(port: int) -> int:
@@ -71,7 +118,7 @@ async def _run(args: list[str], timeout: float) -> tuple[int, str]:
 
 async def ping(host: str, count: int = 3) -> dict:
     host = _validate_host(host)
-    count = max(1, min(10, int(count or 3)))
+    count = _bounded_int(count, 3, 1, 10, "die Anzahl der Pakete")
     code, output = await _run(["ping", "-c", str(count), "-W", "2", "-n", host], timeout=count * 3 + 5)
     match = re.search(r"(\d+)% packet loss", output)
     loss = int(match.group(1)) if match else (0 if code == 0 else 100)
@@ -124,6 +171,7 @@ async def reverse_dns(ip: str) -> dict:
 async def check_port(host: str, port: int, timeout_s: float = 3.0) -> dict:
     host = _validate_host(host)
     port = _validate_port(port)
+    await _ensure_allowed_target(host)
     from . import ports as port_catalog
     service, meaning = port_catalog.label_for(port)
     started = time.monotonic()
@@ -147,22 +195,62 @@ async def check_port(host: str, port: int, timeout_s: float = 3.0) -> dict:
                                 f"abgelehnt ({exc.strerror or exc}). Der Dienst läuft dort also nicht.")}
 
 
+_HTTP_MAX_REDIRECTS = 5
+_HTTP_MAX_BYTES = 256 * 1024
+_HTTP_TOTAL_TIMEOUT = 15.0
+
+
+def _url_host(url: str) -> str:
+    try:
+        host = httpx.URL(url).host
+    except (httpx.InvalidURL, ValueError) as exc:
+        raise DiagnosticError(f"'{url}' ist keine gültige Adresse.") from exc
+    if not host:
+        raise DiagnosticError(f"'{url}' enthält keinen Gerätenamen und keine IP-Adresse.")
+    return host
+
+
+async def _fetch_page(url: str) -> tuple[httpx.Response, bytes]:
+    """GET with redirects followed by hand, so every hop's target is checked, and with the body
+    capped at _HTTP_MAX_BYTES -- only the status, a header and the <title> are needed."""
+    # verify=False: home devices almost universally use self-signed certificates, and a
+    # certificate error would mask the actual question ("antwortet die Oberfläche?").
+    async with httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=5.0), verify=False,
+                                 follow_redirects=False) as client:
+        for _ in range(_HTTP_MAX_REDIRECTS + 1):
+            await _ensure_allowed_target(_url_host(url))
+            async with client.stream("GET", url) as resp:
+                if resp.is_redirect and resp.headers.get("location"):
+                    url = str(resp.url.join(resp.headers["location"]))
+                    if not url.startswith(("http://", "https://")):
+                        raise DiagnosticError("Die Seite leitet auf eine Adresse um, die kein http(s) ist.")
+                    continue
+                body = b""
+                async for chunk in resp.aiter_bytes():
+                    body += chunk
+                    if len(body) >= _HTTP_MAX_BYTES:
+                        break
+                return resp, body[:_HTTP_MAX_BYTES]
+    raise DiagnosticError(f"Die Seite leitet mehr als {_HTTP_MAX_REDIRECTS}-mal weiter.")
+
+
 async def http_check(url: str) -> dict:
     url = (url or "").strip()
     if not url.startswith(("http://", "https://")):
         raise DiagnosticError("Bitte eine vollständige Adresse angeben, die mit http:// oder https:// beginnt.")
+    _url_host(url)
+    started = time.monotonic()
     try:
-        # verify=False: home devices almost universally use self-signed certificates, and a
-        # certificate error would mask the actual question ("antwortet die Oberfläche?").
-        async with httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=5.0), verify=False,
-                                     follow_redirects=True) as client:
-            started = time.monotonic()
-            resp = await client.get(url)
-        elapsed = (time.monotonic() - started) * 1000
+        resp, body = await asyncio.wait_for(_fetch_page(url), timeout=_HTTP_TOTAL_TIMEOUT)
+    except asyncio.TimeoutError:
+        return {"url": url, "reachable": False,
+                "explanation": f"Die Seite {url} hat nicht innerhalb von {_HTTP_TOTAL_TIMEOUT:.0f} Sekunden geantwortet."}
     except httpx.HTTPError as exc:
         return {"url": url, "reachable": False,
                 "explanation": f"Die Seite {url} ist nicht erreichbar ({exc.__class__.__name__}: {exc})."}
-    title_match = re.search(r"<title[^>]*>(.*?)</title>", resp.text[:20000], re.IGNORECASE | re.DOTALL)
+    elapsed = (time.monotonic() - started) * 1000
+    text = body.decode(resp.encoding or "utf-8", "replace")
+    title_match = re.search(r"<title[^>]*>(.*?)</title>", text[:20000], re.IGNORECASE | re.DOTALL)
     title = re.sub(r"\s+", " ", title_match.group(1)).strip()[:120] if title_match else ""
     return {"url": url, "reachable": True, "status": resp.status_code, "title": title,
             "server": resp.headers.get("server", ""), "elapsedMs": round(elapsed),
@@ -173,7 +261,7 @@ async def http_check(url: str) -> dict:
 
 async def traceroute(host: str, max_hops: int = 15) -> dict:
     host = _validate_host(host)
-    max_hops = max(1, min(30, int(max_hops or 15)))
+    max_hops = _bounded_int(max_hops, 15, 1, 30, "die maximale Zahl der Zwischenstationen")
     code, output = await _run(
         ["traceroute", "-n", "-w", "1", "-q", "1", "-m", str(max_hops), host], timeout=max_hops * 2 + 10
     )
@@ -201,7 +289,10 @@ async def dns_check(names: list[str] | None = None) -> dict:
     """
     from . import discovery
 
-    names = [n.strip() for n in (names or ["www.google.com", "heise.de", "github.com"]) if n.strip()]
+    if names is not None and not isinstance(names, list):
+        raise DiagnosticError("Die zu prüfenden Namen müssen als Liste angegeben werden.")
+    names = [n.strip() for n in (names or ["www.google.com", "heise.de", "github.com"])
+             if isinstance(n, str) and n.strip()]
     servers = discovery.dns_servers()
 
     results = []

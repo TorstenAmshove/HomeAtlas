@@ -492,7 +492,7 @@ def _overview_section(context: dict) -> str:
 async def _write_intro(topic: Topic, systems: list[dict], settings: dict) -> str:
     """LLM-written chapter intro. Returns the fallback on any failure -- a missing API key must not
     produce an empty page."""
-    if not settings.get("scanUseLlm", True):
+    if not settings.get("scanUseLlm", True) or not llm_providers.is_configured(settings.get("llmProvider", ""), settings):
         return topic.fallback
     device_summary = "\n".join(
         f"- {s['name']} ({KIND_LABELS.get(s['kind'], s['kind'])})"

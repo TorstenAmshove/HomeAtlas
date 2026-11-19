@@ -119,6 +119,14 @@ async def classify(findings: list[dict], settings: dict, log=None) -> tuple[dict
     candidates = [f for f in findings if needs_classification(f)]
     if not candidates:
         return {}, warnings
+    if not llm_providers.is_configured(settings.get("llmProvider", ""), settings):
+        # Never send device evidence to a provider nobody configured (the default provider has no
+        # key on a fresh install); the rule-based guess stays.
+        warnings.append("KI-Einordnung übersprungen: Für den gewählten KI-Anbieter ist kein Zugang "
+                        "eingerichtet (Einstellungen -> KI-Assistent).")
+        if log:
+            log("KI-Einordnung übersprungen: kein KI-Zugang eingerichtet.")
+        return {}, warnings
 
     by_ip: dict[str, dict] = {}
     for offset in range(0, len(candidates), _BATCH_SIZE):

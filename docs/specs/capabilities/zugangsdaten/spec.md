@@ -85,16 +85,16 @@ Unbekannte ID → 404 „Zugang nicht gefunden.“ **[Muss]**
 
 Quelle: `backend/app/main.py:664`
 
-### Requirement: Ändern ersetzt alle übrigen Felder
-Das System ersetzt beim Ändern alle Nicht-Secret-Felder durch die gesendeten Werte; fehlende Felder
-fallen auf die Anlage-Defaults zurück (z. B. Kategorie `login`, `allowProbe` aus, kein Gerät).
-Die UI sendet deshalb immer den vollständigen Datensatz. **[Impl]**
+### Requirement: Ändern betrifft nur gesendete Felder
+Das System MUSS beim Ändern nur die Felder übernehmen, die der Client sendet; nicht gesendete
+Felder bleiben unverändert, insbesondere die Freigabe `allowProbe`. **[Muss]**
 
 #### Szenario: Teil-PATCH
 - **WENN** `PATCH /api/accounts/{id}` nur `{"label": "Neu"}` enthält
-- **DANN** werden Kategorie, Gerät, URL, Notiz, Port und Freigabe auf Defaults zurückgesetzt
+- **DANN** ändert sich nur die Bezeichnung; Kategorie, Gerät, URL, Notiz, Port und Freigabe bleiben
 
-Quelle: `backend/app/main.py:606`, `backend/app/main.py:666`
+Quelle: `backend/app/main.py` (`update_account`), Test:
+`backend/tests/test_llm_defaults_and_accounts.py::test_partial_patch_keeps_other_fields`
 
 ### Requirement: Zugang löschen
 Das System MUSS beim Löschen den Zugang und alle seine Zuordnungen entfernen und von ihm
@@ -191,8 +191,10 @@ Unbekanntes Gerät → 404. **[Muss]**
 Quelle: `backend/app/main.py:736`, `backend/app/remote_admin.py:45`
 
 ### Requirement: SSH-Schlüssel auf Gerät einspielen
-Das System MUSS den öffentlichen Schlüssel eines `sshkey`-Zugangs auf dessen Gerät hinterlegen,
-angemeldet mit einem anderen, bereits hinterlegten Zugang desselben Geräts. Prüfungen: Schlüssel
+Das System MUSS den öffentlichen Schlüssel eines `sshkey`-Zugangs auf dessen Gerät hinterlegen. Die
+Zeile wird aus dem gespeicherten privaten Schlüssel abgeleitet (Kommentar `homeatlas@<Gerätename>`),
+nie aus dem editierbaren Notizfeld; ein unlesbarer privater Schlüssel → 400. Angemeldet wird
+mit einem anderen, bereits hinterlegten Zugang desselben Geräts. Prüfungen: Schlüssel
 fehlt oder ist nicht `sshkey` → 404; Login-Zugang fehlt → 404; anderes Gerät → 400; Schlüssel
 ohne Gerät → 400; Gerät ohne IP/Hostname → 400. Die Datei `~/.ssh/authorized_keys` wird gelesen
 und die Zeile nur angehängt, wenn sie noch nicht exakt vorhanden ist (idempotent, `changed`);
@@ -204,7 +206,8 @@ mit Erfolg/Misserfolg protokolliert; Fehlschlag → 400 mit Fehlermeldung. **[Mu
 - **WENN** die exakte Zeile bereits in `authorized_keys` steht
 - **DANN** antwortet das System `{ok: true, changed: false}` und schreibt nichts
 
-Quelle: `backend/app/main.py:761`, `backend/app/remote_admin.py:111`
+Quelle: `backend/app/main.py:761`, `backend/app/remote_admin.py:111`, `remote_admin.public_line_for`, Test:
+`backend/tests/test_llm_defaults_and_accounts.py::test_deploy_ignores_edited_notes`
 
 ### Requirement: Secrets nie in Dokumentation, Chat oder LLM-Kontext
 Das System MUSS Secrets und Passphrasen aus allen Ausgaben außer der Einzelabruf-Route fernhalten:
@@ -300,19 +303,13 @@ UI-Seite(n): `frontend/src/pages/AccountsPage.tsx` (Route `/zugaenge`, nur Admin
 
 - > OFFEN: Ein nicht entschlüsselbares Secret wird als leerer String ausgeliefert und als erfolgreicher Abruf (`ok=1`) protokolliert; Admin und Protokoll sehen nicht, dass der Schlüssel fehlt (`backend/app/crypto.py:49`).
 - > OFFEN: Kategorie wird serverseitig nicht validiert; beliebige Werte werden gespeichert.
-- > OFFEN: PATCH ist faktisch ein Voll-Ersatz (siehe Requirement „Ändern ersetzt alle übrigen
-  Felder“); ein API-Client mit Teil-PATCH setzt Felder unbemerkt zurück, u. a. `allowProbe`.
 - > OFFEN: Secret und Passphrase lassen sich über die API nicht mehr leeren (leer = unverändert).
-- > OFFEN: Ausrollen schreibt den Inhalt des frei editierbaren Notizfelds nach
-  `authorized_keys` – wird die Notiz geändert, landet beliebiger Text dort (`backend/app/main.py:782`).
 - > OFFEN: Ausrollen akzeptiert jede Kategorie als Login-Zugang (z. B. `snmp`, `wifi`); das Secret
   wird dann als SSH-Passwort benutzt.
 - > OFFEN: `systemId` wird beim Anlegen/Ändern nicht auf Existenz geprüft.
 - > OFFEN: Löschen eines unbekannten Zugangs liefert `{ok: true}` statt 404.
 - > OFFEN: Anlegen, Ändern und Löschen von Zugängen werden nicht im Zugriffsprotokoll erfasst,
   nur Abruf, Erzeugung und Ausrollen.
-- > OFFEN: Gesicherte Gerätekonfigurationen und Probe-Fakten können Secrets enthalten und sind für
-  MEMBER/LLM sichtbar – siehe OFFEN in [credentialed-probing](../credentialed-probing/spec.md).
 - > OFFEN: MEMBER sehen über Geräteansicht und Doku Benutzernamen, URLs und Notizen aller Zugänge;
   ob Notizen sensibel sein dürfen, ist nicht geregelt.
 - > OFFEN: Löschen eines Geräts löscht dessen Zugänge unwiderruflich mit, ohne Rückfrage auf API-Ebene.
