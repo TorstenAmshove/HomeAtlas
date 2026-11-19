@@ -1,4 +1,4 @@
-"""Tests for db.py's cross-scheme dedup fallbacks (find_system_by_mac / find_system_by_proxmox /
+"""Tests for the db package's cross-scheme dedup fallbacks (find_system_by_mac / find_system_by_proxmox /
 find_system_by_ip_and_hostname / find_system_for_merge) and their integration into
 upsert_discovered_system. Without these, a device found under one discoveryKey scheme by one
 source (e.g. a network sweep that never resolved a MAC) and under a different scheme by another

@@ -42,7 +42,7 @@ Backend tests and lint (from `backend/`, CI runs both in `.github/workflows/test
 ```bash
 pip install -r requirements-dev.txt
 ruff check .          # deliberately small rule set, see backend/ruff.toml; no formatter enforced
-python -m pytest -q   # tests/ -- use the `temp_db` fixture for anything touching db.py
+python -m pytest -q   # tests/ -- use the `temp_db` fixture for anything touching the `db/` package
 ```
 The frontend has no linter or unit tests. Besides `npm run build`, CI runs a browser smoke test
 (`frontend/e2e/`, its own Playwright package, excluded from the image via `frontend/.dockerignore`)
@@ -130,8 +130,8 @@ whole-page-manual-override mode — know which one an edit is supposed to affect
 failures (`_FAILURES_BEFORE_DOWN`) before it's recorded, to avoid flagging normal Wi-Fi packet
 loss as an outage.
 
-**`db.py`** is the only place that touches SQLite — a flat module of functions over a single
-connection helper, no ORM. **`crypto.py`** (Fernet, key stored alongside the DB in the same
+**`db/`** (package, one module per entity group, ADR-0010) is the only place that touches SQLite — flat functions over a single
+connection helper in `db/_core.py`, no ORM; `db/__init__.py` re-exports everything so callers write `db.get_system(...)`. `DB_PATH` and `_ERROR_EVENT_KEEP` live in `db/__init__.py` and are read at call time, so `monkeypatch.setattr(db, ...)` keeps working; submodules import only from `_core` (plus `accounts`→`systems`, `config_versions`→`settings`), never cyclically. **`crypto.py`** (Fernet, key stored alongside the DB in the same
 volume — protects against a leaked DB copy, not a host-root attacker) encrypts credentials in
 `accounts.secretEnc`; the API only ever returns a stored secret one-at-a-time from
 `GET /api/accounts/{id}/secret`, admin-only, never in bulk.
