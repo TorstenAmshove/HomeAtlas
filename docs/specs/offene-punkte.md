@@ -7,29 +7,30 @@ betreffen auch HomeAtlas selbst und eignen sich als Issues.
 
 ## Zuerst ansehen
 
-Sicherheitsrelevant. Die ersten beiden sind am Code nachgeprüft (Commit 0159807).
+Sicherheitsrelevant. Die ersten beiden sind am Code nachgeprüft (Commit 0159807). Jeder Punkt ist
+ein GitHub-Issue.
 
-| # | Punkt | Specs |
-|---|---|---|
-| 1 | **Konfigurationsexporte im Klartext für MEMBER und LLM** (nachgeprüft). Ausgelesene Gerätekonfigurationen (`config_export`, `omada_backup`) liegen verschlüsselt in den Konfigurationsversionen, zusätzlich aber unverschlüsselt in `systems.extra.probe` (`backend/app/pipeline.py:115`, `backend/app/main.py:1391`). Von dort gehen sie über `GET /api/systems*` an MEMBER und landen in der generierten Doku (`backend/app/docs.py:283`), die das LLM per `get_documentation` liest. Zusätzlich gibt `GET …/config-versions/{id}` den entschlüsselten Inhalt an MEMBER (`backend/app/main.py:1413`). Exporte können SNMP-Communities, RADIUS-Secrets und WLAN-Schlüssel enthalten. Verstößt gegen Constitution R1, K2, Z4. | credentialed-probing, inventar, dokumentation |
-| 2 | **LLM-API-Schlüssel im Klartext gespeichert** (nachgeprüft). `claudeApiKey` usw. liegen unverschlüsselt im Settings-JSON (`backend/app/db.py:474`); der Kommentar in `backend/app/db.py:447` behauptet das Gegenteil. Die API maskiert sie korrekt. Verstößt gegen Z1. | einstellungen-und-llm-provider |
-| 3 | **`set_switch` ohne Rolle und Bestätigung.** Jede Rolle und jeder MCP-Token kann Shelly-Relais und HA-`switch`/`light` schalten (ADR-0002/0004 erlauben das ausdrücklich). Offen sind: keine Prüfung, ob das Ziel wirklich ein Shelly ist; kein Benutzer oder Token im Protokoll; Prompt-Injection kann einen Schaltvorgang auslösen; README und MCP-Tab sagen „nur lesend“. | assistent-chat-und-mcp, remote-admin |
-| 4 | **`http_check` als SSRF-Fläche.** MEMBER, Assistent und MCP-Clients können serverseitig beliebige URLs abrufen, auch `127.0.0.1` und interne Dienste. Das Gleiche gilt für die Linkprüfung der Klassifikation und für „Testen“/„Modelle laden“ mit frei eingebbarer Adresse. | diagnose, klassifikation-llm, einstellungen-und-llm-provider |
-| 5 | **Kein Brute-Force-Schutz, keine TOTP-Replay-Sperre.** Weder Rate-Limit noch Kontosperre; ein TOTP-Code ist im ~90-s-Fenster mehrfach gültig. | auth-und-rollen |
-| 6 | **Standard: KI-Einordnung an, Anbieter DeepSeek.** Jeder Scan schickt Geräteangaben an DeepSeek, auch ohne API-Schlüssel (dann 401). Netzwerkfehler des Anbieters lassen den ganzen Scan scheitern. | klassifikation-llm, discovery-und-scan |
-| 7 | **`PATCH /api/accounts/{id}` setzt bei Teil-Body Felder zurück**, auch das Opt-in `allowProbe`. Beim Ausrollen eines SSH-Schlüssels wird der editierbare Notizinhalt nach `authorized_keys` geschrieben. | zugangsdaten |
-| 8 | **MEMBER sieht Zugangs-Metadaten** (Benutzername, URL, Notizen) über `GET /api/systems/{id}`, die Doku und `list_accounts`, obwohl die Zugangs-API admin-only ist. | inventar, dokumentation, assistent-chat-und-mcp, zugangsdaten |
-| 9 | **Chats ohne Besitzer.** Jeder Benutzer sieht und löscht alle Chats. | assistent-chat-und-mcp |
-| 10 | **README-Aussage zum Docker-Socket stimmt nicht.** Die README sagt „nur GET“; `docker_admin` sendet POST (Container steuern). | remote-admin |
+| # | Punkt | Specs | Issue |
+|---|---|---|---|
+| 1 | **Konfigurationsexporte im Klartext für MEMBER und LLM** (nachgeprüft). Ausgelesene Gerätekonfigurationen (`config_export`, `omada_backup`) liegen verschlüsselt in den Konfigurationsversionen, zusätzlich aber unverschlüsselt in `systems.extra.probe` (`backend/app/pipeline.py:115`, `backend/app/main.py:1391`). Von dort gehen sie über `GET /api/systems*` an MEMBER und landen in der generierten Doku (`backend/app/docs.py:283`), die das LLM per `get_documentation` liest. Zusätzlich gibt `GET …/config-versions/{id}` den entschlüsselten Inhalt an MEMBER (`backend/app/main.py:1413`). Exporte können SNMP-Communities, RADIUS-Secrets und WLAN-Schlüssel enthalten. Verstößt gegen Constitution R1, K2, Z4. | credentialed-probing, inventar, dokumentation | #41 |
+| 2 | **LLM-API-Schlüssel im Klartext gespeichert** (nachgeprüft). `claudeApiKey` usw. liegen unverschlüsselt im Settings-JSON (`backend/app/db.py:474`); der Kommentar in `backend/app/db.py:447` behauptet das Gegenteil. Die API maskiert sie korrekt. Verstößt gegen Z1. | einstellungen-und-llm-provider | #42 |
+| 3 | **`set_switch` ohne Rolle und Bestätigung.** Jede Rolle und jeder MCP-Token kann Shelly-Relais und HA-`switch`/`light` schalten (ADR-0002/0004 erlauben das ausdrücklich). Offen sind: keine Prüfung, ob das Ziel wirklich ein Shelly ist; kein Benutzer oder Token im Protokoll; Prompt-Injection kann einen Schaltvorgang auslösen; README und MCP-Tab sagen „nur lesend“. | assistent-chat-und-mcp, remote-admin | #43 |
+| 4 | **`http_check` als SSRF-Fläche.** MEMBER, Assistent und MCP-Clients können serverseitig beliebige URLs abrufen, auch `127.0.0.1` und interne Dienste. Das Gleiche gilt für die Linkprüfung der Klassifikation und für „Testen“/„Modelle laden“ mit frei eingebbarer Adresse. | diagnose, klassifikation-llm, einstellungen-und-llm-provider | #44 |
+| 5 | **Kein Brute-Force-Schutz, keine TOTP-Replay-Sperre.** Weder Rate-Limit noch Kontosperre; ein TOTP-Code ist im ~90-s-Fenster mehrfach gültig. | auth-und-rollen | #45 |
+| 6 | **Standard: KI-Einordnung an, Anbieter DeepSeek.** Jeder Scan schickt Geräteangaben an DeepSeek, auch ohne API-Schlüssel (dann 401). Netzwerkfehler des Anbieters lassen den ganzen Scan scheitern. | klassifikation-llm, discovery-und-scan | #46 |
+| 7 | **`PATCH /api/accounts/{id}` setzt bei Teil-Body Felder zurück**, auch das Opt-in `allowProbe`. Beim Ausrollen eines SSH-Schlüssels wird der editierbare Notizinhalt nach `authorized_keys` geschrieben. | zugangsdaten | #47 |
+| 8 | **MEMBER sieht Zugangs-Metadaten** (Benutzername, URL, Notizen) über `GET /api/systems/{id}`, die Doku und `list_accounts`, obwohl die Zugangs-API admin-only ist. | inventar, dokumentation, assistent-chat-und-mcp, zugangsdaten | #48 |
+| 9 | **Chats ohne Besitzer.** Jeder Benutzer sieht und löscht alle Chats. | assistent-chat-und-mcp | #49 |
+| 10 | **README-Aussage zum Docker-Socket stimmt nicht.** Die README sagt „nur GET“; `docker_admin` sendet POST (Container steuern). | remote-admin | #50 |
 
 ## Widersprüche zwischen Doku und Code
 
-- ADR-0008/CLAUDE.md: Netzplan-Ebenen „Server → Endgeräte“. Der Code zeichnet „Wichtige Geräte“ und
-  listet den Rest unter dem Bild; Farbe ist im Kasten das einzige Statussignal (topologie).
-- CLAUDE.md: Scan-Reihenfolge „Discovery → Docker → Probing → Klassifikation“. Der Code klassifiziert
-  vor dem Probing (discovery-und-scan).
-- CLAUDE.md/Namenspräzedenz: Der KI-Name überschreibt Selbstauskunft-Namen (UPnP/mDNS)
-  (discovery-und-scan, klassifikation-llm).
+Bereinigt in #50: README (Docker-Socket, Ausnahme `set_switch`), `CLAUDE.md` (Scan-Reihenfolge,
+Netzplan-Ebenen, `set_switch`), ADR-0009 (vorgeschlagen) für die Netzplan-Ebenen. Offen bleiben:
+
+- Farbe ist im Netzplan-Kasten das einzige Statussignal (topologie).
+- Der KI-Name überschreibt Selbstauskunft-Namen (UPnP/mDNS), entgegen der Namenspräzedenz
+  (discovery-und-scan, klassifikation-llm; Issue #39).
 - README: IPv6-Geräte über mDNS/SSDP. Der Code verwirft sie (discovery-und-scan).
 - Netzwerkressourcen kommen nur von UniFi, nicht von Omada (netzwerkressourcen-vlans).
 - Passwortrichtlinie 10 Zeichen; die UsersPage zeigt „mindestens 8“, `ADMIN_PASSWORD` und der
@@ -226,7 +227,7 @@ Sicherheitsrelevant. Die ersten beiden sind am Code nachgeprüft (Commit 0159807
 
 ### [topologie](capabilities/topologie/spec.md) (12)
 
-1. ADR-0008 und CLAUDE.md beschreiben die Ebenen „Server → Endgeräte“ und „Container innerhalb ihres Hosts“; das Bild zeichnet aber nur „Wichtige Geräte“, Server/Endgeräte stehen als HTML-Listen darunter, Container nur als Zähler bei kritischen Hosts. Spec folgt dem Code.
+1. ADR-0008 und CLAUDE.md beschreiben die Ebenen „Server → Endgeräte“ und „Container innerhalb ihres Hosts“; das Bild zeichnet aber nur „Wichtige Geräte“, Server/Endgeräte stehen als HTML-Listen darunter, Container nur als Zähler bei kritischen Hosts. Spec folgt dem Code; ADR-0009 (vorgeschlagen) hält diesen Stand fest.
 2. Farbe ist im Kasten das einzige Statussignal (kein Wort wie „nicht erreichbar“), entgegen ADR-0008 und Modul-Docstring; der Layer-3-Plan hat zudem keine Legende.
 3. Router über 6, Verteiler über 10 und kritische Geräte über 10 verschwinden ersatzlos – die Listen unter dem Plan enthalten weder Router/Verteiler noch kritische Geräte.
 4. Ein kritischer Router oder Verteiler erscheint doppelt (Backbone-Ebene und „Wichtige Geräte“).

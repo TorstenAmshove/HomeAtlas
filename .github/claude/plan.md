@@ -17,7 +17,9 @@ also für sich allein verständlich sein.
    selbst 2–5 prüfbare Kriterien und kennzeichne sie mit „(vorgeschlagen)“. Sie sind der Maßstab für
    Umsetzung und Review.
 2. Code gründlich lesen: betroffene Module, deren Docstrings, ähnliche vorhandene Lösungen, die
-   wiederverwendet werden können, und die passenden Tests in `backend/tests/`.
+   wiederverwendet werden können, und die passenden Tests in `backend/tests/`. Dazu die Spec der
+   betroffenen Fähigkeit (`docs/specs/capabilities/*/spec.md`, Übersicht in `docs/specs/README.md`)
+   und deren `OFFEN`-Punkte.
 3. **Plan entwerfen** (Format unten). Prinzipien:
    - **Vertikale Slices:** jeder Task liefert etwas Prüfbares, nicht „erst alles Backend“.
    - **Test zuerst:** jeder Backend-Task nennt den Test, der vorher rot und danach grün ist.
@@ -67,6 +69,7 @@ also für sich allein verständlich sein.
 
 ### Doku
 <README/CLAUDE.md/ADR – was angepasst werden muss, oder „keine“>
+<Betroffene Specs unter `docs/specs/capabilities/` – welche Requirements sich ändern, oder „keine“>
 
 ### Verifikation
 - `cd backend && python -m pytest -q`

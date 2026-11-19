@@ -98,8 +98,9 @@ other:
   module would be a bug, not a refactor.
 
 **`tools.py` is the LLM's entire capability surface** (used by both the in-app chat and
-`mcp_server.py`'s external MCP endpoint). It is read-only plus bounded live diagnostics; nothing
-reachable from here mutates inventory, docs, or devices, and `list_accounts` always strips
+`mcp_server.py`'s external MCP endpoint). It is read-only plus bounded live diagnostics, with one
+documented exception (`set_switch`: Shelly relay / Home Assistant `switch`/`light` on/off, see
+ADR-0002/0004); nothing else reachable from here mutates inventory, docs, or devices, and `list_accounts` always strips
 passwords before they reach a model — secrets never enter a prompt, provider log, or chat
 history. When adding a new assistant capability, this boundary is the thing to preserve.
 
@@ -112,8 +113,9 @@ couldn't confidently place, and a low-confidence LLM answer is discarded rather 
 that a source supplied (manual, UniFi, Docker, Proxmox, Omada) and skips Docker containers entirely
 (they share the host IP, which is the key its answers are mapped by).
 
-**`pipeline.py`** orchestrates a full scan (discovery → Docker → credentialed probing →
-classification → doc regeneration) and owns the scan `Scheduler`. **`docs.py`** renders the
+**`pipeline.py`** orchestrates a full scan (discovery → Docker → controller APIs (UniFi, Omada,
+Proxmox, AdGuard) → classification → inventory merge → credentialed probing → doc regeneration; classification runs
+before probing, so probe facts only inform the next scan's classification) and owns the scan `Scheduler`. **`docs.py`** renders the
 12-chapter Markdown documentation from the inventory; each doc page has a separate
 never-auto-touched "manual notes" field (`db.set_doc_page_manual`) plus an independent
 whole-page-manual-override mode — know which one an edit is supposed to affect.
@@ -143,7 +145,8 @@ dependencies are the enforcement point — `current_user` also hard-requires TOT
 (`security.py`) on every route except the small allowlist needed to complete enrollment itself.
 
 **`topology.py`** renders the network plan as server-side SVG (fixed layered layout: Internet →
-Router → Verteilung → Server → Endgeräte) rather than a client-side graph library, so it stays a
+Router → Verteilung → Wichtige Geräte, everything else listed below the picture; ADR-0009)
+rather than a client-side graph library, so it stays a
 picture a non-technical reader can actually parse.
 
 ## Frontend architecture (`frontend/src/`)

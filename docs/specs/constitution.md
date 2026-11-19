@@ -128,7 +128,6 @@
 - **B5 [Muss]** Der Docker-Socket ist optional. Erkennung und Probing lesen nur (GET); schreibend
   nutzt ihn nur die Container-Steuerung für ADMIN (siehe L4). Ohne Socket funktioniert alles außer
   Container-Erkennung und lokaler Container-Steuerung.
-  > OFFEN: README „Sicherheit“ sagt „ausschließlich GET-Endpunkte“; das gilt nur für die Leseseite.
 - **B6 [Muss]** Die Erkennung arbeitet unter Windows/Docker Desktop nur eingeschränkt (keine
   `ip`/`ping`/`traceroute`); das ist eine bekannte Grenze, kein Fehler.
 
@@ -143,8 +142,8 @@
 - **D4 [Muss]** Der Netzplan ist ein für Laien lesbares Bild mit fester Schichtenfolge von oben
   nach unten. Heute: Internet → Router → Verteilung → Wichtige Geräte; alle übrigen Geräte stehen
   gruppiert als Liste unter dem Bild ([topologie](capabilities/topologie/spec.md)).
-  > OFFEN: ADR-0008 beschreibt „Server → Endgeräte“ als Ebenen und „Farbe nie einziges Signal“;
-  > der Code weicht ab (im Kasten ist Farbe das einzige Statussignal). Für die Alternative festlegen.
+  ([ADR 0009](../adr/0009-netzplan-ebenen-ist-stand.md), vorgeschlagen, ersetzt ADR-0008.)
+  > OFFEN: Im Kasten ist Farbe heute das einzige Statussignal; ADR-0008/0009 verlangen ein zweites.
 - **D5 [Impl]** Netzplan wird serverseitig als SVG erzeugt, ohne Graph-Bibliothek im Browser,
   ohne Zoomen/Ziehen. ([ADR 0008](../adr/0008-topologie-als-server-svg.md))
 - **D6 [Impl]** Frontend: React + react-router ohne State-Bibliothek, ein zentraler typisierter

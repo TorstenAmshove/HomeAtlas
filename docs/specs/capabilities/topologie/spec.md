@@ -359,7 +359,7 @@ UI-Seite(n): `frontend/src/pages/PlanPage.tsx` (Route `/plan`, Navigation „Net
 
 ## OFFEN
 
-- > OFFEN: ADR-0008 und CLAUDE.md beschreiben die Ebenen „Server → Endgeräte“ und „Container innerhalb ihres Hosts“; das Bild zeichnet aber nur „Wichtige Geräte“, Server/Endgeräte stehen als HTML-Listen darunter, Container nur als Zähler bei kritischen Hosts. Spec folgt dem Code.
+- > OFFEN: ADR-0008 und CLAUDE.md beschreiben die Ebenen „Server → Endgeräte“ und „Container innerhalb ihres Hosts“; das Bild zeichnet aber nur „Wichtige Geräte“, Server/Endgeräte stehen als HTML-Listen darunter, Container nur als Zähler bei kritischen Hosts. Spec folgt dem Code; ADR-0009 (vorgeschlagen) hält diesen Stand fest.
 - > OFFEN: Farbe ist im Kasten das einzige Statussignal (kein Wort wie „nicht erreichbar“), entgegen ADR-0008 und Modul-Docstring; der Layer-3-Plan hat zudem keine Legende.
 - > OFFEN: Router über 6, Verteiler über 10 und kritische Geräte über 10 verschwinden ersatzlos – die Listen unter dem Plan enthalten weder Router/Verteiler noch kritische Geräte.
 - > OFFEN: Ein kritischer Router oder Verteiler erscheint doppelt (Backbone-Ebene und „Wichtige Geräte“).
