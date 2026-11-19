@@ -7,7 +7,7 @@ Aufruf aus dem Repo-Wurzelverzeichnis:
     python docs/specs/trace_specs.py --check    # nur prüfen, Exit-Code 1 bei Lücken oder veralteten Dateien
 
 Quellen sind der Code selbst, nicht die Specs: REST-Routen aus contracts/openapi.json (zuvor neu
-erzeugen, siehe README.md), WebSocket-Routen und Mounts aus backend/app/main.py, Tabellen aus
+erzeugen, siehe README.md), WebSocket-Routen und Mounts aus backend/app/main.py und routes/, Tabellen aus
 backend/app/db.py, Werkzeuge aus backend/app/tools.py, Seiten aus frontend/src/pages/.
 Nur Standardbibliothek, damit es ohne Backend-Abhängigkeiten läuft.
 """
@@ -31,9 +31,11 @@ _PATH_TAIL = r"(?![A-Za-z0-9_/{}.-])"
 def routes() -> list[tuple[str, str]]:
     spec = json.loads((SPECS / "contracts" / "openapi.json").read_text(encoding="utf-8"))
     items = [(m.upper(), p) for p, ops in spec["paths"].items() for m in ops]
-    main = (ROOT / "backend" / "app" / "main.py").read_text(encoding="utf-8")
-    items += [("WS", p) for p in re.findall(r'@app\.websocket\("([^"]+)"\)', main)]
-    items += [("MOUNT", p) for p in re.findall(r'app\.mount\("([^"]+)"', main)]
+    app_dir = ROOT / "backend" / "app"
+    sources = [app_dir / "main.py", *sorted((app_dir / "routes").glob("*.py"))]
+    code = "\n".join(p.read_text(encoding="utf-8") for p in sources if p.exists())
+    items += [("WS", p) for p in re.findall(r'@(?:app|router)\.websocket\("([^"]+)"\)', code)]
+    items += [("MOUNT", p) for p in re.findall(r'app\.mount\("([^"]+)"', code)]
     return sorted(items, key=lambda x: (x[1], x[0]))
 
 

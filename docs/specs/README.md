@@ -56,6 +56,28 @@ Abschnitt 11.
 
 Die genauen Rechte je Route stehen in der jeweiligen Spec. Bei Abweichungen gilt die Spec.
 
+## Quellverweise und Code-Struktur
+
+Die Quellverweise `datei:zeile` beziehen sich auf den Stand der Rückgewinnung (Commit `0159807`).
+Seitdem sind die Routen aus `backend/app/main.py` auf Module je Fähigkeitsgruppe verteilt; die
+Funktionsnamen sind gleich geblieben, also im Zweifel nach dem Namen suchen:
+
+| Routen-Modul (`backend/app/routes/`) | Fähigkeiten |
+|---|---|
+| `auth.py` | auth-und-rollen (Login, MFA, Passwort, Benutzer), `/api/health` aus setup-wizard |
+| `settings.py` | einstellungen-und-llm-provider, MCP-Tokens aus assistent-chat-und-mcp |
+| `systems.py` | inventar, Auslesen eines Geräts aus credentialed-probing |
+| `accounts.py` | zugangsdaten |
+| `remote.py` | remote-admin, SSH-Schlüssel aus zugangsdaten |
+| `docs.py` | dokumentation |
+| `scans.py` | discovery-und-scan |
+| `diagnostics.py` | diagnose |
+| `chat.py` | assistent-chat-und-mcp |
+| `overview.py` | dashboard, setup-wizard, monitoring, topologie, Zugriffsprotokoll |
+
+Gemeinsame Abhängigkeiten (`current_user`, `require_admin`, WebSocket-Prüfung) liegen in
+`backend/app/deps.py`.
+
 ## Specs pflegen
 
 - Ändert sich das Verhalten, zuerst die Spec anpassen, dann den Code (Spec-Driven Development, siehe

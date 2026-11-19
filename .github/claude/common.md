@@ -14,7 +14,7 @@
    - `backend/app/probe_auth.py`, `remote_admin.py`, `docker_admin.py`, `proxmox_admin.py`,
      `switch_admin.py` (Zugriff auf Geräte, besonders schreibend)
    - die Fähigkeitsgrenze in `backend/app/tools.py` / `mcp_server.py` (was das LLM darf)
-   - `require_admin` / `current_user` in `main.py` oder die Rückgabe von Secrets aus der API
+   - `require_admin` / `current_user` in `deps.py` oder die Rückgabe von Secrets aus der API
    - `docker-compose.yml`-Netzwerk/Socket-Einbindung, `deploy.sh`, `.github/workflows/`
 
    Für `risk:high` gilt immer zusätzlich `needs-human`. Bei Zweifel: `risk:high`.

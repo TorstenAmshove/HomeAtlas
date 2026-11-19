@@ -1,6 +1,6 @@
 """Login (session cookie) with two roles -- ADMIN sees and edits everything including stored
 passwords/API keys, MEMBER gets the documentation and the troubleshooting chat but never a
-plaintext secret (see `main.py`'s `require_admin`). That split is the point of the role system
+plaintext secret (see `deps.py`'s `require_admin`). That split is the point of the role system
 here: the household should be able to look up "wie starte ich den Server neu" without also
 handing out the router password.
 

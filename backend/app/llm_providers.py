@@ -87,7 +87,7 @@ def base_url_for(provider_type: str, settings: dict) -> str:
 
 
 def api_key_for(provider_type: str, settings: dict) -> str:
-    """The provider's API key in plaintext. Stored encrypted in the settings blob (see main.py's
+    """The provider's API key in plaintext. Stored encrypted in the settings blob (see routes/settings.py's
     `_unmask_patch`), decrypted only here, at the moment a request needs it."""
     return crypto.decrypt(settings.get(_KEY_SETTING_FIELD.get(provider_type, ""), "") or "")
 

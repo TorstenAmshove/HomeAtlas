@@ -11,7 +11,7 @@ log rotation) while the data volume survives, the account exists and nobody can 
 `ADMIN_PASSWORD` deliberately only applies when no user exists yet, so it is no way back.
 
 The second factor has the same problem: there is no self-service "disable", only the admin route
-`reset_user_mfa` in `main.py`. If the only admin loses their authenticator, nobody is left who
+`reset_user_mfa` in `routes/auth.py`. If the only admin loses their authenticator, nobody is left who
 can call it. `--reset-mfa` does here what that route does (clear `totpSecretEnc`, set
 `totpEnabled = False`, write an `mfa.reset` access-log entry) and additionally ends the user's
 open sessions, so the next login goes through enrollment again.
@@ -93,7 +93,7 @@ def main(argv: list[str]) -> int:
         print(f"Passwort für '{username}' ({user['role']}) wurde geändert.")
 
     if reset_mfa:
-        # Same effect as `reset_user_mfa` in main.py. Ending the sessions as well is stricter than
+        # Same effect as `reset_user_mfa` in routes/auth.py. Ending the sessions as well is stricter than
         # the route (which relies on `current_user` gating them to enrollment): whoever runs this
         # is recovering a lost device, so nothing opened with it should stay alive.
         db.update_user(user["id"], {"totpSecretEnc": "", "totpEnabled": False})

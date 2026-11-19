@@ -7,7 +7,7 @@ path this flag never gated. "Read-only" in `docker_probe.py` has always been app
 discipline, not an OS-enforced boundary, exactly like `probe_auth.py`'s SSH command allowlist.
 This module is that discipline's write-capable counterpart.
 
-Reachable only from `main.py`'s admin-gated routes -- never imported by `tools.py` (the LLM's
+Reachable only from the admin-gated routes in `routes/remote.py` -- never imported by `tools.py` (the LLM's
 tool-calling surface), `pipeline.py`, or `docker_probe.py`. A human clicking a button in the
 browser is the only caller these functions may ever have.
 """
