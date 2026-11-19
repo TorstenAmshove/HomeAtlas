@@ -1,6 +1,6 @@
 # ADR-0005: SQLite über ein flaches `db.py`, ohne ORM
 
-- **Status:** Akzeptiert (nachträglich dokumentiert)
+- **Status:** Ersetzt durch ADR-0010
 - **Datum:** 2026-11-14
 
 ## Kontext

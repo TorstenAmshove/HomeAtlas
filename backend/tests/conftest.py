@@ -12,7 +12,7 @@ from app import db
 
 @pytest.fixture()
 def temp_db(tmp_path, monkeypatch):
-    """A throwaway SQLite database for tests that touch db.py -- isolated per test, never the
+    """A throwaway SQLite database for tests that touch the db package -- isolated per test, never the
     real HOMEATLAS_DB_PATH."""
     monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "test.db"))
     db.init_db()
