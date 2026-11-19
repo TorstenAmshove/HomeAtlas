@@ -1,6 +1,6 @@
 # ADR-0008: Netzplan als serverseitiges SVG
 
-- **Status:** Akzeptiert (nachträglich dokumentiert)
+- **Status:** Ersetzt durch ADR-0009 (ursprünglich akzeptiert, nachträglich dokumentiert)
 - **Datum:** 2026-11-14
 
 ## Kontext
