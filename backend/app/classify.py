@@ -11,7 +11,9 @@ Deliberately additive, never destructive:
 * A low-confidence answer is discarded rather than written -- the rule-based guess is a better
   default than a shrug.
 * It never renames or re-kinds a device whose name comes from a source (manual, UniFi, Docker,
-  Proxmox, Omada). Docker containers are skipped entirely: they all share the host's IP, and the
+  Proxmox, Omada). A name the device reports itself (UPnP friendlyName, mDNS, Shelly app name,
+  recorded by discovery as `extra.nameSource`) is protected too, but only the name: such names
+  say little about the device type, so the model may still set `kind`. Docker containers are skipped entirely: they all share the host's IP, and the
   answers are mapped back per IP, so one answer would otherwise hit every container of that host.
 * Failure of the whole step is non-fatal: the scan completes with rule-based results and a warning.
 """
@@ -34,6 +36,8 @@ _VALID_IMPORTANCE = {"critical", "normal", "low"}
 
 
 _NAME_SOURCES = ("docker", "proxmox", "unifi", "omada")
+# Values of `extra.nameSource` (set by discovery) for names the device reported itself.
+_SELF_REPORTED = ("upnp", "mdns", "shelly")
 
 
 def is_container(finding: dict) -> bool:
@@ -45,6 +49,11 @@ def has_source_name(finding: dict) -> bool:
     tokens = set((finding.get("discoverySource") or "").split("+"))
     extra = finding.get("extra") or {}
     return bool(tokens.intersection(_NAME_SOURCES)) or any(key in extra for key in _NAME_SOURCES)
+
+
+def has_self_reported_name(finding: dict) -> bool:
+    """True if the current name is one the device reported itself (UPnP, mDNS, Shelly app)."""
+    return (finding.get("extra") or {}).get("nameSource") in _SELF_REPORTED
 
 
 def needs_classification(finding: dict) -> bool:
@@ -204,7 +213,12 @@ def apply(finding: dict, classification: dict) -> dict:
     value the rules already found -- a blank answer is an absence of information, not a correction."""
     if is_container(finding):
         return finding
-    protected = ("kind", "name") if has_source_name(finding) else ()
+    if has_source_name(finding):
+        protected = ("kind", "name")
+    elif has_self_reported_name(finding):
+        protected = ("name",)
+    else:
+        protected = ()
     merged = dict(finding)
     for field in ("kind", "name", "vendor", "model", "purpose", "descriptionMd", "importance", "docUrl"):
         value = classification.get(field)

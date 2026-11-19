@@ -144,6 +144,10 @@ Beim Übernehmen MUSS gelten:
 - leere Werte des Modells überschreiben nie einen vorhandenen Wert;
 - bei Funden mit Namensquelle (Quellen-Token oder `extra`-Schlüssel `docker`, `proxmox`, `unifi`,
   `omada`) bleiben `name` und `kind` unverändert, andere Felder (Zweck, Beschreibung, …) werden ergänzt;
+- bei Funden mit selbst gemeldetem Namen (`extra.nameSource` = `upnp`, `mdns` oder `shelly`, von
+  Discovery gesetzt) bleibt nur der `name` unverändert; `kind` darf die KI weiter setzen, da solche
+  Namen wenig über den Gerätetyp sagen. Ist zusätzlich eine Namensquelle (oben) im Spiel, gilt deren
+  Schutz für Name und Art;
 - ein bereits vorhandener (kuratierter) Doku-Link gewinnt immer gegen einen KI-Link;
 - `discoverySource` erhält `+ki`, `extra.aiConfidence` die Konfidenz.
 Übernommen werden `kind, name, vendor, model, purpose, descriptionMd, importance, docUrl`. Manuell
@@ -154,12 +158,22 @@ siehe [inventar](../inventar/spec.md)). **[Muss]**
 - **WENN** ein Fund aus UniFi „Mein Gerät“/`network` heißt und das Modell `vm`/„Proxmox VM …“/Zweck liefert
 - **DANN** bleiben Name und Art, der Zweck wird übernommen
 
+#### Szenario: UPnP-Name
+- **WENN** `extra.nameSource="upnp"` und die KI einen anderen Namen und `kind=vm` liefert
+- **DANN** bleibt der Name, `kind` und Zweck kommen von der KI
+
+#### Szenario: mDNS-Name
+- **WENN** `extra.nameSource="mdns"` und die KI einen anderen Namen liefert
+- **DANN** bleibt der Name; `kind` darf ergänzt werden
+
 #### Szenario: Quellen-Token
 - **WENN** `discoverySource="docker+ki"` ⇒ Namensquelle; `"arp+ki"` oder leer ⇒ keine
 
 Quelle: `backend/app/classify.py:36`, `backend/app/classify.py:43`, `backend/app/classify.py:194`,
 `backend/app/classify.py:206`, `backend/app/db.py:1224`,
 Tests: `backend/tests/test_classify_source_names.py::test_source_names_keep_name_and_kind_but_get_purpose`,
+`backend/tests/test_classify_source_names.py::test_upnp_name_kept_kind_updated`,
+`backend/tests/test_classify_source_names.py::test_mdns_name_kept_kind_updated`,
 `::test_discovery_source_variants`, `::test_containers_with_same_ip_untouched`
 
 ### Requirement: Kuratierte Hersteller-Links
@@ -241,9 +255,7 @@ Warnungen in `frontend/src/pages/ScanPage.tsx` (Route `/scan`).
   die regelbasierte – auch beim Gateway (`critical`), sobald es Kandidat ist (z. B. kein kuratierter
   Doku-Link bei Nicht-AVM-Routern). Ebenso überschreibt eine ungültige KI-`kind` (→ `other`) eine
   korrekte Regel-Art wie `router`.
-- > OFFEN: Für nicht quellgeschützte Funde ersetzt der KI-Name auch einen Selbstauskunft-Namen
-  (UPnP `friendlyName`, mDNS, Shelly-App-Name). Ein sicher erkanntes Gerät wird schon Kandidat,
-  wenn nur der Doku-Link fehlt. Widerspricht der Namenspräzedenz in CLAUDE.md/README.
+- > OFFEN: Ein sicher erkanntes Gerät wird schon Kandidat, wenn nur der Doku-Link fehlt.
 - > OFFEN: Nur exakt `"low"` wird verworfen; „LOW“, „niedrig“ o. Ä. gelten als akzeptiert.
 - > OFFEN: Die Link-Prüfung führt GET auf beliebige vom Modell gelieferte URLs vom Server aus,
   auch auf LAN-Adressen (SSRF-artig); kein Ausschluss privater Ziele.

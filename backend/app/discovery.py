@@ -630,24 +630,43 @@ async def probe_ssdp(duration: float = 5.0) -> dict[str, list[dict]]:
 # Assembling findings
 # ---------------------------------------------------------------------------------------------
 
-def _best_name(ip: str, hostname: str, mdns: list[dict], ssdp: list[dict], banner: dict, vendor: str) -> str:
+def _best_name_with_source(ip: str, hostname: str, mdns: list[dict], ssdp: list[dict], banner: dict,
+                           vendor: str) -> tuple[str, str]:
     """Naming priority: what the device calls itself (UPnP friendlyName, then mDNS instance name),
     then its DNS hostname, then a web page title, then vendor + last IP octet. The fallback still
-    beats a bare IP address for someone skimming the inventory."""
+    beats a bare IP address for someone skimming the inventory.
+
+    Returns (name, source) with source in upnp/mdns/hostname/title/vendor/ip; classify.py uses it
+    to leave self-reported names alone."""
     for entry in ssdp:
         friendly = (entry.get("description") or {}).get("friendlyName")
         if friendly:
-            return friendly[:80]
+            return friendly[:80], "upnp"
     for entry in mdns:
         if entry.get("name"):
-            return entry["name"][:80]
+            return entry["name"][:80], "mdns"
     if hostname:
-        return hostname.split(".")[0][:80]
+        return hostname.split(".")[0][:80], "hostname"
     if banner.get("title"):
-        return banner["title"][:80]
+        return banner["title"][:80], "title"
     if vendor:
-        return f"{vendor.split()[0]} ({ip.rsplit('.', 1)[-1]})"
-    return ip
+        return f"{vendor.split()[0]} ({ip.rsplit('.', 1)[-1]})", "vendor"
+    return ip, "ip"
+
+
+def _best_name(ip: str, hostname: str, mdns: list[dict], ssdp: list[dict], banner: dict, vendor: str) -> str:
+    return _best_name_with_source(ip, hostname, mdns, ssdp, banner, vendor)[0]
+
+
+def _apply_shelly_name(name: str, source: str, shelly: dict) -> tuple[str, str]:
+    """The name the owner gave the device in the Shelly app beats everything else and counts as
+    self-reported. Without one, the exact model ("Shelly Plus 1PM") still beats the identical
+    <title> every other unit serves, but is not self-reported, so the source stays unchanged."""
+    if shelly.get("name"):
+        return shelly["name"][:80], "shelly"
+    if shelly.get("model"):
+        return f"Shelly {shelly['model']}", source
+    return name, source
 
 
 def _guess(open_ports: list[int], mdns: list[dict], ssdp: list[dict], banner: dict,
@@ -907,14 +926,10 @@ async def discover(settings: dict, progress: ProgressFn, extra_targets: list[str
         if banner:
             sources.append("http")
 
-        name = _best_name(ip, hostname, device_mdns, device_ssdp, banner, vendor)
+        name, name_source = _best_name_with_source(ip, hostname, device_mdns, device_ssdp, banner, vendor)
         shelly = shelly_identities.get(ip)
         if shelly:
-            # The name the owner gave the device in the Shelly app beats everything else -- it is
-            # exactly the kind of identifying detail `_best_name`'s generic sources cannot see.
-            # Without one, the exact model ("Shelly Plus 1PM") still beats the identical <title>
-            # every other unit on the same firmware serves.
-            name = shelly["name"][:80] if shelly.get("name") else f"Shelly {shelly['model']}" if shelly.get("model") else name
+            name, name_source = _apply_shelly_name(name, name_source, shelly)
             # `model` may already hold the bare vendor guess "Shelly" from `_guess`'s signature
             # table (not a real model, just a placeholder) -- the exact model code from the
             # device itself replaces that, same as it would replace an empty field.
@@ -951,6 +966,7 @@ async def discover(settings: dict, progress: ProgressFn, extra_targets: list[str
                 "isGateway": ip == gateway,
                 "routedTarget": ip in routed,
                 "guessConfident": confident,
+                "nameSource": name_source,
             },
         })
 

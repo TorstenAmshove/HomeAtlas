@@ -38,7 +38,7 @@ Netzplan-Ebenen, `set_switch`), ADR-0009 für die Netzplan-Ebenen. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (138)
+## Alle Punkte je Fähigkeit (137)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (6)
 
@@ -96,7 +96,7 @@ Netzplan-Ebenen, `set_switch`), ADR-0009 für die Netzplan-Ebenen. Offen bleiben
 2. Die Latenz des Speedtests ist die erste Anfrage auf einer neuen Verbindung und enthält TCP- und TLS-Aufbau – systematisch zu hoch.
 3. REST-Tool-Namen weichen von den LLM-Werkzeugnamen ab (`ping` vs. `ping_host`); Alternative vereinheitlichen?
 
-### [discovery-und-scan](capabilities/discovery-und-scan/spec.md) (11)
+### [discovery-und-scan](capabilities/discovery-und-scan/spec.md) (10)
 
 1. Fortschritt springt rückwärts (94 % „Inventar aktualisieren“, dann 93 % Zugangs-Abfrage, `pipeline.py:480`/`:522`).
 2. Einzelziele umfassen IPs *aller* Inventar-Geräte außerhalb der Bereiche (auch entdeckte Controller-Clients/Proxmox-Gäste), nicht nur „von Hand eingetragene“ wie der Docstring sagt (`pipeline.py:42`). Kann viele geroutete Ziele erzeugen.
@@ -108,7 +108,6 @@ Netzplan-Ebenen, `set_switch`), ADR-0009 für die Netzplan-Ebenen. Offen bleiben
 8. Start-Prüfung „läuft schon ein Scan“ und Anlegen sind nicht atomar (Rennen Zeitplan/manuell theoretisch möglich).
 9. Namensvergabe für Nicht-Container ohne IP bei Duplikaten: kein Suffix, Duplikat bleibt.
 10. Abgeschaltete Quelle (`scanEnableDocker=false`, Controller aus) setzt alle bisher aus dieser Quelle entdeckten Geräte beim nächsten Scan auf `offline`.
-11. Eine KI-Namensempfehlung überschreibt bei nicht quellgeschützten Funden auch einen Selbstauskunft-Namen (UPnP/mDNS) und widerspricht damit der Namenspräzedenz, siehe [klassifikation-llm](../klassifikation-llm/spec.md).
 
 ### [dokumentation](capabilities/dokumentation/spec.md) (11)
 
@@ -151,7 +150,7 @@ Netzplan-Ebenen, `set_switch`), ADR-0009 für die Netzplan-Ebenen. Offen bleiben
 ### [klassifikation-llm](capabilities/klassifikation-llm/spec.md) (6)
 
 1. Weil `importance` nach Normalisierung nie leer ist, überschreibt die KI-Wichtigkeit immer die regelbasierte – auch beim Gateway (`critical`), sobald es Kandidat ist (z. B. kein kuratierter Doku-Link bei Nicht-AVM-Routern). Ebenso überschreibt eine ungültige KI-`kind` (→ `other`) eine korrekte Regel-Art wie `router`.
-2. Für nicht quellgeschützte Funde ersetzt der KI-Name auch einen Selbstauskunft-Namen (UPnP `friendlyName`, mDNS, Shelly-App-Name). Ein sicher erkanntes Gerät wird schon Kandidat, wenn nur der Doku-Link fehlt. Widerspricht der Namenspräzedenz in CLAUDE.md/README.
+2. Ein sicher erkanntes Gerät wird schon Kandidat, wenn nur der Doku-Link fehlt.
 3. Nur exakt `"low"` wird verworfen; „LOW“, „niedrig“ o. Ä. gelten als akzeptiert.
 4. Die Link-Prüfung führt GET auf beliebige vom Modell gelieferte URLs vom Server aus, auch auf LAN-Adressen (SSRF-artig); kein Ausschluss privater Ziele.
 5. Gleiche IP in mehreren Funden (Netzwerk-Fund plus UniFi/Omada/Proxmox/AdGuard) – mehrere Belegsätze pro IP im selben Stapel möglich, der letzte gewinnt, und das Ergebnis wird auf alle Funde dieser IP angewandt.
