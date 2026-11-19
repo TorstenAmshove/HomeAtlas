@@ -14,14 +14,14 @@ ein GitHub-Issue.
 |---|---|---|---|
 | 1 | **Behoben (fix/secrets-at-rest).** **Konfigurationsexporte im Klartext für MEMBER und LLM** (nachgeprüft). Ausgelesene Gerätekonfigurationen (`config_export`, `omada_backup`) liegen verschlüsselt in den Konfigurationsversionen, zusätzlich aber unverschlüsselt in `systems.extra.probe` (`backend/app/pipeline.py:115`, `backend/app/main.py:1391`). Von dort gehen sie über `GET /api/systems*` an MEMBER und landen in der generierten Doku (`backend/app/docs.py:283`), die das LLM per `get_documentation` liest. Zusätzlich gibt `GET …/config-versions/{id}` den entschlüsselten Inhalt an MEMBER (`backend/app/main.py:1413`). Exporte können SNMP-Communities, RADIUS-Secrets und WLAN-Schlüssel enthalten. Verstößt gegen Constitution R1, K2, Z4. | credentialed-probing, inventar, dokumentation | #41 |
 | 2 | **Behoben (fix/secrets-at-rest).** **LLM-API-Schlüssel im Klartext gespeichert** (nachgeprüft). `claudeApiKey` usw. liegen unverschlüsselt im Settings-JSON (`backend/app/db.py:474`); der Kommentar in `backend/app/db.py:447` behauptet das Gegenteil. Die API maskiert sie korrekt. Verstößt gegen Z1. | einstellungen-und-llm-provider | #42 |
-| 3 | **`set_switch` ohne Rolle und Bestätigung.** Jede Rolle und jeder MCP-Token kann Shelly-Relais und HA-`switch`/`light` schalten (ADR-0002/0004 erlauben das ausdrücklich). Offen sind: keine Prüfung, ob das Ziel wirklich ein Shelly ist; kein Benutzer oder Token im Protokoll; Prompt-Injection kann einen Schaltvorgang auslösen; README und MCP-Tab sagen „nur lesend“. | assistent-chat-und-mcp, remote-admin | #43 |
+| 3 | **Entschieden: bleibt für alle Rollen; Shelly-Prüfung und Auslöser im Protokoll umgesetzt (feat/chat-owner-and-switch-audit).** **`set_switch` ohne Rolle und Bestätigung.** Jede Rolle und jeder MCP-Token kann Shelly-Relais und HA-`switch`/`light` schalten (ADR-0002/0004 erlauben das ausdrücklich). Offen sind: keine Prüfung, ob das Ziel wirklich ein Shelly ist; kein Benutzer oder Token im Protokoll; Prompt-Injection kann einen Schaltvorgang auslösen; README und MCP-Tab sagen „nur lesend“. | assistent-chat-und-mcp, remote-admin | #43 |
 | 4 | **Behoben (fix/diagnostics-and-defaults) für `http_check`/`check_port`; Linkprüfung der Klassifikation und frei eingebbare LLM-Adresse offen.** **`http_check` als SSRF-Fläche.** MEMBER, Assistent und MCP-Clients können serverseitig beliebige URLs abrufen, auch `127.0.0.1` und interne Dienste. Das Gleiche gilt für die Linkprüfung der Klassifikation und für „Testen“/„Modelle laden“ mit frei eingebbarer Adresse. | diagnose, klassifikation-llm, einstellungen-und-llm-provider | #44 |
 | 5 | **Behoben (fix/login-hardening).** **Kein Brute-Force-Schutz, keine TOTP-Replay-Sperre.** Weder Rate-Limit noch Kontosperre; ein TOTP-Code ist im ~90-s-Fenster mehrfach gültig. | auth-und-rollen | #45 |
 | 6 | **Behoben (fix/diagnostics-and-defaults).** **Standard: KI-Einordnung an, Anbieter DeepSeek.** Jeder Scan schickt Geräteangaben an DeepSeek, auch ohne API-Schlüssel (dann 401). Netzwerkfehler des Anbieters lassen den ganzen Scan scheitern. | klassifikation-llm, discovery-und-scan | #46 |
 | 7 | **Behoben (fix/diagnostics-and-defaults).** **`PATCH /api/accounts/{id}` setzt bei Teil-Body Felder zurück**, auch das Opt-in `allowProbe`. Beim Ausrollen eines SSH-Schlüssels wird der editierbare Notizinhalt nach `authorized_keys` geschrieben. | zugangsdaten | #47 |
-| 8 | **MEMBER sieht Zugangs-Metadaten** (Benutzername, URL, Notizen) über `GET /api/systems/{id}`, die Doku und `list_accounts`, obwohl die Zugangs-API admin-only ist. | inventar, dokumentation, assistent-chat-und-mcp, zugangsdaten | #48 |
-| 9 | **Chats ohne Besitzer.** Jeder Benutzer sieht und löscht alle Chats. | assistent-chat-und-mcp | #49 |
-| 10 | **README-Aussage zum Docker-Socket stimmt nicht.** Die README sagt „nur GET“; `docker_admin` sendet POST (Container steuern). | remote-admin | #50 |
+| 8 | **Entschieden: in Ordnung, solange keine Secrets (geschlossen).** **MEMBER sieht Zugangs-Metadaten** (Benutzername, URL, Notizen) über `GET /api/systems/{id}`, die Doku und `list_accounts`, obwohl die Zugangs-API admin-only ist. | inventar, dokumentation, assistent-chat-und-mcp, zugangsdaten | #48 |
+| 9 | **Behoben (feat/chat-owner-and-switch-audit).** **Chats ohne Besitzer.** Jeder Benutzer sieht und löscht alle Chats. | assistent-chat-und-mcp | #49 |
+| 10 | **Behoben (#40).** **README-Aussage zum Docker-Socket stimmt nicht.** Die README sagt „nur GET“; `docker_admin` sendet POST (Container steuern). | remote-admin | #50 |
 
 ## Widersprüche zwischen Doku und Code
 
@@ -38,22 +38,16 @@ Netzplan-Ebenen, `set_switch`), ADR-0009 für die Netzplan-Ebenen. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (148)
+## Alle Punkte je Fähigkeit (138)
 
-### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (12)
+### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (6)
 
-1. `set_switch` widerspricht Aussagen in CLAUDE.md („nothing reachable from here mutates … devices“), README „Sicherheit“ („Alles, was der Assistent ausführen kann, ist lesend“) und dem MCP-Tab-Text („nichts wird verändert“); nur ADR 0002/0004 und Docstrings dokumentieren die Ausnahme. Soll eine Alternative sie übernehmen?
-2. `set_switch` mit `kind=shelly` prüft nicht, ob das Gerät ein Shelly ist — jede Inventar-`systemId` wird angesprochen, sofern `/shelly` irgendein JSON liefert.
-3. Zugriffsprotokoll-Eintrag `switch.assistant` enthält weder Benutzer noch MCP-Token — nicht nachvollziehbar, wer geschaltet hat.
-4. MEMBER und jedes MCP-Token dürfen schalten; Tokens haben keine Rolle/Scope.
-5. `list_switches` nutzt jeden HA-Zugang unabhängig vom Opt-in „Zum Auslesen verwenden“ und fragt bei jedem Aufruf live alle HA-Instanzen ab.
-6. `list_accounts` gibt MEMBER (über Chat) und MCP-Clients Benutzernamen, URLs und Notizen von Zugängen, obwohl `/api/accounts` admin-only ist; Notizen könnten Geheimnisse enthalten.
-7. Unterhaltungen haben keinen Besitzer — jeder Benutzer sieht und löscht alle Chats aller Benutzer (inkl. Tool-Ergebnissen im Kontext).
-8. Scheitert eine Runde (502), bleibt die Benutzernachricht gespeichert; die UI legt sie zurück ins Eingabefeld → beim erneuten Senden doppelt im Verlauf. Umbenennung passiert auch bei gescheiterter Runde.
-9. Keine Gesamtzeitgrenze je Runde: bis zu 8 LLM-Aufrufe à 120 s plus Werkzeuge.
-10. `systemPromptOverride` ist nur per API setzbar (keine UI) und ersetzt den Prompt ohne Platzhalter-Ersetzung (`{home_name}` bliebe wörtlich).
-11. Kein Rate-Limit auf `/api/mcp`; `lastUsedAt` wird bei jeder Anfrage geschrieben.
-12. Eine Nachricht nur aus Leerzeichen erfüllt die Mindestlänge 1 und wird gesendet; als erste Nachricht ergibt sie einen leeren Chat-Titel.
+1. `list_switches` nutzt jeden HA-Zugang unabhängig vom Opt-in „Zum Auslesen verwenden“ und fragt bei jedem Aufruf live alle HA-Instanzen ab.
+2. Scheitert eine Runde (502), bleibt die Benutzernachricht gespeichert; die UI legt sie zurück ins Eingabefeld → beim erneuten Senden doppelt im Verlauf. Umbenennung passiert auch bei gescheiterter Runde.
+3. Keine Gesamtzeitgrenze je Runde: bis zu 8 LLM-Aufrufe à 120 s plus Werkzeuge.
+4. `systemPromptOverride` ist nur per API setzbar (keine UI) und ersetzt den Prompt ohne Platzhalter-Ersetzung (`{home_name}` bliebe wörtlich).
+5. Kein Rate-Limit auf `/api/mcp`; `lastUsedAt` wird bei jeder Anfrage geschrieben.
+6. Eine Nachricht nur aus Leerzeichen erfüllt die Mindestlänge 1 und wird gesendet; als erste Nachricht ergibt sie einen leeren Chat-Titel.
 
 ### [auth-und-rollen](capabilities/auth-und-rollen/spec.md) (16)
 
@@ -182,22 +176,18 @@ Netzplan-Ebenen, `set_switch`), ADR-0009 für die Netzplan-Ebenen. Offen bleiben
 5. Ein vollständig gelesener Bereich mit 0 Einträgen deaktiviert alle Ressourcen dieses Bereichs; bei einer kurzzeitig leeren Controller-Antwort gehen sie (reversibel) aus Scan-Auswahl, Doku und Layer-3-Plan verloren.
 6. Notiz-Änderung erzeugt keinen Eintrag im Zugriffsprotokoll und hat keine Längenbegrenzung.
 
-### [remote-admin](capabilities/remote-admin/spec.md) (14)
+### [remote-admin](capabilities/remote-admin/spec.md) (10)
 
-1. `set_switch` (Assistent/MCP) erreicht `switch_admin` für **jede Rolle inkl. MEMBER und externe MCP-Clients**, ohne Rückfrage, während die gleichwertigen REST-Routen ADMIN-only sind. Laut ADR-0002/0004 dokumentierte Ausnahme; die Aufgabenbeschreibung „nie aus LLM-Tools erreichbar“ gilt also nur für die übrigen Schreibmodule. Bewusst übernehmen oder für die Alternative streichen? (`backend/app/tools.py:352`)
-2. `set_switch` mit `kind=shelly` prüft nicht, ob `systemId` tatsächlich ein Shelly ist (nur `list_switches` filtert nach Hersteller/Modell); jeder Inventar-Eintrag, der auf `/shelly` mit JSON antwortet, wird geschaltet. Gleiches gilt für `POST /shelly-switch` (UI zeigt den Bereich nur bei „shelly“ in Hersteller/Modell). (`backend/app/tools.py:360`, `backend/app/main.py:1176`)
-3. Protokolleinträge `switch.assistant` haben weder Benutzer noch IP – nicht nachvollziehbar, wer (oder welcher MCP-Client) geschaltet hat. (`backend/app/tools.py:368`, `backend/app/tools.py:382`)
-4. Prompt-Injection-Risiko: Inhalte aus Inventar/Doku könnten das Modell zu `set_switch` ohne Rückfrage verleiten.
-5. Assistent schaltet bei Shelly immer Kanal 0; REST-Route akzeptiert beliebige `channel`-Ganzzahl ohne Bereichsprüfung.
-6. Proxmox-Steuerung fällt bei *jedem* API-Fehler auf SSH zurück – auch bei fachlichen Fehlern der API (z. B. Gast bereits gestoppt); mögliche Doppelausführung/irreführende Meldung. (`backend/app/main.py:1061`)
-7. Reboot meldet evtl. Fehler, obwohl der Neustart ausgelöst wurde (SSH-Verbindung bricht beim Reboot ab, bevor ein Exit-Status kommt). Nicht durch Tests abgedeckt.
-8. Kategorie `router` wird im Reboot-Pfad akzeptiert, existiert aber in der UI-Kategorieliste nicht (`frontend/src/pages/AccountsPage.tsx:5`) – toter Zweig oder Altbestand?
-9. README „Sicherheit“ behauptet für den Docker-Socket „es werden ausschließlich GET-Endpunkte aufgerufen“ – widerspricht `docker_admin.py` (POST start/stop/restart/exec). Doku veraltet.
-10. SSH-Befehle (`connection.run`) haben kein Gesamt-Timeout; ein hängender Befehl blockiert die Anfrage unbegrenzt.
-11. Nicht-numerische `cols`/`rows` in einer Resize-Nachricht lösen eine Ausnahme aus und beenden die Sitzung statt ignoriert zu werden. (`backend/app/main.py:864`)
-12. `Terminal.tsx` erwartet laut Kommentar eine Server-Nachricht `{"type":"exit"}`, die das Backend nie sendet.
-13. Frontend kodiert `containerId` in der URL der Remote-Docker-Konsole nicht (`frontend/src/lib/api.ts:528`), anders als bei Aktion/Logs.
-14. Keine Tests für die drei WebSocket-Konsolen, lokale Container-Aktionen, Shelly/HA-Schalten und die Origin-Prüfung.
+1. Prompt-Injection-Risiko: Inhalte aus Inventar/Doku könnten das Modell zu `set_switch` ohne Rückfrage verleiten.
+2. Assistent schaltet bei Shelly immer Kanal 0; REST-Route akzeptiert beliebige `channel`-Ganzzahl ohne Bereichsprüfung.
+3. Proxmox-Steuerung fällt bei *jedem* API-Fehler auf SSH zurück – auch bei fachlichen Fehlern der API (z. B. Gast bereits gestoppt); mögliche Doppelausführung/irreführende Meldung. (`backend/app/main.py:1061`)
+4. Reboot meldet evtl. Fehler, obwohl der Neustart ausgelöst wurde (SSH-Verbindung bricht beim Reboot ab, bevor ein Exit-Status kommt). Nicht durch Tests abgedeckt.
+5. Kategorie `router` wird im Reboot-Pfad akzeptiert, existiert aber in der UI-Kategorieliste nicht (`frontend/src/pages/AccountsPage.tsx:5`) – toter Zweig oder Altbestand?
+6. SSH-Befehle (`connection.run`) haben kein Gesamt-Timeout; ein hängender Befehl blockiert die Anfrage unbegrenzt.
+7. Nicht-numerische `cols`/`rows` in einer Resize-Nachricht lösen eine Ausnahme aus und beenden die Sitzung statt ignoriert zu werden. (`backend/app/main.py:864`)
+8. `Terminal.tsx` erwartet laut Kommentar eine Server-Nachricht `{"type":"exit"}`, die das Backend nie sendet.
+9. Frontend kodiert `containerId` in der URL der Remote-Docker-Konsole nicht (`frontend/src/lib/api.ts:528`), anders als bei Aktion/Logs.
+10. Keine Tests für die drei WebSocket-Konsolen, lokale Container-Aktionen, Shelly/HA-Schalten und die Origin-Prüfung.
 
 ### [setup-wizard](capabilities/setup-wizard/spec.md) (7)
 

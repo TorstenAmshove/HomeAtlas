@@ -70,7 +70,8 @@ class _BearerAuth:
         headers = dict(scope["headers"])
         auth_header = headers.get(b"authorization", b"").decode("latin-1")
         token = auth_header[7:] if auth_header.lower().startswith("bearer ") else ""
-        if not token or db.touch_api_token(token) is None:
+        row = db.touch_api_token(token) if token else None
+        if row is None:
             response = JSONResponse(
                 {"error": "Kein gültiges MCP-Token. Siehe Einstellungen -> MCP-Server."},
                 status_code=401,
@@ -78,7 +79,12 @@ class _BearerAuth:
             )
             await response(scope, receive, send)
             return
-        await self._app(scope, receive, send)
+        # Names the token in the access log if a tool call switches something (tools._log_switch).
+        actor = tools.current_actor.set({"username": f"MCP: {row.get('label') or row['id']}"})
+        try:
+            await self._app(scope, receive, send)
+        finally:
+            tools.current_actor.reset(actor)
 
 
 async def _mcp_asgi(scope: Scope, receive: Receive, send: Send) -> None:

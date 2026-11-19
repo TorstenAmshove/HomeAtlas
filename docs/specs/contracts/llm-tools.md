@@ -49,6 +49,6 @@ Die Beschreibungstexte, die das Modell sieht, stehen auf Deutsch in `backend/app
 Teil des Verhaltens: Sie sagen dem Modell, welches Werkzeug es zuerst nehmen soll (z. B.
 `internet_check` bei „Internet geht nicht“, `list_switches` vor `set_switch`).
 
-> OFFEN (Produktentscheidung für die Alternative): `set_switch` ist die in ADR 0002 und ADR 0004
-> dokumentierte einzige Ausnahme von der Lese-Regel (für alle Rollen und alle MCP-Clients, ohne
-> Bestätigung). Übernehmen, auf ADMIN beschränken oder eine Bestätigung verlangen?
+`set_switch` ist die in ADR 0002 und ADR 0004 dokumentierte einzige Ausnahme von der Lese-Regel:
+für alle Rollen und alle MCP-Clients, ohne Bestätigung (bestätigt in #43). Es erreicht nur Geräte,
+die als Shelly erkannt sind, und protokolliert den Auslöser (Benutzer bzw. MCP-Token).

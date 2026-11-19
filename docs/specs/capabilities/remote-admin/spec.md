@@ -284,15 +284,11 @@ UI-Seite(n): `frontend/src/pages/SystemDetailPage.tsx` (Route `/geraete/:id`), T
 
 ## OFFEN
 
-- > OFFEN: `set_switch` (Assistent/MCP) erreicht `switch_admin` für **jede Rolle inkl. MEMBER und externe MCP-Clients**, ohne Rückfrage, während die gleichwertigen REST-Routen ADMIN-only sind. Laut ADR-0002/0004 dokumentierte Ausnahme; die Aufgabenbeschreibung „nie aus LLM-Tools erreichbar“ gilt also nur für die übrigen Schreibmodule. Bewusst übernehmen oder für die Alternative streichen? (`backend/app/tools.py:352`)
-- > OFFEN: `set_switch` mit `kind=shelly` prüft nicht, ob `systemId` tatsächlich ein Shelly ist (nur `list_switches` filtert nach Hersteller/Modell); jeder Inventar-Eintrag, der auf `/shelly` mit JSON antwortet, wird geschaltet. Gleiches gilt für `POST /shelly-switch` (UI zeigt den Bereich nur bei „shelly“ in Hersteller/Modell). (`backend/app/tools.py:360`, `backend/app/main.py:1176`)
-- > OFFEN: Protokolleinträge `switch.assistant` haben weder Benutzer noch IP – nicht nachvollziehbar, wer (oder welcher MCP-Client) geschaltet hat. (`backend/app/tools.py:368`, `backend/app/tools.py:382`)
 - > OFFEN: Prompt-Injection-Risiko: Inhalte aus Inventar/Doku könnten das Modell zu `set_switch` ohne Rückfrage verleiten.
 - > OFFEN: Assistent schaltet bei Shelly immer Kanal 0; REST-Route akzeptiert beliebige `channel`-Ganzzahl ohne Bereichsprüfung.
 - > OFFEN: Proxmox-Steuerung fällt bei *jedem* API-Fehler auf SSH zurück – auch bei fachlichen Fehlern der API (z. B. Gast bereits gestoppt); mögliche Doppelausführung/irreführende Meldung. (`backend/app/main.py:1061`)
 - > OFFEN: Reboot meldet evtl. Fehler, obwohl der Neustart ausgelöst wurde (SSH-Verbindung bricht beim Reboot ab, bevor ein Exit-Status kommt). Nicht durch Tests abgedeckt.
 - > OFFEN: Kategorie `router` wird im Reboot-Pfad akzeptiert, existiert aber in der UI-Kategorieliste nicht (`frontend/src/pages/AccountsPage.tsx:5`) – toter Zweig oder Altbestand?
-- > OFFEN: README „Sicherheit“ behauptet für den Docker-Socket „es werden ausschließlich GET-Endpunkte aufgerufen“ – widerspricht `docker_admin.py` (POST start/stop/restart/exec). Doku veraltet.
 - > OFFEN: SSH-Befehle (`connection.run`) haben kein Gesamt-Timeout; ein hängender Befehl blockiert die Anfrage unbegrenzt.
 - > OFFEN: Nicht-numerische `cols`/`rows` in einer Resize-Nachricht lösen eine Ausnahme aus und beenden die Sitzung statt ignoriert zu werden. (`backend/app/main.py:864`)
 - > OFFEN: `Terminal.tsx` erwartet laut Kommentar eine Server-Nachricht `{"type":"exit"}`, die das Backend nie sendet.

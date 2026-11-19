@@ -485,6 +485,8 @@ async def shelly_switch(system_id: str, action: str, request: Request, channel: 
     system = db.get_system(system_id)
     if system is None:
         raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
+    if not switch_admin.is_shelly(system):
+        raise HTTPException(status_code=400, detail="Dieses Gerät ist kein Shelly.")
     host = (system.get("ip") or system.get("hostname") or "").strip()
     if not host:
         raise HTTPException(status_code=400, detail="Für dieses Gerät ist keine Adresse hinterlegt.")

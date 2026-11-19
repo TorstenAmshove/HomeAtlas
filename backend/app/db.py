@@ -384,6 +384,9 @@ _ADDED_COLUMNS: tuple[tuple[str, str, str], ...] = (
     ("docPageVersions", "manualMd", "TEXT NOT NULL DEFAULT ''"),
     ("users", "totpSecretEnc", "TEXT NOT NULL DEFAULT ''"),
     ("users", "totpEnabled", "INTEGER NOT NULL DEFAULT 0"),
+    # Owner of a conversation (#49). NULL for chats created before ownership existed: those are
+    # visible to admins only.
+    ("chats", "userId", "TEXT"),
     # Highest TOTP time-step counter already used to log in -- a code is single-use (RFC 6238 §5.2).
     ("users", "totpLastCounter", "INTEGER NOT NULL DEFAULT 0"),
     ("systems", "monitored", "INTEGER NOT NULL DEFAULT 0"),
@@ -2018,17 +2021,21 @@ def list_monitor_events(system_id: str | None = None, limit: int = 100) -> list[
 # Chat
 # --------------------------------------------------------------------------------------------
 
-def create_chat(title: str = "Neue Unterhaltung") -> dict:
+def create_chat(title: str = "Neue Unterhaltung", user_id: str | None = None) -> dict:
     chat_id = _new_id()
     now = _now()
     with _conn() as conn:
-        conn.execute("INSERT INTO chats(id, title, createdAt, updatedAt) VALUES(?,?,?,?)", (chat_id, title, now, now))
-    return {"id": chat_id, "title": title, "createdAt": now, "updatedAt": now}
+        conn.execute("INSERT INTO chats(id, title, createdAt, updatedAt, userId) VALUES(?,?,?,?,?)",
+                     (chat_id, title, now, now, user_id))
+    return {"id": chat_id, "title": title, "createdAt": now, "updatedAt": now, "userId": user_id}
 
 
-def list_chats() -> list[dict]:
+def list_chats(user_id: str | None = None) -> list[dict]:
+    """All chats, or only those owned by `user_id` when given."""
     with _conn() as conn:
-        return _rows(conn.execute("SELECT * FROM chats ORDER BY updatedAt DESC"))
+        if user_id is None:
+            return _rows(conn.execute("SELECT * FROM chats ORDER BY updatedAt DESC"))
+        return _rows(conn.execute("SELECT * FROM chats WHERE userId = ? ORDER BY updatedAt DESC", (user_id,)))
 
 
 def get_chat(chat_id: str) -> dict | None:
