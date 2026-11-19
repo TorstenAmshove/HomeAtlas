@@ -23,7 +23,7 @@ Läuft als Docker-Container im eigenen Netz. Keine Cloud, keine Registrierung.
 | **Geräte auslesen** | Mit freigegebenen Zugängen anmelden und Eckdaten lesen — streng lesend, feste Befehlsliste (SSH, HTTP, FRITZ!Box TR-064) |
 | **Hersteller-Doku** | Link zur passenden Support-Seite je Gerät; von der KI vorgeschlagene Links werden vor dem Speichern auf Erreichbarkeit geprüft |
 | **Versionierte Doku** | Jeder frühere Stand jeder Seite bleibt abrufbar und wiederherstellbar |
-| **Zwei Rollen** | Administrator sieht und ändert alles; Mitglieder lesen die Doku und nutzen den Chat — ohne Passwörter |
+| **Zwei Rollen** | Administrator sieht und ändert alles; Mitglieder lesen die Doku und nutzen den Chat — ohne Passwörter. Jeder sieht nur seine eigenen Unterhaltungen mit dem Assistenten |
 | **Dauerüberwachung** | Wichtige Geräte alle paar Sekunden per Port oder Ping geprüft, mit Ausfallverlauf |
 | **Übersichtsplan** | Automatisch erzeugter Netzplan vom Internet bis zu den Endgeräten |
 | **UniFi Network** | Liest Geräte, physische Uplinks, VLANs, WLANs und WANs direkt über die lokale UniFi-API aus |

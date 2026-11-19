@@ -19,15 +19,28 @@ MCP-Endpunkt zur Verfügung, abgesichert mit vom Admin erzeugten Tokens.
 | Tools über `/api/mcp` aufrufen (inkl. `set_switch`) | – | – | ja |
 | MCP-Tokens auflisten, erzeugen, widerrufen | ja | nein | nein |
 
-Unterhaltungen sind haushaltsweit: jede angemeldete Rolle sieht und löscht alle Unterhaltungen
-(siehe OFFEN).
+Unterhaltungen gehören dem Benutzer, der sie angelegt hat: Jeder sieht, liest, setzt fort und
+löscht nur die eigenen; ADMIN sieht alle (Entscheidung zu #49).
 
 ## Anforderungen
 
 ### Requirement: Unterhaltungen verwalten
-Das System MUSS Unterhaltungen anlegen (Titel „Neue Unterhaltung“), neueste Aktivität zuerst
-auflisten und löschen können; Löschen entfernt alle Nachrichten der Unterhaltung. Löschen einer
-unbekannten ID ist kein Fehler. **[Muss]**
+Das System MUSS Unterhaltungen anlegen (Titel „Neue Unterhaltung“, Besitzer = anlegender Benutzer),
+neueste Aktivität zuerst auflisten und löschen können; Löschen entfernt alle Nachrichten der
+Unterhaltung. **[Muss]**
+
+### Requirement: Unterhaltungen je Benutzer
+Ein Benutzer DARF nur eigene Unterhaltungen sehen, lesen, fortsetzen und löschen; ADMIN darf alle.
+Unterhaltungen ohne Besitzer (angelegt vor dieser Regel) sind nur für ADMIN sichtbar. Eine fremde
+oder unbekannte Unterhaltung beantwortet das System mit 404, ohne ihre Existenz zu verraten.
+**[Muss]**
+
+#### Szenario: Fremde Unterhaltung
+- **WENN** Bert die Unterhaltung von Anna abrufen, fortsetzen oder löschen will
+- **DANN** antwortet das System mit 404, Annas Unterhaltung bleibt unverändert
+
+Quelle: `backend/app/routes/chat.py` (`_visible_chat`), `backend/app/db.py` (`chats.userId`), Tests:
+`backend/tests/test_chat_owner_and_switch.py::test_member_sees_only_own_chats`, `::test_admin_sees_all_including_ownerless`
 
 #### Szenario: Neue Unterhaltung
 - **WENN** ein Benutzer „Neue Unterhaltung“ anlegt
@@ -193,10 +206,15 @@ Relais (Kanal 0) oder eine Home-Assistant-Entity ein- oder auszuschalten. Ziele 
 aus der Datenbank aufgelöst werden (Shelly: `systemId` eines Inventargeräts → dessen IP/Hostname;
 HA: `accountId` eines Zugangs der Kategorie `homeassistant` → dessen URL/Token), nie aus vom LLM
 gelieferten Adressen. Bei Home Assistant MÜSSEN nur die Domänen `switch` und `light` geschaltet
-werden; jeder Schaltversuch MUSS mit Aktion `switch.assistant`, Ziel und Ergebnis ins
-Zugriffsprotokoll. `list_switches` liefert Shelly-Geräte (Hersteller „Shelly“ oder Modell enthält
-„shelly“) und höchstens 200 HA-Entities der Domänen switch/light. **[Muss]** (Produktentscheidung,
-ADR 0002/0004; siehe OFFEN.)
+werden; Shelly-Befehle gehen nur an Geräte, deren Hersteller oder Modell „Shelly“ enthält (dieselbe
+Prüfung wie `list_switches` und die Oberfläche). Jeder Schaltversuch MUSS mit Aktion
+`switch.assistant`, Ziel, Ergebnis und Auslöser (angemeldeter Benutzer im Chat bzw. „MCP: <Token-
+Bezeichnung>“) ins Zugriffsprotokoll. `list_switches` liefert die Shelly-Geräte und höchstens 200
+HA-Entities der Domänen switch/light. **[Muss]** (Produktentscheidung, ADR 0002/0004, bestätigt in #43.)
+
+#### Szenario: Kein Shelly
+- **WENN** `set_switch` mit `kind=shelly` und der `systemId` eines NAS aufgerufen wird
+- **DANN** wird kein Befehl gesendet und das Ergebnis ist „Kein Shelly-Gerät mit dieser systemId gefunden …“
 
 #### Szenario: Schloss verweigert
 - **WENN** das LLM `set_switch` mit `kind=ha`, `entityId=lock.haustuer` aufruft
@@ -206,7 +224,8 @@ ADR 0002/0004; siehe OFFEN.)
 - **WENN** `set_switch` mit `kind=shelly` und unbekannter `systemId` aufgerufen wird
 - **DANN** lautet das Ergebnis „Kein Shelly-Gerät mit dieser systemId gefunden -- vorher list_switches aufrufen.“
 
-Quelle: `backend/app/tools.py:335`, `backend/app/tools.py:352`, `backend/app/switch_admin.py:24`, `backend/app/switch_admin.py:27`, `backend/app/switch_admin.py:53`
+Quelle: `backend/app/tools.py:335`, `backend/app/tools.py:352`, `backend/app/switch_admin.py:24`, `backend/app/switch_admin.py:27`, `backend/app/switch_admin.py:53`,
+`switch_admin.is_shelly`, `tools.current_actor`, Tests: `backend/tests/test_chat_owner_and_switch.py`
 
 ### Requirement: Externer MCP-Endpunkt
 Das System MUSS unter `/api/mcp` einen MCP-Server (Streamable HTTP, zustandslos, JSON-Antworten)
@@ -295,13 +314,7 @@ UI-Seite(n): `frontend/src/pages/ChatPage.tsx` (Route `/assistent`); MCP-Tokens 
 
 ## OFFEN
 
-- > OFFEN: `set_switch` widerspricht Aussagen in CLAUDE.md („nothing reachable from here mutates … devices“), README „Sicherheit“ („Alles, was der Assistent ausführen kann, ist lesend“) und dem MCP-Tab-Text („nichts wird verändert“); nur ADR 0002/0004 und Docstrings dokumentieren die Ausnahme. Soll eine Alternative sie übernehmen?
-- > OFFEN: `set_switch` mit `kind=shelly` prüft nicht, ob das Gerät ein Shelly ist — jede Inventar-`systemId` wird angesprochen, sofern `/shelly` irgendein JSON liefert.
-- > OFFEN: Zugriffsprotokoll-Eintrag `switch.assistant` enthält weder Benutzer noch MCP-Token — nicht nachvollziehbar, wer geschaltet hat.
-- > OFFEN: MEMBER und jedes MCP-Token dürfen schalten; Tokens haben keine Rolle/Scope.
 - > OFFEN: `list_switches` nutzt jeden HA-Zugang unabhängig vom Opt-in „Zum Auslesen verwenden“ und fragt bei jedem Aufruf live alle HA-Instanzen ab.
-- > OFFEN: `list_accounts` gibt MEMBER (über Chat) und MCP-Clients Benutzernamen, URLs und Notizen von Zugängen, obwohl `/api/accounts` admin-only ist; Notizen könnten Geheimnisse enthalten.
-- > OFFEN: Unterhaltungen haben keinen Besitzer — jeder Benutzer sieht und löscht alle Chats aller Benutzer (inkl. Tool-Ergebnissen im Kontext).
 - > OFFEN: Scheitert eine Runde (502), bleibt die Benutzernachricht gespeichert; die UI legt sie zurück ins Eingabefeld → beim erneuten Senden doppelt im Verlauf. Umbenennung passiert auch bei gescheiterter Runde.
 - > OFFEN: Keine Gesamtzeitgrenze je Runde: bis zu 8 LLM-Aufrufe à 120 s plus Werkzeuge.
 - > OFFEN: `systemPromptOverride` ist nur per API setzbar (keine UI) und ersetzt den Prompt ohne Platzhalter-Ersetzung (`{home_name}` bliebe wörtlich).

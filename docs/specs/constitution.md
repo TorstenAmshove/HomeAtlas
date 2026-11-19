@@ -26,7 +26,9 @@
 ## 2. Rollen und Anmeldung
 
 - **R1 [Muss]** Zwei Rollen: **ADMIN** (alles, inkl. Secrets und schreibender Gerätezugriff) und
-  **MEMBER** (Doku, Inventar lesen, Assistent; nie ein Klartext-Secret).
+  **MEMBER** (Doku, Inventar lesen, Assistent; nie ein Klartext-Secret). Benutzernamen, URLs und
+  Notizen von Zugängen dürfen MEMBER und das LLM sehen (#48). Unterhaltungen mit dem Assistenten
+  sind je Benutzer getrennt, ADMIN sieht alle (#49).
 - **R2 [Muss]** Rechte werden **serverseitig** durchgesetzt. Die Oberfläche blendet nur aus; eine
   reine UI-Änderung darf nie ändern, was die API erlaubt. Admin-Seiten sind auf beiden Seiten gesperrt.
 - **R3 [Muss]** Zwei-Faktor-Anmeldung (TOTP, RFC 6238, ohne externen Dienst) ist für **jedes**
@@ -70,8 +72,9 @@
   Proxmox-Aktionen) sind nur für ADMIN und nur über die Oberfläche/API erreichbar, nie über
   Scan-Pipeline, Probes oder KI-Werkzeuge.
 - **L5 [Muss]** Einzige Ausnahme: Ein/Aus-Schalten von Shelly-Relais und Home-Assistant
-  `switch`/`light` per KI-Werkzeug `set_switch`, für alle Rollen. Erweiterungen brauchen eine
-  bewusste Entscheidung. > OFFEN: für die Alternative übernehmen?
+  `switch`/`light` per KI-Werkzeug `set_switch`, für alle Rollen und MCP-Clients, ohne Rückfrage
+  (bestätigt in #43). Nur echte Shelly-Geräte; jeder Vorgang wird mit Auslöser protokolliert.
+  Erweiterungen brauchen eine bewusste Entscheidung.
 - **L6 [Impl]** Lese- und Schreibseite sind getrennte Module, die einander nicht importieren;
   gemeinsamer Code wird eher dupliziert als geteilt.
 - **L7 [Muss, bewusste Abwägung]** SSH-Hostschlüssel werden nicht geprüft (kein Vertrauensspeicher;

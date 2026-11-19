@@ -24,6 +24,13 @@ _TIMEOUT = httpx.Timeout(8.0, connect=3.0)
 _HA_ALLOWED_DOMAINS = ("switch", "light")
 
 
+def is_shelly(system: dict) -> bool:
+    """Whether an inventory entry is a Shelly device -- the same test the UI uses to show the switch
+    buttons. Checked before every switch command, so a systemId the model (or a client) names can
+    only ever reach a device that actually is a Shelly."""
+    return "shelly" in f"{system.get('vendor') or ''} {system.get('model') or ''}".lower()
+
+
 async def shelly_set_switch(host: str, on: bool, channel: int = 0) -> dict:
     """Turns one relay channel of a Shelly device on or off. Gen1 devices (`/shelly` -> no "gen"
     key, or `gen` == 1) use the classic `GET /relay/{ch}?turn=on|off` REST call; Gen2+ (Plus/Pro

@@ -136,7 +136,8 @@ Paar `(idA, idB)`, das ein Mensch als „kein Duplikat“ markiert hat.
 `summary` (JSON), `log`.
 
 ### chats / chatMessages — Unterhaltungen mit dem Assistenten
-`chats`: `title` (Default „Neue Unterhaltung“), `createdAt`, `updatedAt`.
+`chats`: `title` (Default „Neue Unterhaltung“), `userId` (Besitzer; leer bei Altdaten, dann nur
+für ADMIN sichtbar), `createdAt`, `updatedAt`.
 `chatMessages`: `role`, `content`, `toolCalls`, `providerRaw` (unveränderte Anbieterantwort, damit
 signierte Thinking-Blöcke beim nächsten Zug exakt zurückgespielt werden können **[Impl]**),
 `toolCallId`, `name`, `durationMs`, `createdAt`.

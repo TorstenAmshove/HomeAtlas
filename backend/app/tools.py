@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import time
+from contextvars import ContextVar
 
 from . import crypto, db, diagnostics, discovery, docker_probe, llm_providers, probe_auth, prompts, switch_admin
 from datetime import datetime, timezone
@@ -31,6 +32,20 @@ from datetime import datetime, timezone
 # A tool result is fed straight back into the context window; an unbounded one (a /24 inventory, a
 # long traceroute) would crowd out the conversation. Truncation is announced in the payload so the
 # model asks a narrower question instead of assuming it saw everything.
+# Who is calling the tools right now, for the access log of the one write action (`set_switch`):
+# the in-app chat sets the logged-in user, mcp_server.py the MCP token's label. A ContextVar rather
+# than a parameter so `dispatch`'s signature stays the same for both callers.
+current_actor: ContextVar[dict | None] = ContextVar("homeatlas_tool_actor", default=None)
+
+
+def _log_switch(detail: str, ok: bool) -> None:
+    actor = current_actor.get() or {}
+    if actor.get("user"):
+        db.log_access("switch.assistant", user=actor["user"], detail=detail, ok=ok)
+    else:
+        db.log_access("switch.assistant", username=actor.get("username") or "unbekannt", detail=detail, ok=ok)
+
+
 _MAX_RESULT_CHARS = 6000
 _MAX_ITERATIONS = 8
 
@@ -336,7 +351,7 @@ async def _dispatch(name: str, args: dict) -> object:
         shellies = [
             {"systemId": s["id"], "name": s["name"], "ip": s["ip"], "status": s["status"]}
             for s in db.list_systems()
-            if s.get("vendor") == "Shelly" or "shelly" in (s.get("model") or "").lower()
+            if switch_admin.is_shelly(s)
         ]
         ha_entities: list[dict] = []
         for account in db.list_accounts(None):
@@ -359,13 +374,13 @@ async def _dispatch(name: str, args: dict) -> object:
         kind = args.get("kind")
         if kind == "shelly":
             system = db.get_system(args.get("systemId") or "")
-            if system is None:
+            if system is None or not switch_admin.is_shelly(system):
                 return {"error": "Kein Shelly-Gerät mit dieser systemId gefunden -- vorher list_switches aufrufen."}
             host = (system.get("ip") or system.get("hostname") or "").strip()
             if not host:
                 return {"error": f"Für „{system['name']}“ ist keine Adresse hinterlegt."}
             result = await switch_admin.shelly_set_switch(host, on)
-            db.log_access("switch.assistant", detail=f"{system['name']} -> {state_label}", ok=result["ok"])
+            _log_switch(f"{system['name']} -> {state_label}", result["ok"])
             if not result["ok"]:
                 return {"error": result["error"]}
             return {"ok": True, "device": system["name"], "state": state_label}
@@ -379,7 +394,7 @@ async def _dispatch(name: str, args: dict) -> object:
             token = crypto.decrypt(account.get("secretEnc") or "")
             result = await switch_admin.ha_set_switch(account.get("url") or system.get("url") or "", token,
                                                        entity_id, on)
-            db.log_access("switch.assistant", detail=f"{entity_id} -> {state_label}", ok=result["ok"])
+            _log_switch(f"{entity_id} -> {state_label}", result["ok"])
             if not result["ok"]:
                 return {"error": result["error"]}
             return {"ok": True, "entity": entity_id, "state": state_label}
@@ -445,7 +460,15 @@ def history_for_llm(chat_id: str) -> list[dict]:
     return messages
 
 
-async def run_chat_turn(chat_id: str, user_text: str, settings: dict) -> dict:
+async def run_chat_turn(chat_id: str, user_text: str, settings: dict, user: dict | None = None) -> dict:
+    token = current_actor.set({"user": user} if user else None)
+    try:
+        return await _run_chat_turn(chat_id, user_text, settings)
+    finally:
+        current_actor.reset(token)
+
+
+async def _run_chat_turn(chat_id: str, user_text: str, settings: dict) -> dict:
     """Persists the user turn, then runs the model/tool loop until it produces a plain answer.
     Every intermediate step is persisted as it happens, so a crash or timeout leaves a readable
     transcript rather than a half-turn that can't be replayed."""
