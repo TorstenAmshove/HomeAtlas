@@ -112,7 +112,6 @@ Was nicht maschinell geprüft wird, ist für einen Agenten nur ein Vorschlag.
 - **Frontend:** `npm run build` (tsc) läuft im Docker-Build. ESLint ist optional.
 - **Claude-Code-Hooks** in `.claude/settings.json` (greifen auch in der GitHub Action):
   - `PostToolUse` nach Edit/Write auf `*.py` → `ruff check --fix`, verbleibende Fehler gehen an Claude zurück.
-  - `PreToolUse` für `deploy.sh` (ändern oder ausführen) → immer Rückfrage. In der Action heißt das: nein.
   - Faustregel: Was **immer** gelten muss, gehört in einen Hook oder in die CI. CLAUDE.md beschreibt
     Kontext und Gründe.
 

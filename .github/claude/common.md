@@ -16,7 +16,7 @@
      `switch_admin.py` (Zugriff auf Geräte, besonders schreibend)
    - die Fähigkeitsgrenze in `backend/app/tools.py` / `mcp_server.py` (was das LLM darf)
    - `require_admin` / `current_user` in `deps.py` oder die Rückgabe von Secrets aus der API
-   - `docker-compose.yml`-Netzwerk/Socket-Einbindung, `deploy.sh`, `.github/workflows/`
+   - `docker-compose.yml`-Netzwerk/Socket-Einbindung, `.github/workflows/`
 
    Für `risk:high` gilt immer zusätzlich `needs-human`. Bei Zweifel: `risk:high`.
 5. **Lese-/Schreib-Trennung (ADR-0011) nie aufweichen.** Kein neuer Import eines schreibenden

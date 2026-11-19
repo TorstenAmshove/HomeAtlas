@@ -35,8 +35,8 @@ services:
   frontend:
     build:
       context: ./frontend
-      # deploy.sh fills these in; the build context on the server has no .git directory, so the
-      # commit stamp has to be computed on the machine that triggers the build.
+      # CI passes the commit stamp as build args; a local `docker compose build` shows "dev"
+      # unless VITE_BUILD_SHA/VITE_BUILD_TIME are set in the environment.
       args:
         VITE_BUILD_SHA: ${VITE_BUILD_SHA:-dev}
         VITE_BUILD_TIME: ${VITE_BUILD_TIME:-}
