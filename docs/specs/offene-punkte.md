@@ -37,7 +37,7 @@ Sicherheitsrelevant. Die ersten beiden sind am Code nachgeprüft (Commit 0159807
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (166)
+## Alle Punkte je Fähigkeit (167)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (12)
 
@@ -239,16 +239,17 @@ Sicherheitsrelevant. Die ersten beiden sind am Code nachgeprüft (Commit 0159807
 11. Kommentar an `_MAX_CRITICAL_BOXES` nennt eine „readability floor“ der Kastenbreite; `_row` hat keine Untergrenze, bei vielen Layer-3-Knoten werden Kästen beliebig schmal.
 12. Mischt ein Router /24-Näherungen aus Probe-Fakten mit exakten Controller-CIDRs (z. B. /26), können beide als getrennte Subnetze in die Ketteninferenz eingehen.
 
-### [zugangsdaten](capabilities/zugangsdaten/spec.md) (11)
+### [zugangsdaten](capabilities/zugangsdaten/spec.md) (12)
 
-1. Kategorie wird serverseitig nicht validiert; beliebige Werte werden gespeichert.
-2. PATCH ist faktisch ein Voll-Ersatz (siehe Requirement „Ändern ersetzt alle übrigen Felder“); ein API-Client mit Teil-PATCH setzt Felder unbemerkt zurück, u. a. `allowProbe`.
-3. Secret und Passphrase lassen sich über die API nicht mehr leeren (leer = unverändert).
-4. Ausrollen schreibt den Inhalt des frei editierbaren Notizfelds nach `authorized_keys` – wird die Notiz geändert, landet beliebiger Text dort (`backend/app/main.py:782`).
-5. Ausrollen akzeptiert jede Kategorie als Login-Zugang (z. B. `snmp`, `wifi`); das Secret wird dann als SSH-Passwort benutzt.
-6. `systemId` wird beim Anlegen/Ändern nicht auf Existenz geprüft.
-7. Löschen eines unbekannten Zugangs liefert `{ok: true}` statt 404.
-8. Anlegen, Ändern und Löschen von Zugängen werden nicht im Zugriffsprotokoll erfasst, nur Abruf, Erzeugung und Ausrollen.
-9. Gesicherte Gerätekonfigurationen und Probe-Fakten können Secrets enthalten und sind für MEMBER/LLM sichtbar – siehe OFFEN in [credentialed-probing](../credentialed-probing/spec.md).
-10. MEMBER sehen über Geräteansicht und Doku Benutzernamen, URLs und Notizen aller Zugänge; ob Notizen sensibel sein dürfen, ist nicht geregelt.
-11. Löschen eines Geräts löscht dessen Zugänge unwiderruflich mit, ohne Rückfrage auf API-Ebene.
+1. Ein nicht entschlüsselbares Secret wird als leerer String ausgeliefert und als erfolgreicher Abruf (`ok=1`) protokolliert; Admin und Protokoll sehen nicht, dass der Schlüssel fehlt (`backend/app/crypto.py:49`).
+2. Kategorie wird serverseitig nicht validiert; beliebige Werte werden gespeichert.
+3. PATCH ist faktisch ein Voll-Ersatz (siehe Requirement „Ändern ersetzt alle übrigen Felder“); ein API-Client mit Teil-PATCH setzt Felder unbemerkt zurück, u. a. `allowProbe`.
+4. Secret und Passphrase lassen sich über die API nicht mehr leeren (leer = unverändert).
+5. Ausrollen schreibt den Inhalt des frei editierbaren Notizfelds nach `authorized_keys` – wird die Notiz geändert, landet beliebiger Text dort (`backend/app/main.py:782`).
+6. Ausrollen akzeptiert jede Kategorie als Login-Zugang (z. B. `snmp`, `wifi`); das Secret wird dann als SSH-Passwort benutzt.
+7. `systemId` wird beim Anlegen/Ändern nicht auf Existenz geprüft.
+8. Löschen eines unbekannten Zugangs liefert `{ok: true}` statt 404.
+9. Anlegen, Ändern und Löschen von Zugängen werden nicht im Zugriffsprotokoll erfasst, nur Abruf, Erzeugung und Ausrollen.
+10. Gesicherte Gerätekonfigurationen und Probe-Fakten können Secrets enthalten und sind für MEMBER/LLM sichtbar – siehe OFFEN in [credentialed-probing](../credentialed-probing/spec.md).
+11. MEMBER sehen über Geräteansicht und Doku Benutzernamen, URLs und Notizen aller Zugänge; ob Notizen sensibel sein dürfen, ist nicht geregelt.
+12. Löschen eines Geräts löscht dessen Zugänge unwiderruflich mit, ohne Rückfrage auf API-Ebene.

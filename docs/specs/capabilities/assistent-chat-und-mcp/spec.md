@@ -78,7 +78,7 @@ summierte Token-Zahlen (`promptTokens`, `completionTokens`). Modellwahl mit Zwec
 - **DANN** enthält `toolsUsed` `["list_systems", "ping_host"]` und die Antwort basiert auf beiden Ergebnissen
 
 #### Szenario: Iterationsgrenze
-- **WENN** das LLM in 8 Runden hintereinander Werkzeuge anfordert
+- **WENN** das LLM bei allen 8 LLM-Aufrufen einer Antwort Werkzeuge anfordert
 - **DANN** speichert das System „Ich habe mehrere Prüfungen hintereinander durchgeführt … Magst du die Frage etwas eingrenzen …“ und `model` ist leer
 
 Quelle: `backend/app/tools.py:35`, `backend/app/tools.py:448`, `backend/app/tools.py:462`, `backend/app/tools.py:483`
@@ -265,7 +265,7 @@ Siehe [data-model](../../contracts/data-model.md).
 | GET | /api/chats/{chat_id}/messages | MEMBER | Verlauf (nur user/assistant mit Inhalt) |
 | POST | /api/chats/{chat_id}/messages | MEMBER | Nachricht `{message}` senden → `{message, model, toolsUsed, usage}` |
 | GET | /api/settings/mcp-tokens | ADMIN | Tokenliste ohne Tokenwert |
-| POST | /api/settings/mcp-tokens | ADMIN | Token `{label}` erzeugen, Wert einmalig |
+| POST | /api/settings/mcp-tokens | ADMIN | Token `{label}` erzeugen; Antwort `{token: {id, label, token, createdAt, lastUsedAt}}`, der Wert `token.token` nur hier einmalig (`backend/app/main.py:455`) |
 | DELETE | /api/settings/mcp-tokens/{token_id} | ADMIN | Token widerrufen |
 | MOUNT | /api/mcp | MCP-Token (Bearer) | MCP Streamable HTTP, Werkzeuge des Assistenten |
 

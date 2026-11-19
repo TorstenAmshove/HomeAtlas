@@ -110,15 +110,21 @@ Quelle: `backend/app/main.py:691`, `backend/app/db.py:1548`, Test: `backend/test
 ### Requirement: Secret einzeln abrufen und protokollieren
 Das System MUSS das entschlüsselte Secret genau eines Zugangs nur auf ausdrückliche Admin-Anfrage
 liefern (`{secret}`) und jeden Abruf im Zugriffsprotokoll festhalten (Aktion `secret.reveal`,
-Benutzer, Client-IP, User-Agent, Detail = Bezeichnung). Unbekannte ID → 404. Die Passphrase eines
-SSH-Schlüssels wird nie ausgeliefert. **[Muss]**
+Benutzer, Client-IP, User-Agent, Detail = Bezeichnung). Unbekannte ID → 404 ohne Protokolleintrag.
+Lässt sich das Secret nicht entschlüsseln (z. B. Schlüsseldatei ersetzt), kommt ein leerer String
+zurück; der Abruf wird trotzdem als erfolgreich protokolliert. Die Passphrase eines SSH-Schlüssels
+wird nie ausgeliefert. **[Muss]**
 
 #### Szenario: Router-Passwort anzeigen
 - **WENN** ein Admin bei „Router“ auf „Anzeigen“ klickt
 - **DANN** erhält er das Klartext-Passwort, und das Zugriffsprotokoll enthält einen
   `secret.reveal`-Eintrag mit seinem Namen und „Router“
 
-Quelle: `backend/app/main.py:679`
+#### Szenario: Secret nicht entschlüsselbar
+- **WENN** die Schlüsseldatei nach einer Wiederherstellung fehlt und ein Admin ein Secret anzeigt
+- **DANN** erhält er `{secret: ""}`, und das Protokoll enthält einen `secret.reveal`-Eintrag mit `ok=1`
+
+Quelle: `backend/app/main.py:679`, `backend/app/main.py:687`, `backend/app/crypto.py:49`
 
 ### Requirement: Verschlüsselung at rest
 Das System MUSS Secrets, Passphrasen, den Standard-Zugang und gesicherte Gerätekonfigurationen
@@ -292,6 +298,7 @@ UI-Seite(n): `frontend/src/pages/AccountsPage.tsx` (Route `/zugaenge`, nur Admin
 
 ## OFFEN
 
+- > OFFEN: Ein nicht entschlüsselbares Secret wird als leerer String ausgeliefert und als erfolgreicher Abruf (`ok=1`) protokolliert; Admin und Protokoll sehen nicht, dass der Schlüssel fehlt (`backend/app/crypto.py:49`).
 - > OFFEN: Kategorie wird serverseitig nicht validiert; beliebige Werte werden gespeichert.
 - > OFFEN: PATCH ist faktisch ein Voll-Ersatz (siehe Requirement „Ändern ersetzt alle übrigen
   Felder“); ein API-Client mit Teil-PATCH setzt Felder unbemerkt zurück, u. a. `allowProbe`.
