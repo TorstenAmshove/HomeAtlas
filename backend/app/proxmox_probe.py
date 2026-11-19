@@ -211,7 +211,7 @@ async def list_guests(base_url: str, token_id: str, token_secret: str) -> dict:
 
     `containers` entries share their base shape (id/name/image/state/status) with remote_admin.
     list_remote_containers' Docker listing so the frontend can render both with one table -- but
-    Docker is never involved on the Proxmox path: this is the primary source main.py's
+    Docker is never involved on the Proxmox path: this is the primary source routes/remote.py's
     `list_remote_containers` route uses for a system with a "proxmox"-category account attached,
     with `remote_admin.list_remote_proxmox_guests` (native `pct list`/`qm list` over SSH) only as
     its fallback when this call itself fails. Neither path ever runs a `docker` command against a
@@ -254,7 +254,7 @@ async def list_guests(base_url: str, token_id: str, token_secret: str) -> dict:
                         status = guest.get("status") or "unbekannt"
                         containers.append({
                             # ":" not "/" -- a literal slash inside a single FastAPI path segment
-                            # (`{container_id}` in main.py's remote-containers routes) would split
+                            # (`{container_id}` in routes/remote.py's remote-containers routes) would split
                             # into extra path segments and break routing entirely.
                             "id": f"{node}:{path}:{vmid}",
                             "name": guest.get("name") or f"{'VM' if kind == 'vm' else 'LXC'} {vmid}",

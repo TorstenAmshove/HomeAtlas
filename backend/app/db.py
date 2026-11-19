@@ -475,7 +475,7 @@ def get_settings() -> dict:
 
 # --------------------------------------------------------------------------------------------
 # One-time clean-up of secrets older versions stored in readable places (see
-# main._migrate_plaintext_secrets). Idempotent; none of these touch `updatedAt`, since nothing the
+# routes.settings._migrate_plaintext_secrets). Idempotent; none of these touch `updatedAt`, since nothing the
 # household maintains changes.
 # --------------------------------------------------------------------------------------------
 

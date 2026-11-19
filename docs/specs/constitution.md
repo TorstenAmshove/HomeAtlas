@@ -148,7 +148,8 @@
 - **D5 [Impl]** Netzplan wird serverseitig als SVG erzeugt, ohne Graph-Bibliothek im Browser,
   ohne Zoomen/Ziehen. ([ADR 0008](../adr/0008-topologie-als-server-svg.md))
 - **D6 [Impl]** Frontend: React + react-router ohne State-Bibliothek, ein zentraler typisierter
-  API-Client. Backend: Python/FastAPI.
+  API-Client. Backend: Python/FastAPI, Routen in einem Modul je Fähigkeitsgruppe
+  (`backend/app/routes/`), gemeinsame Rollenprüfung in `backend/app/deps.py`.
 
 ## 8. Qualität
 

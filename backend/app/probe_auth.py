@@ -244,7 +244,7 @@ _CONFIG_BACKUP_KEYS = {"config_export", "omada_backup"}
 # systems.extra.probe, which MEMBER, the generated docs and the LLM can all read.
 CONFIG_BACKUP_KEYS = frozenset(_CONFIG_BACKUP_KEYS)
 # The labels those facts are rendered under -- only needed to scrub docs and chat history written
-# by versions that still stored exports in extra.probe (see main._migrate_plaintext_secrets).
+# by versions that still stored exports in extra.probe (see routes.settings._migrate_plaintext_secrets).
 # tests/test_secrets_at_rest.py checks that every config-export command uses one of these.
 CONFIG_BACKUP_LABELS = ("Vollständige Konfiguration", "Omada-Controller-Sicherung (neueste Datei, Base64)")
 
@@ -1536,7 +1536,7 @@ def without_config_backups(results: dict) -> dict:
 def extract_config_backups(system: dict, outcome: dict) -> list[tuple[str, str, str]]:
     """(label, content, source) triples for any full-config-export fact in a probe outcome. Pure
     function -- no db import, so this module stays exactly what its docstring claims: it reads
-    devices, it does not touch storage. The caller (main.py, pipeline.py) decides what to persist."""
+    devices, it does not touch storage. The caller (routes/systems.py, pipeline.py) decides what to persist."""
     backups: list[tuple[str, str, str]] = []
     for source, result in outcome.get("results", {}).items():
         if not result.get("ok"):
@@ -1551,7 +1551,7 @@ def persist_config_backups(system: dict, outcome: dict) -> int:
     """Stores any full-config-export facts from a probe outcome as a new deviceConfigVersions row
     -- but only when the content actually changed (comparing normalized text, see
     `_normalize_config_text`), so a scan that finds nothing different doesn't grow the history.
-    Called from both probe call sites (main.py's manual probe endpoint, pipeline.py's scheduled
+    Called from both probe call sites (routes/systems.py's manual probe endpoint, pipeline.py's scheduled
     scan) so the logic lives once. Content is encrypted before it ever reaches the database -- a
     device export can carry secrets (SNMP community strings, RADIUS shared secrets, WiFi keys),
     the same threat model as `accounts.secretEnc`. Returns how many new versions were written."""

@@ -10,7 +10,7 @@ must never touch a module that can write to a device. `reboot_fritzbox` is the o
 that writes over HTTP (a TR-064 SOAP action) rather than SSH -- same duplication-over-import
 reasoning applies to its overlap with `probe_auth.probe_fritzbox`'s read-only GetInfo calls.
 
-Reachable only from `main.py`'s admin-gated REST/WebSocket routes. Never imported by `tools.py`
+Reachable only from the admin-gated REST/WebSocket routes in `routes/remote.py`. Never imported by `tools.py`
 (the LLM's tool-calling surface) -- a human clicking a button in the browser is the only caller
 these functions may ever have. If a future change adds an import from `tools.py` here, that is the
 bug, not a refactor to build on.
@@ -173,7 +173,7 @@ async def deploy_public_key(host: str, account: dict, public_key: str, port: int
 
 
 async def open_ssh_pty(host: str, account: dict, port: int = 0, cols: int = 80, rows: int = 24):
-    """Opens an interactive PTY session for the WebSocket relay in main.py to consume. Unlike
+    """Opens an interactive PTY session for the WebSocket relay in routes/remote.py to consume. Unlike
     probe_auth's probe_ssh, this RAISES on failure -- there is exactly one caller (the WS route)
     and it needs the exception text to report back over the socket, not a swallowed {"ok": False}.
 
@@ -296,7 +296,7 @@ def _parse_qm_list(text: str) -> list[dict]:
 
 async def list_remote_proxmox_guests(host: str, account: dict, port: int = 0) -> dict:
     """LXC containers (`pct list`) and VMs (`qm list`) on a Proxmox host, reached over SSH with a
-    stored credential -- the SSH fallback for main.py's `list_remote_containers` route when
+    stored credential -- the SSH fallback for routes/remote.py's `list_remote_containers` route when
     `proxmox_probe.list_guests`'s REST call fails (or no Proxmox API token is stored at all, only
     an SSH login). Deliberately never `docker ps` -- a Proxmox host manages VMs/containers through
     `pct`/`qm`, not Docker, and has no Docker CLI installed at all; that mismatch is exactly the bug

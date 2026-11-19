@@ -4,7 +4,7 @@ split as `docker_probe.py`/`docker_admin.py`.
 One call: `POST /nodes/{node}/{qemu|lxc}/{vmid}/status/{start|shutdown|reboot}` against the same
 REST API `proxmox_probe.py` reads from, with the same `PVEAPIToken` auth header.
 
-Reachable only from `main.py`'s admin-gated routes -- never imported by `tools.py` (the LLM's
+Reachable only from the admin-gated routes in `routes/remote.py` -- never imported by `tools.py` (the LLM's
 tool-calling surface), `pipeline.py`, or `proxmox_probe.py`. A human clicking a button in the
 browser is the only caller this function may ever have.
 """

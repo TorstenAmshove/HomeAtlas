@@ -81,6 +81,11 @@ this only matters when reasoning about cross-platform behavior, not for normal d
 
 ## Backend architecture (`backend/app/`)
 
+`main.py` only assembles the app (lifespan, MCP mount, router includes). HTTP routes live in
+`routes/<group>.py`, one module per capability group matching `docs/specs/capabilities/`; the
+session/role dependencies and helpers several groups share live in `deps.py`, which imports nothing
+from `routes/`. A route module never imports another route module.
+
 Every module has a docstring explaining its own design rationale and constraints — read the
 module docstring before editing it, it usually answers "why is this written this way" before you
 have to ask. Key structural rules that span multiple files:
@@ -89,7 +94,7 @@ have to ask. Key structural rules that span multiple files:
 devices/Docker and modules that change them are deliberately separate and never import each
 other:
 - `docker_probe.py` (read-only, GET-only Docker API calls) vs. `docker_admin.py` (write-capable
-  container control) — the latter is reachable only from `main.py`'s admin-gated routes, never
+  container control) — the latter is reachable only from the admin-gated routes in `routes/remote.py`, never
   from `tools.py` or `pipeline.py`.
 - `probe_auth.py` (read-only SSH/HTTP/TR-064 device probing, hardcoded command allowlist in
   `_SSH_COMMANDS` with no setting/parameter/tool able to extend it) vs. `remote_admin.py`
@@ -128,7 +133,7 @@ loss as an outage.
 **`db.py`** is the only place that touches SQLite — a flat module of functions over a single
 connection helper, no ORM. **`crypto.py`** (Fernet, key stored alongside the DB in the same
 volume — protects against a leaked DB copy, not a host-root attacker) encrypts credentials in
-`accounts.secretEnc`; `main.py` only ever returns a stored secret one-at-a-time from
+`accounts.secretEnc`; the API only ever returns a stored secret one-at-a-time from
 `GET /api/accounts/{id}/secret`, admin-only, never in bulk.
 
 **`llm_providers.py`** is a provider-neutral HTTP client (Claude/OpenAI/Gemini/DeepSeek/Ollama) —
@@ -140,7 +145,7 @@ sibling project GlucoSphere-Web's `llm_providers.py` structure by design — kee
 similar if you touch this.
 
 **`auth.py`** implements two roles: ADMIN (full access including secrets) and MEMBER (docs +
-chat, read-only, never a plaintext secret). `main.py`'s `require_admin`/`current_user`
+chat, read-only, never a plaintext secret). `deps.py`'s `require_admin`/`current_user`
 dependencies are the enforcement point — `current_user` also hard-requires TOTP enrollment
 (`security.py`) on every route except the small allowlist needed to complete enrollment itself.
 
@@ -154,7 +159,7 @@ picture a non-technical reader can actually parse.
 Plain React + react-router, no state library — `App.tsx` holds auth state (session user, MFA/setup
 gating) in context and is the source of truth for the login → MFA-enroll → setup-wizard → app
 gating sequence; the same order is enforced independently on the backend (see `current_user` in
-`main.py`), so a UI-only change here doesn't change what the API actually allows.
+`deps.py`), so a UI-only change here doesn't change what the API actually allows.
 
 `lib/api.ts` is a single typed fetch wrapper — every backend call goes through `request()`, which
 is where session-cookie handling, FastAPI validation-error flattening, and the "MFA re-enrolled
