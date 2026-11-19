@@ -239,6 +239,14 @@ _PTY_PLATFORMS = {"arubacx", "cisco", "tplink"}
 # fed into deviceConfigVersions. Kept separate from the general truncation limit (see probe_ssh)
 # because a whole router/switch config is the point of collecting it, not a side note.
 _CONFIG_BACKUP_KEYS = {"config_export", "omada_backup"}
+# Public name for the same set: these facts may carry secrets (SNMP communities, RADIUS shared
+# secrets, WiFi keys) and therefore live *only* encrypted in deviceConfigVersions -- never in
+# systems.extra.probe, which MEMBER, the generated docs and the LLM can all read.
+CONFIG_BACKUP_KEYS = frozenset(_CONFIG_BACKUP_KEYS)
+# The labels those facts are rendered under -- only needed to scrub docs and chat history written
+# by versions that still stored exports in extra.probe (see main._migrate_plaintext_secrets).
+# tests/test_secrets_at_rest.py checks that every config-export command uses one of these.
+CONFIG_BACKUP_LABELS = ("Vollständige Konfiguration", "Omada-Controller-Sicherung (neueste Datei, Base64)")
 
 # Base64-encoded binary backups (currently just "omada_backup") need a much larger ceiling than
 # text config exports -- a few hundred KB of raw backup easily becomes >60000 base64 characters,
@@ -1510,6 +1518,19 @@ def extract_printer_supplies(outcome: dict) -> list[dict]:
             if match:
                 supplies.append({"name": match.group(1), "percent": float(match.group(2).replace(",", "."))})
     return supplies
+
+
+def without_config_backups(results: dict) -> dict:
+    """A copy of a probe outcome's `results` with every full-config-export fact removed -- the
+    form that may be stored in `systems.extra.probe`. The exports themselves are persisted
+    separately and encrypted by `persist_config_backups`. Pure function."""
+    cleaned: dict = {}
+    for source, result in results.items():
+        facts = result.get("facts")
+        if isinstance(facts, dict) and any(key in _CONFIG_BACKUP_KEYS for key in facts):
+            result = {**result, "facts": {k: v for k, v in facts.items() if k not in _CONFIG_BACKUP_KEYS}}
+        cleaned[source] = result
+    return cleaned
 
 
 def extract_config_backups(system: dict, outcome: dict) -> list[tuple[str, str, str]]:

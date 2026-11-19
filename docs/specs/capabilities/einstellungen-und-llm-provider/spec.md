@@ -100,7 +100,10 @@ Quelle: `backend/app/main.py:422`, `backend/app/main.py:434`, `backend/app/main.
 Das System DARF gespeicherte API-Schlüssel nie ausliefern: ein gesetzter Schlüssel erscheint als
 `********`, ein leerer als „“. Verschlüsselt gespeicherte Felder (Standard-Zugang: Geheimnis,
 Passphrase) DÜRFEN weder im Klartext noch als Chiffrat ausgeliefert werden; stattdessen meldet das
-System `hasDefaultCredentialSecret` / `hasDefaultCredentialPassphrase` (bool). **[Muss]**
+System `hasDefaultCredentialSecret` / `hasDefaultCredentialPassphrase` (bool). API-Schlüssel
+werden verschlüsselt gespeichert und nur im Moment eines Anbieter-Aufrufs entschlüsselt
+(`llm_providers.api_key_for`); Klartext-Schlüssel älterer Versionen werden beim Start verschlüsselt.
+**[Muss]** (Test: `backend/tests/test_secrets_at_rest.py`)
 
 #### Szenario: Gespeicherter Claude-Schlüssel
 - **WENN** `claudeApiKey` gesetzt ist
@@ -273,7 +276,6 @@ Netzwerk-Scan, Überwachung, MCP-Server nur für Admins; Konto und Über für al
 
 ## OFFEN
 
-- > OFFEN: API-Schlüssel (`claudeApiKey` usw.) liegen **im Klartext** im Settings-JSON; der Kommentar in `db.py:447` („Stored encrypted … same as the API keys“) behauptet das Gegenteil. Sollen sie wie Zugangsdaten verschlüsselt werden?
 - > OFFEN: Ein leer gesendeter API-Schlüssel löscht ihn, ein leer gesendetes Standard-Zugang-Geheimnis bleibt erhalten — uneinheitliche Semantik.
 - > OFFEN: `PATCH /api/settings` akzeptiert beliebige Schlüssel und Typen, auch `setupCompleted` oder ein rohes `defaultCredentialSecretEnc`.
 - > OFFEN: UI-Fehler: Nach „Modelle laden“ wird nur `data`, nicht `form` aktualisiert; die neue Liste erscheint erst nach Neuladen, und ein anschließendes „Speichern“ schreibt den alten `providerModelCache` zurück.

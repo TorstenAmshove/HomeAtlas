@@ -112,7 +112,10 @@ async def _probe_with_credentials(log) -> tuple[int, list[str], dict[str, str], 
         if not outcome["ran"]:
             continue
 
-        patch: dict = {"extra": {**(system.get("extra") or {}), "probe": outcome["results"]}}
+        # Config exports go only into encrypted deviceConfigVersions (persist_config_backups below),
+        # never into extra.probe, which members, the docs and the LLM can read.
+        patch: dict = {"extra": {**(system.get("extra") or {}),
+                                 "probe": probe_auth.without_config_backups(outcome["results"])}}
         if outcome.get("purpose") and not system.get("purpose"):
             patch["purpose"] = outcome["purpose"]
 

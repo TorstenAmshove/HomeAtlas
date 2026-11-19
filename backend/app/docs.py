@@ -13,10 +13,11 @@ would be worse than useless.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from . import db, discovery, llm_providers, prompts
+from . import db, discovery, llm_providers, probe_auth, prompts
 
 KIND_LABELS = {
     "router": "Router", "network": "Netzwerk-Gerät", "server": "Server", "nas": "Netzwerkspeicher",
@@ -199,6 +200,17 @@ def _fmt_date(value: str | None) -> str:
         return value
 
 
+def scrub_config_exports(markdown: str) -> str:
+    """Removes config-export facts from already rendered Markdown -- for pages and page versions
+    generated before exports were kept out of extra.probe. Matches both shapes the renderer below
+    produces: a multi-line value in an indented code block, and a single-line value inline."""
+    for label in probe_auth.CONFIG_BACKUP_LABELS:
+        bullet = re.escape(f"- **{_escape(label)}:**")
+        markdown = re.sub(bullet + r"\n\n  ```\n.*?\n  ```\n", "", markdown, flags=re.S)
+        markdown = re.sub(bullet + r" [^\n]*\n?", "", markdown)
+    return markdown
+
+
 def _escape(text: str) -> str:
     """Markdown tables break on a raw pipe in a device name; devices really are named things like
     'Drucker | Büro'."""
@@ -281,10 +293,13 @@ def _device_details(systems: list[dict], by_id: dict[str, dict], children_by_par
         parts.append("\n".join(facts) + "\n")
 
         probe = (s.get("extra") or {}).get("probe") or {}
+        # Config exports never belong in the docs (members and the LLM read them); they are already
+        # kept out of extra.probe, this is the second line of defence for rows written before that.
         readings = [
             (fact["label"], fact["value"])
             for result in probe.values() if result.get("ok")
-            for fact in (result.get("facts") or {}).values()
+            for key, fact in (result.get("facts") or {}).items()
+            if key not in probe_auth.CONFIG_BACKUP_KEYS
         ]
         if readings:
             parts.append("**Direkt vom Gerät ausgelesen**\n")

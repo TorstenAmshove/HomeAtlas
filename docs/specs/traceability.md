@@ -127,7 +127,7 @@ Lücken: **0**
 | `get_system` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `network_overview` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `list_documentation` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [dokumentation](capabilities/dokumentation/spec.md) |
-| `get_documentation` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [credentialed-probing](capabilities/credentialed-probing/spec.md), [dokumentation](capabilities/dokumentation/spec.md) |
+| `get_documentation` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [dokumentation](capabilities/dokumentation/spec.md) |
 | `list_accounts` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `list_containers` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `list_switches` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [remote-admin](capabilities/remote-admin/spec.md) |

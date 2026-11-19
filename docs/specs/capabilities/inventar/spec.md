@@ -273,6 +273,10 @@ Je Gerät und Bezeichnung werden höchstens `configVersionKeep` Versionen behalt
 begrenzt auf 1–1000, älteste fallen weg). Inhalte sind verschlüsselt gespeichert und werden nie auf
 das Gerät zurückgeschrieben. **[Muss]**
 
+Liste und Inhalt der Konfigurationsversionen sind nur für ADMIN abrufbar (MEMBER: 403); die
+Oberfläche zeigt den Bereich nur Administratoren. **[Muss]** (`backend/app/main.py`, `list_config_versions`/`get_config_version`;
+Test: `backend/tests/test_secrets_at_rest.py::test_config_versions_are_admin_only`)
+
 #### Szenario: Fremde Version
 - **WENN** `GET /api/systems/A/config-versions/<Version von B>` aufgerufen wird
 - **DANN** 404
@@ -354,8 +358,8 @@ Aus [data-model](../../contracts/data-model.md):
 | GET | /api/systems/{system_id}/aliases | ADMIN | Aliase → `{aliases}` |
 | POST | /api/systems/{system_id}/merge | ADMIN | Body `{removeId}` → `{system}` |
 | POST | /api/systems/{system_id}/not-duplicate | ADMIN | Body `{otherId}` → `{ok}` |
-| GET | /api/systems/{system_id}/config-versions | MEMBER | Versionsliste → `{versions}` |
-| GET | /api/systems/{system_id}/config-versions/{version_id} | MEMBER | Version mit Klartext → `{version}` |
+| GET | /api/systems/{system_id}/config-versions | ADMIN | Versionsliste → `{versions}` |
+| GET | /api/systems/{system_id}/config-versions/{version_id} | ADMIN | Version mit Klartext → `{version}` |
 | GET | /api/systems/{system_id}/errors | MEMBER | Fehlerereignisse → `{events}` |
 
 Berührte fremde Routen (nur verlinkt): Auslesen `POST /api/systems/{id}/probe`
@@ -388,8 +392,6 @@ UI-Seite(n): `frontend/src/pages/InventoryPage.tsx` (Route `/geraete`),
 
 ## OFFEN
 
-- > OFFEN: MEMBER kann über `GET …/config-versions/{version_id}` den entschlüsselten Inhalt einer Gerätekonfiguration lesen (`backend/app/main.py:1413`, `:1417`), obwohl diese laut Schema SNMP-Communities, RADIUS-Secrets, WLAN-Schlüssel enthalten kann (`backend/app/db.py:292`). Widerspricht „MEMBER sieht nie ein Klartext-Geheimnis".
-- > OFFEN: Die Probe-Ergebnisse inkl. vollständigem `config_export` (bis 60000 Zeichen) landen unverschlüsselt in `systems.extra.probe` (`backend/app/pipeline.py:115`, `backend/app/main.py:1391`) und gehen per `GET /api/systems` / `GET /api/systems/{id}` an MEMBER. Untergräbt die Verschlüsselung der Konfigurationsversionen.
 - > OFFEN: `GET /api/systems/{id}` liefert MEMBER die Zugangs-Metadaten (Label, Benutzername, URL, Notizen) des Geräts; nur die UI blendet sie aus. Gewollt?
 - > OFFEN: PATCH validiert nichts: `kind`/`importance` beliebig, `status`, `discoveryKey`, `discovered`, `extra`, `openPorts`, `lastSeen` frei schreibbar. Ein `discoveryKey`, den schon ein anderes Gerät hat, verletzt den Unique-Index → vermutlich HTTP 500.
 - > OFFEN: Da die UI das komplette Gerät zurückschickt, überschreibt Speichern zwischenzeitliche Änderungen von Scan/Überwachung (`status`, `extra`, `openPorts`, `lastSeen`) mit dem alten Stand (Lost Update).
