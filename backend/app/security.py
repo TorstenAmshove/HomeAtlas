@@ -17,6 +17,7 @@ import hmac
 import re
 import secrets
 import struct
+import threading
 import time
 import unicodedata
 
@@ -117,21 +118,91 @@ def _code_at(secret_b32: str, counter: int) -> str:
     return str(value % (10 ** _DIGITS)).zfill(_DIGITS)
 
 
-def verify_totp(secret_b32: str, code: str, window: int = 1) -> bool:
-    """`window` steps of tolerance in each direction, so a phone clock that is a few seconds off
-    still works. Comparison is constant-time."""
+def totp_counter(secret_b32: str, code: str, window: int = 1) -> int | None:
+    """The time-step counter `code` is valid for, or None. `window` steps of tolerance in each
+    direction, so a phone clock that is a few seconds off still works. Comparison is constant-time.
+    Callers that log someone in must also reject a counter that was already used (replay), see
+    `db.claim_totp_counter`."""
     code = re.sub(r"\s", "", code or "")
     if not secret_b32 or not re.fullmatch(r"\d{6}", code):
-        return False
+        return None
     counter = int(time.time()) // _STEP
     for drift in range(-window, window + 1):
         try:
             expected = _code_at(secret_b32, counter + drift)
         except (ValueError, TypeError):
-            return False
+            return None
         if secrets.compare_digest(expected, code):
-            return True
-    return False
+            return counter + drift
+    return None
+
+
+def verify_totp(secret_b32: str, code: str, window: int = 1) -> bool:
+    return totp_counter(secret_b32, code, window) is not None
+
+
+# ---------------------------------------------------------------------------------------------
+# Login throttling. Without it a known password plus a 6-digit code (3 valid per moment) could be
+# tried online without limit. Sliding window, in memory: one instance per household, and a
+# restart resetting the counters is acceptable -- it does not reopen the replay hole, which is
+# closed in the database (`users.totpLastCounter`).
+#
+# Three keys, each with its own limit:
+# - username + client IP: the normal case, tight (a typo-prone person still gets several tries);
+# - client IP alone: one source guessing many usernames;
+# - username alone: many sources against one account. Loose on purpose -- a tight per-account
+#   limit would let anyone lock the admin out from anywhere.
+# ---------------------------------------------------------------------------------------------
+
+LOGIN_WINDOW_SECONDS = 15 * 60
+_LOGIN_LIMITS = {"user_ip": 5, "ip": 20, "user": 50}
+
+
+class LoginThrottle:
+    def __init__(self, clock=time.monotonic) -> None:
+        self._clock = clock
+        self._failures: dict[tuple[str, str], list[float]] = {}
+        self._lock = threading.Lock()
+
+    @staticmethod
+    def _keys(username: str, ip: str) -> list[tuple[str, str]]:
+        user = (username or "").strip().casefold()
+        return [("user_ip", f"{user}\x00{ip}"), ("ip", ip), ("user", user)]
+
+    def _recent(self, key: tuple[str, str], now: float) -> list[float]:
+        stamps = [t for t in self._failures.get(key, []) if now - t < LOGIN_WINDOW_SECONDS]
+        if stamps:
+            self._failures[key] = stamps
+        else:
+            self._failures.pop(key, None)
+        return stamps
+
+    def retry_after(self, username: str, ip: str) -> int:
+        """Seconds until another attempt is allowed; 0 if allowed now."""
+        now = self._clock()
+        wait = 0.0
+        with self._lock:
+            for key in self._keys(username, ip):
+                stamps = self._recent(key, now)
+                if len(stamps) >= _LOGIN_LIMITS[key[0]]:
+                    wait = max(wait, stamps[0] + LOGIN_WINDOW_SECONDS - now)
+        return int(wait) + 1 if wait > 0 else 0
+
+    def record_failure(self, username: str, ip: str) -> None:
+        now = self._clock()
+        with self._lock:
+            for key in self._keys(username, ip):
+                self._recent(key, now)
+                self._failures.setdefault(key, []).append(now)
+
+    def record_success(self, username: str, ip: str) -> None:
+        """Clears only the username+IP key: a success from one place must not wipe out evidence of
+        an attack from elsewhere."""
+        with self._lock:
+            self._failures.pop(self._keys(username, ip)[0], None)
+
+
+login_throttle = LoginThrottle()
 
 
 def provisioning_uri(secret_b32: str, account: str, issuer: str = "HomeAtlas") -> str:

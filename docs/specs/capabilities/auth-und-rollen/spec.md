@@ -95,6 +95,43 @@ in die Einrichtung gezwungen, siehe nächste Requirements); ein mitgeschickter C
 
 Quelle: `backend/app/auth.py:62`, `backend/app/main.py:163`, Test: `frontend/e2e/smoke.spec.ts::login, MFA enrollment, setup and main routes render without errors`
 
+### Requirement: Schutz gegen Durchprobieren
+Das System MUSS fehlgeschlagene Anmeldungen (falsches Passwort, falscher oder bereits benutzter
+TOTP-Code) zählen und weitere Versuche mit HTTP 429 und `Retry-After` ablehnen, solange in den
+letzten 15 Minuten erreicht sind: 5 Fehlversuche für denselben Benutzernamen von derselben
+Client-IP, 20 von derselben IP (beliebige Namen) oder 50 für denselben Namen (beliebige IPs). Eine
+gesperrte Anmeldung wird nicht geprüft, auch nicht mit richtigem Passwort, und als `login` mit
+`ok=0` und „gesperrt nach zu vielen Fehlversuchen“ protokolliert. Die Aufforderung, den Code
+einzugeben (Passwort richtig, Code fehlt), ist kein Fehlversuch. Eine erfolgreiche Anmeldung löscht
+nur den Zähler für Name + IP. **[Muss]** (Grenzwerte und Speicherung im Arbeitsspeicher **[Impl]**)
+
+#### Szenario: Sperre nach fünf Fehlversuchen
+- **WENN** von einer IP fünfmal ein falsches Passwort für „anna“ gesendet wird
+- **DANN** antwortet auch der sechste Versuch mit richtigem Passwort und Code mit 429
+
+#### Szenario: Andere Quelle nicht betroffen
+- **WENN** die Fehlversuche von 10.0.0.66 kamen
+- **DANN** kann sich „anna“ von 10.0.0.5 normal anmelden
+
+Quelle: `backend/app/security.py` (`LoginThrottle`), `backend/app/main.py` (`login`), Tests:
+`backend/tests/test_auth_login.py::test_lockout_after_repeated_failures_even_with_correct_password`,
+`::test_wrong_codes_count_towards_lockout`, `::test_lockout_is_per_source_for_the_tight_limit`,
+`::test_asking_for_the_code_is_not_a_failure`, `::test_ip_limit_covers_many_usernames`
+
+### Requirement: TOTP-Codes sind einmalig
+Das System MUSS je Benutzer den Zeitschritt des zuletzt verwendeten TOTP-Codes speichern und einen
+Code ablehnen, dessen Zeitschritt nicht neuer ist (Wiederholung oder älterer Code), bei der Anmeldung
+wie bei der Bestätigung der Einrichtung. Die Prüfung ist atomar, zwei gleichzeitige Anmeldungen mit
+demselben Code können nicht beide gelingen. **[Muss]**
+
+#### Szenario: Wiederverwendeter Code
+- **WENN** „anna“ sich mit Code 123456 angemeldet hat und derselbe Code erneut gesendet wird
+- **DANN** antwortet das System mit 401 und `X-HomeAtlas-MFA: required`
+
+Quelle: `backend/app/db.py` (`claim_totp_counter`, Spalte `users.totpLastCounter`),
+`backend/app/auth.py` (`verify_login`), Tests: `backend/tests/test_auth_login.py::test_totp_code_is_single_use`,
+`::test_older_code_after_newer_one_is_rejected`
+
 ### Requirement: Kein Benutzer-Enumerations-Hinweis
 Das System MUSS bei unbekanntem Benutzer und bei falschem Passwort dieselbe Antwort geben und für
 einen unbekannten Benutzer trotzdem einen Hash berechnen, damit die Antwortzeit nichts verrät. Erst
@@ -446,8 +483,6 @@ UI-Seite(n): `frontend/src/pages/LoginPage.tsx` (ohne Session, jede Route),
 
 ## OFFEN
 
-- > OFFEN: Kein Brute-Force-Schutz. 6-stelliger TOTP mit ±1 Schritt (3 gültige Codes) ist bei bekanntem Passwort ohne Limit online durchprobierbar.
-- > OFFEN: Keine Replay-Sperre: ein TOTP-Code ist innerhalb seines ~90-s-Fensters mehrfach verwendbar.
 - > OFFEN: `DELETE /api/users/{id}` schreibt keinen Protokolleintrag, obwohl die AccessLogPage ein Label `user.delete` kennt und README „Benutzeränderungen“ als protokolliert nennt (wirkt wie Bug).
 - > OFFEN: `DELETE /api/users/{id}` antwortet für unbekannte IDs mit `{ok: true}` statt 404 (PATCH/mfa-reset liefern 404).
 - > OFFEN: PATCH `/api/users/{id}` ist nicht atomar: Anzeigename/Rolle werden gespeichert, bevor ein zu schwaches `newPassword` mit 400 abgelehnt wird.
