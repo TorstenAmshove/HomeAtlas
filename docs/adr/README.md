@@ -11,6 +11,10 @@ Menschen und für KI-Agenten, die sonst bewusste Entscheidungen „wegrefaktorie
 - Wer (Mensch oder Agent) einer Entscheidung widersprechen will, schlägt ein neues ADR vor, statt
   sie im Code zu umgehen.
 - Format: siehe `template.md`. Kurz halten – eine Bildschirmseite.
+- **Constitution nachziehen.** Die Regeln aus den ADRs stehen als Einzeiler mit Link in
+  [`docs/specs/constitution.md`](../specs/constitution.md); die Begründung steht nur hier. Ein neues
+  oder ersetzendes ADR bringt im selben PR die passende Regel dort mit (neu, geändert oder auf das
+  neue ADR umverlinkt). `python docs/specs/trace_specs.py --check` scheitert sonst.
 
 ## Index
 

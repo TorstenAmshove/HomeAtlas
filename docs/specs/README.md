@@ -82,6 +82,11 @@ Gemeinsame Abhängigkeiten (`current_user`, `require_admin`, WebSocket-Prüfung)
 
 - Ändert sich das Verhalten, zuerst die Spec anpassen, dann den Code (Spec-Driven Development, siehe
   [docs/ai-workflow/](../ai-workflow/README.md)).
+- Specs und ADRs teilen sich die Arbeit: Die Specs beschreiben, **was** HomeAtlas heute tut, und
+  werden mit jeder Verhaltensänderung aktualisiert. Die [ADRs](../adr/README.md) halten fest,
+  **warum** eine übergreifende Entscheidung so gefallen ist, und werden nie geändert, nur ersetzt.
+  Eine Constitution-Regel mit ADR-Link ändert sich daher nur über ein neues ADR; die Begründung
+  wird nicht in die Constitution kopiert.
 - Verträge neu erzeugen und Abdeckung prüfen (aus dem Repo-Wurzelverzeichnis):
 
 ```bash

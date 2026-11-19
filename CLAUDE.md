@@ -171,7 +171,10 @@ directly from a page.
 `docs/adr/` records the cross-cutting decisions above (read/write split, host network, LLM
 capability boundary, SQLite without ORM, provider-neutral LLM client, credential encryption, SVG
 topology). Read the relevant ADR before changing one of those areas. Never edit an accepted ADR
-to reverse it — propose a new ADR that supersedes it.
+to reverse it — propose a new ADR that supersedes it. ADRs hold the *why*; `docs/specs/constitution.md`
+restates each ADR's rule as a one-liner with a link and no rationale. A new or superseding ADR updates
+that rule in the same PR (`trace_specs.py --check` fails on a rule linking a superseded ADR or an
+accepted ADR no rule links).
 
 `docs/specs/` holds the as-is behavior spec recovered from the code: one OpenSpec-style `spec.md`
 per capability, a `constitution.md` with [Muss]/[Impl]-marked cross-cutting rules, and generated

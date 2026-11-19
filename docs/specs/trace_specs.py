@@ -1,5 +1,6 @@
 """Erzeugt docs/specs/traceability.md (welche Route, Tabelle, KI-Werkzeug und Seite in welcher Spec
-steht) und den generierten Teil von docs/specs/offene-punkte.md (alle OFFEN-Punkte der Specs).
+steht, welches ADR welche Constitution-Regel trägt) und den generierten Teil von
+docs/specs/offene-punkte.md (alle OFFEN-Punkte der Specs).
 
 Aufruf aus dem Repo-Wurzelverzeichnis:
 
@@ -8,7 +9,9 @@ Aufruf aus dem Repo-Wurzelverzeichnis:
 
 Quellen sind der Code selbst, nicht die Specs: REST-Routen aus contracts/openapi.json (zuvor neu
 erzeugen, siehe README.md), WebSocket-Routen und Mounts aus backend/app/main.py und routes/, Tabellen aus
-backend/app/db/*.py, Werkzeuge aus backend/app/tools.py, Seiten aus frontend/src/pages/.
+backend/app/db/*.py, Werkzeuge aus backend/app/tools.py, Seiten aus frontend/src/pages/, ADRs und ihr
+Status aus docs/adr/. Eine Lücke ist auch: eine Constitution-Regel verweist auf ein ersetztes oder
+fehlendes ADR, oder ein akzeptiertes ADR wird von keiner Regel verwiesen.
 Nur Standardbibliothek, damit es ohne Backend-Abhängigkeiten läuft.
 """
 from __future__ import annotations
@@ -24,6 +27,10 @@ CAPS = SPECS / "capabilities"
 OUT = SPECS / "traceability.md"
 OPEN = SPECS / "offene-punkte.md"
 OPEN_MARKER = "<!-- Ab hier erzeugt von trace_specs.py -->"
+ADRS = ROOT / "docs" / "adr"
+CONSTITUTION = SPECS / "constitution.md"
+# ADRs ohne eigene Regel in der Constitution: 0001 betrifft nur den Dokumentationsprozess.
+ADR_WITHOUT_RULE = {"0001"}
 
 _PATH_TAIL = r"(?![A-Za-z0-9_/{}.-])"
 
@@ -52,6 +59,29 @@ def tools() -> list[str]:
 
 def pages() -> list[str]:
     return sorted(p.stem for p in (ROOT / "frontend" / "src" / "pages").glob("*.tsx"))
+
+
+def adrs() -> dict[str, tuple[str, str]]:
+    """ADR-Nummer -> (Dateiname, Status-Zeile)."""
+    result = {}
+    for path in sorted(ADRS.glob("[0-9][0-9][0-9][0-9]-*.md")):
+        status = re.search(r"^- \*\*Status:\*\*\s*(.+)$", path.read_text(encoding="utf-8"), flags=re.M)
+        result[path.name[:4]] = (path.name, status.group(1).strip() if status else "")
+    return result
+
+
+def constitution_adr_refs() -> dict[str, list[str]]:
+    """ADR-Nummer -> Regeln der Constitution (P1, L2, ...), die per Link darauf verweisen."""
+    text = CONSTITUTION.read_text(encoding="utf-8")
+    refs: dict[str, list[str]] = {}
+    for block in re.split(r"(?=^- \*\*\w+ \[)", text, flags=re.M)[1:]:
+        rule = re.match(r"- \*\*(\w+) \[", block).group(1)
+        block = re.split(r"^## ", block, maxsplit=1, flags=re.M)[0]
+        for num in re.findall(r"\]\(\.\./adr/(\d{4})-[^)]*\.md\)", block):
+            refs.setdefault(num, [])
+            if rule not in refs[num]:
+                refs[num].append(rule)
+    return refs
 
 
 def specs() -> dict[str, str]:
@@ -97,6 +127,26 @@ def main() -> int:
     sections.append(("Seiten", [(f"`{p}`", find(texts, re.compile(rf"\b{p}\b"))) for p in pages()]))
 
     gaps = [(sec, item) for sec, rows in sections for item, where in rows if not where]
+
+    adr_index = adrs()
+    adr_refs = constitution_adr_refs()
+    adr_rows = []
+    for num in sorted(set(adr_index) | set(adr_refs)):
+        name, status = adr_index.get(num, ("", ""))
+        rules = adr_refs.get(num, [])
+        superseded = status.startswith("Ersetzt")
+        if not name:
+            problem = "ADR fehlt"
+        elif superseded and rules:
+            problem = "ersetzt, Regel auf Nachfolger umstellen"
+        elif not superseded and not rules and num not in ADR_WITHOUT_RULE:
+            problem = "keine Regel verweist darauf"
+        else:
+            problem = ""
+        if problem:
+            gaps.append(("ADRs", f"ADR-{num}: {problem}"))
+        title = f"[ADR-{num}](../adr/{name})" if name else f"ADR-{num}"
+        adr_rows.append((title, status or "–", ", ".join(rules) or "–", f"**{problem}**" if problem else ""))
     lines = [
         "# Abdeckungsmatrix",
         "",
@@ -112,6 +162,17 @@ def main() -> int:
             links = ", ".join(f"[{w}](capabilities/{w}/spec.md)" for w in where) or "**FEHLT**"
             lines.append(f"| {item} | {links} |")
         lines.append("")
+    lines += [
+        f"## ADRs in der Constitution ({len(adr_rows)})",
+        "",
+        "Quelle links sind die Dateien in `docs/adr/`, rechts die Regeln in [constitution.md](constitution.md),",
+        "die auf das ADR verlinken.",
+        "",
+        "| ADR | Status | Regeln | Problem |",
+        "|---|---|---|---|",
+    ]
+    lines += [f"| {t} | {st} | {r} | {pr} |" for t, st, r, pr in adr_rows]
+    lines.append("")
 
     content = "\n".join(lines)
 
