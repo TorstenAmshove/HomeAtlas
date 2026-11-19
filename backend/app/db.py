@@ -471,6 +471,67 @@ def get_settings() -> dict:
     return {**DEFAULT_SETTINGS, **stored}
 
 
+# --------------------------------------------------------------------------------------------
+# One-time clean-up of secrets older versions stored in readable places (see
+# main._migrate_plaintext_secrets). Idempotent; none of these touch `updatedAt`, since nothing the
+# household maintains changes.
+# --------------------------------------------------------------------------------------------
+
+def strip_probe_facts(fact_keys: set[str] | frozenset[str]) -> int:
+    """Removes the given fact keys from every system's `extra.probe`. Returns rows changed."""
+    changed = 0
+    with _conn() as conn:
+        rows = conn.execute("SELECT id, extra FROM systems WHERE extra IS NOT NULL").fetchall()
+        for row in rows:
+            try:
+                extra = json.loads(row["extra"]) if row["extra"] else None
+            except json.JSONDecodeError:
+                continue
+            probe = (extra or {}).get("probe")
+            if not isinstance(probe, dict):
+                continue
+            dirty = False
+            for result in probe.values():
+                facts = result.get("facts") if isinstance(result, dict) else None
+                if isinstance(facts, dict):
+                    for key in [k for k in facts if k in fact_keys]:
+                        del facts[key]
+                        dirty = True
+            if dirty:
+                conn.execute("UPDATE systems SET extra = ? WHERE id = ?", (_dump(extra), row["id"]))
+                changed += 1
+    return changed
+
+
+def rewrite_doc_bodies(transform) -> int:
+    """Applies `transform(bodyMd) -> bodyMd` to every doc page and every stored page version.
+    Returns how many rows changed."""
+    changed = 0
+    with _conn() as conn:
+        for table in ("docPages", "docPageVersions"):
+            for row in conn.execute(f"SELECT id, bodyMd FROM {table}").fetchall():
+                new_body = transform(row["bodyMd"] or "")
+                if new_body != (row["bodyMd"] or ""):
+                    conn.execute(f"UPDATE {table} SET bodyMd = ? WHERE id = ?", (new_body, row["id"]))
+                    changed += 1
+    return changed
+
+
+def redact_tool_messages(markers: tuple[str, ...], replacement: str) -> int:
+    """Replaces the content of stored tool results that contain any of `markers` -- a tool result
+    is machine output fed to the model, so swapping it keeps the conversation's tool-call pairing
+    intact while removing what it carried. Returns how many messages changed."""
+    changed = 0
+    with _conn() as conn:
+        for marker in markers:
+            cursor = conn.execute(
+                "UPDATE chatMessages SET content = ? WHERE role = 'tool' AND instr(content, ?) > 0",
+                (replacement, marker),
+            )
+            changed += cursor.rowcount
+    return changed
+
+
 def update_settings(patch: dict) -> dict:
     merged = {**get_settings(), **patch}
     with _conn() as conn:

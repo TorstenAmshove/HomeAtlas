@@ -279,7 +279,11 @@ Konfigurationsversion des Geräts (Label „<Gerätename> – <Faktlabel>“, Qu
 verschlüsselt speichern, aber nur, wenn sich der Inhalt gegenüber der neuesten Version gleichen
 Labels geändert hat (Vergleich ohne Zeilen, die mit `#` beginnen). Je Gerät und Label bleiben die
 neuesten `configVersionKeep` Versionen (Default 50, begrenzt auf 1–1000). Es gibt keinen Weg,
-eine Version zurück aufs Gerät zu schreiben. **[Muss]**
+eine Version zurück aufs Gerät zu schreiben. Diese Fakten DÜRFEN nicht in `systems.extra.probe`
+gespeichert werden (dort lesen MEMBER, Doku und LLM); dort landet nur das Ergebnis ohne sie
+(`probe_auth.without_config_backups`). Beim Start entfernt das System Klartext-Kopien, die ältere
+Versionen gespeichert haben, auch aus Doku-Ständen und gespeicherten Werkzeugergebnissen des
+Assistenten. **[Muss]** Test: `backend/tests/test_secrets_at_rest.py`
 
 #### Szenario: Nur Zeitstempel geändert
 - **WENN** ein MikroTik-Export sich nur in der Kommentarzeile mit Zeitstempel unterscheidet
@@ -481,13 +485,6 @@ auslesen“, nur Admin und nur wenn ein Zugang `allowProbe` hat).
 
 ## OFFEN
 
-- > OFFEN: Konfigurationsexporte (`config_export` bis 60.000 Zeichen, `omada_backup` bis 4 MB)
-  liegen zusätzlich unverschlüsselt in `systems.extra.probe`, werden über `GET /api/systems/{id}`
-  an MEMBER ausgeliefert und in der Doku („Direkt vom Gerät ausgelesen“, bis 14 Fakten) gerendert,
-  die das LLM über `get_documentation` liest (`backend/app/docs.py:283`, `backend/app/tools.py:303`).
-  Widerspricht „Secrets nie in Doku/Prompt“, da Exporte Community-Strings/WLAN-Schlüssel enthalten können.
-- > OFFEN: `GET /api/systems/{id}/config-versions/{vid}` liefert entschlüsselte Konfiguration an
-  MEMBER (`backend/app/main.py:1412`, `Depends(current_user)`). Gewollt?
 - > OFFEN: In `probe_system` ist `elif "ssh" not in results` (analog `snmp`, `ha`) immer wahr, weil
   Schlüssel `ssh:<label>` heißen – fehlgeschlagene Ergebnisse werden stets gespeichert, auch wenn
   ein anderer Zugang derselben Art erfolgreich war (`backend/app/probe_auth.py:1397`). Absicht unklar.

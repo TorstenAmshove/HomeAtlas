@@ -65,7 +65,8 @@ export default function SystemDetailPage() {
         setDerived(r.description);
         setMonitorPorts(r.monitorPortsEffective);
         // Config backups only exist for routers/switches -- no point asking for anything else.
-        if (r.system.kind === "router" || r.system.kind === "network") {
+        // Admin-only on the backend too: an export can carry SNMP/RADIUS/WiFi secrets.
+        if (isAdmin && (r.system.kind === "router" || r.system.kind === "network")) {
           api.listConfigVersions(id).then((cv) => setConfigVersions(cv.versions)).catch(() => setConfigVersions([]));
         }
         // Fetched for every device, unlike config backups -- any device can accumulate a probe
@@ -73,7 +74,7 @@ export default function SystemDetailPage() {
         api.listSystemErrors(id).then((r2) => setErrorEvents(r2.events)).catch(() => setErrorEvents([]));
       })
       .catch((e) => setError(e.message));
-  }, [id]);
+  }, [id, isAdmin]);
 
   useEffect(() => {
     const account = accounts.find((a) => !a.viaAssignment && a.category === "homeassistant");
@@ -781,7 +782,7 @@ export default function SystemDetailPage() {
         </div>
       )}
 
-      {configVersions !== null && (system.kind === "router" || system.kind === "network") && (
+      {isAdmin && configVersions !== null && (system.kind === "router" || system.kind === "network") && (
         <div className="card">
           <h2>Konfigurationsverlauf</h2>
           <p className="muted" style={{ marginTop: -6 }}>

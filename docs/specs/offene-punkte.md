@@ -12,8 +12,8 @@ ein GitHub-Issue.
 
 | # | Punkt | Specs | Issue |
 |---|---|---|---|
-| 1 | **Konfigurationsexporte im Klartext für MEMBER und LLM** (nachgeprüft). Ausgelesene Gerätekonfigurationen (`config_export`, `omada_backup`) liegen verschlüsselt in den Konfigurationsversionen, zusätzlich aber unverschlüsselt in `systems.extra.probe` (`backend/app/pipeline.py:115`, `backend/app/main.py:1391`). Von dort gehen sie über `GET /api/systems*` an MEMBER und landen in der generierten Doku (`backend/app/docs.py:283`), die das LLM per `get_documentation` liest. Zusätzlich gibt `GET …/config-versions/{id}` den entschlüsselten Inhalt an MEMBER (`backend/app/main.py:1413`). Exporte können SNMP-Communities, RADIUS-Secrets und WLAN-Schlüssel enthalten. Verstößt gegen Constitution R1, K2, Z4. | credentialed-probing, inventar, dokumentation | #41 |
-| 2 | **LLM-API-Schlüssel im Klartext gespeichert** (nachgeprüft). `claudeApiKey` usw. liegen unverschlüsselt im Settings-JSON (`backend/app/db.py:474`); der Kommentar in `backend/app/db.py:447` behauptet das Gegenteil. Die API maskiert sie korrekt. Verstößt gegen Z1. | einstellungen-und-llm-provider | #42 |
+| 1 | **Behoben (fix/secrets-at-rest).** **Konfigurationsexporte im Klartext für MEMBER und LLM** (nachgeprüft). Ausgelesene Gerätekonfigurationen (`config_export`, `omada_backup`) liegen verschlüsselt in den Konfigurationsversionen, zusätzlich aber unverschlüsselt in `systems.extra.probe` (`backend/app/pipeline.py:115`, `backend/app/main.py:1391`). Von dort gehen sie über `GET /api/systems*` an MEMBER und landen in der generierten Doku (`backend/app/docs.py:283`), die das LLM per `get_documentation` liest. Zusätzlich gibt `GET …/config-versions/{id}` den entschlüsselten Inhalt an MEMBER (`backend/app/main.py:1413`). Exporte können SNMP-Communities, RADIUS-Secrets und WLAN-Schlüssel enthalten. Verstößt gegen Constitution R1, K2, Z4. | credentialed-probing, inventar, dokumentation | #41 |
+| 2 | **Behoben (fix/secrets-at-rest).** **LLM-API-Schlüssel im Klartext gespeichert** (nachgeprüft). `claudeApiKey` usw. liegen unverschlüsselt im Settings-JSON (`backend/app/db.py:474`); der Kommentar in `backend/app/db.py:447` behauptet das Gegenteil. Die API maskiert sie korrekt. Verstößt gegen Z1. | einstellungen-und-llm-provider | #42 |
 | 3 | **`set_switch` ohne Rolle und Bestätigung.** Jede Rolle und jeder MCP-Token kann Shelly-Relais und HA-`switch`/`light` schalten (ADR-0002/0004 erlauben das ausdrücklich). Offen sind: keine Prüfung, ob das Ziel wirklich ein Shelly ist; kein Benutzer oder Token im Protokoll; Prompt-Injection kann einen Schaltvorgang auslösen; README und MCP-Tab sagen „nur lesend“. | assistent-chat-und-mcp, remote-admin | #43 |
 | 4 | **`http_check` als SSRF-Fläche.** MEMBER, Assistent und MCP-Clients können serverseitig beliebige URLs abrufen, auch `127.0.0.1` und interne Dienste. Das Gleiche gilt für die Linkprüfung der Klassifikation und für „Testen“/„Modelle laden“ mit frei eingebbarer Adresse. | diagnose, klassifikation-llm, einstellungen-und-llm-provider | #44 |
 | 5 | **Kein Brute-Force-Schutz, keine TOTP-Replay-Sperre.** Weder Rate-Limit noch Kontosperre; ein TOTP-Code ist im ~90-s-Fenster mehrfach gültig. | auth-und-rollen | #45 |
@@ -38,7 +38,7 @@ Netzplan-Ebenen, `set_switch`), ADR-0009 für die Netzplan-Ebenen. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (167)
+## Alle Punkte je Fähigkeit (162)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (12)
 
@@ -76,21 +76,19 @@ Netzplan-Ebenen, `set_switch`), ADR-0009 für die Netzplan-Ebenen. Offen bleiben
 17. WebSocket-Check akzeptiert fehlenden `Origin`-Header; Docstring nennt die Bedingung „same bar as current_user“, prüft aber zusätzlich ADMIN.
 18. `GET /api/health` ist unauthentifiziert und verrät `userCount`; das Frontend nutzt das Feld nicht.
 
-### [credentialed-probing](capabilities/credentialed-probing/spec.md) (13)
+### [credentialed-probing](capabilities/credentialed-probing/spec.md) (11)
 
-1. Konfigurationsexporte (`config_export` bis 60.000 Zeichen, `omada_backup` bis 4 MB) liegen zusätzlich unverschlüsselt in `systems.extra.probe`, werden über `GET /api/systems/{id}` an MEMBER ausgeliefert und in der Doku („Direkt vom Gerät ausgelesen“, bis 14 Fakten) gerendert, die das LLM über `get_documentation` liest (`backend/app/docs.py:283`, `backend/app/tools.py:303`). Widerspricht „Secrets nie in Doku/Prompt“, da Exporte Community-Strings/WLAN-Schlüssel enthalten können.
-2. `GET /api/systems/{id}/config-versions/{vid}` liefert entschlüsselte Konfiguration an MEMBER (`backend/app/main.py:1412`, `Depends(current_user)`). Gewollt?
-3. In `probe_system` ist `elif "ssh" not in results` (analog `snmp`, `ha`) immer wahr, weil Schlüssel `ssh:<label>` heißen – fehlgeschlagene Ergebnisse werden stets gespeichert, auch wenn ein anderer Zugang derselben Art erfolgreich war (`backend/app/probe_auth.py:1397`). Absicht unklar.
-4. HTTP- und TR-064-Fehlschläge werden nicht als Ergebnis gespeichert, nur Erfolge – daher kein Fehlerereignis für abgelehnte Web-Logins.
-5. `login`-Zugänge mit Port ≠ 0/22 werden nie per SSH versucht (`sshkey` mit beliebigem Port schon) (`backend/app/probe_auth.py:1389`).
-6. TR-064 wählt den ersten Zugang der Kategorie `login` oder `router`; `router` existiert in der UI nicht. Bei einem Nicht-FRITZ-Router mit `kind = router` wird dessen Login-Passwort per Digest an Port 49000 geschickt.
-7. TP-Link-Pager-Abschaltung nutzt `configure` / `no clipaging` – ein Konfigurationsmodus-Befehl, entgegen „kein Config-Mode“. Ob die Einstellung persistent in der Running-Config landet, ist ungeprüft.
-8. Manuelles Auslesen behandelt `omada`/`proxmox`/`adguard`-Zugänge nicht (sie gehen an `probe_auth.probe_system`, das sie ignoriert) → bei solchen Geräten `ran = false` ohne Grund. Ebenso ignoriert es `scanUseCredentials`/`scanEnable*`, den Standard-Zugang, ARP-Lernen, Druckerzuordnung, `os`/`model`-Füllung und Fehlerereignisse.
-9. Im Vollscan nutzen Controller-Probes alle freigegebenen Zugänge der Kategorie, beim manuellen Auslesen nur die dem Gerät (direkt/per Zuordnung) zugeordneten – uneinheitlich.
-10. `omada_backup` läuft auf jedem Linux-Host und wird Base64-kodiert als Fakt gespeichert; ein Restore ist bewusst nicht vorgesehen, Nutzen der Speicherung ist unklar.
-11. Omada liest nur Seite 1 (Geräte 100, Clients 500); größere Sites werden still abgeschnitten. Ein `errorCode` bei Geräten überspringt auch die Clients der Site.
-12. README „Sicherheit“ sagt, das Verfahren lasse sich unter *Einstellungen → Netzwerk-Scan* „komplett abschalten“. Trifft nur teilweise zu: `scanUseCredentials = false` stoppt nur das Auslesen je Gerät; UniFi/Omada/Proxmox/AdGuard melden sich weiter mit Zugangsdaten an, solange ihr `scanEnable*` an ist (`backend/app/pipeline.py:387`–`:455` vs. `:521`). Doku oder Verhalten anpassen?
-13. Klassisches Aruba braucht ein Konto, das direkt mit Manager-Rechten anmeldet; die UI weist darauf nicht hin.
+1. In `probe_system` ist `elif "ssh" not in results` (analog `snmp`, `ha`) immer wahr, weil Schlüssel `ssh:<label>` heißen – fehlgeschlagene Ergebnisse werden stets gespeichert, auch wenn ein anderer Zugang derselben Art erfolgreich war (`backend/app/probe_auth.py:1397`). Absicht unklar.
+2. HTTP- und TR-064-Fehlschläge werden nicht als Ergebnis gespeichert, nur Erfolge – daher kein Fehlerereignis für abgelehnte Web-Logins.
+3. `login`-Zugänge mit Port ≠ 0/22 werden nie per SSH versucht (`sshkey` mit beliebigem Port schon) (`backend/app/probe_auth.py:1389`).
+4. TR-064 wählt den ersten Zugang der Kategorie `login` oder `router`; `router` existiert in der UI nicht. Bei einem Nicht-FRITZ-Router mit `kind = router` wird dessen Login-Passwort per Digest an Port 49000 geschickt.
+5. TP-Link-Pager-Abschaltung nutzt `configure` / `no clipaging` – ein Konfigurationsmodus-Befehl, entgegen „kein Config-Mode“. Ob die Einstellung persistent in der Running-Config landet, ist ungeprüft.
+6. Manuelles Auslesen behandelt `omada`/`proxmox`/`adguard`-Zugänge nicht (sie gehen an `probe_auth.probe_system`, das sie ignoriert) → bei solchen Geräten `ran = false` ohne Grund. Ebenso ignoriert es `scanUseCredentials`/`scanEnable*`, den Standard-Zugang, ARP-Lernen, Druckerzuordnung, `os`/`model`-Füllung und Fehlerereignisse.
+7. Im Vollscan nutzen Controller-Probes alle freigegebenen Zugänge der Kategorie, beim manuellen Auslesen nur die dem Gerät (direkt/per Zuordnung) zugeordneten – uneinheitlich.
+8. `omada_backup` läuft auf jedem Linux-Host und wird Base64-kodiert als Fakt gespeichert; ein Restore ist bewusst nicht vorgesehen, Nutzen der Speicherung ist unklar.
+9. Omada liest nur Seite 1 (Geräte 100, Clients 500); größere Sites werden still abgeschnitten. Ein `errorCode` bei Geräten überspringt auch die Clients der Site.
+10. README „Sicherheit“ sagt, das Verfahren lasse sich unter *Einstellungen → Netzwerk-Scan* „komplett abschalten“. Trifft nur teilweise zu: `scanUseCredentials = false` stoppt nur das Auslesen je Gerät; UniFi/Omada/Proxmox/AdGuard melden sich weiter mit Zugangsdaten an, solange ihr `scanEnable*` an ist (`backend/app/pipeline.py:387`–`:455` vs. `:521`). Doku oder Verhalten anpassen?
+11. Klassisches Aruba braucht ein Konto, das direkt mit Manager-Rechten anmeldet; die UI weist darauf nicht hin.
 
 ### [dashboard](capabilities/dashboard/spec.md) (5)
 
@@ -141,32 +139,29 @@ Netzplan-Ebenen, `set_switch`), ADR-0009 für die Netzplan-Ebenen. Offen bleiben
 11. Bei mehreren Routern nimmt die Notfall-Seite den ersten aus der Inventarreihenfolge.
 12. `useLlm: true` im Request wird ignoriert, wenn `scanUseLlm` aus ist (die Einleitung prüft die Einstellung erneut).
 
-### [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md) (10)
+### [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md) (9)
 
-1. API-Schlüssel (`claudeApiKey` usw.) liegen **im Klartext** im Settings-JSON; der Kommentar in `db.py:447` („Stored encrypted … same as the API keys“) behauptet das Gegenteil. Sollen sie wie Zugangsdaten verschlüsselt werden?
-2. Ein leer gesendeter API-Schlüssel löscht ihn, ein leer gesendetes Standard-Zugang-Geheimnis bleibt erhalten — uneinheitliche Semantik.
-3. `PATCH /api/settings` akzeptiert beliebige Schlüssel und Typen, auch `setupCompleted` oder ein rohes `defaultCredentialSecretEnc`.
-4. UI-Fehler: Nach „Modelle laden“ wird nur `data`, nicht `form` aktualisiert; die neue Liste erscheint erst nach Neuladen, und ein anschließendes „Speichern“ schreibt den alten `providerModelCache` zurück.
-5. Die Live-Liste wird nach ID sortiert gespeichert; der Fallback „erster/letzter Eintrag“ in `resolve` wählt dadurch alphabetisch, nicht nach Anbieter-Reihenfolge (Docstring geht von Anbieterreihenfolge aus).
-6. `providerModelCache` wird bei Wechsel von Schlüssel oder Server-Adresse nicht verworfen.
-7. Claude-Modellabruf holt höchstens 100 Modelle, ohne Paginierung.
-8. Ollama-, `deepseekBaseUrl`-Schlüssel fehlen in den Defaults (funktional egal, aber unvollständig dokumentiert).
-9. Test/Modelle-Laden schicken Anfragen an eine frei eingebbare Server-Adresse (Admin-only, aber serverseitige Anfrage an beliebige URL).
-10. Gemini-Schlüssel steht als Query-Parameter in der URL (kann in Proxy-Logs landen).
+1. Ein leer gesendeter API-Schlüssel löscht ihn, ein leer gesendetes Standard-Zugang-Geheimnis bleibt erhalten — uneinheitliche Semantik.
+2. `PATCH /api/settings` akzeptiert beliebige Schlüssel und Typen, auch `setupCompleted` oder ein rohes `defaultCredentialSecretEnc`.
+3. UI-Fehler: Nach „Modelle laden“ wird nur `data`, nicht `form` aktualisiert; die neue Liste erscheint erst nach Neuladen, und ein anschließendes „Speichern“ schreibt den alten `providerModelCache` zurück.
+4. Die Live-Liste wird nach ID sortiert gespeichert; der Fallback „erster/letzter Eintrag“ in `resolve` wählt dadurch alphabetisch, nicht nach Anbieter-Reihenfolge (Docstring geht von Anbieterreihenfolge aus).
+5. `providerModelCache` wird bei Wechsel von Schlüssel oder Server-Adresse nicht verworfen.
+6. Claude-Modellabruf holt höchstens 100 Modelle, ohne Paginierung.
+7. Ollama-, `deepseekBaseUrl`-Schlüssel fehlen in den Defaults (funktional egal, aber unvollständig dokumentiert).
+8. Test/Modelle-Laden schicken Anfragen an eine frei eingebbare Server-Adresse (Admin-only, aber serverseitige Anfrage an beliebige URL).
+9. Gemini-Schlüssel steht als Query-Parameter in der URL (kann in Proxy-Logs landen).
 
-### [inventar](capabilities/inventar/spec.md) (11)
+### [inventar](capabilities/inventar/spec.md) (9)
 
-1. MEMBER kann über `GET …/config-versions/{version_id}` den entschlüsselten Inhalt einer Gerätekonfiguration lesen (`backend/app/main.py:1413`, `:1417`), obwohl diese laut Schema SNMP-Communities, RADIUS-Secrets, WLAN-Schlüssel enthalten kann (`backend/app/db.py:292`). Widerspricht „MEMBER sieht nie ein Klartext-Geheimnis".
-2. Die Probe-Ergebnisse inkl. vollständigem `config_export` (bis 60000 Zeichen) landen unverschlüsselt in `systems.extra.probe` (`backend/app/pipeline.py:115`, `backend/app/main.py:1391`) und gehen per `GET /api/systems` / `GET /api/systems/{id}` an MEMBER. Untergräbt die Verschlüsselung der Konfigurationsversionen.
-3. `GET /api/systems/{id}` liefert MEMBER die Zugangs-Metadaten (Label, Benutzername, URL, Notizen) des Geräts; nur die UI blendet sie aus. Gewollt?
-4. PATCH validiert nichts: `kind`/`importance` beliebig, `status`, `discoveryKey`, `discovered`, `extra`, `openPorts`, `lastSeen` frei schreibbar. Ein `discoveryKey`, den schon ein anderes Gerät hat, verletzt den Unique-Index → vermutlich HTTP 500.
-5. Da die UI das komplette Gerät zurückschickt, überschreibt Speichern zwischenzeitliche Änderungen von Scan/Überwachung (`status`, `extra`, `openPorts`, `lastSeen`) mit dem alten Stand (Lost Update).
-6. POST übernimmt eine vom Client mitgeschickte `id` (`backend/app/db.py:643`); mit vorhandener ID vermutlich 500.
-7. DELETE lässt `deviceConfigVersions`, `deviceErrorEvents` und `monitorEvents` des Geräts verwaist zurück (`backend/app/db.py:692`), obwohl Merge sie bewusst umhängt; antwortet `ok` auch für unbekannte IDs.
-8. Ist das behaltene Gerät Kind des entfernten, setzt Merge `parentId` des behaltenen auf sich selbst (`backend/app/db.py:884`).
-9. Ein kritisches Gerät lässt sich nicht aus der Überwachung nehmen (`monitored=0` wird in der nächsten Runde wieder 1); wird „kritisch" entfernt, bleibt die Überwachung an. Gewollt?
-10. `monitorPorts` wird serverseitig nicht auf 3 Einträge/gültige Ports begrenzt; nur die UI und `effective_ports` kürzen.
-11. Der Fehler-Badge verschwindet nie, weil Fehlerereignisse nicht quittiert oder gelöscht werden können (nur Kappung bei 100).
+1. `GET /api/systems/{id}` liefert MEMBER die Zugangs-Metadaten (Label, Benutzername, URL, Notizen) des Geräts; nur die UI blendet sie aus. Gewollt?
+2. PATCH validiert nichts: `kind`/`importance` beliebig, `status`, `discoveryKey`, `discovered`, `extra`, `openPorts`, `lastSeen` frei schreibbar. Ein `discoveryKey`, den schon ein anderes Gerät hat, verletzt den Unique-Index → vermutlich HTTP 500.
+3. Da die UI das komplette Gerät zurückschickt, überschreibt Speichern zwischenzeitliche Änderungen von Scan/Überwachung (`status`, `extra`, `openPorts`, `lastSeen`) mit dem alten Stand (Lost Update).
+4. POST übernimmt eine vom Client mitgeschickte `id` (`backend/app/db.py:643`); mit vorhandener ID vermutlich 500.
+5. DELETE lässt `deviceConfigVersions`, `deviceErrorEvents` und `monitorEvents` des Geräts verwaist zurück (`backend/app/db.py:692`), obwohl Merge sie bewusst umhängt; antwortet `ok` auch für unbekannte IDs.
+6. Ist das behaltene Gerät Kind des entfernten, setzt Merge `parentId` des behaltenen auf sich selbst (`backend/app/db.py:884`).
+7. Ein kritisches Gerät lässt sich nicht aus der Überwachung nehmen (`monitored=0` wird in der nächsten Runde wieder 1); wird „kritisch" entfernt, bleibt die Überwachung an. Gewollt?
+8. `monitorPorts` wird serverseitig nicht auf 3 Einträge/gültige Ports begrenzt; nur die UI und `effective_ports` kürzen.
+9. Der Fehler-Badge verschwindet nie, weil Fehlerereignisse nicht quittiert oder gelöscht werden können (nur Kappung bei 100).
 
 ### [klassifikation-llm](capabilities/klassifikation-llm/spec.md) (8)
 

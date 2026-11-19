@@ -46,6 +46,18 @@ def encrypt(plaintext: str) -> str:
     return _fernet().encrypt(plaintext.encode()).decode()
 
 
+def is_encrypted(value: str) -> bool:
+    """True if `value` is a token this installation's key can decrypt. Used by one-time migrations
+    to tell an already-encrypted setting from a plaintext one written by an older version."""
+    if not value:
+        return False
+    try:
+        _fernet().decrypt(value.encode())
+        return True
+    except (InvalidToken, ValueError):
+        return False
+
+
 def decrypt(token: str) -> str:
     """Returns "" for an unreadable value rather than raising: a secret that can't be decrypted
     (key file replaced, volume restored without it) must not take down the whole inventory view --

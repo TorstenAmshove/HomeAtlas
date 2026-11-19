@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 
 import httpx
 
+from . import crypto
 from . import model_catalog as catalog
 
 _TIMEOUT = httpx.Timeout(120.0, connect=10.0)
@@ -86,7 +87,9 @@ def base_url_for(provider_type: str, settings: dict) -> str:
 
 
 def api_key_for(provider_type: str, settings: dict) -> str:
-    return settings.get(_KEY_SETTING_FIELD.get(provider_type, ""), "") or ""
+    """The provider's API key in plaintext. Stored encrypted in the settings blob (see main.py's
+    `_unmask_patch`), decrypted only here, at the moment a request needs it."""
+    return crypto.decrypt(settings.get(_KEY_SETTING_FIELD.get(provider_type, ""), "") or "")
 
 
 def resolved_model_for(provider_type: str, settings: dict, purpose: str = "CHAT") -> str:

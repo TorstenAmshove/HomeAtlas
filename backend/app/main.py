@@ -43,6 +43,7 @@ _background_tasks: set[asyncio.Task] = set()
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     db.init_db()
+    _migrate_plaintext_secrets()
     db.abandon_stale_scans()
     generated = auth.ensure_admin_bootstrapped()
     if generated:
@@ -390,6 +391,31 @@ _ENCRYPTED_SETTING_FIELDS = {
 _MASK = "********"
 
 
+def _migrate_plaintext_secrets() -> None:
+    """One-time, idempotent clean-up at startup for data older versions stored readably:
+    - LLM API keys in the settings blob are encrypted (ADR-0007),
+    - config exports are removed from systems.extra.probe (they stay, encrypted, in
+      deviceConfigVersions), and from already generated doc pages, page versions and stored
+      assistant tool results that copied them from there."""
+    settings = db.get_settings()
+    plaintext = {f: crypto.encrypt(settings[f]) for f in _SECRET_SETTING_FIELDS
+                 if settings.get(f) and not crypto.is_encrypted(settings[f])}
+    if plaintext:
+        db.update_settings(plaintext)
+    stripped = db.strip_probe_facts(probe_auth.CONFIG_BACKUP_KEYS)
+    scrubbed = db.rewrite_doc_bodies(docs.scrub_config_exports)
+    redacted = db.redact_tool_messages(
+        probe_auth.CONFIG_BACKUP_LABELS,
+        json.dumps({"error": "Inhalt entfernt: enthielt einen Konfigurationsexport."}, ensure_ascii=False),
+    )
+    if plaintext or stripped or scrubbed or redacted:
+        logger.warning(
+            "HomeAtlas: Klartext-Secrets bereinigt: %d API-Schluessel verschluesselt, "
+            "Konfigurationsexporte entfernt aus %d Geraeten, %d Doku-Staenden, %d Chat-Werkzeugergebnissen.",
+            len(plaintext), stripped, scrubbed, redacted,
+        )
+
+
 def _mask_settings(settings: dict) -> dict:
     masked = dict(settings)
     for field in _SECRET_SETTING_FIELDS:
@@ -406,8 +432,14 @@ def _unmask_patch(patch: dict, current: dict) -> dict:
     verbatim would replace the real key with asterisks."""
     cleaned = dict(patch)
     for field in _SECRET_SETTING_FIELDS:
-        if cleaned.get(field) == _MASK:
+        if field not in cleaned:
+            continue
+        if cleaned[field] == _MASK:
             cleaned[field] = current.get(field, "")
+        elif cleaned[field]:
+            # API keys are stored encrypted like every other credential (ADR-0007); only
+            # llm_providers.api_key_for decrypts them, at the moment a request needs one.
+            cleaned[field] = crypto.encrypt(str(cleaned[field]))
     for plain, encrypted in _ENCRYPTED_SETTING_FIELDS.items():
         if plain in cleaned:
             value = cleaned.pop(plain)
@@ -1388,7 +1420,8 @@ async def probe_system(system_id: str, _: dict = Depends(require_admin)) -> dict
     if unifi_succeeded:
         pipeline._link_unifi_topology()
     if outcome["ran"]:
-        db.update_system(system_id, {"extra": {**(system.get("extra") or {}), "probe": outcome["results"]}})
+        db.update_system(system_id, {"extra": {**(system.get("extra") or {}),
+                                               "probe": probe_auth.without_config_backups(outcome["results"])}})
         if outcome.get("purpose") and not system.get("purpose"):
             db.update_system(system_id, {"purpose": outcome["purpose"]})
         probe_auth.persist_config_backups(system, outcome)
@@ -1403,14 +1436,16 @@ async def probe_system(system_id: str, _: dict = Depends(require_admin)) -> dict
 
 
 @app.get("/api/systems/{system_id}/config-versions")
-async def list_config_versions(system_id: str, _: dict = Depends(current_user)) -> dict:
+async def list_config_versions(system_id: str, _: dict = Depends(require_admin)) -> dict:
+    """Admin-only, like the content below: an export can carry SNMP communities, RADIUS secrets and
+    WiFi keys, the same class of data as accounts.secretEnc."""
     if db.get_system(system_id) is None:
         raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
     return {"versions": db.list_device_config_versions(system_id)}
 
 
 @app.get("/api/systems/{system_id}/config-versions/{version_id}")
-async def get_config_version(system_id: str, version_id: str, _: dict = Depends(current_user)) -> dict:
+async def get_config_version(system_id: str, version_id: str, _: dict = Depends(require_admin)) -> dict:
     version = db.get_device_config_version(version_id)
     if version is None or version["systemId"] != system_id:
         raise HTTPException(status_code=404, detail="Version nicht gefunden.")

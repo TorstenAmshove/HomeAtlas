@@ -218,7 +218,9 @@ Quelle: `backend/app/docs.py:355`
 ### Requirement: Keine Secrets in der Doku
 Das System DARF in keinem Kapitel entschlüsselte Zugangsdaten, API-Schlüssel oder sonstige
 verschlüsselt gespeicherte Werte ausgeben; die Doku entsteht nur aus Inventar-, Zugangs-Metadaten,
-Netzwerkressourcen- und Scan-Daten. **[Muss]**
+Netzwerkressourcen- und Scan-Daten. Ausgelesene Konfigurationsexporte (`config_export`,
+`omada_backup`) erscheinen nie, auch nicht aus Altdaten. **[Muss]** (Test:
+`backend/tests/test_secrets_at_rest.py::test_docs_never_render_config_export_even_from_old_rows`)
 
 #### Szenario: Gerät mit SSH-Schlüssel
 - **WENN** für ein Gerät ein SSH-Schlüssel hinterlegt ist

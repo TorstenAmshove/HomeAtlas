@@ -103,11 +103,10 @@
 ## 5. Zugangsdaten
 
 - **Z1 [Muss]** Secrets (Passwörter, private Schlüssel, Passphrasen, Tokens, TOTP-Geheimnisse) sind
-  at rest verschlüsselt.
-  > OFFEN: Heute gilt das nicht für LLM-API-Schlüssel (Klartext im Settings-JSON), MCP-Tokens und
-  > Session-Tokens (Klartext in ihren Tabellen) und nicht für die Kopie ausgelesener
-  > Konfigurationsexporte in `systems.extra.probe`. Siehe [offene-punkte](offene-punkte.md) 1 und 2. Schutzziel: eine abhandengekommene **Datenbankkopie**, ausdrücklich nicht
-  root auf dem Host. ([ADR 0007](../adr/0007-credentials-fernet-schluessel-im-volume.md))
+  at rest verschlüsselt; das gilt auch für LLM-API-Schlüssel und ausgelesene Konfigurationsexporte
+  (keine Klartext-Kopie beim Gerät). Schutzziel: eine abhandengekommene **Datenbankkopie**,
+  ausdrücklich nicht root auf dem Host. ([ADR 0007](../adr/0007-credentials-fernet-schluessel-im-volume.md))
+  > OFFEN: MCP-Tokens und Session-Tokens liegen im Klartext in ihren Tabellen (Hashing erwägen).
 - **Z2 [Muss]** Der Dienst startet nach einem Neustart **unbeaufsichtigt** (keine Passphrase beim Start).
 - **Z3 [Muss]** Ein Secret verlässt den Server nur **einzeln**, nur für ADMIN, und jedes Anzeigen
   wird protokolliert. Keine Route gibt Secrets gesammelt oder im Klartext aus; API-Schlüssel in den
