@@ -384,6 +384,8 @@ _ADDED_COLUMNS: tuple[tuple[str, str, str], ...] = (
     ("docPageVersions", "manualMd", "TEXT NOT NULL DEFAULT ''"),
     ("users", "totpSecretEnc", "TEXT NOT NULL DEFAULT ''"),
     ("users", "totpEnabled", "INTEGER NOT NULL DEFAULT 0"),
+    # Highest TOTP time-step counter already used to log in -- a code is single-use (RFC 6238 §5.2).
+    ("users", "totpLastCounter", "INTEGER NOT NULL DEFAULT 0"),
     ("systems", "monitored", "INTEGER NOT NULL DEFAULT 0"),
     ("systems", "monitorPorts", "TEXT"),
     ("systems", "docLink", "TEXT NOT NULL DEFAULT ''"),
@@ -559,6 +561,18 @@ def update_user(user_id: str, patch: dict) -> dict | None:
     with _conn() as conn:
         conn.execute(f"UPDATE users SET {assignments} WHERE id = ?", (*values, user_id))
     return get_user(user_id)
+
+
+def claim_totp_counter(user_id: str, counter: int) -> bool:
+    """Marks a TOTP time step as used. False if it (or a later one) was used already, i.e. the
+    code is a replay. One conditional UPDATE, so two concurrent logins with the same code cannot
+    both succeed."""
+    with _conn() as conn:
+        cursor = conn.execute(
+            "UPDATE users SET totpLastCounter = ? WHERE id = ? AND totpLastCounter < ?",
+            (counter, user_id, counter),
+        )
+        return cursor.rowcount == 1
 
 
 def invalidate_user_sessions(user_id: str) -> None:

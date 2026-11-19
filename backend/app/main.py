@@ -164,9 +164,20 @@ async def health() -> dict:
 @app.post("/api/auth/login")
 async def login(body: LoginBody, response: Response, request: Request) -> dict:
     ip, agent = _client(request)
+    retry_after = security.login_throttle.retry_after(body.username, ip)
+    if retry_after:
+        db.log_access("login", username=body.username, ip=ip, user_agent=agent, ok=False,
+                      detail="gesperrt nach zu vielen Fehlversuchen")
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Zu viele Fehlversuche. Bitte in {max(1, retry_after // 60)} Minuten erneut versuchen.",
+            headers={"Retry-After": str(retry_after)},
+        )
     try:
         user = auth.verify_login(body.username, body.password, body.totpCode)
     except auth.MfaRequired as exc:
+        if exc.wrong_code:
+            security.login_throttle.record_failure(body.username, ip)
         db.log_access("login.mfa", username=body.username, ip=ip, user_agent=agent, ok=False,
                       detail="falscher Code" if exc.wrong_code else "Code angefordert")
         # 401 + a flag rather than 200: the credentials alone did not authenticate anything yet.
@@ -177,10 +188,12 @@ async def login(body: LoginBody, response: Response, request: Request) -> dict:
             headers={"X-HomeAtlas-MFA": "required"},
         ) from exc
     if user is None:
+        security.login_throttle.record_failure(body.username, ip)
         db.log_access("login", username=body.username, ip=ip, user_agent=agent, ok=False,
                       detail="Benutzername oder Passwort falsch")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="Benutzername oder Passwort stimmt nicht.")
+    security.login_throttle.record_success(body.username, ip)
     db.log_access("login", user=user, ip=ip, user_agent=agent,
                   detail="mit zweitem Faktor" if user.get("totpEnabled") else "")
     token = auth.create_session(user["id"])
@@ -261,7 +274,8 @@ async def mfa_confirm(body: TotpBody, request: Request, user: dict = Depends(ses
     secret = crypto.decrypt(raw.get("totpSecretEnc") or "")
     if not secret:
         raise HTTPException(status_code=400, detail="Bitte zuerst die Einrichtung starten.")
-    if not security.verify_totp(secret, body.code):
+    counter = security.totp_counter(secret, body.code)
+    if counter is None or not db.claim_totp_counter(user["id"], counter):
         raise HTTPException(status_code=400, detail="Der Code stimmt nicht. Bitte den aktuellen aus der App eingeben.")
     db.update_user(user["id"], {"totpEnabled": True})
     ip, agent = _client(request)

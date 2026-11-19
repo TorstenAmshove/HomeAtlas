@@ -43,6 +43,7 @@ chats ── chatMessages
 | displayName | Anzeigename |
 | totpSecretEnc | TOTP-Geheimnis, verschlüsselt wie alle Secrets **[Muss]** |
 | totpEnabled | wird erst 1, nachdem ein gültiger Code bestätigt wurde (halb fertige Einrichtung sperrt niemanden aus) **[Muss]** |
+| totpLastCounter | Zeitschritt des zuletzt verwendeten TOTP-Codes; ältere und gleiche werden abgelehnt (Replay-Sperre) **[Muss]** |
 | createdAt | |
 
 ### sessions — Login-Sitzungen

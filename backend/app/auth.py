@@ -75,7 +75,9 @@ def verify_login(username: str, password: str, totp_code: str = "") -> dict | No
         secret = crypto.decrypt(user.get("totpSecretEnc") or "")
         if not totp_code:
             raise MfaRequired()
-        if not security.verify_totp(secret, totp_code):
+        counter = security.totp_counter(secret, totp_code)
+        # A code that was already used (replay, or the same code entered twice) counts as wrong.
+        if counter is None or not db.claim_totp_counter(user["id"], counter):
             raise MfaRequired(wrong_code=True)
     return user
 

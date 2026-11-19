@@ -284,7 +284,10 @@ Konsole). Das `:ro` in `docker-compose.yml` schützt nur die Socket-Datei, nicht
 Wer den Socket erreicht, kann auf dem Host viel. Wem das zu weit geht, entfernt die Zeile in
 `docker-compose.yml`; alles außer Container-Erkennung und -Steuerung funktioniert weiter.
 
-**Anmeldeschutz.** Passwörter müssen mindestens 10 Zeichen haben und entweder drei der vier
+**Anmeldeschutz.** Nach wiederholten Fehlversuchen (Passwort oder Code) sperrt HomeAtlas weitere
+Anmeldeversuche für bis zu 15 Minuten: von derselben Adresse für denselben Namen nach 5, für
+beliebige Namen nach 20 Versuchen. Ein Code aus der Authenticator-App gilt nur einmal. Passwörter
+müssen mindestens 10 Zeichen haben und entweder drei der vier
 Zeichenarten enthalten oder ab 20 Zeichen als Wortfolge durchgehen — lange Passphrasen sind
 stärker *und* merkbarer als kurze Sonderzeichen-Akrobatik. Die Zwei-Faktor-Anmeldung per
 Authenticator-App (TOTP nach RFC 6238, ohne externen Dienst) ist für **jedes Konto Pflicht**:

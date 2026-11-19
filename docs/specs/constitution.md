@@ -39,6 +39,8 @@
   > OFFEN: Soll eine Alternative auch den Setup-Schritt serverseitig erzwingen?
 - **R5 [Muss]** Passwortrichtlinie: mindestens 10 Zeichen und entweder drei der vier Zeichenarten
   oder ab 20 Zeichen als Passphrase.
+- **R5a [Muss]** Anmeldeversuche werden gedrosselt (Sperre nach wiederholten Fehlversuchen je
+  Name+Quelle, Quelle und Name); ein TOTP-Code ist nur einmal gültig.
 - **R6 [Muss]** Zugriffsprotokoll für Anmeldungen, Fehlversuche, Benutzeränderungen und **jedes
   Anzeigen eines gespeicherten Passworts**, mit Zeit, Benutzer, IP, User-Agent und Erfolg.
 - **R7 [Muss]** Erst-Admin: Gibt es noch keinen Benutzer, wird einer angelegt (Name/Passwort aus
