@@ -15,7 +15,7 @@
 - **[Muss]** Gespeicherte Secrets erreichen nie das Modell. `list_accounts` liefert keine Passwörter.
   `set_switch` entschlüsselt einen Home-Assistant-Token serverseitig und gibt ihn nie an das Modell.
 - **[Muss]** Schreibende Admin-Funktionen (Container, Reboot, SSH-Konsole, Schlüssel ausrollen) sind
-  über keine Werkzeuge erreichbar (`docs/adr/0002-lese-schreib-trennung.md`).
+  über keine Werkzeuge erreichbar (`docs/adr/0011-lese-schreib-trennung-routen-module.md`).
 - **[Impl]** Jedes Ergebnis wird auf 6000 Zeichen gekürzt; die Kürzung steht im Ergebnis, damit
   das Modell gezielter nachfragt (`backend/app/tools.py:34`). Höchstens 8 LLM-Aufrufe pro
   Antwort (`backend/app/tools.py:35`).
@@ -49,6 +49,6 @@ Die Beschreibungstexte, die das Modell sieht, stehen auf Deutsch in `backend/app
 Teil des Verhaltens: Sie sagen dem Modell, welches Werkzeug es zuerst nehmen soll (z. B.
 `internet_check` bei „Internet geht nicht“, `list_switches` vor `set_switch`).
 
-`set_switch` ist die in ADR 0002 und ADR 0004 dokumentierte einzige Ausnahme von der Lese-Regel:
+`set_switch` ist die in ADR 0011 und ADR 0004 dokumentierte einzige Ausnahme von der Lese-Regel:
 für alle Rollen und alle MCP-Clients, ohne Bestätigung (bestätigt in #43). Es erreicht nur Geräte,
 die als Shelly erkannt sind, und protokolliert den Auslöser (Benutzer bzw. MCP-Token).

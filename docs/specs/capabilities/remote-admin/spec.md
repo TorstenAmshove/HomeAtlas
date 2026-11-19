@@ -60,7 +60,7 @@ Das System MUSS schreibende Geräteaktionen ausschließlich aus admin-geschützt
 - **WENN** ein Nutzer den Assistenten bittet, einen Container oder ein Gerät neu zu starten
 - **DANN** steht dafür kein Werkzeug zur Verfügung; nur `set_switch` verändert Geräte
 
-Quelle: `backend/app/remote_admin.py:13`, `backend/app/docker_admin.py:10`, `backend/app/proxmox_admin.py:7`, `backend/app/switch_admin.py:9`, `backend/app/tools.py:28`, ADR `docs/adr/0002-lese-schreib-trennung.md`
+Quelle: `backend/app/remote_admin.py:13`, `backend/app/docker_admin.py:10`, `backend/app/proxmox_admin.py:7`, `backend/app/switch_admin.py:9`, `backend/app/tools.py:28`, ADR `docs/adr/0011-lese-schreib-trennung-routen-module.md`
 
 ### Requirement: Feste Aktionslisten je Route
 Das System MUSS je Route nur die folgenden Aktionen annehmen und jede andere mit 404 „Unbekannte Aktion.“ ablehnen: Container lokal/entfernt `start`, `stop`, `restart`; Shelly/HA `on`, `off`. Es DARF keine frei formulierten Befehle an Geräte senden; Container-IDs und VMIDs werden vor Verwendung in Shell-Befehlen gequotet. **[Muss]**

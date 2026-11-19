@@ -1,6 +1,6 @@
 # ADR-0002: Harte Trennung von lesenden und schreibenden Modulen
 
-- **Status:** Akzeptiert (nachträglich dokumentiert)
+- **Status:** Ersetzt durch ADR-0011 (ursprünglich akzeptiert, nachträglich dokumentiert)
 - **Datum:** 2026-11-14
 
 ## Kontext

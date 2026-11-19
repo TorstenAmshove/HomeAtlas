@@ -19,7 +19,7 @@
    - `docker-compose.yml`-Netzwerk/Socket-Einbindung, `deploy.sh`, `.github/workflows/`
 
    Für `risk:high` gilt immer zusätzlich `needs-human`. Bei Zweifel: `risk:high`.
-5. **Lese-/Schreib-Trennung (ADR-0002) nie aufweichen.** Kein neuer Import eines schreibenden
+5. **Lese-/Schreib-Trennung (ADR-0011) nie aufweichen.** Kein neuer Import eines schreibenden
    Moduls (`*_admin.py`, `remote_admin.py`) in `tools.py`, `mcp_server.py`, `pipeline.py` oder ein
    Probe-Modul. Einzige dokumentierte Ausnahme: `switch_admin` in `tools.py` für `set_switch`. Diese
    Ausnahme wird nicht erweitert.

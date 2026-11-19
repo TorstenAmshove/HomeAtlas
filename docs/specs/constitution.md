@@ -64,13 +64,13 @@
 
 - **L1 [Muss]** Lesender und schreibender Gerätezugriff sind getrennte Pfade. Kein lesender Pfad
   kann über eine Einstellung, einen Parameter oder ein KI-Werkzeug schreibend werden.
-  ([ADR-0002](../adr/0002-lese-schreib-trennung.md))
+  ([ADR-0011](../adr/0011-lese-schreib-trennung-routen-module.md))
 - **L2 [Muss]** Credentialed Probing ist **streng lesend**: SSH nur aus einer festen, im Code
   stehenden Befehlsliste (nicht erweiterbar, nicht interaktiv, kein `sudo`, kein Paketmanager, keine
   Dienststeuerung, keine schreibende Umleitung in Dateien; Pipes zu Lesewerkzeugen wie `base64` und
   `2>/dev/null` sind erlaubt);
   HTTP nur GET; TR-064 nur `Get*`-Aktionen; Docker-API nur GET.
-  ([ADR-0002](../adr/0002-lese-schreib-trennung.md))
+  ([ADR-0011](../adr/0011-lese-schreib-trennung-routen-module.md))
 - **L3 [Muss]** Ein Zugang wird nur benutzt, wenn er **ausdrücklich zum Auslesen freigegeben**
   ist (Opt-in je Zugang, Default aus). Das Auslesen pro Gerät lässt sich global abschalten
   (`scanUseCredentials`); Controller-Abfragen (UniFi, Omada, Proxmox, AdGuard) haben eigene Schalter.
@@ -81,13 +81,13 @@
   ist das nur, um die Ausgabe lesbar zu machen, nie, um etwas zu ändern.
 - **L4 [Muss]** Schreibende Funktionen (Container steuern, Reboot, SSH-Konsole, Schlüssel ausrollen,
   Proxmox-Aktionen) sind nur für ADMIN und nur über die Oberfläche/API erreichbar, nie über
-  Scan-Pipeline, Probes oder KI-Werkzeuge. ([ADR-0002](../adr/0002-lese-schreib-trennung.md))
+  Scan-Pipeline, Probes oder KI-Werkzeuge. ([ADR-0011](../adr/0011-lese-schreib-trennung-routen-module.md))
 - **L5 [Muss]** Einzige Ausnahme: Ein/Aus-Schalten von Shelly-Relais und Home-Assistant
   `switch`/`light` per KI-Werkzeug `set_switch`, für alle Rollen und MCP-Clients, ohne Rückfrage
   (bestätigt in #43). Nur echte Shelly-Geräte; jeder Vorgang wird mit Auslöser protokolliert.
-  Erweiterungen brauchen ein neues ADR. ([ADR-0002](../adr/0002-lese-schreib-trennung.md), [ADR-0004](../adr/0004-llm-faehigkeitsgrenze.md))
+  Erweiterungen brauchen ein neues ADR. ([ADR-0011](../adr/0011-lese-schreib-trennung-routen-module.md), [ADR-0004](../adr/0004-llm-faehigkeitsgrenze.md))
 - **L6 [Impl]** Lese- und Schreibseite sind getrennte Module, die einander nicht importieren;
-  gemeinsamer Code wird eher dupliziert als geteilt. ([ADR-0002](../adr/0002-lese-schreib-trennung.md))
+  gemeinsamer Code wird eher dupliziert als geteilt. ([ADR-0011](../adr/0011-lese-schreib-trennung-routen-module.md))
 - **L7 [Muss, bewusste Abwägung]** SSH-Hostschlüssel werden nicht geprüft (kein Vertrauensspeicher;
   sonst wäre die Funktion im Zielnetz unbrauchbar). Eine Alternative darf das verbessern
   (z. B. Trust-on-first-use), muss es aber nicht.
