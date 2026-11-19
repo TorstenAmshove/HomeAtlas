@@ -258,16 +258,24 @@ Quelle: `backend/app/db.py:1667`, `backend/app/db.py:1660`, `backend/app/main.py
 
 ### Requirement: Seite zurücksetzen
 Das System MUSS eine manuell überschriebene Seite wieder in den automatischen Modus versetzen und
-sofort neu erzeugen können; der überschriebene Text bleibt als Version erhalten. **[Muss]**
+sofort neu erzeugen können. Die eigenen Notizen (`manualMd`) bleiben dabei unverändert. Der
+überschriebene Text wird nur dann als Version („automatisch neu erzeugt“) gesichert, wenn der neu
+erzeugte Text sich von ihm unterscheidet; ist er gleich, entsteht kein Snapshot. **[Muss]**
 
 Heute **[Impl]**: Reset setzt den Modus und erzeugt danach **alle** Kapitel neu (KI gemäß `scanUseLlm`),
 Antwort ist die zurückgesetzte Seite.
 
 #### Szenario: Reset
 - **WENN** ein Admin bei der manuell bearbeiteten Seite `notfall` „Neu erzeugen“ wählt
-- **DANN** enthält sie wieder die erzeugte Checkliste und der Verlauf hat einen Eintrag „automatisch neu erzeugt“ mit dem alten Text
+- **DANN** enthält sie wieder die erzeugte Checkliste, ihre eigenen Notizen sind unverändert und der
+  Verlauf hat einen Eintrag „automatisch neu erzeugt“ mit dem alten Text
 
-Quelle: `backend/app/main.py:1302`, `backend/app/db.py:1675`, `backend/app/db.py:1646`
+#### Szenario: Reset ohne Textänderung
+- **WENN** der manuell gesetzte Text zufällig dem neu erzeugten entspricht
+- **DANN** wechselt die Seite in den automatischen Modus, ohne dass eine neue Version entsteht
+
+Quelle: `backend/app/main.py:1302`, `backend/app/db.py:1675`, `backend/app/db.py:1645`, `backend/app/db.py:1646`,
+`backend/app/db.py:1656` (Update ohne `manualMd`)
 
 ### Requirement: Versionierung vor jeder Änderung
 Das System MUSS vor jeder Änderung eines Kapitels den bisherigen Stand (Titel, Text, Notizen, Modus)

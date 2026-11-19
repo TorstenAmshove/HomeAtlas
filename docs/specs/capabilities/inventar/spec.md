@@ -100,8 +100,10 @@ Das System MUSS ADMIN erlauben, per Teil-Update genau diese Felder zu ändern: `
 hostname, ip, mac, vendor, model, os, location, purpose, descriptionMd, url, docUrl, docLink, notes,
 importance, parentId, status, discovered, discoverySource, discoveryKey, monitored, monitorPorts,
 openPorts, services, tags, extra` sowie `lastSeen`. Andere Schlüssel werden ignoriert. Jede
-Bearbeitung setzt `confirmed=1`. Leerwerte fallen auf die Defaults (s. o.) zurück. `updatedAt` wird
-nur gesetzt, wenn mindestens ein Inventarfeld im Patch ist. Unbekannte ID → 404. **[Muss]**
+Bearbeitung setzt `confirmed=1`. Leerwerte fallen auf die Defaults (s. o.) zurück. Da die Route
+`confirmed=1` stets mitschreibt, setzt jeder `PATCH` `updatedAt` – auch ein leerer oder einer nur
+mit unbekannten Schlüsseln bzw. nur `lastSeen` (die Regel „nur bei Inventarfeld im Patch“ in
+`db.update_system` greift nur bei internen Aufrufen). Unbekannte ID → 404. **[Muss]**
 (dass auch technische Felder wie `status`/`discoveryKey`/`extra` schreibbar sind: **[Impl]**, siehe OFFEN)
 
 #### Szenario: Bearbeiten schützt vor Scans
@@ -109,7 +111,8 @@ nur gesetzt, wenn mindestens ein Inventarfeld im Patch ist. Unbekannte ID → 40
 - **DANN** behält der nächste Scan diesen Namen bei
 - Test: `backend/tests/test_db_docker_names.py::test_confirmed_row_keeps_name`
 
-Quelle: `backend/app/main.py:567`, `backend/app/db.py:618`, `backend/app/db.py:671`, `backend/app/db.py:686`
+Quelle: `backend/app/main.py:567`, `backend/app/main.py:569`, `backend/app/db.py:618`, `backend/app/db.py:671`,
+`backend/app/db.py:675`, `backend/app/db.py:686`
 
 Editierbar in der UI (Formular „Gerät bearbeiten"): Name, Adresse, Hostname, Hersteller, Modell,
 Standort, Weboberfläche-URL, Hersteller-Doku-URL, eigene Doku-URL, Zweck, Art (17 Arten, siehe
@@ -128,7 +131,9 @@ aktualisieren (IP, Status, Ports/Dienste, `extra`, `lastSeen`, Discovery-Schlüs
 - **DANN** bleibt der HomeAtlas-Name
 - Test: `backend/tests/test_db_dedup.py::test_upsert_updates_unifi_name_but_preserves_confirmed_homeatlas_name`
 
-Quelle: `backend/app/db.py:1133`, `backend/app/db.py:1224`; Details: [discovery-und-scan](../discovery-und-scan/spec.md)
+Quelle: `backend/app/db.py:1133`, `backend/app/db.py:1224`, `backend/app/db.py:1237`; Suchreihenfolge,
+Feldregeln für bestätigte/unbestätigte Geräte und UniFi-Namensvorrang: Requirement „Wiedererkennung
+bestehender Geräte“ in [discovery-und-scan](../discovery-und-scan/spec.md)
 
 ### Requirement: „Kritisch" startet Überwachung sofort
 Das System MUSS jedes Gerät mit `importance=critical` und nicht-leerer IP oder Hostname sofort in
@@ -363,8 +368,9 @@ UI-Seite(n): `frontend/src/pages/InventoryPage.tsx` (Route `/geraete`),
 
 ## Nicht-Ziele und Grenzen
 
-- Kein automatisches Zusammenführen aus Vorschlägen; einzige Ausnahme sind Discovery-Regeln
-  (MAC, Proxmox, IP+Hostname, Controller-IP) in [discovery-und-scan](../discovery-und-scan/spec.md).
+- Kein automatisches Zusammenführen aus Vorschlägen; einzige Ausnahme ist die Wiedererkennung beim
+  Scan (Schlüssel, Alt-Schlüssel, Alias, MAC, Proxmox, IP+Hostname, Controller-IP), Requirement
+  „Wiedererkennung bestehender Geräte“ in [discovery-und-scan](../discovery-und-scan/spec.md).
 - Kein Rückgängigmachen eines Merges, kein Entfernen einzelner Aliase, kein Aufheben von
   „kein Duplikat".
 - Keine Löschung/Quittierung von Fehlerereignissen, kein Bearbeiten oder Zurückspielen von

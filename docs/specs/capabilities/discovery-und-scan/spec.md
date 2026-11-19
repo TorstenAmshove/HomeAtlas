@@ -270,9 +270,15 @@ Quelle: `backend/app/discovery.py:372`, `backend/app/discovery.py:868`, `backend
 
 ### Requirement: Namenspräzedenz
 Das System MUSS den Gerätenamen nach fester Rangfolge bilden: manuell gepflegt (bestätigtes Gerät)
-> UniFi-Name > Shelly-App-Name/-Modell > UPnP `friendlyName` > mDNS-Instanzname > DNS-Hostname
-(erstes Label) > Webseitentitel > „<erstes Wort des Herstellers> (<letztes IP-Oktett>)“ > IP.
-Namen werden auf 80 Zeichen gekürzt. **[Muss]**
+> UniFi-Name (nicht leerer `name` aus `extra.unifi`, aus dem Fund oder bereits gespeichert)
+> Shelly-App-Name > „Shelly <Modell>“ (beides nur bei Antwort der Shelly-API) > UPnP `friendlyName`
+> mDNS-Instanzname > DNS-Hostname (erstes Label) > Webseitentitel > „<erstes Wort des Herstellers>
+(<letztes IP-Oktett>)“ > IP. Namen werden auf 80 Zeichen gekürzt. Die Stufen ab Shelly bildet der
+Netzwerkscan je Fund; UniFi und „manuell“ greifen erst beim Zusammenführen ins Inventar (siehe
+„Wiedererkennung bestehender Geräte“). Namen anderer Quellen (Docker, Omada, Proxmox, AdGuard,
+KI-Einordnung) stehen nicht in dieser Kette: Bei unbestätigten Geräten überschreibt jeder nicht
+leere Name des später zusammengeführten Funds den bisherigen (Reihenfolge im Scan: Netzwerkscan,
+Docker, UniFi, Omada, Proxmox, AdGuard), außer ein UniFi-Name ist bekannt. **[Muss]**
 
 #### Szenario: Bestätigtes Gerät
 - **WENN** ein Gerät bestätigt wurde und der Scan einen anderen Namen findet
@@ -282,8 +288,10 @@ Namen werden auf 80 Zeichen gekürzt. **[Muss]**
 - **WENN** nur MAC-Hersteller „Raspberry Pi Trading“ bei `192.168.1.42` bekannt ist
 - **DANN** Name „Raspberry (42)“
 
-Quelle: `backend/app/discovery.py:633`, `backend/app/discovery.py:917`, `backend/app/db.py:1224`,
-`backend/app/db.py:1231`, Test: `backend/tests/test_db_docker_names.py::test_confirmed_row_keeps_name`
+Quelle: `backend/app/discovery.py:633`, `backend/app/discovery.py:917`, `backend/app/pipeline.py:376`–`:470`,
+`backend/app/db.py:1202`, `backend/app/db.py:1224`, `backend/app/db.py:1231`,
+Tests: `backend/tests/test_db_docker_names.py::test_confirmed_row_keeps_name`,
+`backend/tests/test_db_dedup.py::test_upsert_keeps_unifi_name_over_other_discovery_sources`
 
 ### Requirement: Regelbasierte Geräteart
 Das System MUSS ohne LLM eine Ersteinordnung (Art, Modell, Zweck, „sicher“-Flag) liefern:
@@ -328,6 +336,58 @@ Hostname, IP, MAC, Hersteller, Modell, Zweck, URL der Weboberfläche, kuratierte
 - **DANN** `extra.randomizedMac = true`
 
 Quelle: `backend/app/discovery.py:929`, `backend/app/oui.py:86`
+
+### Requirement: Wiedererkennung bestehender Geräte
+Beim Übernehmen eines Funds ins Inventar MUSS das System ein bestehendes Gerät in dieser
+Reihenfolge suchen und das erste Ergebnis aktualisieren statt neu anzulegen: (1) gleicher
+`discoveryKey`, (2) einer der `legacyDiscoveryKeys` des Funds, (3) Alias aus einer manuellen
+Zusammenführung (Schlüssel, Alt-Schlüssel oder `mac:<mac>` des Funds), (4) gleiche MAC,
+(5) Proxmox-Gast mit gleichem (node, vmid), (6) gleiche IP *und* gleicher Hostname, (7) genau ein
+Gerät mit dieser IP, sofern Fund oder Gerät aus UniFi/Omada stammt und die MACs sich nicht
+widersprechen. Ohne Treffer entsteht ein neues Gerät. Für das gefundene Gerät gilt: **[Muss]**
+- immer aktualisiert: IP, Status, `extra` (zusammengeführt), `lastSeen`, `discoveryKey` (auf den
+  Schlüssel des Funds);
+- offene Ports/Dienste nur, wenn der Fund `openPorts` mitbringt – fehlen sie (UniFi, Omada,
+  Proxmox), bleiben die gespeicherten erhalten;
+- bringt der Fund keine MAC mit und hat das Gerät einen `mac:`-Schlüssel samt MAC, bleibt dieser
+  Schlüssel (kein Hin- und Herspringen zwischen Scan und Controller);
+- Alias-Treffer (3): Schlüssel, IP und MAC des Geräts bleiben unverändert; Ports landen im
+  Eintrag dieser Adresse unter `extra.interfaces`;
+- unbestätigtes Gerät: jedes nicht leere Feld aus `kind, name, hostname, mac, vendor, model, os,
+  location, purpose, descriptionMd, url, docUrl, docLink, importance` wird übernommen; ist ein
+  UniFi-Name bekannt (Fund oder gespeichertes `extra.unifi`), gewinnt er als `name`;
+- bestätigtes Gerät: nur bisher leere Felder aus `hostname, mac, vendor, model, os, docUrl,
+  docLink, purpose, location` werden gefüllt; `name`, `kind`, `descriptionMd`, `url`,
+  `importance` bleiben unberührt.
+
+#### Szenario: Scan sieht Gerät nur per IP, Controller per MAC
+- **WENN** ein gerouteter Fund `ip:10.0.0.5` ohne MAC existiert und UniFi dasselbe Gerät mit
+  MAC `aa:bb:cc:00:00:01` und IP `10.0.0.5` meldet
+- **DANN** wird kein zweites Gerät angelegt; das Gerät erhält die MAC und den Schlüssel
+  `mac:aa:bb:cc:00:00:01`, und der nächste Netzwerkscan (wieder ohne MAC) lässt diesen Schlüssel stehen
+
+#### Szenario: UniFi-Name gegen Selbstauskunft
+- **WENN** ein unbestätigtes Gerät den UniFi-Namen „Wohnzimmer-AP“ trägt und ein späterer Fund
+  per UPnP „UAP-AC-Lite“ meldet
+- **DANN** bleibt der Name „Wohnzimmer-AP“; bei einem bestätigten Gerät bliebe der manuelle Name
+
+#### Szenario: Controller-Fund ohne Ports
+- **WENN** der Netzwerkscan Ports 22 und 443 gefunden hat und danach ein Proxmox-Fund ohne
+  `openPorts` dasselbe Gerät trifft
+- **DANN** bleiben Ports 22 und 443 gespeichert
+
+#### Szenario: Bestätigtes Gerät wird ergänzt
+- **WENN** ein von Hand angelegtes, bestätigtes Gerät nur Name, IP und Hostname hat und ein Fund
+  mit gleicher IP und gleichem Hostname MAC, Hersteller und Zweck liefert
+- **DANN** werden MAC, Hersteller und Zweck gefüllt, Name und Art bleiben
+
+Quelle: `backend/app/db.py:1133`, `backend/app/db.py:1168`–`:1184`, `backend/app/db.py:1087`–`:1105`,
+`backend/app/db.py:1063`, `backend/app/db.py:1196`–`:1240`, `backend/app/db.py:772`,
+Tests: `backend/tests/test_db_dedup.py::test_find_system_for_merge_prefers_mac_over_proxmox_over_ip_hostname`,
+`::test_merge_controller_found_into_existing_ip_only_scan_row`, `::test_upsert_updates_unifi_name_but_preserves_confirmed_homeatlas_name`,
+`::test_upsert_merges_device_found_by_ip_only_then_by_mac_via_ip_hostname_match`,
+`backend/tests/test_db_merge_aliases.py::test_rescan_with_only_alias_mac_does_not_duplicate`,
+`::test_finding_without_ports_does_not_wipe_scanned_ports`
 
 ### Requirement: Herstellererkennung über OUI
 Das System MUSS den Hersteller aus den ersten drei MAC-Oktetten ermitteln. Quelle ist das

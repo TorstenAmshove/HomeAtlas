@@ -28,7 +28,7 @@ verlinkten Fähigkeiten. Quelle Defaults: `backend/app/db.py:408`.
 | Schlüssel | Default | Bedeutung | Gelesen von |
 |---|---|---|---|
 | `homeName` (M) | „Mein Zuhause“ | Name des Zuhauses (Überschrift, Prompts, Topologie) | tools, main (Dashboard), topology |
-| `setupCompleted` (M) | false | Ersteinrichtung abgeschlossen; nur durch [setup-wizard](../setup-wizard/spec.md) gesetzt | main (`/api/health`, Dashboard) |
+| `setupCompleted` (M) | false | Ersteinrichtung abgeschlossen; regulär durch [setup-wizard](../setup-wizard/spec.md) gesetzt (`main.py:1692`), aber auch per `PATCH /api/settings` beliebig setz- und rücksetzbar (`main.py:434`, siehe OFFEN) | main (`/api/health`, Dashboard) |
 | `llmProvider` | `DEEPSEEK` | Gewählter Anbieter: `CLAUDE`, `OPENAI`, `GEMINI`, `DEEPSEEK`, `OLLAMA` | tools, docs, classify, main |
 | `claudeApiKey` | „“ | Geheimnis, maskiert | llm_providers |
 | `claudeModel` | `auto` | Modell-ID oder `auto` | llm_providers |
@@ -55,7 +55,7 @@ verlinkten Fähigkeiten. Quelle Defaults: `backend/app/db.py:408`.
 | `configVersionKeep` | 50 | Aufbewahrte Konfig-Backups je Gerät, wirksam 1–1000 | db |
 | `monitorEnabled` | true | Überwachung wichtiger Geräte | monitor, main |
 | `monitorIntervalSeconds` | 10 | Intervall, wirksam 5–600 s | monitor, main |
-| `monitorTimeoutMs` | 1500 | Ping-Timeout, wirksam ≥ 200 ms | monitor |
+| `monitorTimeoutMs` | 1500 | Timeout je TCP-Portprüfung, wirksam ≥ 200 ms; gilt nicht für den Ping (fest `-W 2`, 1 Paket; `monitor.py:141`, `diagnostics.py:75`) | monitor |
 | `defaultCredentialEnabled` | false | Standard-Zugang fürs Auslesen aktiv | probe_auth |
 | `defaultCredentialUsername` | „“ | leer = `root` | probe_auth |
 | `defaultCredentialIsKey` | false | Geheimnis ist SSH-Schlüssel | probe_auth |

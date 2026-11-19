@@ -60,7 +60,7 @@ Das System MUSS je Gerät höchstens 3 Ports wählen, in dieser Rangfolge: (1) v
 Quelle: `backend/app/monitor.py:28`–`backend/app/monitor.py:58`
 
 ### Requirement: Bewertung einer Prüfung
-Das System MUSS je Gerät einen Status `online`, `offline` oder `unknown` plus verständlichen Detailtext ermitteln. Alle gewählten Ports werden parallel per TCP-Verbindungsaufbau mit Timeout `monitorTimeoutMs` (Default 1500 ms, mindestens 200 ms) geprüft. Antwortet einer: `online`. Explizite Ports, keiner offen: `offline` ohne Ping. Sonst (geratene oder keine Ports): ein einzelner Ping entscheidet – Antwort ⇒ `online` (Detail nennt ggf., dass der Port nicht antwortete), keine ⇒ `offline`. Ohne Adresse oder bei Prüffehler: `unknown`. **[Muss]**
+Das System MUSS je Gerät einen Status `online`, `offline` oder `unknown` plus verständlichen Detailtext ermitteln. Alle gewählten Ports werden parallel per TCP-Verbindungsaufbau mit Timeout `monitorTimeoutMs` (Default 1500 ms, mindestens 200 ms) geprüft. Antwortet einer: `online`. Explizite Ports, keiner offen: `offline` ohne Ping. Sonst (geratene oder keine Ports): ein einzelner Ping entscheidet – Antwort ⇒ `online` (Detail nennt ggf., dass der Port nicht antwortete), keine ⇒ `offline`. Ohne Adresse oder wenn der Ping-Aufruf selbst eine Ausnahme wirft (z. B. ungültige Adresse): `unknown` „Prüfung fehlgeschlagen“. Eine scheiternde Portprüfung zählt als „Port nicht offen“. Wirft die Prüfung eines Geräts an anderer Stelle, wird es in dieser Runde übersprungen – kein Status-, kein Ereignis-, kein Fehlerzählerwechsel. **[Muss]**
 
 #### Szenario: Explizit konfigurierter Dienst tot
 - **WENN** Port 445 explizit gesetzt ist, nicht antwortet, das Gerät aber auf Ping reagiert
@@ -70,7 +70,11 @@ Das System MUSS je Gerät einen Status `online`, `offline` oder `unknown` plus v
 - **WENN** kein Port explizit ist, die geratenen Ports zu sind, Ping antwortet
 - **DANN** `online`, Detail „Antwortet auf Ping, aber Port … nahm keine Verbindung an“
 
-Quelle: `backend/app/monitor.py:65`–`backend/app/monitor.py:102`, `backend/app/monitor.py:141`
+#### Szenario: Ausnahme bei einem Gerät
+- **WENN** die Prüfung eines Geräts außerhalb des Ping-Aufrufs eine Ausnahme wirft
+- **DANN** behält es seinen bisherigen Status und Fehlerzähler; die übrigen Geräte werden normal bewertet
+
+Quelle: `backend/app/monitor.py:65`–`backend/app/monitor.py:102`, `backend/app/monitor.py:141`, `backend/app/monitor.py:150`–`backend/app/monitor.py:156`
 
 ### Requirement: Ausfall erst nach Bestätigung
 Das System MUSS einen Ausfall erst nach 2 aufeinanderfolgenden `offline`-Ergebnissen übernehmen; bis dahin bleibt der bisherige Status unverändert. Jedes nicht-`offline`-Ergebnis setzt den Fehlerzähler sofort zurück und wird sofort übernommen. **[Muss]** (Schwelle 2 **[Impl]**)
