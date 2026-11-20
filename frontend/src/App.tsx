@@ -5,6 +5,7 @@ import LoginPage from "./pages/LoginPage";
 import MfaEnrollPage from "./pages/MfaEnrollPage";
 import SetupPage from "./pages/SetupPage";
 import DashboardPage from "./pages/DashboardPage";
+import StartCalm from "./pages/start/StartCalm";
 import InventoryPage from "./pages/InventoryPage";
 import SystemDetailPage from "./pages/SystemDetailPage";
 import AccessLogPage from "./pages/AccessLogPage";
@@ -147,7 +148,7 @@ export default function App() {
   // admin gating (`isAdmin &&`) is the same whichever frame is around it.
   const routes = (
     <Routes>
-      <Route path="/" element={<DashboardPage />} />
+      <Route path="/" element={calm ? <StartCalm /> : <DashboardPage />} />
       <Route path="/geraete" element={<InventoryPage />} />
       <Route path="/geraete/:id" element={<SystemDetailPage />} />
       {isAdmin && <Route path="/zugaenge" element={<AccountsPage />} />}

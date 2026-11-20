@@ -127,6 +127,41 @@ Internet erreichbar, DNS funktioniert und Webseiten laden; sonst rot), mit der E
 Quelle: `frontend/src/pages/DashboardPage.tsx:45`, `:82`, `backend/app/main.py:1471`;
 Details: [diagnose](../diagnose/spec.md)
 
+### Requirement: Neue Oberfläche (Schalter `uiCalm`)
+Ist die neue Oberfläche aktiv (`uiCalm` bzw. `?ui=calm`), MUSS `/` statt der Kacheln die Startseite
+`StartCalm` zeigen; bei ausgeschaltetem Schalter bleibt alles oben Beschriebene unverändert. Sie
+ruft dieselben Endpunkte (`/api/dashboard`, zusätzlich `/api/monitor`; `/api/docs` nur, solange ein
+Gerät ausgefallen ist) im selben Takt und mit derselben Pause bei verstecktem Tab auf. Abweichend
+von oben gilt mit Schalter: **[Muss]**
+- Kein Seitentitel `<h1>` und kein Untertitel; der Name des Zuhauses steht in der Shell.
+- Ein Status-Hero oben: Sind überwachte Geräte (`/api/monitor` → `systems`, `status = offline`;
+  dieselbe Menge wie der Netzplan, nicht `counts.offline`) nicht erreichbar, nennt er bei einem
+  Gerät dessen Namen mit „seit <Zeit>" (jüngster `offline`-Eintrag in `events`), sonst die Anzahl;
+  Aktionen „Ansehen" (Geräteseite, bei mehreren `/plan`), „Assistent fragen" (`/assistent`) und
+  „Notfall-Checkliste" (`/dokumentation/notfall`, nur wenn das Kapitel existiert). Sonst „Alles
+  erreichbar" bzw. ein Hinweis bei leerem Inventar, abgeschalteter Überwachung oder ohne
+  überwachtes Gerät.
+- Eine Zahlenzeile ersetzt die vier Kacheln: `total` Geräte · `online` erreichbar · `critical`
+  wichtig · `accounts` Zugänge · Scan <Zeit von `lastScan.startedAt`> (Zusatz bei `failed`/`running`).
+- Sind mehr kritische Geräte vorhanden als geliefert, steht unter der Liste „+<critical − Anzahl>
+  weitere" mit Link auf `/geraete`.
+- Ein kritisches Gerät, das die Überwachung nicht prüft (nicht in `/api/monitor`, z. B. ohne IP und
+  Hostname, oder Überwachung aus), zeigt „Stand letzter Scan" statt eines Live-Status.
+- Das Ergebnis von „Internet prüfen" bleibt mit Uhrzeit sichtbar, bis die Seite verlassen wird;
+  ein Fehler erscheint dort statt die Seite zu ersetzen.
+- Der KI-Hinweis (nur ADMIN) ist ein Status-Chip „Assistent nicht eingerichtet · Einrichten".
+- Während des Ladens erscheint ein Skeleton statt eines Spinners.
+
+#### Szenario: Ein überwachtes Gerät fällt aus
+- **WENN** die Überwachung die Heizung seit 07:42 als `offline` führt
+- **DANN** steht oben „Heizung ist nicht erreichbar" mit „seit 07:42" und den drei Aktionen
+
+#### Szenario: Zwölf kritische Geräte
+- **WENN** 12 Geräte kritisch sind
+- **DANN** zeigt die Liste 10 und darunter „+2 weitere"
+
+Quelle: `frontend/src/pages/start/StartCalm.tsx`, `frontend/src/App.tsx` (Route `/`)
+
 ## Daten
 
 Aus [data-model](../../contracts/data-model.md), nur lesend:
@@ -147,7 +182,8 @@ Berührte fremde Routen: `POST /api/diagnostics` ([diagnose](../diagnose/spec.md
 ([einstellungen-und-llm-provider](../einstellungen-und-llm-provider/spec.md)), `/geraete`
 ([inventar](../inventar/spec.md)).
 
-UI-Seite(n): `frontend/src/pages/DashboardPage.tsx` (Route `/`).
+UI-Seite(n): `frontend/src/pages/DashboardPage.tsx` (Route `/`); mit Schalter `uiCalm`
+`frontend/src/pages/start/StartCalm.tsx`.
 
 ## Nicht-Ziele und Grenzen
 
