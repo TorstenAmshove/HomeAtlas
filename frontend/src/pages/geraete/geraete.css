@@ -1,0 +1,288 @@
+/* Area "Geräte" of the new UI: Liste (InventoryCalm), Netzplan (PlanCalm), Netze & WLAN
+ * (NetworksCalm). Every rule is scoped to `.app-shell .geraete-calm`, which only renders inside the
+ * new shell, so the shell tokens (--c-*) are defined and the classic pages are untouched.
+ * Layout follows docs/redesign/mockups/index.html, screens "Geräte" and "Netzplan", direction B. */
+
+.app-shell .geraete-calm { --g-row-h: 48px; --g-target: 44px; min-width: 0; }
+
+.app-shell .geraete-calm .geraete-quiet { margin: 0; color: var(--c-muted); font-size: 13.5px; }
+.app-shell .geraete-calm .mono { font-family: ui-monospace, "Cascadia Code", monospace; font-size: 0.92em; }
+.app-shell .geraete-calm .muted { color: var(--c-muted); }
+.app-shell .geraete-calm label { margin: 0; font-weight: 500; color: inherit; font-size: inherit; }
+
+/* ---------------------------------------------------------------- buttons */
+
+.app-shell .geraete-calm .geraete-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.app-shell .geraete-calm .geraete-btn,
+.app-shell .geraete-calm .dialog-actions button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: var(--g-target);
+  padding: 0 14px; border-radius: 8px; font: inherit; font-size: 14px; font-weight: 600; white-space: nowrap;
+  text-decoration: none;
+}
+.app-shell .geraete-calm a.geraete-btn { border: 1px solid var(--c-line); color: var(--c-text); background: transparent; }
+.app-shell .geraete-calm a.geraete-btn:hover { background: var(--c-surface-2); text-decoration: none; }
+.app-shell .geraete-calm a.geraete-btn.primary { background: var(--c-text); color: var(--c-on-text); border-color: var(--c-text); }
+.app-shell .geraete-calm a.geraete-btn.primary:hover { opacity: 0.88; }
+
+/* Text-like controls (filter chips, links): the shell's .sbtn reset plus a 44px target. */
+.app-shell .geraete-calm .geraete-filter,
+.app-shell .geraete-calm .geraete-filter:hover:not(:disabled) {
+  position: relative; display: inline-flex; align-items: center; gap: 6px; min-height: var(--g-target);
+  color: var(--c-muted); font-size: 13.5px; font-weight: 500; white-space: nowrap; border-radius: 0;
+}
+.app-shell .geraete-calm .geraete-filter:hover:not(:disabled) { color: var(--c-text); }
+.app-shell .geraete-calm .geraete-filter b { color: var(--c-text); font-weight: 650; font-variant-numeric: tabular-nums; }
+.app-shell .geraete-calm .geraete-filter.active,
+.app-shell .geraete-calm .geraete-filter.active:hover:not(:disabled) {
+  color: var(--c-text); font-weight: 650; box-shadow: inset 0 -2px 0 var(--c-text);
+}
+.app-shell .geraete-calm .geraete-filter.warn,
+.app-shell .geraete-calm .geraete-filter.warn:hover:not(:disabled) { color: var(--c-warn); }
+.app-shell .geraete-calm .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+.app-shell .geraete-calm .dot.bad { background: var(--c-bad); }
+.app-shell .geraete-calm .dot.warn { background: var(--c-warn); }
+.app-shell .geraete-calm .dot.ok { background: var(--c-ok); }
+
+/* A <select> dressed as a chip: the native control stays (keyboard, phone picker), only its box goes. */
+.app-shell .geraete-calm .geraete-filter-select select {
+  appearance: none; -webkit-appearance: none; width: auto; min-height: var(--g-target); border: 0; border-radius: 0;
+  background: transparent; color: inherit; font: inherit; padding: 0 2px; cursor: pointer; max-width: 14em;
+  text-overflow: ellipsis; field-sizing: content;
+}
+.app-shell .geraete-calm .geraete-filter-select select:focus { outline: none; }
+.app-shell .geraete-calm .geraete-filter-select:focus-within { outline: 2px solid var(--c-accent); outline-offset: 2px; border-radius: 4px; }
+.app-shell .geraete-calm .geraete-filter-select select option { color: var(--c-text); background: var(--c-surface); }
+
+.app-shell .geraete-calm .geraete-link,
+.app-shell .geraete-calm .geraete-link:hover:not(:disabled) {
+  color: var(--c-accent); font-size: 13.5px; min-height: var(--g-target); text-decoration: underline; text-underline-offset: 2px;
+}
+
+/* Calm chips (status). */
+.app-shell .geraete-calm .geraete-chip {
+  display: inline-flex; align-items: center; gap: 6px; flex: none; font-size: 13px; font-weight: 500;
+  color: var(--c-muted); white-space: nowrap;
+}
+.app-shell .geraete-calm .geraete-chip.ok { color: var(--c-ok); }
+.app-shell .geraete-calm .geraete-chip.bad { color: var(--c-bad); }
+.app-shell .geraete-calm .geraete-chip.warn { color: var(--c-warn); }
+
+.app-shell .geraete-calm .geraete-sec { margin: 22px 0 4px; font-size: 13px; font-weight: 600; color: var(--c-muted); letter-spacing: 0; }
+
+.app-shell .geraete-calm .geraete-empty { padding: 18px 0; color: var(--c-muted); font-size: 14px; }
+.app-shell .geraete-calm .geraete-empty h2 { margin: 0 0 4px; font-size: 17px; font-weight: 650; color: var(--c-text); }
+.app-shell .geraete-calm .geraete-empty p { margin: 0 0 12px; max-width: 62ch; }
+
+/* ---------------------------------------------------------------- Liste: toolbar and chips */
+
+.app-shell .geraete-calm .inv-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 4px; }
+.app-shell .geraete-calm .inv-search {
+  flex: 1 1 240px; min-width: 0; min-height: var(--g-target); background: var(--c-surface); color: var(--c-text);
+  border: 1px solid var(--c-line); border-radius: 8px; padding: 0 12px; font-size: 15px;
+}
+.app-shell .geraete-calm .inv-sort select {
+  width: auto; min-height: var(--g-target); background: var(--c-surface); color: var(--c-text);
+  border: 1px solid var(--c-line); border-radius: 8px; padding: 0 10px; font-size: 14px;
+}
+
+.app-shell .geraete-calm .inv-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 0 18px; margin: 2px 0 6px; }
+.app-shell .geraete-calm .inv-chips-spacer { flex: 1; }
+
+.app-shell .geraete-calm .inv-result { display: flex; align-items: center; gap: 12px; margin: 0 0 2px; }
+
+/* ---------------------------------------------------------------- Liste: rows */
+
+.app-shell .geraete-calm .inv-list { list-style: none; margin: 0; padding: 0; }
+.app-shell .geraete-calm .inv-row,
+.app-shell .geraete-calm .inv-head { display: flex; align-items: center; border-bottom: 1px solid var(--c-line); }
+.app-shell .geraete-calm .inv-row-skeleton { gap: 16px; min-height: var(--g-row-h); padding: 6px 0; }
+.app-shell .geraete-calm .inv-row.is-selected { background: color-mix(in srgb, var(--c-accent) 7%, transparent); }
+
+.app-shell .geraete-calm .inv-link,
+.app-shell .geraete-calm .inv-head-cols {
+  flex: 1; min-width: 0; display: grid; align-items: center; gap: 12px;
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 1fr) 9.5em;
+}
+.app-shell .geraete-calm .inv-link { min-height: var(--g-row-h); padding: 6px 0; color: var(--c-text); text-decoration: none; }
+.app-shell .geraete-calm .inv-link:hover { text-decoration: none; }
+.app-shell .geraete-calm .inv-link:hover .inv-name-text { color: var(--c-accent); }
+.app-shell .geraete-calm .inv-head-cols { padding: 6px 0; font-size: 12.5px; font-weight: 600; color: var(--c-muted); }
+
+.app-shell .geraete-calm .inv-main { min-width: 0; display: flex; flex-direction: column; }
+.app-shell .geraete-calm .inv-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.app-shell .geraete-calm .inv-name-text { font-weight: 600; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-shell .geraete-calm .inv-star { color: var(--c-warn); flex: none; font-size: 13px; }
+.app-shell .geraete-calm .inv-flag { flex: none; font-size: 12px; font-weight: 600; }
+.app-shell .geraete-calm .inv-flag.bad { color: var(--c-bad); }
+.app-shell .geraete-calm .inv-flag.warn { color: var(--c-warn); }
+.app-shell .geraete-calm .inv-sub {
+  display: block; font-size: 12.5px; line-height: 1.35; color: var(--c-muted); overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-weight: 400;
+}
+.app-shell .geraete-calm .inv-col { min-width: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-shell .geraete-calm .inv-ip { font-variant-numeric: tabular-nums; }
+.app-shell .geraete-calm .inv-phone-sub { display: none; }
+.app-shell .geraete-calm .inv-status-short { display: none; }
+
+.app-shell .geraete-calm .inv-check {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; width: var(--g-target);
+  min-height: var(--g-target); margin-left: -10px; cursor: pointer;
+}
+.app-shell .geraete-calm .inv-check input { width: 18px; height: 18px; margin: 0; accent-color: var(--c-accent); }
+
+.app-shell .geraete-calm .inv-group { display: block; border-bottom: 0; }
+.app-shell .geraete-calm .inv-group-head,
+.app-shell .geraete-calm .inv-group-head:hover:not(:disabled) {
+  width: 100%; min-height: var(--g-target); padding: 0 4px; gap: 6px; justify-content: flex-start;
+  border-bottom: 1px solid var(--c-line); border-radius: 0; color: var(--c-text); font-size: 14px; background: var(--c-surface-2);
+}
+.app-shell .geraete-calm .inv-group-list { padding-left: 14px; }
+
+/* ---------------------------------------------------------------- Liste: panels */
+
+.app-shell .geraete-calm .inv-panel {
+  margin: 8px 0 14px; padding: 12px 16px; border: 1px solid var(--c-line); border-left: 3px solid var(--c-warn);
+  border-radius: 10px; background: var(--c-surface);
+}
+.app-shell .geraete-calm .inv-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.app-shell .geraete-calm .inv-panel h2 { margin: 0; font-size: 15px; font-weight: 650; }
+.app-shell .geraete-calm .inv-dupe-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.app-shell .geraete-calm .inv-dupe-list li {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px;
+  padding: 10px 0; border-top: 1px solid var(--c-line); overflow-wrap: anywhere;
+}
+.app-shell .geraete-calm .inv-dupe-text { min-width: 0; flex: 1 1 220px; }
+.app-shell .geraete-calm .inv-dupe-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.app-shell .geraete-calm .inv-dupe-actions .geraete-btn { white-space: normal; text-align: left; }
+
+.app-shell .geraete-calm .inv-selectbar {
+  position: sticky; top: 53px; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  margin: 4px 0 8px; padding: 8px 12px; border: 1px solid var(--c-line); border-radius: 10px; background: var(--c-surface);
+}
+.app-shell .geraete-calm .inv-selectbar-count { font-size: 14px; margin-right: 4px; }
+.app-shell .geraete-calm .inv-merge { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+
+.app-shell .geraete-calm .inv-doomed { margin: 4px 0 0; padding-left: 1.1em; max-height: 40vh; overflow-y: auto; }
+.app-shell .geraete-calm .inv-field { display: grid; gap: 4px; margin: 12px 0 0; font-size: 14px; font-weight: 600; }
+.app-shell .geraete-calm .inv-field input,
+.app-shell .geraete-calm .inv-field select {
+  min-height: var(--g-target); background: var(--c-surface); color: var(--c-text); border: 1px solid var(--c-line);
+  border-radius: 8px; font-weight: 400; font-size: 15px;
+}
+.app-shell .geraete-calm .inv-field-error { margin: 8px 0 0; color: var(--c-bad); font-size: 14px; }
+
+/* Mouse and trackpad: denser rows; touch keeps the 44px targets. */
+@media (pointer: fine) {
+  .app-shell .geraete-calm { --g-row-h: 42px; --g-target: 38px; }
+}
+
+/* ---------------------------------------------------------------- Liste: phone (< 640px) */
+
+@media (max-width: 639px) {
+  .app-shell .geraete-calm { --g-target: 44px; }
+  .app-shell .geraete-calm .inv-head { display: none; }
+  .app-shell .geraete-calm .inv-link { display: flex; gap: 10px; }
+  .app-shell .geraete-calm .inv-main { flex: 1; }
+  .app-shell .geraete-calm .inv-col { display: none; }
+  .app-shell .geraete-calm .inv-purpose { display: none; }
+  .app-shell .geraete-calm .inv-phone-sub { display: block; }
+  .app-shell .geraete-calm .inv-status-long { display: none; }
+  .app-shell .geraete-calm .inv-status-short { display: inline; }
+  .app-shell .geraete-calm .inv-sort { flex: 1 1 auto; }
+  .app-shell .geraete-calm .inv-sort select { width: 100%; }
+  .app-shell .geraete-calm .inv-chips { gap: 0 14px; }
+  /* Phone: the selection bar floats above the bottom bar, where the thumb is, instead of covering
+     the top of the list. */
+  .app-shell .geraete-calm .inv-selectbar {
+    position: fixed; top: auto; left: 8px; right: 8px; bottom: calc(68px + env(safe-area-inset-bottom)); z-index: 25;
+    margin: 0; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  }
+  .app-shell .geraete-calm.is-selecting { padding-bottom: 150px; }
+  .app-shell .geraete-calm .inv-group-list { padding-left: 0; }
+}
+
+/* ---------------------------------------------------------------- Netzplan */
+
+.app-shell .geraete-calm .plan-status {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0 0 6px;
+  border-left: 3px solid var(--c-line); padding: 2px 0 2px 12px; font-size: 14px;
+}
+.app-shell .geraete-calm .plan-status.bad { border-left-color: var(--c-bad); }
+.app-shell .geraete-calm .plan-status.ok { border-left-color: var(--c-ok); }
+.app-shell .geraete-calm .plan-status-main { font-weight: 650; overflow-wrap: anywhere; }
+.app-shell .geraete-calm .plan-status.bad .plan-status-main { color: var(--c-bad); }
+
+.app-shell .geraete-calm .plan-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0 18px; margin: 4px 0 8px; }
+.app-shell .geraete-calm .plan-bar .plan-bar { margin: 0; }
+.app-shell .geraete-calm .plan-help { margin: 0 0 12px; font-size: 14px; color: var(--c-muted); }
+.app-shell .geraete-calm .plan-help p { margin: 0; max-width: 72ch; }
+
+.app-shell .geraete-calm .plan-layout { display: flex; flex-direction: column; }
+.app-shell .geraete-calm .plan-figure { order: 1; margin: 0; }
+.app-shell .geraete-calm .plan-watch { order: 2; }
+
+.app-shell .geraete-calm .plan-canvas {
+  position: relative; overflow: auto; max-height: 75vh; border: 1px solid var(--c-line); border-radius: 10px;
+  background: var(--c-surface); overscroll-behavior-x: contain;
+}
+.app-shell .geraete-calm .plan-canvas-inner { min-width: 100%; }
+.app-shell .geraete-calm .plan-canvas-inner svg { display: block; width: 100%; height: auto; }
+.app-shell .geraete-calm .plan-canvas [data-system-id] { cursor: pointer; }
+.app-shell .geraete-calm .plan-scroll-hint { display: none; margin: 6px 0 0; }
+
+.app-shell .geraete-calm .plan-list { list-style: none; margin: 0; padding: 0; }
+.app-shell .geraete-calm .plan-list > li { border-bottom: 1px solid var(--c-line); }
+.app-shell .geraete-calm .plan-row {
+  display: flex; align-items: center; gap: 12px; min-height: var(--g-row-h); padding: 6px 0;
+  color: var(--c-text); text-decoration: none;
+}
+.app-shell .geraete-calm a.plan-row:hover { text-decoration: none; }
+.app-shell .geraete-calm a.plan-row:hover .plan-row-name { color: var(--c-accent); }
+.app-shell .geraete-calm .plan-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.app-shell .geraete-calm .plan-row-name { font-weight: 600; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-shell .geraete-calm .plan-row-sub {
+  font-size: 12.5px; line-height: 1.35; color: var(--c-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.app-shell .geraete-calm .plan-more { margin: 4px 0; }
+.app-shell .geraete-calm .plan-more > summary {
+  display: flex; align-items: center; gap: 8px; min-height: var(--g-target); cursor: pointer; font-size: 14px;
+  border-bottom: 1px solid var(--c-line);
+}
+.app-shell .geraete-calm .plan-more > summary b { font-weight: 650; }
+
+.app-shell .geraete-calm .plan-diag { display: grid; gap: 4px; }
+.app-shell .geraete-calm .plan-result {
+  margin: 8px 0 0; padding: 4px 0 4px 12px; border-left: 3px solid var(--c-line); font-size: 14px; overflow-wrap: anywhere;
+}
+.app-shell .geraete-calm .plan-result.ok { border-left-color: var(--c-ok); }
+.app-shell .geraete-calm .plan-result.bad { border-left-color: var(--c-bad); }
+.app-shell .geraete-calm .plan-result-time { display: block; color: var(--c-muted); font-size: 12.5px; }
+.app-shell .geraete-calm .plan-speed { display: flex; flex-wrap: wrap; gap: 6px 24px; margin: 6px 0 0; }
+.app-shell .geraete-calm .plan-speed b { font-size: 18px; font-variant-numeric: tabular-nums; }
+.app-shell .geraete-calm .plan-dns { list-style: none; margin: 6px 0 0; padding: 0; font-size: 13.5px; }
+.app-shell .geraete-calm .plan-dns li { display: flex; flex-wrap: wrap; gap: 2px 10px; padding: 4px 0; border-bottom: 1px solid var(--c-line); }
+.app-shell .geraete-calm .plan-dns li > :first-child { flex: 1 1 12em; min-width: 0; overflow-wrap: anywhere; }
+
+@media (max-width: 759px) {
+  /* Phone: the watched devices first (with chips, as in the mockup), the picture below. */
+  .app-shell .geraete-calm .plan-watch { order: 1; }
+  .app-shell .geraete-calm .plan-figure { order: 2; margin-top: 18px; }
+  .app-shell .geraete-calm .plan-canvas { max-height: 60vh; }
+  .app-shell .geraete-calm .plan-canvas-inner { width: 200%; }
+  .app-shell .geraete-calm .plan-scroll-hint { display: block; }
+}
+
+/* ---------------------------------------------------------------- Netze & WLAN */
+
+.app-shell .geraete-calm .net-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px 12px; padding: 10px 0; }
+.app-shell .geraete-calm .net-row-main { flex: 1 1 240px; min-width: 0; }
+.app-shell .geraete-calm .net-row-name { font-weight: 600; overflow-wrap: anywhere; }
+.app-shell .geraete-calm .net-row-sub { font-size: 12.5px; color: var(--c-muted); overflow-wrap: anywhere; }
+.app-shell .geraete-calm .net-note { margin-top: 4px; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.app-shell .geraete-calm .net-edit { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; margin-top: 6px; }
+.app-shell .geraete-calm .net-edit input {
+  flex: 1 1 220px; min-width: 0; min-height: var(--g-target); background: var(--c-surface); color: var(--c-text);
+  border: 1px solid var(--c-line); border-radius: 8px;
+}

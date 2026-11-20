@@ -350,7 +350,9 @@ verwirft den Entwurf. Gilt in alter und neuer Oberfläche. **[Muss]**
 Wurde das Kapitel geändert, nachdem der Entwurf begonnen wurde (Scan, Neu erzeugen), MUSS die
 Wiederherstellung davor warnen, dass Speichern den neueren Text ersetzt (er landet im Verlauf).
 Entwürfe werden nur für Admins wieder geöffnet, und Abmelden löscht alle Entwürfe des Tabs
-(Notizen können Standorte oder Zugangshinweise enthalten).
+(Notizen können Standorte oder Zugangshinweise enthalten); vorher fragt die Oberfläche nach (siehe
+[auth-und-rollen](../auth-und-rollen/spec.md)). Eine Fehlermeldung gehört zum Kapitel, in dem sie
+auftrat: beim Kapitelwechsel verschwindet sie.
 
 #### Szenario: Kapitelwechsel beim Bearbeiten
 - **WENN** ein Admin in `netzwerk` „Bearbeiten“ öffnet, Text ändert und auf ein anderes Kapitel klickt

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../App";
 import { api, type NetworkResource } from "../lib/api";
+import { useUi } from "../shell/ui";
+import NetworksCalm from "./geraete/NetworksCalm";
 
 const LABELS: Record<NetworkResource["kind"], string> = {
   network: "Netze & VLANs", wifi: "WLANs", wan: "Internet-Anschlüsse",
@@ -14,7 +16,13 @@ function details(resource: NetworkResource): string {
   return [facts.type, facts.ip].filter(Boolean).join(" · ");
 }
 
+/** New UI: own component (pages/geraete/NetworksCalm.tsx); otherwise the classic page, unchanged. */
 export default function NetworksPage() {
+  const { calm } = useUi();
+  return calm ? <NetworksCalm /> : <NetworksClassic />;
+}
+
+function NetworksClassic() {
   const { isAdmin } = useAuth();
   const [resources, setResources] = useState<NetworkResource[]>([]);
   const [error, setError] = useState("");

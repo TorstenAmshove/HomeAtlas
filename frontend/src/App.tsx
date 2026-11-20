@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { ApiError, api, type User } from "./lib/api";
-import { clearAllDrafts } from "./lib/drafts";
+import { clearAllDrafts, hasDrafts } from "./lib/drafts";
+import ConfirmDialog from "./components/ConfirmDialog";
 import LoginPage from "./pages/LoginPage";
 import MfaEnrollPage from "./pages/MfaEnrollPage";
 import SetupPage from "./pages/SetupPage";
@@ -107,6 +108,38 @@ export default function App() {
     setUser(null);
   }, []);
 
+  // The logout buttons of both shells ask first when this tab still holds unsaved drafts (doc text,
+  // notes, chat input): logout clears them (see clearAllDrafts), so leaving must be a choice.
+  const [logoutAsk, setLogoutAsk] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const requestLogout = useCallback(async () => {
+    if (hasDrafts()) setLogoutAsk(true);
+    else await logout();
+  }, [logout]);
+  const logoutDialog = (
+    <ConfirmDialog
+      open={logoutAsk}
+      title="Abmelden?"
+      consequences={[
+        <>Ungespeicherte Entwürfe gehen verloren (Doku-Text, Notizen oder Chat-Eingabe, die noch nicht gespeichert bzw. gesendet sind).</>,
+      ]}
+      confirmLabel="Trotzdem abmelden"
+      cancelLabel="Angemeldet bleiben"
+      danger
+      busy={loggingOut}
+      onConfirm={async () => {
+        setLoggingOut(true);
+        try {
+          await logout();
+        } finally {
+          setLoggingOut(false);
+          setLogoutAsk(false);
+        }
+      }}
+      onCancel={() => setLogoutAsk(false)}
+    />
+  );
+
   if (loading) {
     if (calm) {
       return (
@@ -173,9 +206,10 @@ export default function App() {
     return (
       <AuthContext.Provider value={{ user, isAdmin, setUser, logout }}>
         <UiContext.Provider value={ui}>
-          <AppShell user={user} isAdmin={isAdmin} onLogout={logout}>
+          <AppShell user={user} isAdmin={isAdmin} onLogout={requestLogout}>
             {routes}
           </AppShell>
+          {logoutDialog}
         </UiContext.Provider>
       </AuthContext.Provider>
     );
@@ -204,7 +238,7 @@ export default function App() {
               Angemeldet als <strong>{user.displayName || user.username}</strong>
             </div>
             <div className="muted">{isAdmin ? "Administrator" : "Mitglied (nur lesen)"}</div>
-            <button className="secondary small" style={{ marginTop: 10 }} onClick={() => void logout()}>
+            <button className="secondary small" style={{ marginTop: 10 }} onClick={() => void requestLogout()}>
               Abmelden
             </button>
           </div>
@@ -214,6 +248,7 @@ export default function App() {
           {routes}
         </main>
       </div>
+      {logoutDialog}
       </UiContext.Provider>
     </AuthContext.Provider>
   );

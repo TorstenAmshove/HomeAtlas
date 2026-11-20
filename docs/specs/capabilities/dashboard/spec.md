@@ -144,7 +144,7 @@ von oben gilt mit Schalter: **[Muss]**
 - Eine Zahlenzeile ersetzt die vier Kacheln: `total` Geräte · `online` erreichbar · `critical`
   wichtig · `accounts` Zugänge · Scan <Zeit von `lastScan.startedAt`> (Zusatz bei `failed`/`running`).
 - Sind mehr kritische Geräte vorhanden als geliefert, steht unter der Liste „+<critical − Anzahl>
-  weitere" mit Link auf `/geraete`.
+  weitere" mit Link auf `/geraete?importance=critical` (dieselbe Menge, siehe [inventar](../inventar/spec.md)).
 - Ein kritisches Gerät, das die Überwachung nicht prüft (nicht in `/api/monitor`, z. B. ohne IP und
   Hostname, oder Überwachung aus), zeigt „Stand letzter Scan" statt eines Live-Status.
 - Das Ergebnis von „Internet prüfen" bleibt mit Uhrzeit sichtbar, bis die Seite verlassen wird;

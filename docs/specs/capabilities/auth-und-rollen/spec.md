@@ -169,6 +169,20 @@ serverseitig löschen (falls vorhanden) und das Cookie entfernen; Antwort immer 
 
 Quelle: `backend/app/main.py:193`
 
+### Requirement: Abmelden fragt bei ungespeicherten Entwürfen (UI)
+Abmelden löscht alle Entwürfe des Browser-Tabs (`homeatlas.draft.*` im `sessionStorage`, siehe
+[dokumentation](../dokumentation/spec.md)). Liegt mindestens ein solcher Entwurf vor, MUSS die
+Oberfläche vor dem Abmelden einen Prüfdialog zeigen („Ungespeicherte Entwürfe gehen verloren“,
+„Trotzdem abmelden“ / „Angemeldet bleiben“); ohne Entwurf meldet die Taste sofort ab. Gilt für die
+Abmelden-Tasten beider Oberflächen (alte Seitenleiste, neue Shell). **[Muss]**
+
+#### Szenario: Entwurf offen
+- **WENN** ein Admin einen Kapiteltext bearbeitet, nicht speichert und „Abmelden“ wählt
+- **DANN** fragt die Oberfläche nach; „Angemeldet bleiben“ lässt Sitzung und Entwurf unverändert
+
+Quelle: `frontend/src/App.tsx`, `frontend/src/lib/drafts.ts` (`hasDrafts`), `frontend/src/shell/AppShell.tsx`,
+`frontend/e2e/smoke.spec.ts`
+
 ### Requirement: Zweiter Faktor ist Pflicht für jede Route
 Jede Route außer der Allowlist MUSS für eine Session, deren Konto keinen aktiven zweiten Faktor hat,
 mit 403 und Header `X-HomeAtlas-MFA: enrollment-required` antworten (Detail „Bitte zuerst die

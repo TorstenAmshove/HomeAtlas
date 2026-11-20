@@ -190,6 +190,22 @@ fehlende Werte als „-“. **[Impl]**
 Quelle: `frontend/src/pages/NetworksPage.tsx:5`, `frontend/src/pages/NetworksPage.tsx:24`,
 `frontend/src/pages/NetworksPage.tsx:50`, `frontend/src/lib/api.ts:488`
 
+### Requirement: „Netze & WLAN“ in der neuen Oberfläche
+Mit Schalter `uiCalm` MUSS `/netze` die Seite `NetworksCalm` zeigen: kein Seitentitel, je Abschnitt
+eine ruhige Liste (Name, Zusatz „deaktiviert“, darunter Standort · Details, die Notiz als Klartext),
+für ADMIN „Notiz hinzufügen“/„Notiz bearbeiten“ mit Speichern/Abbrechen, Skeleton beim Laden. Ohne
+Ressourcen erklärt die Seite, dass die Einträge aus dem Netzwerk-Controller (UniFi) kommen und dafür
+ein Zugang vom Typ „UniFi Network (API-Key)“ nötig ist; ADMIN bekommt „Zugang anlegen“ (`/zugaenge`)
+und „Netzwerk scannen“ (`/scan`), MEMBER den Hinweis, dass ein Administrator den Zugang hinterlegt.
+**[Muss]**
+
+#### Szenario: Leere Seite für ein Mitglied
+- **WENN** ein MEMBER `/netze` ohne Controller-Daten öffnet
+- **DANN** liest er, dass ein Administrator unter „Zugänge“ einen UniFi-Zugang hinterlegen muss, und
+  sieht keine Links zu Admin-Seiten
+
+Quelle: `frontend/src/pages/geraete/NetworksCalm.tsx`
+
 ### Requirement: Netze als Scan-Auswahl
 Das System MUSS aktive, im Controller aktivierte Netze mit gültigem IPv4-CIDR als auswählbare
 Scan-Netze anbieten; eine Auswahl, deren Ressource inaktiv, deaktiviert oder ohne CIDR ist, wird
@@ -262,7 +278,7 @@ Abgleich aus ([discovery-und-scan](../discovery-und-scan/spec.md),
 [zugangsdaten](../zugangsdaten/spec.md).
 
 UI-Seite(n): `frontend/src/pages/NetworksPage.tsx` (Route `/netze`, Navigation „Netze & WLAN“, alle
-Rollen). Scan-Netzauswahl in `frontend/src/pages/SettingsPage.tsx` (Route `/einstellungen`).
+Rollen; neue Oberfläche `frontend/src/pages/geraete/NetworksCalm.tsx`). Scan-Netzauswahl in `frontend/src/pages/SettingsPage.tsx` (Route `/einstellungen`).
 
 ## Nicht-Ziele und Grenzen
 

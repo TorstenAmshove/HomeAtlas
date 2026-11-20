@@ -208,7 +208,10 @@ export default function ChatPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       if (openChatRef.current === id) setMessages((current) => current.filter((m) => m.id !== optimistic.id));
-      setInput(trimmed, id);
+      // The text goes back into the draft of the chat it was sent to; the visible box only gets it
+      // when that chat is still open (the user may have switched to another one meanwhile).
+      writeDraft(draftKeys.chatInput(id), trimmed);
+      if (openChatRef.current === id) setInputState(trimmed);
     } finally {
       justCreated.current = null;
       setBusy(false);

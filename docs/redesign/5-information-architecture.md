@@ -108,14 +108,15 @@ Ein Bereich pro PR, jeweils hinter dem Schalter:
 | 6 | Zugänge + Mehr | Zugänge, Scan, Benutzer, Protokoll, Einstellungen |
 | 7 | Gates | Login, MFA, Einrichtung (Ausweg aus der Einrichtung) |
 
-Fortschritt: **4 von 15 Oberflächen** (12 Seiten + 3 Gates): Start (PR 2), Gerät (PR 4), Dokumentation und Assistent (PR 5, Hilfe). Shell gebaut (PR 1): Schalter, Tokens,
+Fortschritt: **7 von 15 Oberflächen** (12 Seiten + 3 Gates): Start (PR 2), Geräte-Liste, Netzplan und Netze & WLAN
+(PR 3, Geräte), Gerät (PR 4), Dokumentation und Assistent (PR 5, Hilfe). Shell gebaut (PR 1): Schalter, Tokens,
 Dunkelmodus, `frontend/src/shell/` (AppShell, ⌘K), Bausteine `components/Skeleton.tsx`,
 `components/ConfirmDialog.tsx`, `lib/useUndoToast.tsx`, `lib/useUrlState.ts`. Die Seiten zeigen in der
 neuen Shell vorerst noch ihren eigenen Seitenkopf; den nimmt jeweils der PR ihres Bereichs heraus.
 
 - **Start** (PR 2, `pages/start/StartCalm.tsx`): Status-Hero aus `/api/monitor` (dieselbe Menge wie
   der Netzplan, B3), eine ruhige Zahlenzeile statt Untertitel + Kacheln, „+N weitere“ bei mehr als 10
-  kritischen Geräten (B1, verlinkt vorerst auf `/geraete`, bis die Liste `?importance=` kann),
+  kritischen Geräten (B1, verlinkt auf `/geraete?importance=critical`),
   „Stand letzter Scan“ für nicht überwachte kritische Geräte (B2), Ergebnis von „Internet prüfen“ mit
   Uhrzeit, Status-Chip statt KI-Absatz, Skeleton, kein Seitentitel. `recentlyChanged` bleibt bewusst
   ungenutzt. Bei ausgeschaltetem Schalter rendert `/` unverändert `DashboardPage.tsx`.
@@ -127,6 +128,21 @@ neuen Shell vorerst noch ihren eigenen Seitenkopf; den nimmt jeweils der PR ihre
   (`visualViewport`), Hinweis, wenn kein KI-Anbieter eingerichtet ist. Entwürfe (Doku-Text, Notizen,
   Chat-Eingabe) liegen in beiden Oberflächen im `sessionStorage`; Kapitelwechsel mit ungespeicherten
   Änderungen fragt nach (`lib/useLeaveGuard.tsx`, ohne Data-Router kein `useBlocker`).
+- **Geräte** (PR 3, `pages/geraete/`): Liste ohne Seitenkopf mit Suche, sichtbarem Sortier-Menü und
+  Filterzeile „Alle · Nicht erreichbar · Wichtig · Art ▾ · Compose ▾“ (Zahlen clientseitig aus
+  `GET /api/systems` über das ganze Inventar; „Nicht erreichbar“ ist `counts.offline`, also alle
+  Geräte, nicht nur die überwachten), alles in der URL (`q` und `sort` auch in der alten
+  Oberfläche, dazu `status`, `importance`, `duplikate=1`). Duplikate als Chip mit Prüfansicht,
+  Mehrfachauswahl erst nach „Auswählen“, Löschen mit Prüfdialog (Namen, mitgelöschte Zugänge,
+  verwaiste Container), Zusammenführen getrennt davon; „+ Gerät“ als Dialog (Name, Art), danach
+  die Geräteseite. Unter 640 px Listeneinträge statt Tabelle; eingeklappte Compose-Gruppen im
+  `sessionStorage`. Netzplan mit `?view=layer3`, Erklärtext hinter „ⓘ“, **einer** Statuszeile aus
+  `/api/monitor` (dieselbe Menge und Wortwahl wie der Start-Hero, Alarm nur bei laufender
+  Überwachung), Liste „Überwachte Geräte“ (auf dem Handy vor dem Bild), Diagnose-Aktionen darunter.
+  Das SVG bleibt statisch (ADR-0008/0009: kein Zoom-Bedienelement); auf dem Handy liegt es in
+  doppelter Breite in einem seitlich verschiebbaren Rahmen. Netze & WLAN als ruhige Liste mit
+  Leerzustand, der den nötigen UniFi-Zugang erklärt. Dazu aus der Hilfe-Prüfung: Abmelden fragt,
+  wenn noch Entwürfe im Tab liegen (beide Oberflächen).
 - **Gerät** (PR 4, `pages/device/DeviceCalm.tsx` + ein Baustein je Tab): Tabs in `?tab=`, Bearbeiten in
   `?edit=1`; Zusammenfassung und eine Hauptaktion nur im Überblick („Jetzt neu prüfen“ bei live
   gemeldetem Ausfall, sonst „Weboberfläche ↗“), Rest unter „⋯“. Name in der Top-Bar
