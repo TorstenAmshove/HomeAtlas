@@ -141,6 +141,15 @@ test("login, MFA enrollment, setup and main routes render without errors", async
     await expect(page).toHaveURL(/[?&]q=Smoke/);
     await expect(page.getByLabel("Geräte durchsuchen")).toHaveValue("Smoke");
     await expect(page.locator(".inv-list").getByRole("link", { name: /Smoke-NAS/ })).toBeVisible();
+
+    // Filters and sort live in the URL too, including descending sorts the classic list produces.
+    await page.goto("/geraete?importance=normal&sort=-ip");
+    await expect(page.getByLabel("Sortieren")).toHaveValue("-ip");
+    await page.locator(".inv-list").getByRole("link", { name: /Smoke-NAS/ }).click();
+    await page.goBack();
+    await expect(page).toHaveURL(/[?&]importance=normal/);
+    await expect(page).toHaveURL(/[?&]sort=-ip/);
+    await expect(page.getByLabel("Sortieren")).toHaveValue("-ip");
   });
 
   await test.step("new UI: a doc draft survives switching chapters", async () => {

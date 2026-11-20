@@ -344,7 +344,8 @@ Erklärabsatz; Skeleton beim Laden). Sie rechnet nur aus derselben `GET /api/sys
   Inventar (Alle = alle Geräte, Nicht erreichbar = `status = offline` aller Geräte, Wichtig =
   `importance = critical`), nicht über die gerade gefilterte Liste. Weitere aktive Filter (Host,
   andere Zustände/Bedeutungen) stehen als eigene Chips mit ×.
-- Sortieren über ein sichtbares Menü (statt klickbarer Spaltenköpfe mit unsichtbarem Zurücksetzen).
+- Sortieren über ein sichtbares Menü (statt klickbarer Spaltenköpfe mit unsichtbarem Zurücksetzen);
+  das Menü hat für jeden Wert, den `sort` annehmen kann, einen Eintrag (auch absteigend).
 - Duplikat-Vorschläge (ADMIN) als Chip „N mögliche Duplikate“, der eine Prüfansicht öffnet
   (`?duplikate=1`) mit „Behalte A“ / „Behalte B“ / „Kein Duplikat“ je Paar.
 - Unter 640 px Breite wird jede Zeile ein Listeneintrag (Name, IP · Art, Status-Chip), ohne seitliches
@@ -352,7 +353,8 @@ Erklärabsatz; Skeleton beim Laden). Sie rechnet nur aus derselben `GET /api/sys
 - Mehrfachauswahl (ADMIN) erst nach „Auswählen“; „Löschen …“ öffnet einen Prüfdialog, der die
   Namen der Geräte nennt, die Zahl der mitgelöschten Zugänge und der Container/VMs, die ihren Host
   verlieren, und dass es kein Rückgängig gibt. Zusammenführen (genau 2 ausgewählt) steht getrennt
-  davon und hat einen eigenen Prüfdialog.
+  davon und hat einen eigenen Prüfdialog. Die Auswahl folgt der Ansicht: blenden Suche oder Filter
+  ein ausgewähltes Gerät aus, ist es nicht mehr ausgewählt, damit „Löschen …“ nur sichtbare Geräte trifft.
 - „+ Gerät“ (ADMIN) öffnet einen Dialog mit Name und Art; danach öffnet sich die Geräteseite des
   neuen Geräts.
 - Eingeklappte Compose-Gruppen bleiben für den Browser-Tab eingeklappt (`sessionStorage`).
