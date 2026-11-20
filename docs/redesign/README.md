@@ -8,8 +8,8 @@ Arbeitsstand der Oberflächen-Überarbeitung (ruhig, eine klare nächste Aktion,
 | 1 Evidenz | [2-page-forensics.md](2-page-forensics.md) | nummerierte Fix-Listen je Seite |
 | 1 Evidenz | [3-numbers-audit.md](3-numbers-audit.md) | Übersichts-Zahlen gegen SQL geprüft ([numbers_check.py](numbers_check.py)) |
 | 1 Evidenz | [4-route-map.md](4-route-map.md) | alle 12 Routen + 3 Gates mit Aktionen |
-| 2 Mockups | [mockups/index.html](mockups/index.html) | 6 Screens × A/B/C × Desktop/Handy – **wartet auf Auswahl** |
-| 3 IA | – | nach der Auswahl |
+| 2 Mockups | [mockups/index.html](mockups/index.html) | **B gewählt**, hell + dunkel (A/C in der Git-Historie) |
+| 3 IA | [5-information-architecture.md](5-information-architecture.md) | Menü-Konfiguration + Orphan-Check im Build |
 | 4 Bau | – | hinter Feature-Flag, ein Bereich pro PR |
 
 Mockups lokal ansehen: `docs/redesign/mockups/index.html` im Browser öffnen (eine einzelne Datei, kein

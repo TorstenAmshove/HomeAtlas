@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>HomeAtlas – Redesign-Richtungen A · B · C</title>
+<title>HomeAtlas – Redesign B (hell + dunkel)</title>
 <style>
 /* ============================================================ comparison chrome (not part of the designs) */
 * { box-sizing: border-box; }
@@ -14,7 +14,7 @@ body { margin: 0; font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-seri
 .bar button { font: inherit; border: 0; background: transparent; color: #d6d3d1; padding: 5px 11px; border-radius: 6px; cursor: pointer; }
 .bar button.on { background: #fafaf9; color: #1c1917; font-weight: 600; }
 .bar .note { color: #a8a29e; font-size: 12px; margin-left: auto; }
-.cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; padding: 18px; }
+.cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; padding: 18px; }
 .col h2 { margin: 0; font-size: 16px; }
 .col .desc { color: #57534e; font-size: 12.5px; margin: 2px 0 10px; min-height: 38px; }
 .frame { background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 6px 24px rgba(0,0,0,.18); position: relative; margin-bottom: 14px; }
@@ -120,7 +120,8 @@ body { margin: 0; font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-seri
 .A .accent { color: var(--ac); }
 
 /* ============================================================ B · Reduziert, minimal */
-.B { --bg:#fafaf9; --tx:#1c1917; --mu:#78716c; --ln:#e7e5e4; --ac:#0369a1; --ok:#15803d; --bad:#b91c1c; --warn:#a16207;
+/* Palette B (gewählt): hell = warmes Papier, dunkel = neutrales Graphit (kein Navy). Ein Akzent „Atlas-Blau“, Statusfarben nur für Status. */
+.B { --bg:#fafaf9; --el:#ffffff; --sf2:#f0efee; --tx:#1c1917; --btx:#ffffff; --mu:#6f6a64; --ln:#e7e5e4; --ac:#2f6fdb; --ok:#15803d; --bad:#b91c1c; --warn:#a16207;
   background: var(--bg); color: var(--tx); font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
 .B .side { border-right: 1px solid var(--ln); }
 .B .brand small { display: none; }
@@ -133,13 +134,13 @@ body { margin: 0; font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-seri
 .B .top .tab { padding: 15px 2px; }
 .B .tab.on { color: var(--tx); box-shadow: inset 0 -2px 0 var(--tx); }
 .B .top .t { display: none; }
-.B .kbar { border: 1px solid var(--ln); color: var(--mu); background: #fff; }
-.B .bnav { border-top: 1px solid var(--ln); color: var(--mu); background: #fff; }
+.B .kbar { border: 1px solid var(--ln); color: var(--mu); background: var(--el); }
+.B .bnav { border-top: 1px solid var(--ln); color: var(--mu); background: var(--el); }
 .B .bnav .on { color: var(--tx); }
 .B .card { background: transparent; }
 .B .chip { padding: 0; font-weight: 500; color: var(--mu); }
 .B .chip.ok { color: var(--ok); } .B .chip.bad { color: var(--bad); } .B .chip.warn { color: var(--warn); }
-.B .btn { background: var(--tx); color: #fff; border-radius: 6px; }
+.B .btn { background: var(--tx); color: var(--btx); border-radius: 6px; }
 .B .btn.s { background: transparent; color: var(--tx); border: 1px solid var(--ln); }
 .B .hero { border-left: 3px solid var(--bad); padding: 4px 0 4px 14px; }
 .B .hero.okay { border-left-color: var(--ok); }
@@ -149,12 +150,13 @@ body { margin: 0; font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-seri
 .B .list li svg.i { display: none; }
 .B .strip > div { padding: 4px 22px 4px 0; }
 .B .chat .a { background: transparent; padding-left: 0; max-width: 92%; }
-.B .chat .u { background: #f0efee; }
+.B .chat .u { background: var(--sf2); }
 .B .tool { color: var(--mu); padding: 0; }
-.B .compose { border: 1px solid var(--ln); background: #fff; }
+.B .compose { border: 1px solid var(--ln); background: var(--el); }
 .B .steps li { border-bottom: 1px solid var(--ln); } .B .steps li::before { border: 1px solid var(--ln); color: var(--mu); }
 .B .planbox { border: 1px solid var(--ln); }
 .B .accent { color: var(--ac); }
+.B.BD { --bg:#161615; --el:#1e1e1c; --sf2:#2a2926; --tx:#ecebe8; --btx:#161615; --mu:#9a968e; --ln:#2e2d2a; --ac:#8ab4ff; --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; color-scheme: dark; }
 .B .sec { opacity: 1; color: var(--mu); font-weight: 600; text-transform: none; letter-spacing: 0; font-size: 12.5px; }
 
 /* ============================================================ C · Kräftiger Produkt-Look */
@@ -194,16 +196,16 @@ body { margin: 0; font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-seri
 </head>
 <body>
 <div class="bar">
-  <h1>HomeAtlas · Redesign-Richtungen</h1>
+  <h1>HomeAtlas · Redesign B</h1>
   <div class="seg" id="screens"></div>
   <div class="seg" id="views"></div>
   <span class="note">Beispieldaten in der Form der echten API (kein Zugriff auf docker.lan)</span>
 </div>
 <div class="cols" id="cols"></div>
 <div class="pick">
-  <h3>Mein Vorschlag: A, mit der Strenge von B</h3>
-  <p>A ist bereits HomeAtlas: Kompass-Logo, Navy, Himmelblau, grüne Knoten. Wer die App kennt, findet sich sofort zurecht, das neue Logo und die PWA-Farben passen weiter. Außerdem bleibt es dunkel, was nachts auf dem Handy im Flur angenehm ist. Von B übernehme ich die Regeln: Listen statt Karten, eine ruhige Zahlenzeile, keine Erklärabsätze. C sieht im Pitch gut aus, ist für ein Haushalts-Werkzeug aber zu laut. Der riesige Status lohnt sich nur, wenn etwas kaputt ist, und Verlaufsfarben altern schnell.</p>
-  <p class="more">Gleich in allen drei Richtungen (das ist die Informationsarchitektur, nicht der Stil): Bereiche Start · Geräte · Hilfe · Zugänge · Mehr; Bereichs-Tabs in der Top-Bar; ⌘K-Suche; auf dem Handy eine untere Leiste mit 5 Punkten; Summary-Strip auf der Geräteseite; gefährliche Aktionen hinter „⋯“.</p>
+  <h3>Gewählt: B, mit Dunkelmodus</h3>
+  <p>Hell und dunkel teilen Struktur und Abstände, nur die Farbwerte wechseln (CSS-Variablen). Standard ist „wie das System“, damit das Handy nachts automatisch dunkel ist. A und C liegen in der Git-Historie dieser Datei.</p>
+  <p class="more">Palette – hell: Grund #fafaf9, Fläche #fff, Text #1c1917, gedämpft #6f6a64, Linie #e7e5e4, Akzent #2f6fdb · dunkel: Grund #161615, Fläche #1e1e1c, Text #ecebe8, gedämpft #9a968e, Linie #2e2d2a, Akzent #8ab4ff · Status hell/dunkel: ok #15803d/#4ade80, Fehler #b91c1c/#f87171, Warnung #a16207/#fbbf24.</p>
 </div>
 
 <script>
@@ -342,7 +344,7 @@ const SCREENS = {
     return shell(dir, phone, "hilfe", "Assistent", "Hilfe", `<div style="display:flex;flex-direction:column;height:100%"><div class="row" style="margin-bottom:10px">${chip("", "Heizung nicht erreichbar ▾")}<span class="btn s" style="margin-left:auto">Neu</span></div><div style="flex:1;overflow:hidden">${msgs}</div>${compose}</div>`);
   }},
   plan: { label: "Netzplan", render(dir, phone) {
-    const col = { A: ["#38bdf8", "#94a3b8", "#f87171", "#34d399", "#131c31", "#26304a", "#e8edf7"], B: ["#0369a1", "#a8a29e", "#b91c1c", "#15803d", "#ffffff", "#d6d3d1", "#1c1917"], C: ["#22d3ee", "#9b9bb4", "#fb7185", "#4ade80", "#1f1f2e", "#2a2a3c", "#f5f5fa"] }[dir];
+    const col = { A: ["#38bdf8", "#94a3b8", "#f87171", "#34d399", "#131c31", "#26304a", "#e8edf7"], B: ["#2f6fdb", "#a8a29e", "#b91c1c", "#15803d", "#ffffff", "#d6d3d1", "#1c1917"], "B BD": ["#8ab4ff", "#6f6a64", "#f87171", "#4ade80", "#1e1e1c", "#2e2d2a", "#ecebe8"], C: ["#22d3ee", "#9b9bb4", "#fb7185", "#4ade80", "#1f1f2e", "#2a2a3c", "#f5f5fa"] }[dir];
     const box = (x, y, t, s) => `<rect x="${x - 62}" y="${y - 16}" width="124" height="32" rx="8" fill="${col[4]}" stroke="${s === "bad" ? col[2] : col[5]}" stroke-width="${s === "bad" ? 2 : 1}"/><circle cx="${x - 50}" cy="${y}" r="4" fill="${s === "bad" ? col[2] : col[3]}"/><text x="${x - 40}" y="${y + 4}" font-size="11" fill="${col[6]}">${t}</text>`;
     const ln = (x1, y1, x2, y2) => `<path d="M${x1} ${y1} V${(y1 + y2) / 2} H${x2} V${y2}" stroke="${col[1]}" fill="none" opacity=".6"/>`;
     const kids = [["NAS", 70], ["pve01", 200], ["Home Assist.", 330], ["U6 Pro", 460], ["Heizung", 590]];
@@ -355,9 +357,8 @@ const SCREENS = {
 
 /* ---------------------------------------------------------------- comparison layout */
 const DIRS = [
-  ["A", "A · Eigene Identität", "HomeAtlas, wie es ist: Kompass-Logo, Navy, Himmelblau, grüne Knoten. Leicht getrimmt: Bereiche statt 11 Menüpunkten, Listen statt Kachelwand."],
-  ["B", "B · Reduziert", "Hell, Papier-Look, Schwarz plus ein Akzent. Keine Karten, nur Linien und Text. Am ruhigsten, aber am wenigsten „HomeAtlas“."],
-  ["C", "C · Kräftiges Produkt", "Dunkel mit Verlauf Cyan→Violett, große Status-Überschrift, Pillen, schwebende Handy-Leiste. Am auffälligsten."],
+  ["B", "B · Hell", "Warmes Papier, Tinte, ein Akzent (Atlas-Blau). Folgt der Systemeinstellung; umschaltbar unter Mehr → Einstellungen → Darstellung."],
+  ["B BD", "B · Dunkel", "Neutrales Graphit statt Navy, gleiche Struktur. Status bleibt Grün/Rot/Gelb, aufgehellt für dunklen Grund."],
 ];
 /* Ansicht steht im Hash (#geraet-phone), damit ein Link genau diese Ansicht öffnet. */
 let [screen, view] = (location.hash.slice(1) || "start-both").split("-");
