@@ -20,7 +20,8 @@ benutzbar; alles lässt sich später in Inventar, Zugängen und Einstellungen ä
 ## Anforderungen
 
 ### Requirement: Setup-Status öffentlich abfragbar
-`GET /api/health` MUSS ohne Anmeldung `{status: "ok", setupCompleted: bool, userCount: int}` liefern.
+`GET /api/health` MUSS ohne Anmeldung `{status: "ok", setupCompleted: bool, uiCalm: bool, userCount: int}`
+liefern (`uiCalm`: siehe [einstellungen-und-llm-provider](../einstellungen-und-llm-provider/spec.md)).
 `setupCompleted` ist `false`, bis das Setup einmal abgeschickt wurde. Die Route dient auch als
 Liveness-Check des Stacks. **[Muss]** (`userCount`: **[Impl]**, siehe OFFEN)
 
@@ -158,7 +159,7 @@ Aus [data-model](../../contracts/data-model.md):
 | Methode | Pfad | Rolle | Zweck |
 |---|---|---|---|
 | POST | /api/setup | ADMIN | Wizard-Ergebnis speichern, `setupCompleted` setzen |
-| GET | /api/health | öffentlich | Liveness + `setupCompleted` + `userCount` |
+| GET | /api/health | öffentlich | Liveness + `setupCompleted` + `uiCalm` + `userCount` |
 
 Berührt: `PATCH /api/settings` kann `setupCompleted`/`homeName` ebenfalls ändern (siehe
 [einstellungen-und-llm-provider](../einstellungen-und-llm-provider/spec.md)); `GET /api/settings` gibt

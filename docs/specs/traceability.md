@@ -43,7 +43,7 @@ Lücken: **0**
 | `GET /api/docs/{slug}/versions` | [dokumentation](capabilities/dokumentation/spec.md) |
 | `GET /api/docs/{slug}/versions/{version_id}` | [dokumentation](capabilities/dokumentation/spec.md) |
 | `POST /api/docs/{slug}/versions/{version_id}/restore` | [dokumentation](capabilities/dokumentation/spec.md) |
-| `GET /api/health` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md) |
+| `GET /api/health` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md) |
 | `MOUNT /api/mcp` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `GET /api/monitor` | [monitoring](capabilities/monitoring/spec.md) |
 | `POST /api/monitor/run` | [monitoring](capabilities/monitoring/spec.md) |

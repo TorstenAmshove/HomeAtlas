@@ -22,8 +22,11 @@ class LoginBody(BaseModel):
 
 @router.get("/api/health")
 async def health() -> dict:
-    return {"status": "ok", "setupCompleted": db.get_settings().get("setupCompleted", False),
-            "userCount": db.count_users()}
+    settings = db.get_settings()
+    # uiCalm sits here (not only in /api/settings) so the frontend knows which shell to render
+    # before the first page, the same way it learns about setupCompleted.
+    return {"status": "ok", "setupCompleted": settings.get("setupCompleted", False),
+            "uiCalm": db.ui_calm(settings), "userCount": db.count_users()}
 
 
 @router.post("/api/auth/login")

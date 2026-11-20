@@ -415,7 +415,7 @@ export const DUPLICATE_REASON_LABEL: Record<DuplicateReason, string> = {
 };
 
 export const api = {
-  health: () => get<{ status: string; setupCompleted: boolean; userCount: number }>("/health"),
+  health: () => get<{ status: string; setupCompleted: boolean; uiCalm: boolean; userCount: number }>("/health"),
 
   login: (username: string, password: string, totpCode = "") =>
     post<{ user: User }>("/auth/login", { username, password, totpCode }),

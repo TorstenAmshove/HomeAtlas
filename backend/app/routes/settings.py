@@ -66,6 +66,8 @@ def _mask_settings(settings: dict) -> dict:
         # The ciphertext never leaves the server; the UI only learns whether something is stored.
         masked.pop(encrypted, None)
         masked[f"has{plain[0].upper()}{plain[1:]}"] = bool(settings.get(encrypted))
+    # The effective value, env fallback included, so the admin toggle shows what is actually live.
+    masked[db.UI_CALM_KEY] = db.ui_calm(settings)
     return masked
 
 
@@ -90,6 +92,18 @@ def _unmask_patch(patch: dict, current: dict) -> dict:
             if value:
                 cleaned[encrypted] = crypto.encrypt(value)
         cleaned.pop(f"has{plain[0].upper()}{plain[1:]}", None)
+    if db.UI_CALM_KEY in cleaned:
+        value = cleaned[db.UI_CALM_KEY]
+        # A real JSON boolean only: bool("false") is True, so a string would switch the UI *on*.
+        if not isinstance(value, bool):
+            raise HTTPException(status_code=422, detail="uiCalm muss true oder false sein.")
+        # Tabs that save the whole form echo the effective value back. Writing it would freeze the
+        # HOMEATLAS_UI_CALM_DEFAULT fallback without anyone having touched the switch, so an
+        # unchanged value is only kept when it was already stored.
+        if db.UI_CALM_KEY not in current and value == db.ui_calm(current):
+            cleaned.pop(db.UI_CALM_KEY)
+        else:
+            cleaned[db.UI_CALM_KEY] = value
     return cleaned
 
 
