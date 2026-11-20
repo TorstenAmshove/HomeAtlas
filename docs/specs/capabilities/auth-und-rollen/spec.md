@@ -183,6 +183,27 @@ Abmelden-Tasten beider Oberflächen (alte Seitenleiste, neue Shell). **[Muss]**
 Quelle: `frontend/src/App.tsx`, `frontend/src/lib/drafts.ts` (`hasDrafts`), `frontend/src/shell/AppShell.tsx`,
 `frontend/e2e/smoke.spec.ts`
 
+### Requirement: Anmelde- und MFA-Oberfläche (UI)
+Login und MFA-Einrichtung MÜSSEN in beiden Oberflächen dieselben Requests in derselben Reihenfolge
+nutzen (Login → ggf. Codefeld nach `X-HomeAtlas-MFA: required`; `mfa/setup` → `mfa/confirm`); die
+neue Oberfläche (`frontend/src/gates/`) ändert nur die Darstellung. Eingabefelder tragen passende
+`autocomplete`-Angaben (`username`, `current-password`, Code: `one-time-code`, `inputmode="numeric"`),
+Fehler erscheinen als Text, „Abmelden“ ist während der MFA-Einrichtung immer erreichbar. Passwort,
+Code und TOTP-Geheimnis DÜRFEN NICHT in `localStorage`/`sessionStorage` abgelegt oder in die Konsole
+geschrieben werden. Vor dem Login wählt die Oberfläche anhand von `uiCalm` aus `GET /api/health` (bzw.
+der Browser-Übersteuerung `?ui=`) zwischen klassischer und neuer Darstellung. **[Muss]**
+(Darstellung, Texte: **[Impl]**)
+
+#### Szenario: Falsches Passwort in der neuen Oberfläche
+- **WENN** jemand ein falsches Passwort eingibt und mit Enter absendet
+- **DANN** erscheint „Benutzername oder Passwort stimmt nicht.“, das Passwortfeld wird geleert
+
+#### Szenario: MFA-Einrichtung abbrechen
+- **WENN** ein Benutzer ohne aktiven Faktor „Abmelden“ wählt
+- **DANN** landet er wieder auf dem Login; der Faktor bleibt inaktiv
+
+Quelle: `frontend/src/gates/LoginCalm.tsx`, `frontend/src/gates/MfaEnrollCalm.tsx`, `frontend/src/pages/LoginPage.tsx`, `frontend/src/pages/MfaEnrollPage.tsx`, `frontend/src/App.tsx`, Test: `frontend/e2e/gates-calm.spec.ts::calm gates: login, MFA enrollment and setup with their ways out`
+
 ### Requirement: Zweiter Faktor ist Pflicht für jede Route
 Jede Route außer der Allowlist MUSS für eine Session, deren Konto keinen aktiven zweiten Faktor hat,
 mit 403 und Header `X-HomeAtlas-MFA: enrollment-required` antworten (Detail „Bitte zuerst die
@@ -465,7 +486,8 @@ Aus [data-model](../../contracts/data-model.md):
 Konsolen-Routen selbst gehören zu [remote-admin](../remote-admin/spec.md).
 
 UI-Seite(n): `frontend/src/pages/LoginPage.tsx` (ohne Session, jede Route),
-`frontend/src/pages/MfaEnrollPage.tsx` (solange `totpEnabled` false, jede Route),
+`frontend/src/pages/MfaEnrollPage.tsx` (solange `totpEnabled` false, jede Route), in der neuen
+Oberfläche stattdessen `frontend/src/gates/LoginCalm.tsx` und `frontend/src/gates/MfaEnrollCalm.tsx`,
 `frontend/src/pages/UsersPage.tsx` (Route `/benutzer`, ADMIN), `frontend/src/pages/AccessLogPage.tsx`
 (Route `/protokoll`, ADMIN), Passwortwechsel + MFA-Status in `frontend/src/pages/SettingsPage.tsx`
 (Route `/einstellungen`, Reiter „Konto“), Gating in `frontend/src/App.tsx`.

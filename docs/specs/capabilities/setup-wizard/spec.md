@@ -77,6 +77,34 @@ Abgeschickt wird erst am Ende von Schritt 3; Einträge ohne Namen/Bezeichnung we
 
 Quelle: `frontend/src/pages/SetupPage.tsx:27`, `frontend/src/pages/SetupPage.tsx:59`, `frontend/src/pages/SetupPage.tsx:79`, Test: `frontend/e2e/smoke.spec.ts::login, MFA enrollment, setup and main routes render without errors`
 
+### Requirement: Ausweg aus dem Wizard (UI)
+Der Wizard MUSS auf jedem Schritt „Abmelden“ anbieten, in beiden Oberflächen (klassisch und neue
+Oberfläche), damit niemand darin festsitzt. Ist schon etwas eingetragen (Angaben weichen von der
+Vorbelegung ab oder Schritt > 1), MUSS vorher ein Prüfdialog fragen („Deine Angaben aus der
+Einrichtung werden verworfen“, „Trotzdem abmelden“ / „Angemeldet bleiben“). Ein „Überspringen“ gibt
+es nicht: für ADMIN bleibt der Wizard, bis das Setup gespeichert ist. **[Muss]**
+
+#### Szenario: Abbrechen in der Einrichtung
+- **WENN** der Admin einen Namen eingetragen hat und „Abmelden“ wählt
+- **DANN** fragt die Oberfläche nach; „Angemeldet bleiben“ lässt die Eingaben stehen, „Trotzdem
+  abmelden“ führt zum Login, und nach dem nächsten Anmelden beginnt der Wizard bei Schritt 1
+
+Quelle: `frontend/src/pages/SetupPage.tsx`, `frontend/src/gates/SetupCalm.tsx`, Test: `frontend/e2e/gates-calm.spec.ts::calm gates: login, MFA enrollment and setup with their ways out`
+
+### Requirement: Entwurf übersteht Neuladen, ohne Passwörter (neue Oberfläche)
+In der neuen Oberfläche MÜSSEN Schritt und Angaben des Wizards ein Neuladen des Tabs überstehen
+(`sessionStorage`, Schlüssel `homeatlas.draft.setup.wizard`). Passwörter von Geräten und Konten DÜRFEN
+NICHT in den Entwurf gelangen; wurden welche eingegeben, MUSS der Wizard nach dem Neuladen darauf
+hinweisen, dass sie erneut einzugeben sind. Abmelden und erfolgreiches Speichern löschen den Entwurf.
+**[Muss]** (Schlüsselname: **[Impl]**)
+
+#### Szenario: Neuladen in Schritt 2
+- **WENN** der Admin in Schritt 2 einen Gerätenamen und ein Passwort eingibt und die Seite neu lädt
+- **DANN** steht er wieder in Schritt 2 mit dem Gerätenamen, das Passwortfeld ist leer, ein Hinweis
+  erklärt das, und der Browser-Speicher enthält das Passwort nicht
+
+Quelle: `frontend/src/gates/setupModel.ts`, `frontend/src/gates/SetupCalm.tsx`, Test: `frontend/e2e/gates-calm.spec.ts::calm gates: login, MFA enrollment and setup with their ways out`
+
 ### Requirement: Setup speichern (nur ADMIN)
 `POST /api/setup` MUSS ADMIN mit aktivem zweiten Faktor verlangen und akzeptieren:
 `{homeName = "Mein Zuhause", systems: [{name, kind = "other", ip, location, purpose, url, username,
@@ -165,14 +193,16 @@ Berührt: `PATCH /api/settings` kann `setupCompleted`/`homeName` ebenfalls ände
 [einstellungen-und-llm-provider](../einstellungen-und-llm-provider/spec.md)); `GET /api/settings` gibt
 MEMBER nur `homeName` und `setupCompleted`.
 
-UI-Seite(n): `frontend/src/pages/SetupPage.tsx` (keine eigene Route; ersetzt die App, solange ADMIN
+UI-Seite(n): `frontend/src/pages/SetupPage.tsx` bzw. in der neuen Oberfläche `frontend/src/gates/SetupCalm.tsx` (keine eigene Route; ersetzt die App, solange ADMIN
 und `setupCompleted` false), Gating in `frontend/src/App.tsx`.
 
 ## Nicht-Ziele und Grenzen
 
 - Kein Anlegen weiterer Benutzer, kein LLM-Provider, keine Scan-Optionen außer einem Netzbereich.
 - Keine Validierung von IP-Adressen, CIDR-Angaben oder Gerätearten im Backend.
-- Kein Zwischenspeichern: bricht der Admin ab (Reload, Logout), sind die Eingaben verloren.
+- Kein Zwischenspeichern in der klassischen Oberfläche: dort sind die Eingaben nach einem Reload
+  verloren. In der neuen Oberfläche übersteht der Entwurf (ohne Passwörter) ein Reload; Abmelden
+  verwirft ihn in beiden.
 - Kein „Setup erneut ausführen“ in der UI.
 
 ## Ist-Implementierung (nur Referenz, [Impl])

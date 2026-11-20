@@ -152,3 +152,15 @@ neuen Shell vorerst noch ihren eigenen Seitenkopf; den nimmt jeweils der PR ihre
   Passwort verbirgt sich nach 30 s. In **beiden** Oberflächen: Formular-Entwurf im `sessionStorage`
   mit Rückfrage beim Verlassen (`lib/deviceDraft.ts`), nach dem Zusammenführen kein Neuladen der
   ganzen Seite mehr. Bei ausgeschaltetem Schalter rendert `/geraete/:id` `SystemDetailPage.tsx`.
+- **Gates** (PR 7, `frontend/src/gates/`): Login, MFA-Einrichtung und Einrichtungsassistent als
+  zentrierte Karte (Logo, Haushaltsname erst, wenn der Assistent ihn kennt), hell/dunkel wie die Shell,
+  Tokens unter `body:has(.gate-shell)`. Login mit `autocomplete`, Passwort anzeigen/verbergen, klarer
+  Fehlertext, Enter sendet. MFA in drei Schritten (App öffnen · QR scannen oder Schlüssel eingeben ·
+  Code eingeben), QR weiter als Server-SVG, Schlüssel kopieren (Zwischenablage, sonst markieren),
+  Abmelden immer sichtbar. Assistent mit Schrittanzeige, Entwurf im `sessionStorage` **ohne
+  Passwörter** (Hinweis nach dem Neuladen, dass sie erneut einzugeben sind), Zurück/Weiter auf 44 px,
+  Enter = Weiter. **Abmelden auf jedem Schritt** (mit Rückfrage, wenn schon etwas eingetragen ist), in
+  **beiden** Oberflächen; kein „Überspringen“ (das Backend verlangt den Abschluss). Vor dem Login
+  folgt die Wahl der Oberfläche jetzt auch der Antwort von `/api/health`, nicht nur dem zuletzt
+  gesehenen Wert. Test: `frontend/e2e/gates-calm.spec.ts` (läuft nach dem Smoke-Test mit einem
+  zweiten Admin, den dieser anlegt).
