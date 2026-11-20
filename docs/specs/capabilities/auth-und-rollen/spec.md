@@ -171,7 +171,9 @@ Quelle: `backend/app/main.py:193`
 
 ### Requirement: Abmelden fragt bei ungespeicherten Entwürfen (UI)
 Abmelden löscht alle Entwürfe des Browser-Tabs (`homeatlas.draft.*` im `sessionStorage`, siehe
-[dokumentation](../dokumentation/spec.md)). Liegt mindestens ein solcher Entwurf vor, MUSS die
+[dokumentation](../dokumentation/spec.md)), aber erst nachdem der Server die Sitzung beendet hat.
+Schlägt das Abmelden fehl, MUSS die Oberfläche den Fehler zeigen; die Person bleibt angemeldet, und
+die Entwürfe bleiben erhalten (gilt für alle Abmelden-Tasten, auch in MFA-Einrichtung und Wizard). Liegt mindestens ein solcher Entwurf vor, MUSS die
 Oberfläche vor dem Abmelden einen Prüfdialog zeigen („Ungespeicherte Entwürfe gehen verloren“,
 „Trotzdem abmelden“ / „Angemeldet bleiben“); ohne Entwurf meldet die Taste sofort ab. Gilt für die
 Abmelden-Tasten beider Oberflächen (alte Seitenleiste, neue Shell). **[Muss]**

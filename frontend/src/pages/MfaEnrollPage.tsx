@@ -105,7 +105,7 @@ export default function MfaEnrollPage({ onDone }: { onDone: () => void }) {
           </button>
         )}
 
-        <button className="secondary small" style={{ marginTop: 16 }} onClick={() => void logout()}>
+        <button className="secondary small" style={{ marginTop: 16 }} onClick={() => void logout().catch((e) => setError(`Abmelden hat nicht geklappt (${e instanceof Error ? e.message : String(e)}). Du bist noch angemeldet.`))}>
           Abmelden
         </button>
       </div>

@@ -96,6 +96,10 @@ In der neuen Oberfläche MÜSSEN Schritt und Angaben des Wizards ein Neuladen de
 (`sessionStorage`, Schlüssel `homeatlas.draft.setup.wizard`). Passwörter von Geräten und Konten DÜRFEN
 NICHT in den Entwurf gelangen; wurden welche eingegeben, MUSS der Wizard nach dem Neuladen darauf
 hinweisen, dass sie erneut einzugeben sind. Abmelden und erfolgreiches Speichern löschen den Entwurf.
+Der Entwurf gehört dem angemeldeten Admin (gespeichert mit seiner Benutzer-ID): meldet sich nach
+abgelaufener Sitzung im selben Tab jemand anderes an, wird er nicht angezeigt, sondern verworfen.
+Beim Laden wird jedes Feld auf seinen Typ geprüft; ein beschädigter Eintrag bringt den Wizard nicht
+zum Absturz.
 **[Muss]** (Schlüsselname: **[Impl]**)
 
 #### Szenario: Neuladen in Schritt 2

@@ -30,6 +30,8 @@ export default function SetupPage({ onDone }: { onDone: () => void }) {
     setLeaving(true);
     try {
       await logout();
+    } catch (e) {
+      setError(`Abmelden hat nicht geklappt (${e instanceof Error ? e.message : String(e)}). Du bist noch angemeldet.`);
     } finally {
       setLeaving(false);
       setAskLogout(false);

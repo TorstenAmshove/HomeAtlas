@@ -95,31 +95,37 @@ export default function App() {
   const refresh = useCallback(async () => {
     // /api/health is public: its answer (uiCalm included) is applied even when /me says "not logged
     // in", so the login gate already follows the instance-wide switch, not only the last known value.
-    const healthRequest = api.health().then((health) => {
-      setSetupCompleted(health.setupCompleted);
-      setServerCalm(Boolean(health.uiCalm));
-      setLastServerCalm(Boolean(health.uiCalm));
-      return health;
-    });
-    try {
-      const [me] = await Promise.all([api.me(), healthRequest]);
-      setUser(me.user);
-    } catch (error) {
-      // A 401 is the normal "not logged in yet" case, not something to surface.
-      if (!(error instanceof ApiError && error.status === 401)) console.error(error);
-      setUser(null);
-    } finally {
-      setLoading(false);
+    // Both requests are awaited before `loading` ends: if the login form rendered on the 401 from /me
+    // while health was still open, a late health answer could swap classic and calm login under the
+    // user's fingers (remount, typed input gone).
+    const [me, health] = await Promise.allSettled([api.me(), api.health()]);
+    if (health.status === "fulfilled") {
+      setSetupCompleted(health.value.setupCompleted);
+      setServerCalm(Boolean(health.value.uiCalm));
+      setLastServerCalm(Boolean(health.value.uiCalm));
+    } else {
+      console.error(health.reason);
     }
+    if (me.status === "fulfilled" && health.status === "fulfilled") {
+      setUser(me.value.user);
+    } else {
+      // A 401 is the normal "not logged in yet" case, not something to surface.
+      const error = me.status === "rejected" ? me.reason : null;
+      if (error && !(error instanceof ApiError && error.status === 401)) console.error(error);
+      setUser(null);
+    }
+    setLoading(false);
   }, []);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
+  // Drafts are cleared only once the server has ended the session: a logout that fails (network,
+  // backend down) must not throw away unsaved text. Callers show the error (it is rethrown).
   const logout = useCallback(async () => {
-    clearAllDrafts();
     await api.logout();
+    clearAllDrafts();
     setUser(null);
   }, []);
 
@@ -127,32 +133,51 @@ export default function App() {
   // notes, chat input): logout clears them (see clearAllDrafts), so leaving must be a choice.
   const [logoutAsk, setLogoutAsk] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
   const requestLogout = useCallback(async () => {
-    if (hasDrafts()) setLogoutAsk(true);
-    else await logout();
+    if (hasDrafts()) {
+      setLogoutAsk(true);
+      return;
+    }
+    try {
+      await logout();
+    } catch (e) {
+      // Shown in the same dialog, which then offers to try again.
+      setLogoutError(e instanceof Error ? e.message : String(e));
+      setLogoutAsk(true);
+    }
   }, [logout]);
   const logoutDialog = (
     <ConfirmDialog
       open={logoutAsk}
       title="Abmelden?"
-      consequences={[
+      consequences={hasDrafts() ? [
         <>Ungespeicherte Entwürfe gehen verloren (Doku-Text, Notizen oder Chat-Eingabe, die noch nicht gespeichert bzw. gesendet sind).</>,
-      ]}
-      confirmLabel="Trotzdem abmelden"
+      ] : []}
+      confirmLabel={logoutError ? "Erneut versuchen" : "Trotzdem abmelden"}
       cancelLabel="Angemeldet bleiben"
       danger
       busy={loggingOut}
       onConfirm={async () => {
         setLoggingOut(true);
+        setLogoutError("");
         try {
           await logout();
+          setLogoutAsk(false);
+        } catch (e) {
+          setLogoutError(e instanceof Error ? e.message : String(e));
         } finally {
           setLoggingOut(false);
-          setLogoutAsk(false);
         }
       }}
-      onCancel={() => setLogoutAsk(false)}
-    />
+      onCancel={() => { setLogoutAsk(false); setLogoutError(""); }}
+    >
+      {logoutError && (
+        <p className="notice error" role="alert">
+          Abmelden hat nicht geklappt ({logoutError}). Du bist noch angemeldet; deine Entwürfe sind erhalten.
+        </p>
+      )}
+    </ConfirmDialog>
   );
 
   if (loading) {

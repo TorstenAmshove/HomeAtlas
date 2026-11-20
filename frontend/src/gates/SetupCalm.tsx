@@ -23,8 +23,9 @@ import {
 const STEPS = ["Zuhause", "Geräte", "Konten"];
 
 export default function SetupCalm({ onDone }: { onDone: () => void }) {
-  const { logout } = useAuth();
-  const [restored] = useState(loadSetupDraft);
+  const { user, logout } = useAuth();
+  const userId = user?.id ?? "";
+  const [restored] = useState(() => loadSetupDraft(userId));
   const [step, setStep] = useState(restored?.step ?? 0);
   const [form, setForm] = useState<SetupForm>(restored?.form ?? initialSetupForm());
   const [secretsDropped] = useState(restored?.hadSecrets ?? false);
@@ -41,8 +42,8 @@ export default function SetupCalm({ onDone }: { onDone: () => void }) {
 
   useEffect(() => {
     if (!dirty) clearSetupDraft();
-    else saveSetupDraft(step, form, secretsMissing);
-  }, [step, form, dirty, secretsMissing]);
+    else saveSetupDraft(userId, step, form, secretsMissing);
+  }, [userId, step, form, dirty, secretsMissing]);
 
   // A new step moves focus to its heading, so keyboard and screen-reader users start at the top.
   useEffect(() => {
@@ -82,6 +83,8 @@ export default function SetupCalm({ onDone }: { onDone: () => void }) {
     setLeaving(true);
     try {
       await logout(); // also clears this tab's drafts, the wizard's included
+    } catch (e) {
+      setError(`Abmelden hat nicht geklappt (${e instanceof Error ? e.message : String(e)}). Du bist noch angemeldet.`);
     } finally {
       setLeaving(false);
       setAskLogout(false);

@@ -102,10 +102,13 @@ export interface SetupDraft {
 export const hasTypedSecrets = (form: SetupForm) =>
   form.systems.some((s) => s.password) || form.accounts.some((a) => a.secret);
 
-/** `secretsMissing`: a reload already dropped typed passwords and they are not re-entered yet. */
-export function saveSetupDraft(step: number, form: SetupForm, secretsMissing = false): void {
+/** `secretsMissing`: a reload already dropped typed passwords and they are not re-entered yet.
+ *  `userId`: the draft belongs to the admin who typed it. If a session expires in this tab and a
+ *  different person logs in here, they must not see the previous person's household data. */
+export function saveSetupDraft(userId: string, step: number, form: SetupForm, secretsMissing = false): void {
   const hadSecrets = secretsMissing || hasTypedSecrets(form);
   const stored = {
+    userId,
     step,
     hadSecrets,
     form: {
@@ -118,20 +121,44 @@ export function saveSetupDraft(step: number, form: SetupForm, secretsMissing = f
   writeDraft(DRAFT_KEY, JSON.stringify(stored));
 }
 
-export function loadSetupDraft(): SetupDraft | null {
+export function loadSetupDraft(userId: string): SetupDraft | null {
   const raw = readDraft(DRAFT_KEY);
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as Partial<SetupDraft>;
+    const parsed = JSON.parse(raw) as Partial<SetupDraft> & { userId?: unknown };
+    if (parsed.userId !== userId) {
+      // Someone else's (or a pre-userId) draft: never show it, and drop it.
+      clearSetupDraft();
+      return null;
+    }
     const base = initialSetupForm();
     const form = parsed.form;
     if (!form || typeof form !== "object") return null;
     const text = (v: unknown, fallback: string) => (typeof v === "string" ? v : fallback);
+    // Field by field with type checks, so a damaged storage value can't crash the wizard later
+    // (e.g. `.trim()` on a non-string in setupBody).
+    const cleanSystem = (s: unknown): SystemDraft => {
+      const src = (s && typeof s === "object" ? s : {}) as Record<string, unknown>;
+      const empty = emptySystem();
+      return {
+        name: text(src.name, ""), kind: text(src.kind, empty.kind), ip: text(src.ip, ""),
+        location: text(src.location, ""), purpose: text(src.purpose, ""), url: text(src.url, ""),
+        username: text(src.username, ""), password: "",
+      };
+    };
+    const cleanAccount = (a: unknown): AccountDraft => {
+      const src = (a && typeof a === "object" ? a : {}) as Record<string, unknown>;
+      const empty = emptyAccount();
+      return {
+        label: text(src.label, ""), category: text(src.category, empty.category), username: text(src.username, ""),
+        secret: "", url: text(src.url, ""), notes: text(src.notes, ""),
+      };
+    };
     const systems = Array.isArray(form.systems) && form.systems.length
-      ? form.systems.map((s) => ({ ...emptySystem(), ...s, password: "" }))
+      ? form.systems.map(cleanSystem)
       : base.systems;
     const accounts = Array.isArray(form.accounts) && form.accounts.length
-      ? form.accounts.map((a) => ({ ...emptyAccount(), ...a, secret: "" }))
+      ? form.accounts.map(cleanAccount)
       : base.accounts;
     const step = typeof parsed.step === "number" && parsed.step >= 0 && parsed.step <= 2 ? Math.floor(parsed.step) : 0;
     return {
