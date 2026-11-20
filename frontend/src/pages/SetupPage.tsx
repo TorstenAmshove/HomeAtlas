@@ -1,73 +1,40 @@
 import { useState } from "react";
 import { api } from "../lib/api";
+import { useAuth } from "../App";
+import ConfirmDialog from "../components/ConfirmDialog";
+import {
+  ACCOUNT_CATEGORIES, KINDS, emptyAccount, emptySystem, initialSetupForm, isSetupDirty,
+  type AccountDraft, type SystemDraft,
+} from "../gates/setupModel";
 
 /** First-run wizard. Asks for the handful of things a network scan can never discover on its own:
- *  what the household calls itself, which systems matter, and the logins that go with them. */
-
-interface SystemDraft {
-  name: string;
-  kind: string;
-  ip: string;
-  location: string;
-  purpose: string;
-  url: string;
-  username: string;
-  password: string;
-}
-
-interface AccountDraft {
-  label: string;
-  category: string;
-  username: string;
-  secret: string;
-  url: string;
-  notes: string;
-}
-
-const KINDS = [
-  ["router", "Router / Internetzugang"],
-  ["network", "Switch, Access Point, Repeater"],
-  ["server", "Server / Kleinrechner"],
-  ["nas", "Netzwerkspeicher (NAS)"],
-  ["pc", "Computer / Notebook"],
-  ["printer", "Drucker"],
-  ["smarthome", "Smart-Home-Zentrale"],
-  ["heating", "Heizung / Wärmepumpe"],
-  ["climate", "Klima / Lüftung"],
-  ["energy", "Photovoltaik / Wallbox / Zähler"],
-  ["media", "TV / Streaming / Lautsprecher"],
-  ["camera", "Kamera"],
-  ["other", "Etwas anderes"],
-];
-
-const ACCOUNT_CATEGORIES = [
-  ["contract", "Vertrag / Kundenkonto"],
-  ["login", "Anmeldung an einem Gerät oder Dienst"],
-  ["wifi", "WLAN-Zugang"],
-  ["apikey", "API-Schlüssel"],
-  ["other", "Sonstiges"],
-];
-
-const emptySystem = (kind = "other"): SystemDraft => ({
-  name: "", kind, ip: "", location: "", purpose: "", url: "", username: "", password: "",
-});
-
-const emptyAccount = (): AccountDraft => ({
-  label: "", category: "contract", username: "", secret: "", url: "", notes: "",
-});
+ *  what the household calls itself, which systems matter, and the logins that go with them.
+ *  The redesigned UI shows gates/SetupCalm.tsx instead; both share gates/setupModel.ts. */
 
 export default function SetupPage({ onDone }: { onDone: () => void }) {
+  const { logout } = useAuth();
+  const [initial] = useState(initialSetupForm);
   const [step, setStep] = useState(0);
-  const [homeName, setHomeName] = useState("Mein Zuhause");
-  const [subnet, setSubnet] = useState("");
-  const [systems, setSystems] = useState<SystemDraft[]>([
-    { ...emptySystem("router"), name: "", purpose: "Internetzugang und WLAN" },
-  ]);
-  const [accounts, setAccounts] = useState<AccountDraft[]>([
-    { ...emptyAccount(), label: "Internetanbieter" },
-  ]);
+  const [homeName, setHomeName] = useState(initial.homeName);
+  const [subnet, setSubnet] = useState(initial.subnet);
+  const [systems, setSystems] = useState<SystemDraft[]>(initial.systems);
+  const [accounts, setAccounts] = useState<AccountDraft[]>(initial.accounts);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // The way out of the wizard (docs/redesign/2-page-forensics.md: "Einrichtung hat keinen Ausweg").
+  // Asks first once something was entered, since logging out throws the entries away.
+  const [askLogout, setAskLogout] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const dirty = step > 0 || isSetupDirty({ homeName, subnet, systems, accounts });
+  async function doLogout() {
+    setLeaving(true);
+    try {
+      await logout();
+    } finally {
+      setLeaving(false);
+      setAskLogout(false);
+    }
+  }
 
   function patchSystem(index: number, patch: Partial<SystemDraft>) {
     setSystems((current) => current.map((s, i) => (i === index ? { ...s, ...patch } : s)));
@@ -103,8 +70,29 @@ export default function SetupPage({ onDone }: { onDone: () => void }) {
             Dokumentation schreiben. Alles lässt sich später ändern — es muss jetzt nichts perfekt sein.
           </p>
         </div>
-        <span className="badge">Schritt {step + 1} von 3</span>
+        <div className="row">
+          <span className="badge">Schritt {step + 1} von 3</span>
+          <button className="secondary small" disabled={leaving}
+                  onClick={() => (dirty ? setAskLogout(true) : void doLogout())}>
+            Abmelden
+          </button>
+        </div>
       </div>
+
+      <ConfirmDialog
+        open={askLogout}
+        title="Abmelden?"
+        consequences={[
+          <>Deine Angaben aus der Einrichtung werden verworfen.</>,
+          <>Nach dem nächsten Anmelden beginnt die Einrichtung wieder bei Schritt 1.</>,
+        ]}
+        confirmLabel="Trotzdem abmelden"
+        cancelLabel="Angemeldet bleiben"
+        danger
+        busy={leaving}
+        onConfirm={doLogout}
+        onCancel={() => setAskLogout(false)}
+      />
 
       {error && <div className="notice error">{error}</div>}
 

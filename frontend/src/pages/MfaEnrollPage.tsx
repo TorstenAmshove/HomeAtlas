@@ -82,8 +82,10 @@ export default function MfaEnrollPage({ onDone }: { onDone: () => void }) {
             <p className="muted"><strong>2.</strong> Zur Bestätigung den aktuellen Code eingeben:</p>
             <div className="field" style={{ maxWidth: 220 }}>
               <input
+                aria-label="Code aus der Authenticator-App"
                 inputMode="numeric"
                 autoComplete="one-time-code"
+                pattern="[0-9]*"
                 maxLength={6}
                 autoFocus
                 placeholder="6-stellig"
