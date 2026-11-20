@@ -49,9 +49,12 @@ const SORT_OPTIONS: [string, string][] = [
   ["", "Wichtige zuerst"],
   ["name", "Name A–Z"],
   ["-name", "Name Z–A"],
-  ["ip", "Adresse"],
-  ["kind", "Art"],
-  ["location", "Standort"],
+  ["ip", "Adresse aufsteigend"],
+  ["-ip", "Adresse absteigend"],
+  ["kind", "Art A–Z"],
+  ["-kind", "Art Z–A"],
+  ["location", "Standort A–Z"],
+  ["-location", "Standort Z–A"],
   ["-status", "Nicht erreichbare zuerst"],
   ["status", "Erreichbare zuerst"],
 ];
@@ -249,6 +252,17 @@ export default function InventoryCalm() {
     [all, params, kindLabels],
   );
   const groups = useMemo(() => groupByProject(visible), [visible]);
+
+  // The selection follows the view: when search or filters hide a selected device, it is deselected,
+  // so "Löschen …" can only ever act on devices the user can currently see (deleting has no undo).
+  useEffect(() => {
+    setSelected((current) => {
+      if (current.size === 0) return current;
+      const shown = new Set(visible.map((s) => s.id));
+      const next = new Set([...current].filter((id) => shown.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [visible]);
 
   const counts = useMemo(() => ({
     total: all.length,
