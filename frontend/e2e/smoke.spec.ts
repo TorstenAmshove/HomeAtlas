@@ -125,6 +125,50 @@ test("login, MFA enrollment, setup and main routes render without errors", async
     await expect(page.locator("#start-hero-title")).toBeVisible();
     await page.locator(".app-shell").getByRole("link", { name: "Geräte", exact: true }).first().click();
     await expect(page).toHaveURL(/\/geraete$/);
+  });
+
+  await test.step("new UI: device search survives opening a device and Back", async () => {
+    // A fresh backend has no devices; one created through the API is enough for the list.
+    const created = await page.request.post("/api/systems", { data: { name: "Smoke-NAS", kind: "nas", ip: "192.0.2.10" } });
+    expect(created.ok()).toBe(true);
+    await page.goto("/geraete");
+    const search = page.getByLabel("Geräte durchsuchen");
+    await search.fill("Smoke");
+    await expect(page).toHaveURL(/[?&]q=Smoke/);
+    await page.locator(".inv-list").getByRole("link", { name: /Smoke-NAS/ }).click();
+    await expect(page).toHaveURL(/\/geraete\/[^/?]+$/);
+    await page.goBack();
+    await expect(page).toHaveURL(/[?&]q=Smoke/);
+    await expect(page.getByLabel("Geräte durchsuchen")).toHaveValue("Smoke");
+    await expect(page.locator(".inv-list").getByRole("link", { name: /Smoke-NAS/ })).toBeVisible();
+  });
+
+  await test.step("new UI: a doc draft survives switching chapters", async () => {
+    await page.goto("/dokumentation");
+    const chapters = page.locator("a.docs-toc-link");
+    await expect(chapters.nth(1)).toBeVisible();
+    const firstHref = await chapters.nth(0).getAttribute("href");
+    const secondHref = await chapters.nth(1).getAttribute("href");
+    await chapters.nth(0).click();
+    await expect(page).toHaveURL(new RegExp(`${firstHref}$`));
+    await page.locator(".docs-actions").getByRole("button", { name: "Bearbeiten" }).click();
+    const editor = page.locator("textarea.docs-textarea");
+    await editor.fill("Smoke-Entwurf: bitte nicht verlieren");
+    await page.locator(`a.docs-toc-link[href="${secondHref}"]`).click();
+    await page.getByRole("button", { name: "Trotzdem wechseln" }).click();
+    await expect(page).toHaveURL(new RegExp(`${secondHref}$`));
+    await page.locator(`a.docs-toc-link[href="${firstHref}"]`).click();
+    await expect(page.locator("textarea.docs-textarea")).toHaveValue("Smoke-Entwurf: bitte nicht verlieren");
+    // Logging out would throw the draft away, so it asks first; staying keeps the session.
+    await page.locator(".shell-side").getByRole("button", { name: "Abmelden" }).click();
+    await expect(page.getByRole("alertdialog", { name: "Abmelden?" })).toBeVisible();
+    await page.getByRole("button", { name: "Angemeldet bleiben" }).click();
+    await expect(page.getByRole("alertdialog")).toHaveCount(0);
+    // Discard the draft, so the next navigation is not held up by the "leave page?" prompt.
+    await page.locator(".docs-actions").getByRole("button", { name: "Abbrechen" }).click();
+  });
+
+  await test.step("back to the classic UI", async () => {
     await page.goto("/?ui=classic");
     await expect(page.locator(".app-shell")).toHaveCount(0);
   });

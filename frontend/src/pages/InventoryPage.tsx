@@ -3,52 +3,41 @@ import { Link, useSearchParams } from "react-router-dom";
 import { api, DUPLICATE_REASON_LABEL, type DuplicateCandidate, type System } from "../lib/api";
 import { useAuth } from "../App";
 import { KindIcon } from "../lib/icons";
-import { matchesDeviceQuery } from "../lib/search";
+import { useUi } from "../shell/ui";
+import { useUrlState } from "../lib/useUrlState";
+import InventoryCalm from "./geraete/InventoryCalm";
+import {
+  IMPORTANCE_LABEL, STATUS_LABEL, formatSort, groupByProject, matchesFilter, parseSort, projectOf, readFilter,
+  sortSystems, type SortKey,
+} from "./geraete/inventoryModel";
 
-const STATUS_LABEL: Record<string, string> = {
-  online: "erreichbar",
-  offline: "nicht erreichbar",
-  unknown: "unbekannt",
-};
-
-type SortKey = "name" | "ip" | "kind" | "location" | "status";
-
-const STATUS_ORDER: Record<string, number> = { online: 0, unknown: 1, offline: 2 };
-
-// Pads each octet so string comparison of the result orders IPv4 addresses numerically
-// (plain string comparison would put "10" before "2"). Falls back to the raw value for
-// anything that isn't a dotted-quad, which still sorts consistently even if not numerically.
-function ipSortKey(ip: string): string {
-  const parts = ip.split(".");
-  if (parts.length !== 4 || !parts.every((p) => /^\d{1,3}$/.test(p))) return ip;
-  return parts.map((p) => p.padStart(3, "0")).join(".");
+/** The new UI has its own component (pages/geraete/InventoryCalm.tsx). With the switch off the
+ *  classic page below renders as before, except that search and sort now live in the URL as well
+ *  (forensics "Geräte" 2: Back must not lose the search) and `?status=`/`?importance=` filter. */
+export default function InventoryPage() {
+  const { calm } = useUi();
+  return calm ? <InventoryCalm /> : <InventoryClassic />;
 }
 
-const projectOf = (s: System): string => {
-  const docker = (s.extra as { docker?: { composeProject?: string } } | undefined)?.docker;
-  return docker?.composeProject ?? "";
-};
-
-export default function InventoryPage() {
+function InventoryClassic() {
   const { isAdmin } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [systems, setSystems] = useState<System[]>([]);
   const [kindLabels, setKindLabels] = useState<Record<string, string>>({});
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useUrlState("q");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  // null = "unsorted" -- the order the API already returns (critical devices first, see
-  // db.list_systems), which a column sort deliberately overrides until reset back to null.
-  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
+  // No `?sort=` = "unsorted" -- the order the API already returns (critical devices first, see
+  // db.list_systems), which a column sort deliberately overrides until reset again.
+  const [sortParam, setSortParam] = useUrlState("sort");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const sort = parseSort(sortParam);
 
   function toggleSort(key: SortKey) {
-    setSort((current) => {
-      if (!current || current.key !== key) return { key, dir: "asc" };
-      if (current.dir === "asc") return { key, dir: "desc" };
-      return null;
-    });
+    if (!sort || sort.key !== key) setSortParam(formatSort({ key, dir: "asc" }));
+    else if (sort.dir === "asc") setSortParam(formatSort({ key, dir: "desc" }));
+    else setSortParam("");
   }
 
   function sortIndicator(key: SortKey) {
@@ -56,9 +45,7 @@ export default function InventoryPage() {
     return sort.dir === "asc" ? " ▲" : " ▼";
   }
 
-  const kind = searchParams.get("kind") ?? "";
-  const parentId = searchParams.get("parentId") ?? "";
-  const project = searchParams.get("project") ?? "";
+  const { kind, parentId, project, status, importance } = readFilter(searchParams);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   function setParam(name: string, value: string) {
@@ -110,29 +97,11 @@ export default function InventoryPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const visible = useMemo(() => {
-    const filtered = systems.filter((s) => {
-      if (kind && s.kind !== kind) return false;
-      if (parentId && s.parentId !== parentId) return false;
-      if (project && projectOf(s) !== project) return false;
-      return matchesDeviceQuery(s, query);
-    });
-    if (!sort) return filtered; // natural order -- critical devices already first, see list_systems
-    const sign = sort.dir === "asc" ? 1 : -1;
-    const value = (s: System): string | number => {
-      switch (sort.key) {
-        case "ip": return ipSortKey(s.ip || "");
-        case "kind": return kindLabels[s.kind] ?? s.kind;
-        case "location": return s.location || "";
-        case "status": return STATUS_ORDER[s.status] ?? 1;
-        default: return s.name.toLowerCase();
-      }
-    };
-    return [...filtered].sort((a, b) => {
-      const va = value(a), vb = value(b);
-      return va < vb ? -sign : va > vb ? sign : 0;
-    });
-  }, [systems, kind, parentId, project, query, sort, kindLabels]);
+  const visible = useMemo(() => sortSystems(
+    systems.filter((s) => matchesFilter(s, { q: query, kind, parentId, project, status, importance })),
+    parseSort(sortParam),
+    kindLabels,
+  ), [systems, kind, parentId, project, status, importance, query, sortParam, kindLabels]);
 
   function toggleSelected(id: string) {
     setSelected((current) => {
@@ -211,19 +180,7 @@ export default function InventoryPage() {
     [systems],
   );
 
-  // Devices without a compose project keep their natural order and get no header; each project
-  // becomes one collapsible group (alphabetical), sorting/search apply within the groups.
-  const groups = useMemo(() => {
-    const byProject = new Map<string, System[]>();
-    const loose: System[] = [];
-    for (const s of visible) {
-      const p = projectOf(s);
-      if (!p) { loose.push(s); continue; }
-      byProject.set(p, [...(byProject.get(p) ?? []), s]);
-    }
-    const names = [...byProject.keys()].sort((a, b) => a.localeCompare(b));
-    return { loose, stacks: names.map((name) => ({ name, items: byProject.get(name)! })) };
-  }, [visible]);
+  const groups = useMemo(() => groupByProject(visible), [visible]);
 
   async function addSystem() {
     const name = window.prompt("Wie soll das neue Gerät heißen?");
@@ -322,6 +279,24 @@ export default function InventoryPage() {
               </button>
             </div>
           ))}
+        </div>
+      )}
+
+      {(status || importance) && (
+        // Set by links from the new UI (Start → "+N weitere" → ?importance=critical); the classic
+        // page has no controls for them, so it says what is filtered and offers the way out.
+        <div className="notice info">
+          Gefiltert nach{" "}
+          {[status && `Zustand „${STATUS_LABEL[status] ?? status}“`,
+            importance && `Bedeutung „${IMPORTANCE_LABEL[importance] ?? importance}“`].filter(Boolean).join(" und ")}.
+          <button className="secondary" style={{ marginLeft: 8 }} onClick={() => {
+            const next = new URLSearchParams(searchParams);
+            next.delete("status");
+            next.delete("importance");
+            setSearchParams(next);
+          }}>
+            Filter aufheben
+          </button>
         </div>
       )}
 

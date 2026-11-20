@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api, type Dashboard, type DiagnosticResult, type MonitorState, type System } from "../../lib/api";
 import { useAuth } from "../../App";
 import { Skeleton } from "../../components/Skeleton";
+import { clock, downSince, when } from "../../lib/time";
 import "./start.css";
 
 /**
@@ -20,45 +21,6 @@ import "./start.css";
  */
 
 const STATUS_WORD: Record<string, string> = { online: "erreichbar", offline: "nicht erreichbar" };
-
-function sameDay(a: Date, b: Date) {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-}
-
-function clock(d: Date) {
-  return d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
-}
-
-/** "heute 03:00", "gestern 22:15", "18.11., 07:42" (plus year when it is not this year). */
-function when(iso: string) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const now = new Date();
-  if (sameDay(d, now)) return `heute ${clock(d)}`;
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  if (sameDay(d, yesterday)) return `gestern ${clock(d)}`;
-  const date = d.toLocaleDateString("de-DE", {
-    day: "2-digit", month: "2-digit", ...(d.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
-  });
-  return `${date}, ${clock(d)}`;
-}
-
-/** "seit 07:42" today, "seit gestern 22:15", "seit 18.11., 07:42" otherwise. */
-function since(iso: string | undefined) {
-  if (!iso) return "";
-  const text = when(iso);
-  return text ? `seit ${text.replace(/^heute /, "")}` : "";
-}
-
-/** When the device went down: its latest 'offline' transition from the monitor's event log;
- *  the log is capped at 50 entries, so fall back to "zuletzt erreichbar <lastSeen>". */
-function downSince(monitor: MonitorState, id: string, lastSeen: string): { text: string; title: string } {
-  const event = monitor.events.find((e) => e.systemId === id && e.status === "offline");
-  if (event) return { text: since(event.at), title: new Date(event.at).toLocaleString("de-DE") };
-  if (lastSeen) return { text: `zuletzt erreichbar ${when(lastSeen)}`, title: new Date(lastSeen).toLocaleString("de-DE") };
-  return { text: "", title: "" };
-}
 
 function StartSkeleton() {
   return (
@@ -362,9 +324,8 @@ export default function StartCalm() {
             </ul>
           )}
           {hiddenCritical > 0 && (
-            // InventoryPage has no importance filter yet; this becomes /geraete?importance=critical
-            // with the Geräte PR (redesign PR 3).
-            <Link className="start-more" to="/geraete">+{hiddenCritical} weitere</Link>
+            // The device list filtered to the set the count comes from (importance='critical').
+            <Link className="start-more" to="/geraete?importance=critical">+{hiddenCritical} weitere</Link>
           )}
           {/* Monitoring off: the hero says so and links to the settings, unless it is busy with
               an alarm or the empty inventory; then the hint stays here, as on the classic page. */}

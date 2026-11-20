@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { api, type DnsResult, type MonitorState, type SpeedtestResult, type System } from "../lib/api";
 import { useAuth } from "../App";
 import { KindIcon } from "../lib/icons";
+import { useUi } from "../shell/ui";
+import PlanCalm from "./geraete/PlanCalm";
 
 /** Alles, was der Plan oben NICHT einzeln zeichnet (siehe topology.py: nur Router/Netzwerk als
  *  Backbone, plus was als "kritisch" markiert ist) landet hier ausklappbar, gruppiert nach Art --
@@ -17,9 +19,15 @@ const DEVICE_GROUPS: [string, string[]][] = [
   ["Weitere Geräte", ["other"]],
 ];
 
+/** Neue Oberfläche: eigene Komponente (pages/geraete/PlanCalm.tsx); sonst unverändert die alte Seite. */
+export default function PlanPage() {
+  const { calm } = useUi();
+  return calm ? <PlanCalm /> : <PlanClassic />;
+}
+
 /** Netzplan, Live-Überwachung und Diagnose auf einer Seite — die drei Dinge, die man ansieht,
  *  wenn man wissen will, wie es dem Netz gerade geht. */
-export default function PlanPage() {
+function PlanClassic() {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const [svg, setSvg] = useState("");

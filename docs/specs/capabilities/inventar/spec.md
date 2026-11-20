@@ -314,7 +314,55 @@ Zusammenführen mit Wahl des Behaltenen, Duplikat-Hinweise mit „Behalte X"/„
 - **WENN** drei Container des Projekts „immich" und zwei Geräte ohne Projekt vorhanden sind
 - **DANN** stehen die zwei Geräte oben, darunter eine Gruppe „Compose: immich (3 Container)"
 
-Quelle: `frontend/src/pages/InventoryPage.tsx:26`, `:112`, `:218`, `:310`, `:371`
+Quelle: `frontend/src/pages/InventoryPage.tsx`, `frontend/src/pages/geraete/inventoryModel.ts`
+
+### Requirement: Listenzustand in der URL (beide Oberflächen)
+Suchtext und Sortierung der Geräteliste MÜSSEN in der URL stehen (`q`, `sort` = `name`/`ip`/`kind`/
+`location`/`status`, absteigend mit `-` davor, ohne `sort` die Reihenfolge der API mit kritischen
+Geräten zuerst), damit Zurück nach dem Öffnen eines Geräts, Neuladen und ein geteilter Link dieselbe
+Liste zeigen. Zusätzlich zu `kind`, `parentId`, `project` MÜSSEN `status` (`online`/`offline`/
+`unknown`) und `importance` (`critical`/`normal`/`low`) filtern. Die alte Oberfläche hat für
+`status`/`importance` keine Bedienelemente; sie nennt den aktiven Filter und bietet „Filter aufheben“.
+**[Muss]**
+
+#### Szenario: Suche überlebt Zurück
+- **WENN** ein Benutzer „nas“ sucht, ein Gerät öffnet und Zurück drückt
+- **DANN** steht „nas“ wieder im Suchfeld und die Liste ist gefiltert (`/geraete?q=nas`)
+
+#### Szenario: Wichtige Geräte von der Startseite
+- **WENN** die Startseite „+2 weitere“ anzeigt und ein Benutzer darauf tippt
+- **DANN** öffnet `/geraete?importance=critical` mit genau den kritischen Geräten
+
+Quelle: `frontend/src/pages/geraete/inventoryModel.ts`, `frontend/src/pages/InventoryPage.tsx`,
+`frontend/src/pages/start/StartCalm.tsx`, `frontend/e2e/smoke.spec.ts`
+
+### Requirement: Geräteliste in der neuen Oberfläche
+Mit Schalter `uiCalm` MUSS `/geraete` die ruhige Liste `InventoryCalm` zeigen (ohne Seitentitel und
+Erklärabsatz; Skeleton beim Laden). Sie rechnet nur aus derselben `GET /api/systems`-Liste:
+**[Muss]**
+- Filterzeile „Alle N · Nicht erreichbar N · Wichtig N · Art ▾ · Compose ▾“; N zählt über das ganze
+  Inventar (Alle = alle Geräte, Nicht erreichbar = `status = offline` aller Geräte, Wichtig =
+  `importance = critical`), nicht über die gerade gefilterte Liste. Weitere aktive Filter (Host,
+  andere Zustände/Bedeutungen) stehen als eigene Chips mit ×.
+- Sortieren über ein sichtbares Menü (statt klickbarer Spaltenköpfe mit unsichtbarem Zurücksetzen).
+- Duplikat-Vorschläge (ADMIN) als Chip „N mögliche Duplikate“, der eine Prüfansicht öffnet
+  (`?duplikate=1`) mit „Behalte A“ / „Behalte B“ / „Kein Duplikat“ je Paar.
+- Unter 640 px Breite wird jede Zeile ein Listeneintrag (Name, IP · Art, Status-Chip), ohne seitliches
+  Scrollen.
+- Mehrfachauswahl (ADMIN) erst nach „Auswählen“; „Löschen …“ öffnet einen Prüfdialog, der die
+  Namen der Geräte nennt, die Zahl der mitgelöschten Zugänge und der Container/VMs, die ihren Host
+  verlieren, und dass es kein Rückgängig gibt. Zusammenführen (genau 2 ausgewählt) steht getrennt
+  davon und hat einen eigenen Prüfdialog.
+- „+ Gerät“ (ADMIN) öffnet einen Dialog mit Name und Art; danach öffnet sich die Geräteseite des
+  neuen Geräts.
+- Eingeklappte Compose-Gruppen bleiben für den Browser-Tab eingeklappt (`sessionStorage`).
+
+#### Szenario: Löschen prüfen
+- **WENN** ein Admin zwei Geräte auswählt, von denen eines einen Zugang hat, und „Löschen …“ wählt
+- **DANN** nennt der Dialog beide Namen und „1 hinterlegter Zugang wird mitgelöscht“; erst „2 Geräte
+  löschen“ löscht
+
+Quelle: `frontend/src/pages/geraete/InventoryCalm.tsx`, `frontend/src/pages/geraete/geraete.css`
 
 ### Requirement: Detailseite
 Die Detailseite MUSS zeigen: Kopf (Name, Zweck, Zustand, kritisch, Fehleranzahl als Schalter zum
@@ -367,7 +415,8 @@ Berührte fremde Routen (nur verlinkt): Auslesen `POST /api/systems/{id}/probe`
 ([remote-admin](../remote-admin/spec.md)), Zugänge ([zugangsdaten](../zugangsdaten/spec.md)).
 LLM-Lesezugriff aufs Inventar: [llm-tools](../../contracts/llm-tools.md).
 
-UI-Seite(n): `frontend/src/pages/InventoryPage.tsx` (Route `/geraete`),
+UI-Seite(n): `frontend/src/pages/InventoryPage.tsx` (Route `/geraete`; neue Oberfläche
+`frontend/src/pages/geraete/InventoryCalm.tsx`),
 `frontend/src/pages/SystemDetailPage.tsx` (Route `/geraete/:id`), `frontend/src/components/MergePanel.tsx`.
 
 ## Nicht-Ziele und Grenzen

@@ -180,6 +180,34 @@ entfallen. **[Muss]**
 
 Quelle: `frontend/src/pages/PlanPage.tsx:10`, `frontend/src/pages/PlanPage.tsx:62`
 
+### Requirement: Netzplan in der neuen Oberfläche
+Mit Schalter `uiCalm` MUSS `/plan` die Seite `PlanCalm` zeigen; das SVG selbst bleibt unverändert
+(statisches Bild, ADR-0008/0009). Abweichend von der alten Seite gilt: **[Muss]**
+- Die Ansicht steht in der URL (`?view=layer3`; ohne Parameter physisch), Zurück und Neuladen behalten sie.
+- Kein Seitentitel; der Erklärtext zur Ansicht steht hinter „ⓘ Wie lese ich den Plan?“.
+- Genau eine Statuszeile statt Ausfall-Meldung plus Liste: Grundmenge sind die überwachten Geräte
+  aus `/api/monitor` (dieselbe wie der Status-Hero der Startseite). Nur bei eingeschalteter
+  Überwachung meldet sie „<n> von <m> überwachten Geräten nicht erreichbar“ mit Namen; sonst
+  „Überwachung ist aus“, „Noch kein Gerät unter Beobachtung“, „Wird geprüft …“ oder „Alle <m>
+  überwachten Geräte erreichbar“. Bei ausgeschalteter Überwachung zeigt die Liste den letzten Stand
+  („zuletzt …“) ohne Alarmfarbe.
+- Darunter „Überwachte Geräte“ als Liste mit Status-Chip (Adresse · Port bzw. Ping); auf dem Handy
+  (unter 760 px) steht diese Liste vor dem Bild, das Bild dort in doppelter Bildschirmbreite in einem
+  seitlich verschiebbaren Rahmen (die Seite selbst scrollt nicht seitlich). Kein Zoom- oder Ziehen-
+  Bedienelement.
+- „Nicht im Plan gezeichnet“ (die Gruppen von oben) und „Letzte Zustandswechsel“ sind einklappbar.
+- „Diagnose“: „Jetzt prüfen“ (ADMIN), „DNS testen“, „Speedtest“; Ergebnisse mit Uhrzeit.
+
+#### Szenario: Ansicht in der URL
+- **WENN** ein Benutzer auf „Layer 3“ wechselt, ein Gerät im Plan öffnet und Zurück drückt
+- **DANN** zeigt `/plan?view=layer3` wieder den Layer-3-Plan
+
+#### Szenario: Überwachung aus
+- **WENN** die Überwachung abgeschaltet ist und ein überwachtes Gerät zuletzt `offline` war
+- **DANN** sagt die Statuszeile „Überwachung ist aus“ statt einen Ausfall zu melden
+
+Quelle: `frontend/src/pages/geraete/PlanCalm.tsx`, `frontend/src/lib/time.ts`
+
 ### Requirement: Leerer physischer Plan
 Das System MUSS bei leerem Inventar nur den Internet-Kasten und den Hinweis „Noch keine Geräte
 erfasst — ein Netzwerk-Scan füllt diesen Plan.“ zeigen. **[Muss]**
@@ -334,7 +362,8 @@ Berührte fremde Routen: `POST /api/scans` ([discovery-und-scan](../discovery-un
 `GET /api/systems` ([inventar](../inventar/spec.md)); Überwachung, DNS-Test und Speedtest auf
 derselben Seite gehören zu [monitoring](../monitoring/spec.md) und [diagnose](../diagnose/spec.md).
 
-UI-Seite(n): `frontend/src/pages/PlanPage.tsx` (Route `/plan`, Navigation „Netzplan“, alle Rollen).
+UI-Seite(n): `frontend/src/pages/PlanPage.tsx` (Route `/plan`, Navigation „Netzplan“, alle Rollen; neue
+Oberfläche `frontend/src/pages/geraete/PlanCalm.tsx`).
 
 ## Nicht-Ziele und Grenzen
 
