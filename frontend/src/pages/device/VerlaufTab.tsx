@@ -48,7 +48,7 @@ export default function VerlaufTab({ systemId, errorEvents, monitorEvents, monit
         {monitorEvents.length === 0 ? (
           <p className="dv-empty">
             {monitorEnabled
-              ? "Keine Zustandswechsel im aktuellen Protokoll der Dauerüberwachung."
+              ? "Keine Zustandswechsel unter den letzten 50 der Dauerüberwachung (für alle Geräte zusammen)."
               : "Die Dauerüberwachung ist ausgeschaltet."}
           </p>
         ) : (

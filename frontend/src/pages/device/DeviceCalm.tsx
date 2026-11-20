@@ -140,6 +140,9 @@ export default function DeviceCalm() {
 
   useEffect(() => {
     setData(null);
+    // A form draft belongs to one device: switching to another device (e.g. a link with ?edit=1)
+    // must start from that device's own data, never carry the previous device's fields over.
+    setDraft(null);
     setMonitor(null);
     setErrorEvents(null);
     setConfigVersions(null);
@@ -163,11 +166,13 @@ export default function DeviceCalm() {
 
   // Edit mode (?edit=1): the form starts from the stored draft if there is one.
   useEffect(() => {
-    if (!system) return;
+    // Only build the form from data that belongs to the device in the URL: right after switching
+    // devices, `system` still holds the previous device until the new one has loaded.
+    if (!system || system.id !== id) return;
     if (editing) setDraft((current) => current ?? { ...system, ...(readDeviceDraft(id) ?? {}) });
     else setDraft(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editing, system === null, id]);
+  }, [editing, system?.id, id]);
 
   const dirty = editing && system !== null && draft !== null && !sameForm(draft, system);
   const [leaveDialog] = useLeaveGuard(dirty, system ? `„${system.name}“` : "diesem Gerät");
@@ -286,6 +291,7 @@ export default function DeviceCalm() {
     setMergeBusy(true);
     try {
       await api.mergeSystems(id, merge.choice);
+      clearDeviceDraft(merge.choice); // the removed device no longer exists; drop its stale form draft
       setMerge(null);
       // The kept device is this one: land on its overview (tab/edit dropped) and reload in place,
       // instead of the classic page's window.location.reload() (forensics "Gerät" 7).
