@@ -150,6 +150,12 @@ body:has(.app-shell) {
 
 .app-shell .shell-back { color: var(--c-text); font-weight: 600; white-space: nowrap; min-height: 36px; }
 .app-shell .shell-back:hover:not(:disabled) { color: var(--c-accent); }
+/* Detail page name next to "← Geräte" (shell/pageTitle.ts); desktop only, the phone shows it as title. */
+.shell-crumb {
+  margin-left: -10px; min-width: 0; max-width: 32ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-weight: 600; color: var(--c-text);
+}
+.shell-crumb::before { content: "/"; margin-right: 8px; color: var(--c-muted); font-weight: 400; }
 
 .app-shell .shell-search {
   margin-left: auto; width: 220px; padding: 5px 10px; min-height: 32px; border: 1px solid var(--c-line);

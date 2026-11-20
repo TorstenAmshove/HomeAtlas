@@ -7,6 +7,7 @@ import { PageSkeleton, Skeleton } from "../components/Skeleton";
 import CommandPalette from "./CommandPalette";
 import { locate } from "./navMatch";
 import { useUi } from "./ui";
+import { PageTitleContext } from "./pageTitle";
 import type { ThemeMode } from "./prefs";
 import "./shell.css";
 import "./hilfe.css";
@@ -85,6 +86,13 @@ export default function AppShell({ user, isAdmin, onLogout, children }: {
   const here = locate(location.pathname, isAdmin);
   const [searchOpen, setSearchOpen] = useState(false);
   const [homeName, setHomeName] = useState<string | null>(null);
+  // A detail page's own name (shell/pageTitle.ts), remembered with the path it belongs to so a
+  // stale name never shows on the next page.
+  const [pageTitle, setPageTitleState] = useState<{ path: string; title: string } | null>(null);
+  const setPageTitle = useCallback((value: string | null) => {
+    setPageTitleState(value === null ? null : { path: window.location.pathname, title: value });
+  }, []);
+  const ownTitle = pageTitle?.path === location.pathname ? pageTitle.title : null;
 
   useEffect(() => {
     api.getSettings()
@@ -108,7 +116,7 @@ export default function AppShell({ user, isAdmin, onLogout, children }: {
 
   const closeSearch = useCallback(() => setSearchOpen(false), []);
 
-  const title = here.area?.id === "start" ? homeName ?? "" : here.route?.title ?? "HomeAtlas";
+  const title = ownTitle ?? (here.area?.id === "start" ? homeName ?? "" : here.route?.title ?? "HomeAtlas");
   const roleLabel = isAdmin ? "Administrator" : "Mitglied (nur lesen)";
   const displayName = user.displayName || user.username;
   const isChat = location.pathname === "/assistent" || location.pathname.startsWith("/assistent/");
@@ -170,6 +178,7 @@ export default function AppShell({ user, isAdmin, onLogout, children }: {
                   <ArrowLeft size={16} aria-hidden="true" /> {here.list.label}
                 </button>
               ) : null}
+              {here.list && ownTitle ? <span className="shell-crumb" aria-current="page">{ownTitle}</span> : null}
               {tabRow}
             </div>
             <button type="button" className="sbtn shell-search" onClick={() => setSearchOpen(true)}
@@ -199,7 +208,9 @@ export default function AppShell({ user, isAdmin, onLogout, children }: {
         )}
 
         <main id="shell-content" className="shell-content" tabIndex={-1}>
-          <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
+          <PageTitleContext.Provider value={setPageTitle}>
+            <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
+          </PageTitleContext.Provider>
         </main>
       </div>
 

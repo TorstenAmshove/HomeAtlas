@@ -45,8 +45,8 @@ Lücken: **0**
 | `POST /api/docs/{slug}/versions/{version_id}/restore` | [dokumentation](capabilities/dokumentation/spec.md) |
 | `GET /api/health` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md) |
 | `MOUNT /api/mcp` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
-| `GET /api/monitor` | [monitoring](capabilities/monitoring/spec.md) |
-| `POST /api/monitor/run` | [monitoring](capabilities/monitoring/spec.md) |
+| `GET /api/monitor` | [inventar](capabilities/inventar/spec.md), [monitoring](capabilities/monitoring/spec.md) |
+| `POST /api/monitor/run` | [inventar](capabilities/inventar/spec.md), [monitoring](capabilities/monitoring/spec.md) |
 | `GET /api/network-resources` | [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) |
 | `PATCH /api/network-resources/{resource_id}` | [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) |
 | `GET /api/scans` | [discovery-und-scan](capabilities/discovery-und-scan/spec.md) |

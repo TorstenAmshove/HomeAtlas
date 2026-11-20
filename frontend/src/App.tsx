@@ -9,6 +9,7 @@ import DashboardPage from "./pages/DashboardPage";
 import StartCalm from "./pages/start/StartCalm";
 import InventoryPage from "./pages/InventoryPage";
 import SystemDetailPage from "./pages/SystemDetailPage";
+import DeviceCalm from "./pages/device/DeviceCalm";
 import AccessLogPage from "./pages/AccessLogPage";
 import AccountsPage from "./pages/AccountsPage";
 import DocsPage from "./pages/DocsPage";
@@ -152,7 +153,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={calm ? <StartCalm /> : <DashboardPage />} />
       <Route path="/geraete" element={<InventoryPage />} />
-      <Route path="/geraete/:id" element={<SystemDetailPage />} />
+      <Route path="/geraete/:id" element={calm ? <DeviceCalm /> : <SystemDetailPage />} />
       {isAdmin && <Route path="/zugaenge" element={<AccountsPage />} />}
       <Route path="/dokumentation" element={<DocsPage />} />
       <Route path="/dokumentation/:slug" element={<DocsPage />} />

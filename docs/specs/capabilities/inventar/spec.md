@@ -336,6 +336,45 @@ Zugänge und keine Schreibaktionen)
 Quelle: `frontend/src/pages/SystemDetailPage.tsx:59`, `:317`, `:359`, `:377`, `:786`,
 `frontend/src/components/MergePanel.tsx:4`
 
+### Requirement: Detailseite in der neuen Oberfläche
+Bei eingeschalteter neuer Oberfläche (`uiCalm` bzw. `?ui=calm`) MUSS `/geraete/:id` dieselben Inhalte
+und Aktionen wie die klassische Detailseite zeigen, aufgeteilt auf Tabs in `?tab=` (`ueberblick`
+Standard · `technik` · `verlauf` · `zugaenge` · `steuern`); nichts entfällt. Nur „Überblick“ trägt die
+Zusammenfassung (Status, seit wann, Adresse, Quelle, Wichtigkeit/Überwachung) und genau eine
+Hauptaktion: nicht erreichbar und live überwacht → „Jetzt neu prüfen“ (ADMIN, `POST /api/monitor/run`)
+plus „Assistent fragen“; sonst „Weboberfläche ↗“, falls eine URL hinterlegt ist. Der Status ist nur
+„live“, wenn die Dauerüberwachung an ist und das Gerät beobachtet (`GET /api/monitor`), sonst „Stand
+letzter Scan“ (dieselbe Regel wie die Startseite). „Zugänge“ und „Steuern“ gibt es nur für ADMIN
+(Mitglieder sehen wie bisher keine Zugänge). Löschen und Zusammenführen liegen unter „⋯“ und
+verlangen einen Prüfdialog; der Lösch-Dialog nennt die mitgelöschten, direkt zugeordneten Zugänge und
+sagt, dass es kein Rückgängig gibt. Duplikat-Hinweise erscheinen nur, wenn es Kandidaten gibt.
+Ein angezeigtes Passwort wird nach 30 s wieder verborgen. **[Muss]** (Aufteilung und Texte **[Impl]**)
+
+#### Szenario: Tab bleibt beim Neuladen
+- **WENN** jemand `/geraete/<id>?tab=technik` neu lädt
+- **DANN** ist wieder der Tab „Technik“ offen
+
+#### Szenario: Passwort verbirgt sich
+- **WENN** ein ADMIN im Tab „Zugänge“ „Passwort anzeigen“ klickt
+- **DANN** ist das Passwort nach 30 s nicht mehr zu sehen
+
+Quelle: `frontend/src/pages/device/DeviceCalm.tsx`, `frontend/src/pages/device/ZugaengeTab.tsx`,
+`frontend/src/pages/device/SteuernTab.tsx`, `frontend/src/App.tsx`
+
+### Requirement: Bearbeiten verliert keinen Entwurf
+Beide Oberflächen MÜSSEN ungespeicherte Änderungen im Formular „Gerät bearbeiten“ im
+`sessionStorage` des Tabs halten (Schlüssel `homeatlas.draft.device.form.<id>`, nur die Formularfelder)
+und beim Verlassen per Link nachfragen; Zurück und Wiederkommen oder Neuladen stellt den Entwurf
+wieder her. Speichern und Abbrechen entfernen ihn, Abmelden ebenfalls. Nach dem Zusammenführen
+bleibt die Seite auf dem behaltenen Gerät und lädt es neu, ohne die ganze Seite neu zu laden. **[Muss]**
+
+#### Szenario: Zurück und wieder hin
+- **WENN** ein ADMIN den Standort ändert, Zurück drückt und wieder zur Seite geht
+- **DANN** steht der geänderte Standort wieder im Formular
+
+Quelle: `frontend/src/lib/deviceDraft.ts`, `frontend/src/components/DeviceEditForm.tsx`,
+`frontend/src/pages/SystemDetailPage.tsx`, `frontend/src/pages/device/DeviceCalm.tsx`
+
 ## Daten
 
 Aus [data-model](../../contracts/data-model.md):
@@ -368,7 +407,8 @@ Berührte fremde Routen (nur verlinkt): Auslesen `POST /api/systems/{id}/probe`
 LLM-Lesezugriff aufs Inventar: [llm-tools](../../contracts/llm-tools.md).
 
 UI-Seite(n): `frontend/src/pages/InventoryPage.tsx` (Route `/geraete`),
-`frontend/src/pages/SystemDetailPage.tsx` (Route `/geraete/:id`), `frontend/src/components/MergePanel.tsx`.
+`frontend/src/pages/SystemDetailPage.tsx` (Route `/geraete/:id`), `frontend/src/components/MergePanel.tsx`,
+neue Oberfläche `frontend/src/pages/device/DeviceCalm.tsx` (Route `/geraete/:id`, wenn `uiCalm`).
 
 ## Nicht-Ziele und Grenzen
 
@@ -388,7 +428,8 @@ UI-Seite(n): `frontend/src/pages/InventoryPage.tsx` (Route `/geraete`),
 - Kein Fremdschlüssel in SQLite; Kaskaden bei Delete/Merge sind handgeschrieben.
 - UI speichert beim Bearbeiten das gesamte Gerät als Patch (`setDraft(system)`), nicht nur Änderungen.
 - Konfigurationsverlauf wird in der UI nur für `router`/`network` abgefragt; die API liefert für alle.
-- Merge in der UI lädt danach die Seite neu (`window.location.reload()`).
+- Merge in der UI navigiert danach auf das behaltene Gerät und lädt dessen Daten neu (kein
+  `window.location.reload()` mehr).
 
 ## OFFEN
 
