@@ -204,6 +204,17 @@ function StatusHero({ data, monitor, isAdmin, hasEmergencyDoc }: {
     );
   }
 
+  // Green only once every watched device has actually answered; right after monitoring starts some
+  // are still "unknown" and their rows say "wird geprüft …".
+  if (monitor.systems.some((s) => s.status !== "online")) {
+    return (
+      <section className="start-hero start-hero-neutral" aria-labelledby="start-hero-title">
+        <h2 id="start-hero-title">Wird geprüft …</h2>
+        <p className="start-hero-sub">Noch nicht alle wichtigen Geräte haben geantwortet.</p>
+      </section>
+    );
+  }
+
   return (
     <section className="start-hero start-hero-ok" aria-labelledby="start-hero-title">
       <h2 id="start-hero-title">Alles erreichbar</h2>
@@ -227,6 +238,7 @@ export default function StartCalm() {
       const [dashboard, monitorState] = await Promise.all([api.dashboard(), api.monitor()]);
       setData(dashboard);
       setMonitor(monitorState);
+      setError("");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -277,7 +289,10 @@ export default function StartCalm() {
     }
   }
 
-  if (error) return <div className="notice error">{error}</div>;
+  // Only a failed *first* load replaces the page. A later failed poll (short network or backend
+  // blip) keeps the last known state on screen with a note, and the next successful poll clears it:
+  // this page is what people open during an outage, so it must stay usable.
+  if (error && (!data || !monitor)) return <div className="notice error">{error}</div>;
   if (!data || !monitor) return <StartSkeleton />;
 
   const { counts } = data;
@@ -291,6 +306,12 @@ export default function StartCalm() {
 
   return (
     <div className="start-calm">
+      {error && (
+        <div className="notice error" role="status">
+          Aktualisierung fehlgeschlagen ({error}). Angezeigt wird der letzte bekannte Stand; es wird
+          weiter versucht.
+        </div>
+      )}
       <StatusHero data={data} monitor={monitor} isAdmin={isAdmin} hasEmergencyDoc={hasEmergencyDoc} />
 
       <div className="start-line">

@@ -117,5 +117,17 @@ test("login, MFA enrollment, setup and main routes render without errors", async
     }
   });
 
+  await test.step("new UI (uiCalm, per-browser switch)", async () => {
+    // The redesigned shell renders the same routes; this catches render crashes and console errors
+    // in pages that only exist behind the switch (docs/redesign/). ?ui=classic switches back.
+    await page.goto("/?ui=calm");
+    await expect(page.locator(".app-shell")).toBeVisible();
+    await expect(page.locator("#start-hero-title")).toBeVisible();
+    await page.locator(".app-shell").getByRole("link", { name: "Geräte", exact: true }).first().click();
+    await expect(page).toHaveURL(/\/geraete$/);
+    await page.goto("/?ui=classic");
+    await expect(page.locator(".app-shell")).toHaveCount(0);
+  });
+
   expect(errors).toEqual([]);
 });
