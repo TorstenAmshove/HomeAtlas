@@ -30,6 +30,18 @@ export function writeDraft(key: string, value: string | null): void {
   }
 }
 
+/** True when this tab holds at least one draft (logout asks before `clearAllDrafts` throws them away). */
+export function hasDrafts(): boolean {
+  try {
+    for (let i = 0; i < window.sessionStorage.length; i++) {
+      if (window.sessionStorage.key(i)?.startsWith(PREFIX)) return true;
+    }
+  } catch {
+    // Storage blocked: nothing was stored either.
+  }
+  return false;
+}
+
 /** Removes every draft of this tab. Called on logout: notes can hold locations or access hints,
  *  and on a shared computer they must not stay readable for the next person until the tab closes. */
 export function clearAllDrafts(): void {

@@ -66,7 +66,8 @@ Quelle: `backend/app/main.py:1501`, `backend/app/db.py:1992`
 ### Requirement: Unterhaltung in der URL und Entwurf je Unterhaltung (UI)
 Die Oberfläche MUSS die unversandte Eingabe je Unterhaltung im `sessionStorage` des Browser-Tabs
 halten, damit sie einen Seitenwechsel und Neuladen übersteht; Senden leert sie, ein gescheitertes
-Senden legt den Text zurück. Gilt in alter und neuer Oberfläche. In der neuen Oberfläche (`uiCalm`)
+Senden legt den Text in den Entwurf der Unterhaltung zurück, an die er ging, und ins Eingabefeld nur,
+wenn diese Unterhaltung noch offen ist. Gilt in alter und neuer Oberfläche. In der neuen Oberfläche (`uiCalm`)
 MUSS die geöffnete Unterhaltung in der URL stehen (`/assistent/:chatId`): Wählen oder Anlegen einer
 Unterhaltung navigiert dorthin, Zurück und Neuladen landen in derselben. `/assistent` öffnet die
 neueste Unterhaltung; eine unbekannte oder fremde ID fällt ohne Fehlermeldung auf die neueste (bzw.
