@@ -108,9 +108,11 @@ Ein Bereich pro PR, jeweils hinter dem Schalter:
 | 6 | Zugänge + Mehr | Zugänge, Scan, Benutzer, Protokoll, Einstellungen |
 | 7 | Gates | Login, MFA, Einrichtung (Ausweg aus der Einrichtung) |
 
-Fortschritt: **12 von 15 Oberflächen** (12 Seiten + 3 Gates): Start (PR 2), Geräte-Liste, Netzplan und Netze & WLAN
+Fortschritt: **15 von 15 Oberflächen** (12 Seiten + 3 Gates): Start (PR 2), Geräte-Liste, Netzplan und Netze & WLAN
 (PR 3, Geräte), Gerät (PR 4), Dokumentation und Assistent (PR 5, Hilfe), Zugänge, Scan, Benutzer, Protokoll und
-Einstellungen (PR 6, Zugänge + Mehr). Shell gebaut (PR 1): Schalter, Tokens,
+Einstellungen (PR 6, Zugänge + Mehr), Anmeldung, Zwei-Faktor-Einrichtung und Einrichtungsassistent (PR 7, Gates).
+Offen: Schalter für alle einschalten, nachdem ein Mensch die neue Oberfläche auf der eigenen Instanz geprüft hat.
+Shell gebaut (PR 1): Schalter, Tokens,
 Dunkelmodus, `frontend/src/shell/` (AppShell, ⌘K), Bausteine `components/Skeleton.tsx`,
 `components/ConfirmDialog.tsx`, `lib/useUndoToast.tsx`, `lib/useUrlState.ts`. Die Seiten zeigen in der
 neuen Shell vorerst noch ihren eigenen Seitenkopf; den nimmt jeweils der PR ihres Bereichs heraus.
