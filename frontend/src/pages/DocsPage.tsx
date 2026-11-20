@@ -93,6 +93,8 @@ export default function DocsPage() {
   useEffect(() => {
     setPreview(null);
     setVersionsLocal(false);
+    // An error belongs to the chapter it happened on; the next chapter starts without it.
+    setError("");
     if (!slug) {
       setPage(null);
       setEditing(false);
