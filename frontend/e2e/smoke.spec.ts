@@ -1,5 +1,5 @@
-import { createHmac } from "node:crypto";
 import { expect, test, type ConsoleMessage, type Page } from "@playwright/test";
+import { CALM_PASSWORD, CALM_USERNAME, PASSWORD, USERNAME, totp } from "./helpers";
 
 // Browser smoke test for the built images (issue #32). It exists so that a dependency update that
 // still type-checks and builds, but breaks rendering at runtime (white page), fails CI before
@@ -9,33 +9,6 @@ import { expect, test, type ConsoleMessage, type Page } from "@playwright/test";
 //
 // Any console error or uncaught page error fails the test. The single expected one is the 401
 // from /api/auth/me before anyone is logged in -- App.tsx treats that as "show the login page".
-
-const USERNAME = process.env.SMOKE_ADMIN_USERNAME || "admin";
-const PASSWORD = process.env.SMOKE_ADMIN_PASSWORD || "";
-
-function base32Decode(input: string): Buffer {
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-  let bits = "";
-  for (const char of input.replace(/[\s=]/g, "").toUpperCase()) {
-    const value = alphabet.indexOf(char);
-    if (value < 0) throw new Error(`Invalid base32 character: ${char}`);
-    bits += value.toString(2).padStart(5, "0");
-  }
-  const bytes: number[] = [];
-  for (let i = 0; i + 8 <= bits.length; i += 8) bytes.push(parseInt(bits.slice(i, i + 8), 2));
-  return Buffer.from(bytes);
-}
-
-// RFC 6238 TOTP (SHA-1, 30 s, 6 digits) -- what every authenticator app computes, and what the
-// backend's pyotp verifies. Inline so the test needs no extra dependency.
-function totp(secret: string, now = Date.now()): string {
-  const counter = Buffer.alloc(8);
-  counter.writeBigUInt64BE(BigInt(Math.floor(now / 1000 / 30)));
-  const hmac = createHmac("sha1", base32Decode(secret)).update(counter).digest();
-  const offset = hmac[hmac.length - 1] & 0x0f;
-  const code = (hmac.readUInt32BE(offset) & 0x7fffffff) % 1_000_000;
-  return code.toString().padStart(6, "0");
-}
 
 function isExpected401(msg: ConsoleMessage): boolean {
   return /status of 401/.test(msg.text()) && /\/api\/auth\/me$/.test(msg.location().url);
@@ -204,6 +177,18 @@ test("login, MFA enrollment, setup and main routes render without errors", async
   await test.step("back to the classic UI", async () => {
     await page.goto("/?ui=classic");
     await expect(page.locator(".app-shell")).toHaveCount(0);
+  });
+
+  await test.step("hand-over to gates-calm.spec.ts", async () => {
+    // The calm gates test runs after this one (playwright.config.ts, project dependency) against the
+    // same backend. It needs an admin that has not enrolled MFA yet and an open setup, so both are
+    // prepared here through the regular admin API.
+    const created = await page.request.post("/api/users", {
+      data: { username: CALM_USERNAME, password: CALM_PASSWORD, role: "ADMIN", displayName: "Calm-Test" },
+    });
+    expect(created.ok(), await created.text()).toBe(true);
+    const reopened = await page.request.patch("/api/settings", { data: { setupCompleted: false } });
+    expect(reopened.ok()).toBe(true);
   });
 
   expect(errors).toEqual([]);

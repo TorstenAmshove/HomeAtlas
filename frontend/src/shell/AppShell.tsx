@@ -25,7 +25,7 @@ const ICONS: Record<IconName, LucideIcon> = { Home, Server, BookOpen, KeyRound, 
 
 const THEME_COLOR = { light: "#fafaf9", dark: "#161615" } as const;
 
-function useResolvedTheme(mode: ThemeMode): "light" | "dark" {
+export function useResolvedTheme(mode: ThemeMode): "light" | "dark" {
   const query = "(prefers-color-scheme: dark)";
   const [systemDark, setSystemDark] = useState(() => window.matchMedia?.(query).matches ?? false);
   useEffect(() => {
@@ -40,7 +40,7 @@ function useResolvedTheme(mode: ThemeMode): "light" | "dark" {
 
 /** theme-color follows the mode; viewport-fit=cover enables the safe-area insets. Both are put
  *  back when the shell unmounts, so the old UI keeps its exact <head>. */
-function useDocumentChrome(theme: "light" | "dark") {
+export function useDocumentChrome(theme: "light" | "dark") {
   // The page's own theme-color (index.html), read once on mount and put back on unmount, so it can't
   // drift from a hard-coded copy.
   useEffect(() => {

@@ -6,6 +6,9 @@ import ConfirmDialog from "./components/ConfirmDialog";
 import LoginPage from "./pages/LoginPage";
 import MfaEnrollPage from "./pages/MfaEnrollPage";
 import SetupPage from "./pages/SetupPage";
+import LoginCalm from "./gates/LoginCalm";
+import MfaEnrollCalm from "./gates/MfaEnrollCalm";
+import SetupCalm from "./gates/SetupCalm";
 import DashboardPage from "./pages/DashboardPage";
 import StartCalm from "./pages/start/StartCalm";
 import InventoryPage from "./pages/InventoryPage";
@@ -90,28 +93,39 @@ export default function App() {
   };
 
   const refresh = useCallback(async () => {
-    try {
-      const [me, health] = await Promise.all([api.me(), api.health()]);
-      setUser(me.user);
-      setSetupCompleted(health.setupCompleted);
-      setServerCalm(Boolean(health.uiCalm));
-      setLastServerCalm(Boolean(health.uiCalm));
-    } catch (error) {
-      // A 401 is the normal "not logged in yet" case, not something to surface.
-      if (!(error instanceof ApiError && error.status === 401)) console.error(error);
-      setUser(null);
-    } finally {
-      setLoading(false);
+    // /api/health is public: its answer (uiCalm included) is applied even when /me says "not logged
+    // in", so the login gate already follows the instance-wide switch, not only the last known value.
+    // Both requests are awaited before `loading` ends: if the login form rendered on the 401 from /me
+    // while health was still open, a late health answer could swap classic and calm login under the
+    // user's fingers (remount, typed input gone).
+    const [me, health] = await Promise.allSettled([api.me(), api.health()]);
+    if (health.status === "fulfilled") {
+      setSetupCompleted(health.value.setupCompleted);
+      setServerCalm(Boolean(health.value.uiCalm));
+      setLastServerCalm(Boolean(health.value.uiCalm));
+    } else {
+      console.error(health.reason);
     }
+    if (me.status === "fulfilled" && health.status === "fulfilled") {
+      setUser(me.value.user);
+    } else {
+      // A 401 is the normal "not logged in yet" case, not something to surface.
+      const error = me.status === "rejected" ? me.reason : null;
+      if (error && !(error instanceof ApiError && error.status === 401)) console.error(error);
+      setUser(null);
+    }
+    setLoading(false);
   }, []);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
+  // Drafts are cleared only once the server has ended the session: a logout that fails (network,
+  // backend down) must not throw away unsaved text. Callers show the error (it is rethrown).
   const logout = useCallback(async () => {
-    clearAllDrafts();
     await api.logout();
+    clearAllDrafts();
     setUser(null);
   }, []);
 
@@ -119,32 +133,51 @@ export default function App() {
   // notes, chat input): logout clears them (see clearAllDrafts), so leaving must be a choice.
   const [logoutAsk, setLogoutAsk] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
   const requestLogout = useCallback(async () => {
-    if (hasDrafts()) setLogoutAsk(true);
-    else await logout();
+    if (hasDrafts()) {
+      setLogoutAsk(true);
+      return;
+    }
+    try {
+      await logout();
+    } catch (e) {
+      // Shown in the same dialog, which then offers to try again.
+      setLogoutError(e instanceof Error ? e.message : String(e));
+      setLogoutAsk(true);
+    }
   }, [logout]);
   const logoutDialog = (
     <ConfirmDialog
       open={logoutAsk}
       title="Abmelden?"
-      consequences={[
+      consequences={hasDrafts() ? [
         <>Ungespeicherte Entwürfe gehen verloren (Doku-Text, Notizen oder Chat-Eingabe, die noch nicht gespeichert bzw. gesendet sind).</>,
-      ]}
-      confirmLabel="Trotzdem abmelden"
+      ] : []}
+      confirmLabel={logoutError ? "Erneut versuchen" : "Trotzdem abmelden"}
       cancelLabel="Angemeldet bleiben"
       danger
       busy={loggingOut}
       onConfirm={async () => {
         setLoggingOut(true);
+        setLogoutError("");
         try {
           await logout();
+          setLogoutAsk(false);
+        } catch (e) {
+          setLogoutError(e instanceof Error ? e.message : String(e));
         } finally {
           setLoggingOut(false);
-          setLogoutAsk(false);
         }
       }}
-      onCancel={() => setLogoutAsk(false)}
-    />
+      onCancel={() => { setLogoutAsk(false); setLogoutError(""); }}
+    >
+      {logoutError && (
+        <p className="notice error" role="alert">
+          Abmelden hat nicht geklappt ({logoutError}). Du bist noch angemeldet; deine Entwürfe sind erhalten.
+        </p>
+      )}
+    </ConfirmDialog>
   );
 
   if (loading) {
@@ -162,7 +195,19 @@ export default function App() {
     );
   }
 
-  if (!user) return <LoginPage onLoggedIn={() => void refresh()} />;
+  // The gates (login -> MFA -> setup) render before the app. With the switch on they use the
+  // redesigned versions in gates/; the order and the conditions are the same for both, and the
+  // backend enforces them independently (deps.current_user, POST /api/setup).
+  if (!user) {
+    if (calm) {
+      return (
+        <UiContext.Provider value={ui}>
+          <LoginCalm onLoggedIn={() => void refresh()} />
+        </UiContext.Provider>
+      );
+    }
+    return <LoginPage onLoggedIn={() => void refresh()} />;
+  }
 
   const isAdmin = user.role === "ADMIN";
 
@@ -172,7 +217,9 @@ export default function App() {
   if (!user.totpEnabled) {
     return (
       <AuthContext.Provider value={{ user, isAdmin, setUser, logout }}>
-        <MfaEnrollPage onDone={() => void refresh()} />
+        <UiContext.Provider value={ui}>
+          {calm ? <MfaEnrollCalm onDone={() => void refresh()} /> : <MfaEnrollPage onDone={() => void refresh()} />}
+        </UiContext.Provider>
       </AuthContext.Provider>
     );
   }
@@ -182,7 +229,9 @@ export default function App() {
   if (!setupCompleted && isAdmin) {
     return (
       <AuthContext.Provider value={{ user, isAdmin, setUser, logout }}>
-        <SetupPage onDone={() => void refresh()} />
+        <UiContext.Provider value={ui}>
+          {calm ? <SetupCalm onDone={() => void refresh()} /> : <SetupPage onDone={() => void refresh()} />}
+        </UiContext.Provider>
       </AuthContext.Provider>
     );
   }

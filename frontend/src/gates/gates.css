@@ -1,0 +1,227 @@
+/* The redesigned gates (login, MFA enrollment, setup wizard), direction B.
+ *
+ * The gates render before the app, outside `.app-shell`, so they carry their own root class and every
+ * rule here is scoped to `body:has(.gate-shell)` / `.gate-shell`: the classic gates (no .gate-shell in
+ * the page) look exactly as before. The token values are the shell's (shell/shell.css, table in
+ * docs/redesign/5-information-architecture.md); the old variable names are re-pointed the same way,
+ * so shared building blocks such as ConfirmDialog look right here too. */
+
+/* ---------------------------------------------------------------- tokens */
+
+body:has(.gate-shell) {
+  --c-bg: #fafaf9;
+  --c-surface: #ffffff;
+  --c-surface-2: #f0efee;
+  --c-text: #1c1917;
+  --c-on-text: #ffffff;
+  --c-muted: #6f6a64;
+  --c-line: #e7e5e4;
+  --c-accent: #2f6fdb;
+  --c-ok: #15803d;
+  --c-bad: #b91c1c;
+  --c-warn: #a16207;
+  --c-backdrop: rgba(28, 25, 23, 0.32);
+  color-scheme: light;
+}
+
+body:has(.gate-shell[data-theme="dark"]) {
+  --c-bg: #161615;
+  --c-surface: #1e1e1c;
+  --c-surface-2: #2a2926;
+  --c-text: #ecebe8;
+  --c-on-text: #161615;
+  --c-muted: #9a968e;
+  --c-line: #2e2d2a;
+  --c-accent: #8ab4ff;
+  --c-ok: #4ade80;
+  --c-bad: #f87171;
+  --c-warn: #fbbf24;
+  --c-backdrop: rgba(0, 0, 0, 0.55);
+  color-scheme: dark;
+}
+
+html:has(.gate-shell[data-theme="light"]) { color-scheme: light; }
+
+body:has(.gate-shell) {
+  --bg: var(--c-bg);
+  --bg-elevated: var(--c-surface);
+  --bg-hover: var(--c-surface-2);
+  --border: var(--c-line);
+  --text: var(--c-text);
+  --text-muted: var(--c-muted);
+  --accent: var(--c-accent);
+  --accent-strong: var(--c-accent);
+  --ok: var(--c-ok);
+  --warn: var(--c-warn);
+  --danger: var(--c-bad);
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* ---------------------------------------------------------------- frame */
+
+.gate-shell {
+  min-height: 100vh; min-height: 100dvh;
+  display: flex; align-items: center; justify-content: center;
+  padding:
+    max(24px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+}
+
+.gate-card {
+  width: 100%; max-width: 420px; min-width: 0;
+  background: var(--c-surface); border: 1px solid var(--c-line); border-radius: 14px;
+  padding: 28px 28px 20px;
+}
+.gate-card-wide { max-width: 680px; }
+
+.gate-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; min-width: 0; }
+.gate-brand img { flex: none; border-radius: 8px; }
+.gate-brand-text { flex: 1; min-width: 0; }
+.gate-brand-name { font-weight: 650; font-size: 15px; line-height: 1.25; overflow-wrap: anywhere; }
+.gate-brand-sub { font-size: 13px; color: var(--c-muted); line-height: 1.3; overflow-wrap: anywhere; }
+.gate-shell .gate-brand-aside { flex: none; margin-right: -10px; }
+
+.gate-title { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 8px; outline: none; }
+.gate-lead { color: var(--c-muted); margin: 0 0 18px; font-size: 0.95rem; }
+
+/* ---------------------------------------------------------------- form */
+
+.gate-shell .gate-field { margin-bottom: 16px; min-width: 0; }
+.gate-shell label {
+  display: block; margin-bottom: 6px; font-size: 0.88rem; font-weight: 600; color: var(--c-text);
+}
+.gate-shell input, .gate-shell select {
+  width: 100%; min-height: 44px; padding: 9px 12px; font: inherit; font-size: 16px; /* 16px: no iOS zoom */
+  background: var(--c-surface); color: var(--c-text); border: 1px solid var(--c-line); border-radius: 9px;
+}
+.gate-shell input::placeholder { color: var(--c-muted); opacity: 0.8; }
+.gate-shell input:focus, .gate-shell select:focus { outline: 2px solid var(--c-accent); outline-offset: -1px; border-color: transparent; }
+.gate-hint { font-size: 0.82rem; color: var(--c-muted); margin-top: 5px; }
+
+.gate-password { position: relative; }
+.gate-shell .gate-password input { padding-right: 104px; }
+.gate-shell .gate-reveal {
+  position: absolute; right: 2px; top: 50%; transform: translateY(-50%);
+  min-height: 40px; min-width: 44px; padding: 0 12px; border: 0; border-radius: 7px;
+  background: transparent; color: var(--c-muted); font: inherit; font-size: 0.88rem; font-weight: 600; cursor: pointer;
+}
+.gate-shell .gate-reveal:hover { color: var(--c-text); background: var(--c-surface-2); }
+
+.gate-shell .gate-code {
+  max-width: 220px; font-family: ui-monospace, "Cascadia Code", monospace; font-size: 1.25rem; letter-spacing: 0.35em;
+}
+
+/* ---------------------------------------------------------------- buttons (44px targets) */
+
+.gate-shell button {
+  font: inherit; font-weight: 600; cursor: pointer; min-height: 44px; padding: 0 18px; border-radius: 9px;
+}
+.gate-shell button:disabled { opacity: 0.55; cursor: not-allowed; }
+.gate-shell button:focus-visible, .gate-shell summary:focus-visible, .gate-shell a:focus-visible {
+  outline: 2px solid var(--c-accent); outline-offset: 2px;
+}
+.gate-shell .gate-primary { width: 100%; background: var(--c-text); color: var(--c-on-text); border: 0; }
+.gate-shell .gate-primary:hover:not(:disabled) { opacity: 0.88; }
+.gate-shell .gate-secondary { background: transparent; color: var(--c-text); border: 1px solid var(--c-line); }
+.gate-shell .gate-secondary:hover:not(:disabled) { background: var(--c-surface-2); }
+.gate-shell .gate-link {
+  background: transparent; color: var(--c-muted); border: 0; padding: 0 10px; font-weight: 500;
+}
+.gate-shell .gate-link:hover:not(:disabled) { color: var(--c-text); text-decoration: underline; }
+
+/* ConfirmDialog (components/) inside a gate: same look as in the shell. */
+.gate-shell .dialog-actions button { background: transparent; color: var(--c-text); border: 1px solid var(--c-line); }
+.gate-shell .dialog-actions button.danger-solid,
+.gate-shell .dialog-actions button.danger-solid:hover:not(:disabled) { background: var(--c-bad); color: #fff; border: 0; }
+.gate-shell .dialog-actions button:not(.danger-solid):hover:not(:disabled) { background: var(--c-surface-2); }
+
+/* ---------------------------------------------------------------- messages */
+
+.gate-error {
+  margin-bottom: 16px; padding: 10px 12px; border-radius: 9px; font-size: 0.92rem; outline: none;
+  color: var(--c-bad); background: color-mix(in srgb, var(--c-bad) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c-bad) 35%, transparent);
+}
+.gate-note {
+  margin-bottom: 16px; padding: 10px 12px; border-radius: 9px; font-size: 0.9rem;
+  background: var(--c-surface-2); color: var(--c-text);
+}
+
+.gate-details { margin-top: 18px; font-size: 0.85rem; color: var(--c-muted); }
+.gate-details summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; width: fit-content; }
+.gate-details p { margin: 0 0 6px; }
+.gate-shell code {
+  font-family: ui-monospace, "Cascadia Code", monospace; font-size: 0.88em;
+  background: var(--c-surface-2); padding: 1px 5px; border-radius: 5px; overflow-wrap: anywhere;
+}
+
+.gate-foot { display: flex; justify-content: center; margin-top: 14px; }
+
+/* ---------------------------------------------------------------- MFA: numbered how-to */
+
+.gate-howto { list-style: none; margin: 0 0 18px; padding: 0; display: grid; gap: 14px; }
+.gate-howto > li { display: flex; gap: 12px; min-width: 0; }
+.gate-howto > li > div { flex: 1; min-width: 0; }
+.gate-howto-n {
+  flex: none; width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.82rem; font-weight: 700; border: 1px solid var(--c-line); color: var(--c-muted);
+}
+.gate-howto > li.current .gate-howto-n { background: var(--c-text); color: var(--c-on-text); border-color: var(--c-text); }
+.gate-howto > li.done .gate-howto-n { color: var(--c-ok); border-color: var(--c-ok); }
+
+.gate-qr-block { margin-top: 10px; }
+.gate-qr { display: inline-block; background: #fff; padding: 10px; border-radius: 10px; border: 1px solid var(--c-line); line-height: 0; }
+.gate-qr svg { width: 176px; height: 176px; max-width: 100%; }
+.gate-secret-label { font-size: 0.82rem; color: var(--c-muted); margin: 12px 0 6px; }
+.gate-secret-row { display: flex; gap: 8px; align-items: stretch; flex-wrap: wrap; }
+.gate-shell .gate-secret {
+  flex: 1 1 180px; min-width: 0; display: flex; align-items: center; padding: 8px 10px; border-radius: 8px;
+  font-size: 0.95rem; letter-spacing: 0.04em; overflow-wrap: anywhere; user-select: all;
+}
+.gate-code-form { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.gate-code-form input { flex: 1 1 160px; }
+.gate-shell .gate-code-form .gate-primary { flex: 1 1 120px; width: auto; }
+
+/* ---------------------------------------------------------------- setup: step indicator, items */
+
+.gate-steps { list-style: none; display: flex; gap: 8px; margin: 0 0 22px; padding: 0; }
+.gate-steps > li {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; padding-top: 10px;
+  border-top: 3px solid var(--c-line); color: var(--c-muted); font-size: 0.88rem; font-weight: 500;
+}
+.gate-steps > li.done { border-top-color: var(--c-muted); }
+.gate-steps > li.current { border-top-color: var(--c-text); color: var(--c-text); font-weight: 650; }
+.gate-steps-n {
+  flex: none; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.78rem; font-weight: 700; border: 1px solid currentColor;
+}
+.gate-steps-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.gate-item {
+  margin: 0 0 14px; padding: 12px 16px 2px; min-width: 0;
+  border: 1px solid var(--c-line); border-radius: 12px; background: var(--c-bg);
+}
+.gate-item-head { padding: 0 6px; margin-left: -6px; font-weight: 650; font-size: 0.92rem; }
+.gate-item-foot { display: flex; justify-content: flex-end; margin: -6px -8px 6px 0; }
+.gate-item-foot:empty { display: none; }
+.gate-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; }
+.gate-grid-full { grid-column: 1 / -1; }
+
+.gate-actions {
+  display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;
+  margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--c-line);
+}
+.gate-shell .gate-actions .gate-next { width: auto; min-width: 140px; }
+
+/* ---------------------------------------------------------------- phone */
+
+@media (max-width: 559px) {
+  .gate-shell { align-items: flex-start; padding-top: max(16px, env(safe-area-inset-top)); }
+  .gate-card { padding: 22px 18px 16px; border-radius: 12px; }
+  .gate-grid { grid-template-columns: 1fr; }
+  .gate-actions { flex-direction: column-reverse; }
+  .gate-shell .gate-actions button, .gate-shell .gate-actions .gate-next { width: 100%; }
+}
