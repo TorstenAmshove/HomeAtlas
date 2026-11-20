@@ -8,7 +8,7 @@ export function routeFor(pathname: string): RouteEntry | undefined {
 }
 
 export function isDetailRoute(route: RouteEntry | undefined): boolean {
-  return Boolean(route?.path.includes(":"));
+  return Boolean(route?.path.includes(":")) && !route?.sibling;
 }
 
 export interface Location {

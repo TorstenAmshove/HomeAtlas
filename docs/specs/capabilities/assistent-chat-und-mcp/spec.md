@@ -63,6 +63,26 @@ nicht ausgeliefert. Unbekannte Unterhaltung → 404 „Unterhaltung nicht gefund
 
 Quelle: `backend/app/main.py:1501`, `backend/app/db.py:1992`
 
+### Requirement: Unterhaltung in der URL und Entwurf je Unterhaltung (UI)
+Die Oberfläche MUSS die unversandte Eingabe je Unterhaltung im `sessionStorage` des Browser-Tabs
+halten, damit sie einen Seitenwechsel und Neuladen übersteht; Senden leert sie, ein gescheitertes
+Senden legt den Text zurück. Gilt in alter und neuer Oberfläche. In der neuen Oberfläche (`uiCalm`)
+MUSS die geöffnete Unterhaltung in der URL stehen (`/assistent/:chatId`): Wählen oder Anlegen einer
+Unterhaltung navigiert dorthin, Zurück und Neuladen landen in derselben. `/assistent` öffnet die
+neueste Unterhaltung; eine unbekannte oder fremde ID fällt ohne Fehlermeldung auf die neueste (bzw.
+den leeren Zustand) zurück. Ist kein KI-Anbieter eingerichtet (`llmConfigured` aus `/api/dashboard`),
+sagt die Seite das vor der ersten Frage. **[Muss]**
+
+#### Szenario: Neuladen
+- **WENN** ein Benutzer in der neuen Oberfläche eine ältere Unterhaltung wählt und die Seite neu lädt
+- **DANN** ist dieselbe Unterhaltung geöffnet
+
+#### Szenario: Seitenwechsel mit halber Frage
+- **WENN** jemand eine Frage tippt, zur Dokumentation wechselt und zurückkommt
+- **DANN** steht der getippte Text noch im Eingabefeld
+
+Quelle: `frontend/src/pages/ChatPage.tsx`, `frontend/src/lib/drafts.ts`
+
 ### Requirement: Nachricht senden — Vorbedingungen und Fehler
 Das System MUSS eine nicht-leere Nachricht verlangen (sonst Validierungsfehler 422), bei unbekannter
 Unterhaltung 404 liefern und, wenn der gewählte Anbieter nicht Ollama ist und kein API-Schlüssel
@@ -292,7 +312,7 @@ Siehe [data-model](../../contracts/data-model.md).
 [einstellungen-und-llm-provider](../einstellungen-und-llm-provider/spec.md). Direkte Schalt-Routen
 (`/shelly-switch`, `/ha-switch`, admin-only) gehören nicht zu dieser Fähigkeit.
 
-UI-Seite(n): `frontend/src/pages/ChatPage.tsx` (Route `/assistent`); MCP-Tokens im Tab „MCP-Server“ von
+UI-Seite(n): `frontend/src/pages/ChatPage.tsx` (Routen `/assistent`, `/assistent/:chatId`); MCP-Tokens im Tab „MCP-Server“ von
 `frontend/src/pages/SettingsPage.tsx` (Route `/einstellungen`, nur Admin).
 
 ## Nicht-Ziele und Grenzen

@@ -340,6 +340,37 @@ eines Kapitels ergibt 404 „Kapitel nicht gefunden.“ **[Muss]**
 
 Quelle: `backend/app/main.py:1272`, `backend/app/db.py:1562`, `backend/app/main.py:1277`
 
+### Requirement: Entwürfe gehen nicht verloren (UI)
+Die Oberfläche MUSS ungespeicherten Text eines Kapitels – den Entwurf von „Bearbeiten“ und den der
+„Eigenen Notizen“ – je Kapitel im `sessionStorage` des Browser-Tabs halten und beim erneuten Öffnen
+des Kapitels (auch nach Neuladen) wiederherstellen. Wer mit ungespeicherten Änderungen über einen
+Link die Seite oder das Kapitel wechselt, MUSS vorher gefragt werden („Hier bleiben“ / „Trotzdem
+wechseln“); Neuladen und Schließen fragen über den Browser (`beforeunload`). Speichern oder Abbrechen
+verwirft den Entwurf. Gilt in alter und neuer Oberfläche. **[Muss]**
+
+#### Szenario: Kapitelwechsel beim Bearbeiten
+- **WENN** ein Admin in `netzwerk` „Bearbeiten“ öffnet, Text ändert und auf ein anderes Kapitel klickt
+- **DANN** fragt die Oberfläche nach; nach „Trotzdem wechseln“ und Rückkehr zu `netzwerk` steht der
+  geänderte Text wieder im Editor
+
+Quelle: `frontend/src/pages/DocsPage.tsx`, `frontend/src/lib/drafts.ts`, `frontend/src/lib/useLeaveGuard.tsx`
+
+### Requirement: Neuerzeugen mit Prüfschritt und Rückgängig (neue Oberfläche)
+In der neuen Oberfläche (`uiCalm`) MÜSSEN „Neu erzeugen“ (Kapitel) und „Alles neu erzeugen“ hinter
+„⋯“ liegen und vor dem Ausführen einen Prüfdialog zeigen, der die Folgen im Klartext nennt. Nach
+„Neu erzeugen“ eines von Hand bearbeiteten Kapitels MUSS die Oberfläche „Rückgängig“ anbieten, das
+die beim Reset entstandene Version (Anlass „automatisch neu erzeugt“) über die bestehende
+Wiederherstellen-Route zurückholt; ohne neue Version (Text war gleich) gibt es nichts zurückzunehmen.
+Der Verlauf ist über `?versions=1` in der URL geöffnet. Das Notfall-Kapitel steht in der Kapitelliste
+immer oben und ist markiert; der Kapitelkopf zeigt „Stand: <updatedAt> · automatisch erzeugt/von Hand
+bearbeitet · eigene Notiz vorhanden“. **[Impl]**
+
+#### Szenario: Reset rückgängig machen
+- **WENN** ein Admin ein von Hand bearbeitetes Kapitel neu erzeugt und im Hinweis „Rückgängig“ wählt
+- **DANN** steht wieder der handgeschriebene Text da und das Kapitel ist als „von Hand bearbeitet“ markiert
+
+Quelle: `frontend/src/pages/DocsPage.tsx`, `frontend/src/components/OverflowMenu.tsx`
+
 ## Daten
 
 Siehe [data-model](../../contracts/data-model.md).
@@ -367,7 +398,8 @@ Siehe [data-model](../../contracts/data-model.md).
 [llm-tools](../../contracts/llm-tools.md)); der Scan-Auslöser ist in
 [discovery-und-scan](../discovery-und-scan/spec.md) beschrieben.
 
-UI-Seite(n): `frontend/src/pages/DocsPage.tsx` (Routen `/dokumentation`, `/dokumentation/:slug`).
+UI-Seite(n): `frontend/src/pages/DocsPage.tsx` (Routen `/dokumentation`, `/dokumentation/:slug`; neue Oberfläche
+mit `?versions=1` für den offenen Verlauf).
 
 ## Nicht-Ziele und Grenzen
 
@@ -391,7 +423,7 @@ UI-Seite(n): `frontend/src/pages/DocsPage.tsx` (Routen `/dokumentation`, `/dokum
 - > OFFEN: `GET /api/docs/{slug}/versions` mit unbekanntem Slug liefert leere Liste statt 404.
 - > OFFEN: `PUT /api/docs/{slug}` ohne Feld `bodyMd` speichert leeren Text (keine Validierung).
 - > OFFEN: Wiederherstellen überschreibt auch die eigenen Notizen mit dem alten Stand — gewollt, obwohl Notizen „nie angefasst“ werden sollen (gilt laut Code nur für die Automatik)?
-- > OFFEN: UI-Bestätigung beim Reset sagt „Änderungen gehen verloren“, tatsächlich bleiben sie im Verlauf.
+- > OFFEN: UI-Bestätigung beim Reset sagt in der alten Oberfläche „Änderungen gehen verloren“, tatsächlich bleiben sie im Verlauf (die neue Oberfläche sagt es richtig und bietet Rückgängig).
 - > OFFEN: Kapitel, deren Slug nicht mehr definiert ist, werden nie gelöscht (`db.delete_doc_page` ungenutzt).
 - > OFFEN: Benutzernamen und URLs von Zugängen sind über die Doku für MEMBER sichtbar, obwohl die Zugangs-API admin-only ist. Ebenso Gerätenotizen und ausgelesene Gerätewerte — falls dort Geheimnisse stehen, landen sie in der Doku.
 - > OFFEN: Keine Sperre gegen gleichzeitige Generierungen (Scan + manueller Lauf) — mögliche doppelte Versionen/Race.

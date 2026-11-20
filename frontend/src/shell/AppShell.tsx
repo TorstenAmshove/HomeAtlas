@@ -9,6 +9,7 @@ import { locate } from "./navMatch";
 import { useUi } from "./ui";
 import type { ThemeMode } from "./prefs";
 import "./shell.css";
+import "./hilfe.css";
 
 /**
  * The redesigned app frame (docs/redesign/5-information-architecture.md), shown when `uiCalm` is on.
@@ -110,7 +111,7 @@ export default function AppShell({ user, isAdmin, onLogout, children }: {
   const title = here.area?.id === "start" ? homeName ?? "" : here.route?.title ?? "HomeAtlas";
   const roleLabel = isAdmin ? "Administrator" : "Mitglied (nur lesen)";
   const displayName = user.displayName || user.username;
-  const isChat = location.pathname === "/assistent";
+  const isChat = location.pathname === "/assistent" || location.pathname.startsWith("/assistent/");
 
   function goBack(fallback: string) {
     // "Back lands where you were" (filters in the URL included); a deep link has nothing to go
