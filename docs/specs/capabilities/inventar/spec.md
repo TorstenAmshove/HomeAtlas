@@ -389,8 +389,12 @@ Bei eingeschalteter neuer Oberfläche (`uiCalm` bzw. `?ui=calm`) MUSS `/geraete/
 und Aktionen wie die klassische Detailseite zeigen, aufgeteilt auf Tabs in `?tab=` (`ueberblick`
 Standard · `technik` · `verlauf` · `zugaenge` · `steuern`); nichts entfällt. Nur „Überblick“ trägt die
 Zusammenfassung (Status, seit wann, Adresse, Quelle, Wichtigkeit/Überwachung) und genau eine
-Hauptaktion: nicht erreichbar und live überwacht → „Jetzt neu prüfen“ (ADMIN, `POST /api/monitor/run`)
-plus „Assistent fragen“; sonst „Weboberfläche ↗“, falls eine URL hinterlegt ist. Der Status ist nur
+Hauptaktion: nicht erreichbar, live überwacht und ADMIN → „Jetzt neu prüfen“ (`POST /api/monitor/run`)
+plus „Assistent fragen“; nicht erreichbar, aber nicht live überwacht (oder MEMBER) → „Assistent
+fragen“ (ein Überwachungslauf prüft unbeobachtete Geräte gar nicht); sonst „Weboberfläche ↗“, falls
+eine URL hinterlegt ist. Die Weboberfläche bleibt im ersten Fall als Nebenaktion erreichbar.
+Wechselt die Seite direkt zu einem anderen Gerät, baut das Formular nur auf den Daten des Geräts aus
+der URL auf, nie auf denen des vorherigen. Der Status ist nur
 „live“, wenn die Dauerüberwachung an ist und das Gerät beobachtet (`GET /api/monitor`), sonst „Stand
 letzter Scan“ (dieselbe Regel wie die Startseite). „Zugänge“ und „Steuern“ gibt es nur für ADMIN
 (Mitglieder sehen wie bisher keine Zugänge). Löschen und Zusammenführen liegen unter „⋯“ und
