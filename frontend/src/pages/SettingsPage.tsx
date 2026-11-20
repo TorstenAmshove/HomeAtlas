@@ -1,8 +1,16 @@
 import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { ArrowLeft, ChevronRight } from "lucide-react";
 import { api, type ApiToken, type ModelOption, type NetworkResource, type PasswordPolicy, type SettingsResponse } from "../lib/api";
 import { useAuth } from "../App";
 import { useUi } from "../shell/ui";
 import type { ThemeMode, UiOverride } from "../shell/prefs";
+import ConfirmDialog from "../components/ConfirmDialog";
+import OverflowMenu from "../components/OverflowMenu";
+import { Skeleton, SkeletonText } from "../components/Skeleton";
+import { useLeaveGuard } from "../lib/useLeaveGuard";
+import { useUrlState } from "../lib/useUrlState";
+import "./mehr/mehr.css";
 
 const KEY_FIELD: Record<string, string> = {
   CLAUDE: "claudeApiKey", OPENAI: "openAiApiKey", GEMINI: "geminiApiKey",
@@ -21,12 +29,89 @@ const validCidr = (value: unknown): value is string =>
 
 type Tab = "general" | "llm" | "scan" | "monitor" | "mcp" | "account" | "display" | "about";
 
+/** Form keys that are not "unsaved changes": the switch saves itself, the model cache is server data. */
+const NOT_DIRTY = new Set(["uiCalm", "providerModelCache"]);
+
+/** One line per tab for the phone's list (new UI). */
+const TAB_HINT: Record<Tab, string> = {
+  general: "Name des Zuhauses, neue Oberfläche",
+  llm: "Anbieter, Modell, Verbindung testen",
+  scan: "Bereiche, Quellen, Standard-Zugang",
+  monitor: "Dauerüberwachung, DNS-Test",
+  mcp: "Zugang für externe Programme",
+  account: "Passwort, Zwei-Faktor-Anmeldung",
+  display: "Hell/Dunkel, Oberfläche in diesem Browser",
+  about: "Version und Build",
+};
+
+/*
+ * Tabs: the open tab is in `?tab=` in both UIs, so Back and reload land on it (forensics
+ * "Einstellungen" 1). In the new UI the page has its own layout: a tab list on the left (desktop),
+ * a list -> sub-page on the phone, a warning before switching tabs or leaving with unsaved changes,
+ * and "Token widerrufen" under "⋯" with a review step. Classic rendering is otherwise unchanged.
+ */
+
 export default function SettingsPage() {
   const { isAdmin, user } = useAuth();
   const ui = useUi();
-  const [tab, setTab] = useState<Tab>(isAdmin ? "general" : "account");
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [tabParam, setTabParam] = useUrlState("tab");
   const [data, setData] = useState<SettingsResponse | null>(null);
   const [form, setForm] = useState<Record<string, any>>({});
+  // Last state the server confirmed; the form differs from it while there are unsaved changes.
+  const [saved, setSaved] = useState<Record<string, any>>({});
+  const [editedTab, setEditedTab] = useState<Tab | null>(null);
+  const [accountDirty, setAccountDirty] = useState(false);
+  const [accountKey, setAccountKey] = useState(0);
+  const [pendingTab, setPendingTab] = useState<Tab | "" | null>(null);
+
+  const TABS: [Tab, string][] = isAdmin
+    ? [["general", "Allgemein"], ["llm", "KI-Assistent"], ["scan", "Netzwerk-Scan"],
+       ["monitor", "Überwachung"], ["mcp", "MCP-Server"], ["account", "Konto"], ["about", "Über"]]
+    : [["account", "Konto"], ["about", "Über"]];
+  // "Darstellung" only means something in the new shell; the old UI stays exactly as it was.
+  if (ui.calm) TABS.splice(TABS.length - 1, 0, ["display", "Darstellung"]);
+  const tabLabel = (value: Tab | null) => TABS.find(([t]) => t === value)?.[1] ?? "";
+  // A tab this role doesn't have (e.g. a member opening ?tab=llm) falls back to the first one.
+  const tab: Tab = TABS.some(([t]) => t === tabParam) ? (tabParam as Tab) : TABS[0][0];
+  const onList = !TABS.some(([t]) => t === tabParam);
+
+  const formDirty = Object.keys({ ...form, ...saved }).some(
+    (key) => !NOT_DIRTY.has(key) && JSON.stringify(form[key] ?? null) !== JSON.stringify(saved[key] ?? null),
+  );
+  const dirty = formDirty || accountDirty;
+  const dirtyWhere = [formDirty ? tabLabel(editedTab) : "", accountDirty ? tabLabel("account") : ""].filter(Boolean);
+  const [leaveDialog] = useLeaveGuard(ui.calm && dirty, "den Einstellungen");
+
+  function goTab(value: Tab | "") {
+    if (ui.calm) {
+      // From the phone's list into a sub-page: remember it, so "← Einstellungen" is a real Back.
+      if (value === "") {
+        if ((location.state as { fromList?: boolean } | null)?.fromList) navigate(-1);
+        else setTabParam("", { push: true });
+      } else {
+        navigate({ search: `?tab=${value}` }, { state: { fromList: onList } });
+      }
+    } else {
+      setTabParam(value, { push: true });
+    }
+  }
+
+  function setTab(value: Tab) {
+    if (ui.calm && dirty && value !== tab) {
+      setPendingTab(value);
+      return;
+    }
+    goTab(value);
+  }
+
+  function discardChanges() {
+    setForm(saved);
+    setEditedTab(null);
+    setAccountKey((k) => k + 1);
+    setAccountDirty(false);
+  }
   const [notice, setNotice] = useState<{ kind: "ok" | "error" | "info"; text: string } | null>(null);
   const [busy, setBusy] = useState("");
 
@@ -44,11 +129,13 @@ export default function SettingsPage() {
     api.getSettings().then((r) => {
       setData(r);
       setForm(r.settings);
+      setSaved(r.settings);
     });
   }, []);
 
   function set(key: string, value: any) {
     setForm((current) => ({ ...current, [key]: value }));
+    setEditedTab(tab);
   }
 
   async function save(patch: Record<string, any>) {
@@ -60,6 +147,8 @@ export default function SettingsPage() {
       delete body.uiCalm;
       const { settings } = await api.updateSettings(body);
       setForm(settings);
+      setSaved(settings);
+      setEditedTab(null);
       setNotice({ kind: "ok", text: "Gespeichert." });
     } catch (e) {
       setNotice({ kind: "error", text: e instanceof Error ? e.message : String(e) });
@@ -77,6 +166,7 @@ export default function SettingsPage() {
       const { settings } = await api.updateSettings({ uiCalm: value });
       // Only the switch itself: replacing the whole form would drop unsaved edits (e.g. homeName).
       setForm((current) => ({ ...current, uiCalm: settings.uiCalm }));
+      setSaved((current) => ({ ...current, uiCalm: settings.uiCalm }));
       ui.setServerCalm(Boolean(settings.uiCalm));
     } catch (e) {
       setNotice({ kind: "error", text: e instanceof Error ? e.message : String(e) });
@@ -115,37 +205,24 @@ export default function SettingsPage() {
     }
   }
 
-  if (!data) return <span className="spinner" />;
+  if (!data) {
+    if (!ui.calm) return <span className="spinner" />;
+    return (
+      <div className="mehr-calm settings-calm" role="status" aria-live="polite">
+        <span className="visually-hidden">Wird geladen …</span>
+        <div className="settings-nav">{TABS.map(([value]) => <Skeleton key={value} width="70%" height={16} style={{ margin: "10px" }} />)}</div>
+        <div className="settings-pane"><Skeleton width={160} height={18} /><div style={{ height: 14 }} /><SkeletonText lines={5} /></div>
+      </div>
+    );
+  }
 
   const provider: string = form.llmProvider ?? "DEEPSEEK";
   const liveModels: ModelOption[] = form.providerModelCache?.[provider]?.models ?? [];
   const catalogModels = data.catalog[provider] ?? [];
   const modelOptions = liveModels.length > 0 ? liveModels : catalogModels;
 
-  const TABS: [Tab, string][] = isAdmin
-    ? [["general", "Allgemein"], ["llm", "KI-Assistent"], ["scan", "Netzwerk-Scan"],
-       ["monitor", "Überwachung"], ["mcp", "MCP-Server"], ["account", "Konto"], ["about", "Über"]]
-    : [["account", "Konto"], ["about", "Über"]];
-  // "Darstellung" only means something in the new shell; the old UI stays exactly as it was.
-  if (ui.calm) TABS.splice(TABS.length - 1, 0, ["display", "Darstellung"]);
-
-  return (
+  const content = (
     <>
-      <div className="page-header">
-        <div>
-          <h1>Einstellungen</h1>
-          <p>Anbieter für den KI-Assistenten, Umfang des Netzwerk-Scans und das eigene Konto.</p>
-        </div>
-      </div>
-
-      <div className="row" style={{ marginBottom: 18 }}>
-        {TABS.map(([value, label]) => (
-          <button key={value} className={tab === value ? "" : "secondary"} onClick={() => setTab(value)}>
-            {label}
-          </button>
-        ))}
-      </div>
-
       {notice && <div className={`notice ${notice.kind}`}>{notice.text}</div>}
 
       {tab === "general" && isAdmin && (
@@ -524,9 +601,12 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {tab === "mcp" && isAdmin && <McpTab />}
+      {tab === "mcp" && isAdmin && <McpTab calm={ui.calm} />}
 
-      {tab === "account" && <AccountTab username={user?.username ?? ""} totpEnabled={Boolean(user?.totpEnabled)} />}
+      {tab === "account" && (
+        <AccountTab key={accountKey} username={user?.username ?? ""} totpEnabled={Boolean(user?.totpEnabled)}
+                    onDirtyChange={setAccountDirty} />
+      )}
 
       {tab === "display" && <DisplayTab />}
 
@@ -556,14 +636,107 @@ export default function SettingsPage() {
       )}
     </>
   );
+
+  if (!ui.calm) {
+    return (
+      <>
+        <div className="page-header">
+          <div>
+            <h1>Einstellungen</h1>
+            <p>Anbieter für den KI-Assistenten, Umfang des Netzwerk-Scans und das eigene Konto.</p>
+          </div>
+        </div>
+
+        <div className="row" style={{ marginBottom: 18 }}>
+          {TABS.map(([value, label]) => (
+            <button key={value} className={tab === value ? "" : "secondary"} onClick={() => setTab(value)}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {content}
+      </>
+    );
+  }
+
+  const dirtyDot = (value: Tab) =>
+    (formDirty && editedTab === value) || (accountDirty && value === "account")
+      ? <span className="settings-dirty" title="Ungespeicherte Änderungen" aria-label="ungespeichert" />
+      : null;
+
+  return (
+    <div className={`mehr-calm settings-calm${onList ? " is-list" : ""}`}>
+      {leaveDialog}
+      <h1 className="visually-hidden">Einstellungen</h1>
+      <ConfirmDialog
+        open={pendingTab !== null}
+        title="Ungespeicherte Änderungen"
+        consequences={[
+          <>Deine Änderungen unter „{dirtyWhere.join("“ und „") || tabLabel(tab)}“ sind noch nicht gespeichert.</>,
+          <>Wenn du jetzt wechselst, werden sie verworfen.</>,
+        ]}
+        confirmLabel="Verwerfen und wechseln"
+        cancelLabel="Hier bleiben"
+        danger
+        onCancel={() => setPendingTab(null)}
+        onConfirm={() => {
+          const target = pendingTab;
+          setPendingTab(null);
+          discardChanges();
+          if (target !== null) goTab(target);
+        }}
+      />
+
+      <nav className="settings-nav" aria-label="Einstellungen: Bereiche">
+        {TABS.map(([value, label]) => (
+          <button key={value} type="button" className="settings-nav-item" aria-current={tab === value ? "page" : undefined}
+                  onClick={() => setTab(value)}>
+            {label}
+            {dirtyDot(value)}
+          </button>
+        ))}
+      </nav>
+
+      <ul className="settings-list" aria-label="Einstellungen: Bereiche (Liste)">
+        {TABS.map(([value, label]) => (
+          <li key={value}>
+            <button type="button" className="settings-nav-item" onClick={() => setTab(value)}>
+              <span style={{ flex: 1 }}>
+                {label}
+                <span className="settings-nav-sub">{TAB_HINT[value]}</span>
+              </span>
+              {dirtyDot(value)}
+              <ChevronRight size={18} aria-hidden="true" />
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      <div className="settings-pane">
+        <button type="button" className="m-link settings-back" onClick={() => goTab("")}>
+          <ArrowLeft size={16} aria-hidden="true" /> Einstellungen
+        </button>
+        {dirty && (
+          <div className="settings-unsaved" role="status">
+            <span>Ungespeicherte Änderungen{dirtyWhere.length > 0 ? ` unter „${dirtyWhere.join("“ und „")}“` : ""}.</span>
+            <button type="button" className="m-btn small" onClick={discardChanges}>Verwerfen</button>
+          </div>
+        )}
+        {content}
+      </div>
+    </div>
+  );
 }
 
-function McpTab() {
+function McpTab({ calm = false }: { calm?: boolean }) {
   const [tokens, setTokens] = useState<ApiToken[] | null>(null);
   const [label, setLabel] = useState("");
   const [freshToken, setFreshToken] = useState<ApiToken | null>(null);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [revoking, setRevoking] = useState<ApiToken | null>(null);
+  const [revokeBusy, setRevokeBusy] = useState(false);
   const mcpUrl = `${window.location.origin}/api/mcp`;
 
   function load() {
@@ -593,6 +766,24 @@ function McpTab() {
     await api.deleteMcpToken(id);
     if (freshToken?.id === id) setFreshToken(null);
     load();
+  }
+
+  // New UI: the same request after a review step instead of window.confirm.
+  async function runRevoke() {
+    if (!revoking) return;
+    setRevokeBusy(true);
+    try {
+      await api.deleteMcpToken(revoking.id);
+      if (freshToken?.id === revoking.id) setFreshToken(null);
+      setNotice({ kind: "ok", text: `Token „${revoking.label}“ widerrufen.` });
+      setRevoking(null);
+      load();
+    } catch (e) {
+      setNotice({ kind: "error", text: e instanceof Error ? e.message : String(e) });
+      setRevoking(null);
+    } finally {
+      setRevokeBusy(false);
+    }
   }
 
   return (
@@ -633,8 +824,28 @@ function McpTab() {
         <button onClick={() => void create()} disabled={busy || !label.trim()}>Token erzeugen</button>
       </div>
 
+      <ConfirmDialog
+        open={revoking !== null}
+        title={`Token „${revoking?.label ?? ""}“ widerrufen?`}
+        danger
+        busy={revokeBusy}
+        confirmLabel="Token widerrufen"
+        consequences={revoking ? [
+          <>Programme, die dieses Token benutzen, verlieren sofort den Zugriff auf HomeAtlas
+            ({revoking.lastUsedAt ? `zuletzt benutzt ${new Date(revoking.lastUsedAt).toLocaleString("de-DE")}` : "bisher nie benutzt"}).</>,
+          <>Andere Tokens bleiben gültig.</>,
+        ] : undefined}
+        onCancel={() => setRevoking(null)}
+        onConfirm={runRevoke}
+      >
+        <p className="m-dialog-note">
+          Das lässt sich nicht rückgängig machen. Soll das Programm weiter zugreifen, erzeugst du ein neues
+          Token und trägst es dort ein.
+        </p>
+      </ConfirmDialog>
+
       {tokens === null ? (
-        <span className="spinner" />
+        calm ? <SkeletonText lines={3} /> : <span className="spinner" />
       ) : tokens.length === 0 ? (
         <p className="muted">Noch kein Token erzeugt.</p>
       ) : (
@@ -650,7 +861,12 @@ function McpTab() {
                   <td className="muted">{new Date(t.createdAt).toLocaleString("de-DE")}</td>
                   <td className="muted">{t.lastUsedAt ? new Date(t.lastUsedAt).toLocaleString("de-DE") : "noch nie"}</td>
                   <td style={{ width: 1 }}>
-                    <button className="danger" onClick={() => void remove(t.id)}>Widerrufen</button>
+                    {calm ? (
+                      <OverflowMenu label={`Aktionen für Token ${t.label}`}
+                                    items={[{ label: "Widerrufen …", danger: true, onSelect: () => setRevoking(t) }]} />
+                    ) : (
+                      <button className="danger" onClick={() => void remove(t.id)}>Widerrufen</button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -662,13 +878,20 @@ function McpTab() {
   );
 }
 
-function AccountTab({ username, totpEnabled }: { username: string; totpEnabled: boolean }) {
+function AccountTab({ username, totpEnabled, onDirtyChange }: {
+  username: string;
+  totpEnabled: boolean;
+  onDirtyChange?: (dirty: boolean) => void;
+}) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [repeat, setRepeat] = useState("");
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [policy, setPolicy] = useState<PasswordPolicy | null>(null);
+
+  const typed = currentPassword !== "" || newPassword !== "" || repeat !== "";
+  useEffect(() => { onDirtyChange?.(typed); }, [typed, onDirtyChange]);
 
   useEffect(() => {
     api.passwordPolicy().then(setPolicy).catch(() => setPolicy(null));

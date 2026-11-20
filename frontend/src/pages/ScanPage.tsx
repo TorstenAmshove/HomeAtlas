@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type Scan } from "../lib/api";
+import { useUi } from "../shell/ui";
+import ScanCalm from "./mehr/ScanCalm";
 
+/** New UI: own component (pages/mehr/ScanCalm.tsx); otherwise the classic page, unchanged. */
 export default function ScanPage() {
+  const { calm } = useUi();
+  return calm ? <ScanCalm /> : <ScanClassic />;
+}
+
+function ScanClassic() {
   const [scan, setScan] = useState<Scan | null>(null);
   const [history, setHistory] = useState<Scan[]>([]);
   const [error, setError] = useState("");

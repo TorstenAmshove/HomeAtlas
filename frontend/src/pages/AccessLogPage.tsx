@@ -1,28 +1,25 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type AccessLogEntry } from "../lib/api";
+import { useUrlState } from "../lib/useUrlState";
+import { useUi } from "../shell/ui";
+import AccessLogCalm from "./mehr/AccessLogCalm";
+import { ACTION_LABEL, CRITICAL_ACTIONS as CRITICAL } from "./mehr/accessLogLabels";
 
-/** Erklärt jede Aktion in Klartext — ein Protokoll, das nur `secret.reveal` anzeigt, hilft
- *  niemandem, der wissen will, ob jemand an die Passwörter gegangen ist. */
-const ACTION_LABEL: Record<string, string> = {
-  login: "Anmeldung",
-  "login.mfa": "Zwei-Faktor-Abfrage",
-  "password.change": "Passwort geändert",
-  "mfa.enable": "Zwei-Faktor aktiviert",
-  "mfa.disable": "Zwei-Faktor abgeschaltet",
-  "user.create": "Benutzer angelegt",
-  "user.update": "Benutzer geändert",
-  "user.delete": "Benutzer gelöscht",
-  "secret.reveal": "Passwort angezeigt",
-  "scan.start": "Netzwerk-Scan gestartet",
-};
-
-const CRITICAL = new Set(["secret.reveal", "mfa.disable", "user.create", "user.update", "user.delete"]);
-
+/** New UI: own component (pages/mehr/AccessLogCalm.tsx). In both UIs the filters live in the URL
+ *  (`?action=`, `?failures=1`), so Back lands on the same filtered view. */
 export default function AccessLogPage() {
+  const { calm } = useUi();
+  return calm ? <AccessLogCalm /> : <AccessLogClassic />;
+}
+
+function AccessLogClassic() {
   const [entries, setEntries] = useState<AccessLogEntry[]>([]);
   const [actions, setActions] = useState<string[]>([]);
-  const [action, setAction] = useState("");
-  const [onlyFailures, setOnlyFailures] = useState(false);
+  const [action, setActionParam] = useUrlState("action");
+  const [failuresParam, setFailuresParam] = useUrlState("failures");
+  const onlyFailures = failuresParam === "1";
+  const setAction = (value: string) => setActionParam(value, { push: true });
+  const setOnlyFailures = (value: boolean) => setFailuresParam(value ? "1" : "", { push: true });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
