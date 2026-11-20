@@ -54,7 +54,11 @@ export default function SettingsPage() {
   async function save(patch: Record<string, any>) {
     setBusy("save");
     try {
-      const { settings } = await api.updateSettings(patch);
+      // The new-UI switch has its own save (saveUiCalm). A whole-form save must not send the value
+      // read at page load: it could overwrite a change another admin made in the meantime.
+      const body = { ...patch };
+      delete body.uiCalm;
+      const { settings } = await api.updateSettings(body);
       setForm(settings);
       setNotice({ kind: "ok", text: "Gespeichert." });
     } catch (e) {
