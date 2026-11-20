@@ -13,4 +13,4 @@ Arbeitsstand der Oberflächen-Überarbeitung (ruhig, eine klare nächste Aktion,
 | 4 Bau | – | hinter Feature-Flag, ein Bereich pro PR |
 
 Mockups lokal ansehen: `docs/redesign/mockups/index.html` im Browser öffnen (eine einzelne Datei, kein
-Build). `?screen=geraet&view=phone` springt direkt zu einer Ansicht.
+Build). `#geraet-phone` springt direkt zu einer Ansicht.

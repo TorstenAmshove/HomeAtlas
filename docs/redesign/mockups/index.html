@@ -359,10 +359,12 @@ const DIRS = [
   ["B", "B · Reduziert", "Hell, Papier-Look, Schwarz plus ein Akzent. Keine Karten, nur Linien und Text. Am ruhigsten, aber am wenigsten „HomeAtlas“."],
   ["C", "C · Kräftiges Produkt", "Dunkel mit Verlauf Cyan→Violett, große Status-Überschrift, Pillen, schwebende Handy-Leiste. Am auffälligsten."],
 ];
-let screen = new URLSearchParams(location.search).get("screen") || "start";
-let view = new URLSearchParams(location.search).get("view") || "both";
+/* Ansicht steht im Hash (#geraet-phone), damit ein Link genau diese Ansicht öffnet. */
+let [screen, view] = (location.hash.slice(1) || "start-both").split("-");
+if (!SCREENS[screen]) screen = "start";
+if (!["both", "desk", "phone"].includes(view)) view = "both";
 
-function syncUrl() { history.replaceState(null, "", `?screen=${screen}&view=${view}`); }
+function syncUrl() { try { history.replaceState(null, "", `#${screen}-${view}`); } catch (e) { /* sandboxed viewer */ } }
 function seg(el, items, cur, set) {
   el.innerHTML = items.map(([k, l]) => `<button class="${k === cur ? "on" : ""}" data-k="${k}">${l}</button>`).join("");
   el.onclick = (e) => { const k = e.target.dataset?.k; if (k) { set(k); render(); } };
@@ -392,6 +394,10 @@ function fit() {
   });
 }
 addEventListener("resize", fit);
+addEventListener("hashchange", () => {
+  const [sc, vw] = location.hash.slice(1).split("-");
+  if (SCREENS[sc] && ["both", "desk", "phone"].includes(vw) && (sc !== screen || vw !== view)) { screen = sc; view = vw; render(); }
+});
 render();
 </script>
 </body>
