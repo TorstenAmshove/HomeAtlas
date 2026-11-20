@@ -140,7 +140,9 @@ function StatusHero({ data, monitor, isAdmin, hasEmergencyDoc }: {
   isAdmin: boolean;
   hasEmergencyDoc: boolean;
 }) {
-  const offline = monitor.systems.filter((s) => s.status === "offline");
+  // Only an active monitor may raise the alarm. With monitoring off, /api/monitor still lists the
+  // watched devices with their last stored status; a stale "offline" there is not a current outage.
+  const offline = monitor.enabled ? monitor.systems.filter((s) => s.status === "offline") : [];
 
   if (offline.length > 0) {
     const first = offline[0];
@@ -148,12 +150,12 @@ function StatusHero({ data, monitor, isAdmin, hasEmergencyDoc }: {
     const down = single ? downSince(monitor, first.id, first.lastSeen) : { text: "", title: "" };
     const others = monitor.systems.filter((s) => s.status === "online").length;
     const details = single
-      ? [down.text, "wichtiges Gerät", others > 0 ? `die anderen ${others} laufen` : ""]
+      ? [down.text, "überwachtes Gerät", others > 0 ? `die anderen ${others} überwachten laufen` : ""]
       : [offline.map((s) => s.name).join(", ")];
     return (
       <section className="start-hero start-hero-bad" aria-labelledby="start-hero-title">
         <h2 id="start-hero-title">
-          {single ? `${first.name} ist nicht erreichbar` : `${offline.length} wichtige Geräte nicht erreichbar`}
+          {single ? `${first.name} ist nicht erreichbar` : `${offline.length} überwachte Geräte nicht erreichbar`}
         </h2>
         <p className="start-hero-sub" title={down.title || undefined}>{details.filter(Boolean).join(" · ")}</p>
         <div className="start-actions">
@@ -210,7 +212,7 @@ function StatusHero({ data, monitor, isAdmin, hasEmergencyDoc }: {
     return (
       <section className="start-hero start-hero-neutral" aria-labelledby="start-hero-title">
         <h2 id="start-hero-title">Wird geprüft …</h2>
-        <p className="start-hero-sub">Noch nicht alle wichtigen Geräte haben geantwortet.</p>
+        <p className="start-hero-sub">Noch nicht alle überwachten Geräte haben geantwortet.</p>
       </section>
     );
   }
@@ -218,7 +220,7 @@ function StatusHero({ data, monitor, isAdmin, hasEmergencyDoc }: {
   return (
     <section className="start-hero start-hero-ok" aria-labelledby="start-hero-title">
       <h2 id="start-hero-title">Alles erreichbar</h2>
-      <p className="start-hero-sub">Alle wichtigen Geräte antworten.</p>
+      <p className="start-hero-sub">Alle überwachten Geräte antworten.</p>
     </section>
   );
 }
@@ -251,8 +253,11 @@ export default function StartCalm() {
   // Same cadence and visibility rule as the classic page: the monitor's interval, never under 5 s,
   // and nothing while the tab is hidden.
   useEffect(() => {
-    function schedule() {
+    function schedule(event?: Event) {
       if (timer.current) window.clearInterval(timer.current);
+      // Coming back to the tab refreshes at once (then the interval restarts from here) instead of
+      // after up to one interval: people switch to this page precisely when something seems broken.
+      if (event && document.visibilityState === "visible") void load();
       if (document.visibilityState !== "visible" || !data?.monitorEnabled) return;
       const seconds = Math.max(5, data?.monitorIntervalSeconds ?? 10);
       timer.current = window.setInterval(() => void load(), seconds * 1000);
@@ -265,19 +270,9 @@ export default function StartCalm() {
     };
   }, [data?.monitorIntervalSeconds, data?.monitorEnabled, load]);
 
-  // Coming back to the tab refreshes at once instead of after up to one interval: people often
-  // switch to this page from elsewhere precisely when something seems broken.
-  useEffect(() => {
-    function onVisible() {
-      if (document.visibilityState === "visible") void load();
-    }
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [load]);
-
   // The "Notfall-Checkliste" action only appears when that chapter exists. Asked once, and only
   // while something is down; a failure just leaves the action out.
-  const anyDown = Boolean(monitor?.systems.some((s) => s.status === "offline"));
+  const anyDown = Boolean(monitor?.enabled && monitor.systems.some((s) => s.status === "offline"));
   useEffect(() => {
     if (!anyDown || hasEmergencyDoc) return;
     let cancelled = false;

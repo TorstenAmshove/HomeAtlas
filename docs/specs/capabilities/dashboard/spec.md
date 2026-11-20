@@ -158,6 +158,10 @@ von oben gilt mit Schalter: **[Muss]**
   Hinweis „Aktualisierung fehlgeschlagen"; die nächste erfolgreiche Aktualisierung entfernt ihn. Nur
   ein Fehler beim ersten Laden ersetzt die Seite durch die Fehlermeldung.
 - Wird der Tab wieder sichtbar, lädt die Seite sofort neu (zusätzlich zum Takt der Überwachung).
+- Alarm (roter Hero) nur bei eingeschalteter Überwachung: Ist sie aus, zählt ein gespeicherter
+  Status `offline` nicht als aktueller Ausfall; der Hero sagt dann „Überwachung ist aus".
+- Die Alarm-Menge sind die überwachten Geräte (`monitored = 1`, wie im Netzplan), deshalb heißt es
+  „überwachtes Gerät", nicht „wichtiges Gerät".
 
 #### Szenario: Ein überwachtes Gerät fällt aus
 - **WENN** die Überwachung die Heizung seit 07:42 als `offline` führt
