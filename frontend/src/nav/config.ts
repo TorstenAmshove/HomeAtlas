@@ -71,6 +71,11 @@ export interface RouteEntry {
   tab?: string;
   title: string;
   adminOnly?: boolean;
+  /**
+   * A `:param` route that switches between siblings inside its tab (a doc chapter, a conversation)
+   * rather than drilling into a detail page: the shell keeps the tab row and shows no "← list".
+   */
+  sibling?: boolean;
 }
 
 /** Every routed page. scripts/check-nav.ts compares this with App.tsx in both directions. */
@@ -81,8 +86,9 @@ export const ROUTES: RouteEntry[] = [
   { path: "/plan", area: "geraete", tab: "plan", title: "Netzplan" },
   { path: "/netze", area: "geraete", tab: "netze", title: "Netze & WLAN" },
   { path: "/dokumentation", area: "hilfe", tab: "doku", title: "Dokumentation" },
-  { path: "/dokumentation/:slug", area: "hilfe", tab: "doku", title: "Dokumentation" },
+  { path: "/dokumentation/:slug", area: "hilfe", tab: "doku", title: "Dokumentation", sibling: true },
   { path: "/assistent", area: "hilfe", tab: "assistent", title: "Assistent" },
+  { path: "/assistent/:chatId", area: "hilfe", tab: "assistent", title: "Assistent", sibling: true },
   { path: "/zugaenge", area: "zugaenge", title: "Zugänge", adminOnly: true },
   { path: "/scan", area: "mehr", tab: "scan", title: "Netzwerk-Scan", adminOnly: true },
   { path: "/benutzer", area: "mehr", tab: "benutzer", title: "Benutzer", adminOnly: true },

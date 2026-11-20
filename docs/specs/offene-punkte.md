@@ -116,7 +116,7 @@ Netzplan-Ebenen, `set_switch`), ADR-0009 für die Netzplan-Ebenen. Offen bleiben
 3. `GET /api/docs/{slug}/versions` mit unbekanntem Slug liefert leere Liste statt 404.
 4. `PUT /api/docs/{slug}` ohne Feld `bodyMd` speichert leeren Text (keine Validierung).
 5. Wiederherstellen überschreibt auch die eigenen Notizen mit dem alten Stand — gewollt, obwohl Notizen „nie angefasst“ werden sollen (gilt laut Code nur für die Automatik)?
-6. UI-Bestätigung beim Reset sagt „Änderungen gehen verloren“, tatsächlich bleiben sie im Verlauf.
+6. UI-Bestätigung beim Reset sagt in der alten Oberfläche „Änderungen gehen verloren“, tatsächlich bleiben sie im Verlauf (die neue Oberfläche sagt es richtig und bietet Rückgängig).
 7. Kapitel, deren Slug nicht mehr definiert ist, werden nie gelöscht (`db.delete_doc_page` ungenutzt).
 8. Benutzernamen und URLs von Zugängen sind über die Doku für MEMBER sichtbar, obwohl die Zugangs-API admin-only ist. Ebenso Gerätenotizen und ausgelesene Gerätewerte — falls dort Geheimnisse stehen, landen sie in der Doku.
 9. Keine Sperre gegen gleichzeitige Generierungen (Scan + manueller Lauf) — mögliche doppelte Versionen/Race.

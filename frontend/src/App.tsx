@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { ApiError, api, type User } from "./lib/api";
+import { clearAllDrafts } from "./lib/drafts";
 import LoginPage from "./pages/LoginPage";
 import MfaEnrollPage from "./pages/MfaEnrollPage";
 import SetupPage from "./pages/SetupPage";
@@ -100,6 +101,7 @@ export default function App() {
   }, [refresh]);
 
   const logout = useCallback(async () => {
+    clearAllDrafts();
     await api.logout();
     setUser(null);
   }, []);
@@ -155,6 +157,7 @@ export default function App() {
       <Route path="/dokumentation" element={<DocsPage />} />
       <Route path="/dokumentation/:slug" element={<DocsPage />} />
       <Route path="/assistent" element={<ChatPage />} />
+      <Route path="/assistent/:chatId" element={<ChatPage />} />
       {isAdmin && <Route path="/scan" element={<ScanPage />} />}
       <Route path="/plan" element={<PlanPage />} />
       <Route path="/netze" element={<NetworksPage />} />
@@ -206,7 +209,7 @@ export default function App() {
           </div>
         </nav>
 
-        <main className={`content${location.pathname === "/assistent" ? " content-chat" : ""}`}>
+        <main className={`content${location.pathname === "/assistent" || location.pathname.startsWith("/assistent/") ? " content-chat" : ""}`}>
           {routes}
         </main>
       </div>

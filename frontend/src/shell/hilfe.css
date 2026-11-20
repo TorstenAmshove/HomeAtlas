@@ -1,0 +1,217 @@
+/* Hilfe area in the new shell: Dokumentation (DocsPage) and Assistent (ChatPage).
+ *
+ * Imported by AppShell.tsx right after shell.css (so equal-specificity rules here win). Every rule
+ * is scoped to `.app-shell`, so the old UI -- which renders the same page components
+ * with their pre-redesign markup -- is untouched. Colours only use the shell tokens (--c-*), so
+ * light and dark mode both work. */
+
+/* ---------------------------------------------------------------- Dokumentation */
+
+.app-shell .docs-layout { display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: 28px; align-items: start; }
+.app-shell .docs-main { min-width: 0; }
+
+.app-shell .docs-toc { position: sticky; top: 76px; }
+.app-shell .docs-toc ul { list-style: none; margin: 0; padding: 0; }
+.app-shell .docs-toc li { border-bottom: 1px solid var(--c-line); }
+.app-shell .docs-toc-link {
+  display: flex; align-items: flex-start; gap: 8px; min-height: 40px; padding: 9px 10px;
+  color: var(--c-muted); font-size: 14px; line-height: 1.35; text-decoration: none; border-radius: 6px;
+}
+.app-shell .docs-toc-link:hover { color: var(--c-text); text-decoration: none; background: var(--c-surface-2); }
+.app-shell .docs-toc-link.active { color: var(--c-text); font-weight: 650; }
+.app-shell .docs-toc-link.sos { color: var(--c-text); }
+.app-shell .docs-sos {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px;
+  margin-top: 1px; border-radius: 999px; font-size: 12px; font-weight: 800; line-height: 1;
+  color: var(--c-bad); background: color-mix(in srgb, var(--c-bad) 14%, transparent);
+}
+.app-shell .docs-toc-skeleton { display: grid; gap: 18px; padding: 10px; }
+
+.app-shell .docs-picker { display: none; }
+
+.app-shell .docs-head { margin-bottom: 18px; }
+.app-shell .docs-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.app-shell .docs-title { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.app-shell .docs-meta { margin: 4px 0 0; font-size: 13px; color: var(--c-muted); }
+.app-shell .docs-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.app-shell .docs-actions button, .app-shell .docs-notes-head button, .app-shell .docs-version-actions button { min-height: 36px; }
+
+.app-shell .docs-article { min-width: 0; overflow-wrap: anywhere; }
+.app-shell .docs-article .markdown table { display: block; max-width: 100%; overflow-x: auto; }
+.app-shell .docs-article .markdown th { white-space: nowrap; }
+.app-shell .markdown code, .app-shell .markdown pre { background: var(--c-surface-2); }
+.app-shell .markdown h2 { border-bottom-color: var(--c-line); }
+
+.app-shell .docs-notes {
+  margin: 0 0 22px; padding: 14px 16px; border-radius: 10px;
+  background: var(--c-surface); border: 1px solid var(--c-line); border-left: 3px solid var(--c-accent);
+}
+.app-shell .docs-notes.is-old { border-left-color: var(--c-line); }
+.app-shell .docs-notes h2 { font-size: 15px; font-weight: 650; margin: 0; }
+.app-shell .docs-notes.is-old h2 { margin-bottom: 8px; }
+.app-shell .docs-notes-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.app-shell .docs-hint { margin: 0 0 10px; font-size: 14px; }
+.app-shell .docs-notes > .docs-hint:last-child { margin-bottom: 0; }
+.app-shell .docs-textarea { background: var(--c-surface); color: var(--c-text); border-color: var(--c-line); }
+
+.app-shell .docs-versions { margin: 0 0 22px; padding: 12px 16px; border: 1px solid var(--c-line); border-radius: 10px; background: var(--c-surface); }
+.app-shell .docs-versions h2 { font-size: 15px; font-weight: 650; margin: 0 0 8px; }
+.app-shell .docs-versions > p { margin: 0; }
+.app-shell .docs-version-list { list-style: none; margin: 0; padding: 0; }
+.app-shell .docs-version-list li {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  padding: 8px 0; border-top: 1px solid var(--c-line);
+}
+.app-shell .docs-version-list li:first-child { border-top: 0; }
+.app-shell .docs-version-list li.active .docs-version-text span { font-weight: 650; }
+.app-shell .docs-version-text { display: flex; flex-direction: column; min-width: 0; }
+.app-shell .docs-version-text small { color: var(--c-muted); font-size: 12.5px; }
+.app-shell .docs-version-actions { display: flex; gap: 8px; }
+
+.app-shell .docs-preview-note { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+
+.app-shell .docs-landing, .app-shell .docs-empty { max-width: 62ch; }
+.app-shell .docs-landing-hint { margin: 0 0 12px; }
+.app-shell .docs-sos-callout {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  margin-bottom: 18px; padding: 14px 16px; border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--c-bad) 35%, var(--c-line));
+  background: color-mix(in srgb, var(--c-bad) 6%, var(--c-surface));
+}
+.app-shell .docs-sos-callout p { margin: 2px 0 0; font-size: 14px; }
+.app-shell .docs-sos-callout button { min-height: 40px; }
+.app-shell .docs-link-button {
+  display: inline-flex; align-items: center; min-height: 36px; padding: 5px 11px; border-radius: 8px;
+  border: 1px solid var(--c-line); color: var(--c-text); font-size: 0.85rem; font-weight: 600;
+}
+.app-shell .docs-link-button:hover { background: var(--c-surface-2); text-decoration: none; }
+
+/* Overflow ("⋯") menu */
+.app-shell .overflow-menu { position: relative; }
+.app-shell .overflow-menu-button { min-width: 36px; font-size: 16px; line-height: 1; }
+.app-shell .overflow-menu-list {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; min-width: 220px; padding: 6px;
+  display: flex; flex-direction: column; background: var(--c-surface); border: 1px solid var(--c-line);
+  border-radius: 10px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+}
+.app-shell .overflow-menu-item {
+  width: 100%; justify-content: flex-start; min-height: 40px; padding: 8px 10px; text-align: left; color: var(--c-text);
+}
+.app-shell .overflow-menu-item:hover:not(:disabled), .app-shell .overflow-menu-item:focus-visible { background: var(--c-surface-2); }
+.app-shell .overflow-menu-item:disabled { opacity: 0.5; cursor: not-allowed; }
+.app-shell .overflow-menu-item.danger { color: var(--c-bad); }
+
+/* ---------------------------------------------------------------- Assistent */
+
+.app-shell .chat-calm { display: flex; flex-direction: column; flex: 1; min-height: 0; width: 100%; max-width: 860px; }
+.app-shell .chat-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex: none; }
+.app-shell .chat-picker {
+  position: relative; display: inline-flex; align-items: center; min-width: 0; flex: 0 1 auto; margin: 0;
+  color: var(--c-text); font-weight: 500;
+}
+.app-shell .chat-picker-dot {
+  position: absolute; left: 12px; width: 6px; height: 6px; border-radius: 50%; background: var(--c-muted); pointer-events: none;
+}
+.app-shell .chat-picker select {
+  max-width: 100%; min-height: 40px; padding: 6px 30px 6px 26px; border-radius: 999px; font-size: 14px;
+  background-color: var(--c-surface); color: var(--c-text); border: 1px solid var(--c-line);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.app-shell .chat-new { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: 40px; }
+
+.app-shell .chat-new-short { display: none; }
+.app-shell .chat-setup-link {
+  display: inline-flex; align-items: center; min-height: 44px; margin-top: 4px; color: var(--c-accent); font-weight: 600;
+}
+.app-shell .chat-calm .notice { flex: none; }
+
+.app-shell .chat-calm .chat-scroll { padding-right: 4px; }
+.app-shell .chat-calm .bubble { max-width: min(78%, 640px); overflow-wrap: anywhere; }
+.app-shell .chat-calm .bubble.assistant { background: transparent; border: 0; padding: 4px 0; max-width: 100%; }
+.app-shell .chat-calm .bubble .markdown table { display: block; overflow-x: auto; }
+.app-shell .chat-skeleton { display: grid; gap: 12px; padding-top: 4px; }
+
+.app-shell .chat-empty { padding: 8px 0 4px; max-width: 60ch; }
+.app-shell .chat-empty h2 { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+.app-shell .chat-suggestions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.app-shell .chat-suggestions button { min-height: 40px; text-align: left; border-radius: 999px; padding: 6px 14px; }
+
+.app-shell .chat-thinking { display: flex; align-items: center; gap: 10px; }
+.app-shell .chat-dots { display: inline-flex; gap: 4px; }
+.app-shell .chat-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--c-muted); animation: chat-dot 1.2s ease-in-out infinite; }
+.app-shell .chat-dots span:nth-child(2) { animation-delay: 0.15s; }
+.app-shell .chat-dots span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes chat-dot { 0%, 80%, 100% { opacity: 0.3; } 40% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .app-shell .chat-dots span { animation: none; } }
+
+.app-shell .chat-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: -4px 0 14px; font-size: 12px; color: var(--c-muted); }
+.app-shell .chat-tool {
+  font: 11.5px ui-monospace, "Cascadia Code", monospace; padding: 2px 8px; border-radius: 999px;
+  background: var(--c-surface-2); color: var(--c-text); border: 1px solid var(--c-line);
+}
+
+.app-shell .chat-compose {
+  flex: none; display: flex; align-items: flex-end; gap: 4px; margin-top: 10px; padding: 4px;
+  border: 1px solid var(--c-line); border-radius: 14px; background: var(--c-surface);
+}
+.app-shell .chat-compose:focus-within { border-color: var(--c-muted); }
+.app-shell .chat-compose textarea {
+  flex: 1; min-width: 0; min-height: 44px; max-height: 160px; padding: 11px 8px; resize: none;
+  border: 0; background: transparent; color: var(--c-text); font-family: inherit; font-size: 16px; line-height: 1.4;
+}
+.app-shell .chat-compose textarea:focus { outline: none; }
+.app-shell .chat-icon-button,
+.app-shell .chat-icon-button:hover:not(:disabled) {
+  flex: none; width: 44px; height: 44px; justify-content: center; border-radius: 10px; color: var(--c-muted);
+}
+.app-shell .chat-icon-button:hover:not(:disabled) { color: var(--c-text); background: var(--c-surface-2); }
+.app-shell .chat-icon-button:disabled { opacity: 0.4; cursor: not-allowed; }
+.app-shell .chat-send:not(:disabled), .app-shell .chat-send:hover:not(:disabled) { color: var(--c-accent); }
+.app-shell .chat-icon-button.recording, .app-shell .chat-icon-button.recording:hover:not(:disabled) {
+  color: var(--c-bad); background: color-mix(in srgb, var(--c-bad) 12%, transparent);
+}
+
+/* Keyboard open (ChatPage's useKeyboardInset): shrink the pinned chat to the visible part. */
+.app-shell.is-chat .shell-main { height: calc(100dvh - var(--keyboard-inset, 0px)); }
+
+/* ---------------------------------------------------------------- phone */
+
+@media (max-width: 759px) {
+  .app-shell .docs-layout { display: block; }
+  /* On a chapter the list becomes the picker at the top; on /dokumentation the list is the page. */
+  .app-shell .docs-toc { position: static; }
+  .app-shell .docs-toc.has-chapter { display: none; }
+  /* Chapter index: the Notfall callout above the list, not after twelve entries. */
+  .app-shell .docs-calm:not(.has-chapter) .docs-layout { display: flex; flex-direction: column; }
+  .app-shell .docs-calm:not(.has-chapter) .docs-main { order: -1; margin-bottom: 14px; }
+  .app-shell .docs-toc-link { min-height: 48px; align-items: center; font-size: 15px; color: var(--c-text); }
+  .app-shell .docs-sos { margin-top: 0; }
+
+  .app-shell .docs-picker {
+    display: flex; align-items: center; position: relative; margin: 0 0 16px; color: var(--c-muted); font-weight: 500;
+  }
+  .app-shell .docs-picker-label { position: absolute; left: 12px; font-size: 14px; pointer-events: none; }
+  .app-shell .docs-picker select {
+    min-height: 44px; padding-left: 74px; font-size: 15px; background: var(--c-surface); color: var(--c-text); border-color: var(--c-line);
+    text-overflow: ellipsis;
+  }
+  .app-shell .docs-title { font-size: 18px; flex: 1 1 100%; }
+  .app-shell .docs-actions button, .app-shell .docs-notes-head button, .app-shell .docs-version-actions button,
+  .app-shell .overflow-menu-button { min-height: 44px; min-width: 44px; }
+  .app-shell .overflow-menu-list { min-width: min(260px, calc(100vw - 32px)); }
+  .app-shell .overflow-menu-item { min-height: 44px; }
+
+  .app-shell .chat-bar { margin-bottom: 8px; }
+  .app-shell .chat-picker { flex: 1 1 auto; }
+  .app-shell .chat-picker select { width: 100%; min-height: 44px; }
+  .app-shell .chat-new { min-height: 44px; }
+  .app-shell .chat-new-long { display: none; }
+  .app-shell .chat-new-short { display: inline; }
+  .app-shell .chat-suggestions button { min-height: 44px; }
+  .app-shell .chat-calm .bubble { max-width: 88%; }
+  .app-shell .chat-calm .bubble.assistant { max-width: 100%; }
+
+  /* With the keyboard up the bottom bar would sit behind it: hide it and drop its reserved space. */
+  html.keyboard-open .app-shell.is-chat .shell-bottom { display: none; }
+  html.keyboard-open .app-shell.is-chat .shell-main { padding-bottom: 0; }
+}
