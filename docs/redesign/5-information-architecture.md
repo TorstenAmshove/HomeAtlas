@@ -13,7 +13,7 @@ in die Top-Bar.
 | **Start** | – | `/` | alle |
 | **Geräte** | Liste · Netzplan · Netze & WLAN | `/geraete`, `/geraete/:id`, `/plan`, `/netze` | alle |
 | **Hilfe** | Dokumentation · Assistent | `/dokumentation`, `/dokumentation/:slug`, `/assistent` | alle |
-| **Zugänge** | – | `/zugaenge` | nur Admin |
+| **Zugänge** | – | `/zugaenge`, `/zugaenge/neu`, `/zugaenge/:id` | nur Admin |
 | **Mehr** | Scan · Benutzer · Protokoll · Einstellungen | `/scan`, `/benutzer`, `/protokoll`, `/einstellungen` | Admin alle Tabs, Mitglied nur Einstellungen |
 
 Mitglieder sehen 4 Bereiche, Admins 5; beides passt in eine Handy-Leiste ohne „Mehr“-Überlauf.
@@ -108,8 +108,9 @@ Ein Bereich pro PR, jeweils hinter dem Schalter:
 | 6 | Zugänge + Mehr | Zugänge, Scan, Benutzer, Protokoll, Einstellungen |
 | 7 | Gates | Login, MFA, Einrichtung (Ausweg aus der Einrichtung) |
 
-Fortschritt: **7 von 15 Oberflächen** (12 Seiten + 3 Gates): Start (PR 2), Geräte-Liste, Netzplan und Netze & WLAN
-(PR 3, Geräte), Gerät (PR 4), Dokumentation und Assistent (PR 5, Hilfe). Shell gebaut (PR 1): Schalter, Tokens,
+Fortschritt: **12 von 15 Oberflächen** (12 Seiten + 3 Gates): Start (PR 2), Geräte-Liste, Netzplan und Netze & WLAN
+(PR 3, Geräte), Gerät (PR 4), Dokumentation und Assistent (PR 5, Hilfe), Zugänge, Scan, Benutzer, Protokoll und
+Einstellungen (PR 6, Zugänge + Mehr). Shell gebaut (PR 1): Schalter, Tokens,
 Dunkelmodus, `frontend/src/shell/` (AppShell, ⌘K), Bausteine `components/Skeleton.tsx`,
 `components/ConfirmDialog.tsx`, `lib/useUndoToast.tsx`, `lib/useUrlState.ts`. Die Seiten zeigen in der
 neuen Shell vorerst noch ihren eigenen Seitenkopf; den nimmt jeweils der PR ihres Bereichs heraus.
@@ -120,6 +121,19 @@ neuen Shell vorerst noch ihren eigenen Seitenkopf; den nimmt jeweils der PR ihre
   „Stand letzter Scan“ für nicht überwachte kritische Geräte (B2), Ergebnis von „Internet prüfen“ mit
   Uhrzeit, Status-Chip statt KI-Absatz, Skeleton, kein Seitentitel. `recentlyChanged` bleibt bewusst
   ungenutzt. Bei ausgeschaltetem Schalter rendert `/` unverändert `DashboardPage.tsx`.
+- **Zugänge + Mehr** (PR 6, `pages/zugaenge/`, `pages/mehr/`, ein gemeinsames `mehr.css`): Zugänge als ruhige
+  Liste mit Suche in `?q=`; „Neuer Zugang“ und Bearbeiten als eigene Routen `/zugaenge/neu` und `/zugaenge/:id`
+  (in `ROUTES` mit `detail: true` bzw. `:id`, also „← Zugänge“ in der Top-Bar). Der Formular-Entwurf liegt im
+  `sessionStorage`, **ohne** Passwort, Token, privaten Schlüssel oder Passphrase (gespeichert wird nur, dass
+  etwas eingetippt war); Rückfrage beim Verlassen. „Anzeigen“ wie auf der Geräteseite (einzeln, 30 s).
+  Löschen mit Prüfdialog (Passwort weg, Gerät und Zuordnungen, die den Zugang verlieren, kein Rückgängig);
+  „Auf Gerät einspielen“ ebenfalls mit Prüfdialog; „Kein Passwort-Manager“ einmal, dann hinter „ⓘ“
+  (`localStorage`). Einstellungen: `?tab=` in **beiden** Oberflächen; neu: Reiterliste links, auf dem Handy
+  Liste → Unterseite, Rückfrage bei ungespeicherten Änderungen (Reiterwechsel und Verlassen), Token
+  widerrufen unter „⋯“ mit Prüfdialog. Benutzer: Löschen und „Zwei-Faktor zurücksetzen“ unter „⋯“ mit
+  Prüfdialog, Rollen hinter „ⓘ“. Protokoll: `?action=`/`?failures=1` in **beiden** Oberflächen, Status-Chips,
+  Skeleton. Scan: Zusammenfassung zuerst, Fortschritt nur bei sichtbarem Tab, „Was ist neu?“ nur aus der
+  Scan-Zusammenfassung. Dazu: die neue Geräteseite wird je Gerät neu aufgebaut (`key={id}`).
 - **Hilfe** (PR 5): Dokumentation ohne Seitenkopf, Kapitelliste links (Handy: Auswahl oben), Notfall immer
   zuerst und markiert, Kapitelkopf „Stand · automatisch erzeugt/von Hand bearbeitet · eigene Notiz“,
   Verlauf in `?versions=1`, „Neu erzeugen“/„Alles neu erzeugen“ unter „⋯“ mit Prüfdialog, nach „Neu

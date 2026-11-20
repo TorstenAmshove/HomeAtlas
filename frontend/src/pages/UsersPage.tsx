@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api, type Role, type User } from "../lib/api";
 import { useAuth } from "../App";
+import { useUi } from "../shell/ui";
+import UsersCalm from "./mehr/UsersCalm";
 
 const ROLE_LABEL: Record<Role, string> = {
   ADMIN: "Administrator",
@@ -12,7 +14,13 @@ const ROLE_HELP: Record<Role, string> = {
   MEMBER: "Liest die Dokumentation und nutzt den KI-Assistenten. Sieht keine Passwörter, ändert nichts.",
 };
 
+/** New UI: own component (pages/mehr/UsersCalm.tsx); otherwise the classic page, unchanged. */
 export default function UsersPage() {
+  const { calm } = useUi();
+  return calm ? <UsersCalm /> : <UsersClassic />;
+}
+
+function UsersClassic() {
   const { user: me } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [creating, setCreating] = useState(false);

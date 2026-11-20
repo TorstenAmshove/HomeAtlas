@@ -389,14 +389,16 @@ Quelle: `frontend/src/pages/SystemDetailPage.tsx:59`, `:317`, `:359`, `:377`, `:
 ### Requirement: Detailseite in der neuen Oberfläche
 Bei eingeschalteter neuer Oberfläche (`uiCalm` bzw. `?ui=calm`) MUSS `/geraete/:id` dieselben Inhalte
 und Aktionen wie die klassische Detailseite zeigen, aufgeteilt auf Tabs in `?tab=` (`ueberblick`
-Standard · `technik` · `verlauf` · `zugaenge` · `steuern`); nichts entfällt. Nur „Überblick“ trägt die
+Standard · `technik` · `verlauf` · `zugaenge` · `steuern`); für jede Rolle entfällt nichts, was sie
+vorher erreichen konnte. Nur „Überblick“ trägt die
 Zusammenfassung (Status, seit wann, Adresse, Quelle, Wichtigkeit/Überwachung) und genau eine
 Hauptaktion: nicht erreichbar, live überwacht und ADMIN → „Jetzt neu prüfen“ (`POST /api/monitor/run`)
 plus „Assistent fragen“; nicht erreichbar, aber nicht live überwacht (oder MEMBER) → „Assistent
 fragen“ (ein Überwachungslauf prüft unbeobachtete Geräte gar nicht); sonst „Weboberfläche ↗“, falls
 eine URL hinterlegt ist. Die Weboberfläche bleibt im ersten Fall als Nebenaktion erreichbar.
 Wechselt die Seite direkt zu einem anderen Gerät, baut das Formular nur auf den Daten des Geräts aus
-der URL auf, nie auf denen des vorherigen. Der Status ist nur
+der URL auf, nie auf denen des vorherigen; die Seite wird dabei neu aufgebaut (`key` = Geräte-ID in
+`App.tsx`), sodass angezeigte Passwörter und Seitenzustand nicht mitwandern. Der Status ist nur
 „live“, wenn die Dauerüberwachung an ist und das Gerät beobachtet (`GET /api/monitor`), sonst „Stand
 letzter Scan“ (dieselbe Regel wie die Startseite). „Zugänge“ und „Steuern“ gibt es nur für ADMIN
 (Mitglieder sehen wie bisher keine Zugänge). Löschen und Zusammenführen liegen unter „⋯“ und

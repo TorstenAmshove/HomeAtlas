@@ -76,6 +76,8 @@ export interface RouteEntry {
    * rather than drilling into a detail page: the shell keeps the tab row and shows no "← list".
    */
   sibling?: boolean;
+  /** A static path that is still a detail page of its list (`/zugaenge/neu`): "← list" like `:id` routes. */
+  detail?: boolean;
 }
 
 /** Every routed page. scripts/check-nav.ts compares this with App.tsx in both directions. */
@@ -90,6 +92,8 @@ export const ROUTES: RouteEntry[] = [
   { path: "/assistent", area: "hilfe", tab: "assistent", title: "Assistent" },
   { path: "/assistent/:chatId", area: "hilfe", tab: "assistent", title: "Assistent", sibling: true },
   { path: "/zugaenge", area: "zugaenge", title: "Zugänge", adminOnly: true },
+  { path: "/zugaenge/neu", area: "zugaenge", title: "Neuer Zugang", adminOnly: true, detail: true },
+  { path: "/zugaenge/:id", area: "zugaenge", title: "Zugang", adminOnly: true },
   { path: "/scan", area: "mehr", tab: "scan", title: "Netzwerk-Scan", adminOnly: true },
   { path: "/benutzer", area: "mehr", tab: "benutzer", title: "Benutzer", adminOnly: true },
   { path: "/protokoll", area: "mehr", tab: "protokoll", title: "Protokoll", adminOnly: true },
