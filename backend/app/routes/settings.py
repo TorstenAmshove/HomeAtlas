@@ -93,7 +93,10 @@ def _unmask_patch(patch: dict, current: dict) -> dict:
                 cleaned[encrypted] = crypto.encrypt(value)
         cleaned.pop(f"has{plain[0].upper()}{plain[1:]}", None)
     if db.UI_CALM_KEY in cleaned:
-        value = bool(cleaned[db.UI_CALM_KEY])
+        value = cleaned[db.UI_CALM_KEY]
+        # A real JSON boolean only: bool("false") is True, so a string would switch the UI *on*.
+        if not isinstance(value, bool):
+            raise HTTPException(status_code=422, detail="uiCalm muss true oder false sein.")
         # Tabs that save the whole form echo the effective value back. Writing it would freeze the
         # HOMEATLAS_UI_CALM_DEFAULT fallback without anyone having touched the switch, so an
         # unchanged value is only kept when it was already stored.

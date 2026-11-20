@@ -90,7 +90,7 @@ MUSS die Umgebungsvariable `HOMEATLAS_UI_CALM_DEFAULT=1` ihn einschalten; ein ge
 immer vor. Ein Speichern, das den wirksamen Wert unverändert zurückschickt (ganze Formulare), DARF
 den Schlüssel nicht erstmals speichern. `GET /api/health` MUSS den wirksamen Wert als `uiCalm` neben
 `setupCompleted` liefern; `GET`/`PATCH /api/settings` liefern ihn für Admins ebenfalls. Nur Admins
-können ihn ändern (`PATCH /api/settings`, Wert wird zu bool). Ist er aus, MUSS die Oberfläche genau
+können ihn ändern (`PATCH /api/settings`, nur ein JSON-Boolean; jeder andere Wert wird mit 422 abgelehnt). Ist er aus, MUSS die Oberfläche genau
 wie vorher aussehen; der Browser-Override `?ui=calm` / `?ui=classic` liegt nur im `localStorage`
 dieses Browsers. **[Muss]**
 

@@ -22,7 +22,6 @@ import "./shell.css";
 const ICONS: Record<IconName, LucideIcon> = { Home, Server, BookOpen, KeyRound, Ellipsis };
 
 const THEME_COLOR = { light: "#fafaf9", dark: "#161615" } as const;
-const CLASSIC_THEME_COLOR = "#0b1120";
 
 function useResolvedTheme(mode: ThemeMode): "light" | "dark" {
   const query = "(prefers-color-scheme: dark)";
@@ -40,10 +39,15 @@ function useResolvedTheme(mode: ThemeMode): "light" | "dark" {
 /** theme-color follows the mode; viewport-fit=cover enables the safe-area insets. Both are put
  *  back when the shell unmounts, so the old UI keeps its exact <head>. */
 function useDocumentChrome(theme: "light" | "dark") {
+  // The page's own theme-color (index.html), read once on mount and put back on unmount, so it can't
+  // drift from a hard-coded copy.
   useEffect(() => {
     const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-    meta?.setAttribute("content", THEME_COLOR[theme]);
-    return () => meta?.setAttribute("content", CLASSIC_THEME_COLOR);
+    const original = meta?.getAttribute("content") ?? null;
+    return () => { if (meta && original !== null) meta.setAttribute("content", original); };
+  }, []);
+  useEffect(() => {
+    document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute("content", THEME_COLOR[theme]);
   }, [theme]);
   useEffect(() => {
     const viewport = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');

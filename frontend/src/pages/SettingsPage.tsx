@@ -71,7 +71,8 @@ export default function SettingsPage() {
     setNotice(null);
     try {
       const { settings } = await api.updateSettings({ uiCalm: value });
-      setForm(settings);
+      // Only the switch itself: replacing the whole form would drop unsaved edits (e.g. homeName).
+      setForm((current) => ({ ...current, uiCalm: settings.uiCalm }));
       ui.setServerCalm(Boolean(settings.uiCalm));
     } catch (e) {
       setNotice({ kind: "error", text: e instanceof Error ? e.message : String(e) });

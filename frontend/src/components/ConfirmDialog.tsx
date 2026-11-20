@@ -28,15 +28,21 @@ export default function ConfirmDialog({
   onCancel: () => void;
 }) {
   const cancelRef = useRef<HTMLButtonElement>(null);
+  // Latest props via refs, so an inline `onCancel` or a `busy` flip doesn't re-run the focus effect
+  // (which would steal focus back to "Abbrechen" and forget the element that opened the dialog).
+  const onCancelRef = useRef(onCancel);
+  const busyRef = useRef(busy);
+  onCancelRef.current = onCancel;
+  busyRef.current = busy;
 
   useEffect(() => {
     if (!open) return;
     const previouslyFocused = document.activeElement as HTMLElement | null;
     cancelRef.current?.focus();
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !busy) {
+      if (event.key === "Escape" && !busyRef.current) {
         event.preventDefault();
-        onCancel();
+        onCancelRef.current();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -44,7 +50,7 @@ export default function ConfirmDialog({
       window.removeEventListener("keydown", onKey);
       previouslyFocused?.focus?.();
     };
-  }, [open, busy, onCancel]);
+  }, [open]);
 
   if (!open) return null;
 

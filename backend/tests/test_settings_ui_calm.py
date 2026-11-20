@@ -56,3 +56,11 @@ def test_member_cannot_write(temp_db, monkeypatch):
     finally:
         main.app.dependency_overrides.clear()
     assert db.ui_calm() is False
+
+
+@pytest.mark.parametrize("value", ["false", "true", 1, 0, None])
+def test_non_boolean_is_rejected(client, value):
+    # bool("false") is True -- a string must not be able to switch the UI on.
+    response = client.patch("/api/settings", json={"uiCalm": value})
+    assert response.status_code == 422
+    assert db.UI_CALM_KEY not in db.get_settings()
