@@ -6,6 +6,9 @@ import ConfirmDialog from "./components/ConfirmDialog";
 import LoginPage from "./pages/LoginPage";
 import MfaEnrollPage from "./pages/MfaEnrollPage";
 import SetupPage from "./pages/SetupPage";
+import LoginCalm from "./gates/LoginCalm";
+import MfaEnrollCalm from "./gates/MfaEnrollCalm";
+import SetupCalm from "./gates/SetupCalm";
 import DashboardPage from "./pages/DashboardPage";
 import StartCalm from "./pages/start/StartCalm";
 import InventoryPage from "./pages/InventoryPage";
@@ -83,12 +86,17 @@ export default function App() {
   };
 
   const refresh = useCallback(async () => {
-    try {
-      const [me, health] = await Promise.all([api.me(), api.health()]);
-      setUser(me.user);
+    // /api/health is public: its answer (uiCalm included) is applied even when /me says "not logged
+    // in", so the login gate already follows the instance-wide switch, not only the last known value.
+    const healthRequest = api.health().then((health) => {
       setSetupCompleted(health.setupCompleted);
       setServerCalm(Boolean(health.uiCalm));
       setLastServerCalm(Boolean(health.uiCalm));
+      return health;
+    });
+    try {
+      const [me] = await Promise.all([api.me(), healthRequest]);
+      setUser(me.user);
     } catch (error) {
       // A 401 is the normal "not logged in yet" case, not something to surface.
       if (!(error instanceof ApiError && error.status === 401)) console.error(error);
@@ -155,7 +163,19 @@ export default function App() {
     );
   }
 
-  if (!user) return <LoginPage onLoggedIn={() => void refresh()} />;
+  // The gates (login -> MFA -> setup) render before the app. With the switch on they use the
+  // redesigned versions in gates/; the order and the conditions are the same for both, and the
+  // backend enforces them independently (deps.current_user, POST /api/setup).
+  if (!user) {
+    if (calm) {
+      return (
+        <UiContext.Provider value={ui}>
+          <LoginCalm onLoggedIn={() => void refresh()} />
+        </UiContext.Provider>
+      );
+    }
+    return <LoginPage onLoggedIn={() => void refresh()} />;
+  }
 
   const isAdmin = user.role === "ADMIN";
 
@@ -165,7 +185,9 @@ export default function App() {
   if (!user.totpEnabled) {
     return (
       <AuthContext.Provider value={{ user, isAdmin, setUser, logout }}>
-        <MfaEnrollPage onDone={() => void refresh()} />
+        <UiContext.Provider value={ui}>
+          {calm ? <MfaEnrollCalm onDone={() => void refresh()} /> : <MfaEnrollPage onDone={() => void refresh()} />}
+        </UiContext.Provider>
       </AuthContext.Provider>
     );
   }
@@ -175,7 +197,9 @@ export default function App() {
   if (!setupCompleted && isAdmin) {
     return (
       <AuthContext.Provider value={{ user, isAdmin, setUser, logout }}>
-        <SetupPage onDone={() => void refresh()} />
+        <UiContext.Provider value={ui}>
+          {calm ? <SetupCalm onDone={() => void refresh()} /> : <SetupPage onDone={() => void refresh()} />}
+        </UiContext.Provider>
       </AuthContext.Provider>
     );
   }
