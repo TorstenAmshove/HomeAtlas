@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { api, DUPLICATE_REASON_LABEL, type DuplicateCandidate, type System } from "../lib/api";
 import { useAuth } from "../App";
 import { KindIcon } from "../lib/icons";
+import { matchesDeviceQuery } from "../lib/search";
 
 const STATUS_LABEL: Record<string, string> = {
   online: "erreichbar",
@@ -110,16 +111,11 @@ export default function InventoryPage() {
   }, []);
 
   const visible = useMemo(() => {
-    const needle = query.trim().toLowerCase();
     const filtered = systems.filter((s) => {
       if (kind && s.kind !== kind) return false;
       if (parentId && s.parentId !== parentId) return false;
       if (project && projectOf(s) !== project) return false;
-      if (!needle) return true;
-      return [s.name, s.hostname, s.ip, s.mac, s.vendor, s.model, s.location, s.purpose]
-        .join(" ")
-        .toLowerCase()
-        .includes(needle);
+      return matchesDeviceQuery(s, query);
     });
     if (!sort) return filtered; // natural order -- critical devices already first, see list_systems
     const sign = sort.dir === "asc" ? 1 : -1;

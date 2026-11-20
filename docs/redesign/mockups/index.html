@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HomeAtlas – Redesign B (hell + dunkel)</title>
+<style>
+/* ============================================================ comparison chrome (not part of the designs) */
+* { box-sizing: border-box; }
+body { margin: 0; font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background: #e7e5e4; color: #1c1917; }
+.bar { position: sticky; top: 0; z-index: 10; background: #1c1917; color: #fafaf9; padding: 10px 18px; display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.bar h1 { font-size: 15px; margin: 0 8px 0 0; }
+.bar .seg { display: flex; gap: 2px; background: #44403c; padding: 2px; border-radius: 8px; flex-wrap: wrap; }
+.bar button { font: inherit; border: 0; background: transparent; color: #d6d3d1; padding: 5px 11px; border-radius: 6px; cursor: pointer; }
+.bar button.on { background: #fafaf9; color: #1c1917; font-weight: 600; }
+.bar .note { color: #a8a29e; font-size: 12px; margin-left: auto; }
+.cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; padding: 18px; }
+.col h2 { margin: 0; font-size: 16px; }
+.col .desc { color: #57534e; font-size: 12.5px; margin: 2px 0 10px; min-height: 38px; }
+.frame { background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 6px 24px rgba(0,0,0,.18); position: relative; margin-bottom: 14px; }
+.frame > .inner { transform-origin: 0 0; position: absolute; top: 0; left: 0; }
+.frame.phone { border-radius: 34px; border: 8px solid #1c1917; margin-left: auto; margin-right: auto; }
+.lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #78716c; margin: 0 0 4px; }
+.pick { margin: 0 18px 30px; background: #fff; border-radius: 10px; padding: 16px 20px; max-width: 1100px; }
+.pick h3 { margin: 0 0 6px; }
+@media (max-width: 1000px) { .cols { grid-template-columns: 1fr; } }
+
+/* ============================================================ shared structure of the app mockups */
+.app { width: 100%; height: 100%; display: flex; font-size: 14px; line-height: 1.45; overflow: hidden; }
+.app.phone { flex-direction: column; }
+.app svg.i { width: 18px; height: 18px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.side { width: 212px; flex: none; display: flex; flex-direction: column; padding: 16px 12px; gap: 2px; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 2px 8px 16px; }
+.brand .logo { width: 30px; height: 30px; flex: none; }
+.brand b { display: block; font-size: 14px; line-height: 1.15; }
+.brand small { display: block; font-size: 11px; opacity: .65; }
+.area { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; font-weight: 500; }
+.side .foot { margin-top: auto; font-size: 11px; opacity: .6; padding: 0 8px; }
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+.top { display: flex; align-items: center; gap: 4px; padding: 0 22px; height: 52px; flex: none; }
+.top .t { font-weight: 650; margin-right: 14px; font-size: 15px; }
+.tab { padding: 6px 12px; border-radius: 7px; font-weight: 500; white-space: nowrap; }
+.top .sp { flex: 1; }
+.kbar { display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 8px; font-size: 12.5px; width: 210px; }
+.kbar kbd { margin-left: auto; font: 11px ui-monospace, monospace; opacity: .7; }
+.body { flex: 1; overflow: hidden; padding: 20px 22px; min-height: 0; }
+.phone .ptop { flex: none; padding: 44px 16px 0; }
+.phone .ptop .row1 { display: flex; align-items: center; gap: 10px; height: 36px; }
+.phone .ptop .row1 b { font-size: 17px; flex: 1; }
+.phone .ptabs { display: flex; gap: 4px; padding: 8px 0 10px; overflow: hidden; }
+.tabrow { flex-wrap: nowrap !important; overflow: hidden; }
+.phone .body { padding: 12px 16px; }
+.bnav { flex: none; display: flex; justify-content: space-around; padding: 8px 6px 26px; }
+.bnav div { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10.5px; font-weight: 500; min-width: 56px; }
+.bnav svg.i { width: 22px; height: 22px; }
+
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+.chip .d { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.btn { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; padding: 7px 13px; border-radius: 8px; font-size: 13px; white-space: nowrap; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.quiet { font-size: 13px; }
+.quiet b { font-weight: 650; }
+.list { margin: 0; padding: 0; list-style: none; }
+.list li { display: flex; align-items: center; gap: 10px; padding: 9px 12px; }
+.list li .n { flex: 1; min-width: 0; }
+.list li .n b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.list li .n small { display: block; font-size: 12px; opacity: .65; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sec { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; margin: 18px 0 6px; opacity: .6; }
+.g2 { display: grid; grid-template-columns: 1.25fr 1fr; gap: 18px; }
+.phone .g2 { grid-template-columns: 1fr; gap: 0; }
+.strip { display: flex; flex-wrap: wrap; gap: 0; }
+.strip > div { padding: 8px 14px; min-width: 0; }
+.strip small { display: block; font-size: 11px; opacity: .6; }
+.strip b { font-weight: 600; font-size: 13px; }
+.chat .b { max-width: 78%; padding: 10px 13px; border-radius: 14px; margin-bottom: 10px; font-size: 13.5px; }
+.chat .u { margin-left: auto; }
+.tool { font: 11.5px ui-monospace, monospace; padding: 2px 8px; border-radius: 6px; display: inline-block; margin: 2px 4px 2px 0; }
+.compose { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 12px; margin-top: 8px; }
+.compose span { flex: 1; opacity: .55; }
+.steps { margin: 0; padding-left: 0; list-style: none; counter-reset: s; }
+.steps li { counter-increment: s; padding: 9px 0 9px 36px; position: relative; }
+.steps li::before { content: counter(s); position: absolute; left: 0; top: 8px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 12px; }
+.planbox { border-radius: 12px; padding: 10px; }
+.plan svg { width: 100%; height: auto; display: block; }
+.more { opacity: .55; font-size: 12.5px; }
+
+/* ============================================================ A · Eigene Identität (HomeAtlas, leicht getrimmt) */
+.A { --bg:#0b1120; --el:#131c31; --hv:#1b2540; --bd:#26304a; --tx:#e8edf7; --mu:#94a3b8; --ac:#38bdf8; --acs:#0ea5e9; --ok:#34d399; --warn:#fbbf24; --bad:#f87171;
+  background: var(--bg); color: var(--tx); font-family: "Segoe UI", system-ui, sans-serif; }
+.A .side { background: var(--el); border-right: 1px solid var(--bd); }
+.A .area { color: var(--mu); }
+.A .area.on { background: var(--hv); color: var(--tx); box-shadow: inset 3px 0 0 var(--ac); }
+.A .top { border-bottom: 1px solid var(--bd); }
+.A .tab { color: var(--mu); }
+.A .tab.on { color: var(--tx); background: var(--hv); }
+.A .kbar { background: var(--bg); border: 1px solid var(--bd); color: var(--mu); }
+.A .ptop { background: var(--bg); }
+.A .bnav { background: var(--el); border-top: 1px solid var(--bd); color: var(--mu); }
+.A .bnav .on { color: var(--ac); }
+.A .card { background: var(--el); border: 1px solid var(--bd); border-radius: 12px; }
+.A .chip { background: var(--hv); color: var(--mu); border: 1px solid var(--bd); }
+.A .chip.ok { color: var(--ok); background: rgba(52,211,153,.1); border-color: rgba(52,211,153,.35); }
+.A .chip.bad { color: var(--bad); background: rgba(248,113,113,.1); border-color: rgba(248,113,113,.4); }
+.A .chip.warn { color: var(--warn); background: rgba(251,191,36,.1); border-color: rgba(251,191,36,.35); }
+.A .btn { background: var(--acs); color: #05192b; }
+.A .btn.s { background: var(--hv); color: var(--tx); border: 1px solid var(--bd); }
+.A .hero { background: linear-gradient(135deg, rgba(248,113,113,.14), rgba(19,28,49,1) 60%); border: 1px solid rgba(248,113,113,.35); border-radius: 12px; padding: 14px 16px; }
+.A .hero.okay { background: linear-gradient(135deg, rgba(52,211,153,.14), rgba(19,28,49,1) 60%); border-color: rgba(52,211,153,.35); }
+.A .hero h3 { margin: 0 0 2px; font-size: 16px; }
+.A .quiet { color: var(--mu); } .A .quiet b { color: var(--tx); }
+.A .list li { border-bottom: 1px solid var(--bd); } .A .list li:last-child { border-bottom: 0; }
+.A .strip { background: var(--el); border: 1px solid var(--bd); border-radius: 12px; }
+.A .strip > div + div { border-left: 1px solid var(--bd); }
+.A .chat .a { background: var(--el); border: 1px solid var(--bd); border-bottom-left-radius: 4px; }
+.A .chat .u { background: var(--acs); color: #05192b; border-bottom-right-radius: 4px; }
+.A .tool { background: var(--bg); border: 1px solid var(--bd); color: var(--mu); }
+.A .compose { background: var(--el); border: 1px solid var(--bd); }
+.A .steps li { border-bottom: 1px solid var(--bd); } .A .steps li::before { background: var(--hv); color: var(--ac); }
+.A .planbox { background: var(--el); border: 1px solid var(--bd); }
+.A .accent { color: var(--ac); }
+
+/* ============================================================ B · Reduziert, minimal */
+/* Palette B (gewählt): hell = warmes Papier, dunkel = neutrales Graphit (kein Navy). Ein Akzent „Atlas-Blau“, Statusfarben nur für Status. */
+.B { --bg:#fafaf9; --el:#ffffff; --sf2:#f0efee; --tx:#1c1917; --btx:#ffffff; --mu:#6f6a64; --ln:#e7e5e4; --ac:#2f6fdb; --ok:#15803d; --bad:#b91c1c; --warn:#a16207;
+  background: var(--bg); color: var(--tx); font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
+.B .side { border-right: 1px solid var(--ln); }
+.B .brand small { display: none; }
+.B .area { color: var(--mu); padding: 6px 10px; }
+.B .area svg { display: none; }
+.B .area.on { color: var(--tx); font-weight: 650; }
+.B .area.on::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--ac); margin-left: -12px; margin-right: 2px; }
+.B .top { border-bottom: 1px solid var(--ln); }
+.B .tab { color: var(--mu); border-radius: 0; padding: 4px 2px; margin-right: 14px; }
+.B .top .tab { padding: 15px 2px; }
+.B .tab.on { color: var(--tx); box-shadow: inset 0 -2px 0 var(--tx); }
+.B .top .t { display: none; }
+.B .kbar { border: 1px solid var(--ln); color: var(--mu); background: var(--el); }
+.B .bnav { border-top: 1px solid var(--ln); color: var(--mu); background: var(--el); }
+.B .bnav .on { color: var(--tx); }
+.B .card { background: transparent; }
+.B .chip { padding: 0; font-weight: 500; color: var(--mu); }
+.B .chip.ok { color: var(--ok); } .B .chip.bad { color: var(--bad); } .B .chip.warn { color: var(--warn); }
+.B .btn { background: var(--tx); color: var(--btx); border-radius: 6px; }
+.B .btn.s { background: transparent; color: var(--tx); border: 1px solid var(--ln); }
+.B .hero { border-left: 3px solid var(--bad); padding: 4px 0 4px 14px; }
+.B .hero.okay { border-left-color: var(--ok); }
+.B .hero h3 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -.01em; }
+.B .quiet { color: var(--mu); } .B .quiet b { color: var(--tx); }
+.B .list li { border-bottom: 1px solid var(--ln); padding-left: 0; padding-right: 0; }
+.B .list li svg.i { display: none; }
+.B .strip > div { padding: 4px 22px 4px 0; }
+.B .chat .a { background: transparent; padding-left: 0; max-width: 92%; }
+.B .chat .u { background: var(--sf2); }
+.B .tool { color: var(--mu); padding: 0; }
+.B .compose { border: 1px solid var(--ln); background: var(--el); }
+.B .steps li { border-bottom: 1px solid var(--ln); } .B .steps li::before { border: 1px solid var(--ln); color: var(--mu); }
+.B .planbox { border: 1px solid var(--ln); }
+.B .accent { color: var(--ac); }
+.B.BD { --bg:#161615; --el:#1e1e1c; --sf2:#2a2926; --tx:#ecebe8; --btx:#161615; --mu:#9a968e; --ln:#2e2d2a; --ac:#8ab4ff; --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; color-scheme: dark; }
+.B .sec { opacity: 1; color: var(--mu); font-weight: 600; text-transform: none; letter-spacing: 0; font-size: 12.5px; }
+
+/* ============================================================ C · Kräftiger Produkt-Look */
+.C { --bg:#0a0a12; --el:#15151f; --hv:#1f1f2e; --bd:#2a2a3c; --tx:#f5f5fa; --mu:#9b9bb4; --g1:#22d3ee; --g2:#a78bfa; --ok:#4ade80; --bad:#fb7185; --warn:#facc15;
+  background: var(--bg); color: var(--tx); font-family: "Inter", ui-sans-serif, system-ui, sans-serif; }
+.C .side { background: var(--bg); border-right: 1px solid var(--bd); }
+.C .area { color: var(--mu); border-radius: 12px; padding: 10px 12px; font-weight: 600; }
+.C .area.on { background: linear-gradient(90deg, rgba(34,211,238,.18), rgba(167,139,250,.18)); color: var(--tx); }
+.C .top .t { font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+.C .top { height: 62px; }
+.C .tab { color: var(--mu); border-radius: 999px; font-weight: 600; }
+.C .tab.on { background: var(--tx); color: var(--bg); }
+.C .kbar { background: var(--el); color: var(--mu); border-radius: 999px; }
+.C .bnav { margin: 0 14px 18px; padding: 10px 6px; border-radius: 22px; background: rgba(31,31,46,.95); color: var(--mu); }
+.C .bnav .on { color: var(--g1); }
+.C .card { background: var(--el); border-radius: 18px; }
+.C .chip { background: var(--hv); color: var(--mu); }
+.C .chip.ok { color: #052e16; background: var(--ok); } .C .chip.bad { color: #4c0519; background: var(--bad); } .C .chip.warn { color: #422006; background: var(--warn); }
+.C .btn { background: linear-gradient(90deg, var(--g1), var(--g2)); color: #0a0a12; border-radius: 999px; padding: 8px 16px; }
+.C .btn.s { background: var(--hv); color: var(--tx); }
+.C .hero { background: radial-gradient(120% 140% at 0% 0%, rgba(251,113,133,.35), transparent 55%), var(--el); border-radius: 22px; padding: 20px 22px; }
+.C .hero.okay { background: radial-gradient(120% 140% at 0% 0%, rgba(74,222,128,.3), transparent 55%), var(--el); }
+.C .hero h3 { margin: 0 0 4px; font-size: 26px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+.C .quiet { color: var(--mu); } .C .quiet b { color: var(--tx); }
+.C .list li { background: var(--el); border-radius: 14px; margin-bottom: 6px; padding: 11px 14px; }
+.C .strip { gap: 8px; } .C .strip > div { background: var(--el); border-radius: 14px; flex: 1; }
+.C .chat .a { background: var(--el); border-radius: 18px 18px 18px 6px; }
+.C .chat .u { background: linear-gradient(90deg, var(--g1), var(--g2)); color: #0a0a12; border-radius: 18px 18px 6px 18px; }
+.C .tool { background: var(--hv); color: var(--g1); border-radius: 999px; }
+.C .compose { background: var(--el); border-radius: 999px; }
+.C .steps li { background: var(--el); border-radius: 14px; margin-bottom: 6px; padding-right: 12px; } .C .steps li::before { left: 10px; background: linear-gradient(135deg, var(--g1), var(--g2)); color: #0a0a12; }
+.C .steps li { padding-left: 46px; }
+.C .planbox { background: var(--el); border-radius: 18px; }
+.C .accent { background: linear-gradient(90deg, var(--g1), var(--g2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.C .sec { opacity: 1; color: var(--mu); }
+</style>
+</head>
+<body>
+<div class="bar">
+  <h1>HomeAtlas · Redesign B</h1>
+  <div class="seg" id="screens"></div>
+  <div class="seg" id="views"></div>
+  <span class="note">Beispieldaten in der Form der echten API (kein Zugriff auf docker.lan)</span>
+</div>
+<div class="cols" id="cols"></div>
+<div class="pick">
+  <h3>Gewählt: B, mit Dunkelmodus</h3>
+  <p>Hell und dunkel teilen Struktur und Abstände, nur die Farbwerte wechseln (CSS-Variablen). Standard ist „wie das System“, damit das Handy nachts automatisch dunkel ist. A und C liegen in der Git-Historie dieser Datei.</p>
+  <p class="more">Palette – hell: Grund #fafaf9, Fläche #fff, Text #1c1917, gedämpft #6f6a64, Linie #e7e5e4, Akzent #2f6fdb · dunkel: Grund #161615, Fläche #1e1e1c, Text #ecebe8, gedämpft #9a968e, Linie #2e2d2a, Akzent #8ab4ff · Status hell/dunkel: ok #15803d/#4ade80, Fehler #b91c1c/#f87171, Warnung #a16207/#fbbf24.</p>
+</div>
+
+<script>
+/* ---------------------------------------------------------------- sample data (shape of /api/dashboard, /api/systems) */
+const HOME = "Zuhause Lindenweg";
+const COUNTS = { total: 57, online: 41, critical: 6, accounts: 14, monitoredOffline: 1 };
+const LAST_SCAN = "heute 03:00";
+const CRIT = [
+  ["FRITZ!Box 7590 AX", "192.168.178.1 · Router", "ok", "erreichbar"],
+  ["Heizung (Vitoconnect)", "192.168.178.61 · Keller", "bad", "seit 07:42 nicht erreichbar"],
+  ["UniFi Switch Lite 16 PoE", "192.168.178.2 · Technikraum", "ok", "erreichbar"],
+  ["Synology DS920+", "192.168.178.10 · Netzwerkspeicher", "ok", "erreichbar"],
+  ["Proxmox pve01", "192.168.178.20 · 9 Container/VMs", "ok", "erreichbar"],
+  ["Home Assistant", "192.168.178.30 · VM auf pve01", "ok", "erreichbar"],
+];
+const DEVICES = [
+  ["FRITZ!Box 7590 AX", "192.168.178.1", "Router", "Flur", "ok", true],
+  ["Heizung (Vitoconnect)", "192.168.178.61", "Heizung", "Keller", "bad", true],
+  ["Synology DS920+", "192.168.178.10", "Netzwerkspeicher", "Technikraum", "ok", true],
+  ["Proxmox pve01", "192.168.178.20", "Server", "Technikraum", "ok", true],
+  ["Home Assistant", "192.168.178.30", "Virtuelle Maschine", "pve01", "ok", true],
+  ["UniFi Switch Lite 16 PoE", "192.168.178.2", "Netzwerk-Gerät", "Technikraum", "ok", true],
+  ["UniFi U6 Pro Wohnzimmer", "192.168.178.3", "Netzwerk-Gerät", "Wohnzimmer", "ok", false],
+  ["Brother HL-L2350DW", "192.168.178.50", "Drucker", "Arbeitszimmer", "bad", false],
+  ["Shelly Plus 1PM Garage", "192.168.178.60", "Smart Home", "Garage", "ok", false],
+  ["SMA Sunny Tripower", "192.168.178.90", "Energie", "Keller", "ok", false],
+  ["Sonos Wohnzimmer", "192.168.178.80", "Medien", "Wohnzimmer", "ok", false],
+  ["Reolink Einfahrt", "192.168.178.70", "Kamera", "außen", "ok", false],
+];
+const KINDS = [["Container", 14], ["Mobilgerät", 9], ["Smart Home", 8], ["Netzwerk-Gerät", 5], ["Computer", 5], ["Medien", 4], ["weitere", 12]];
+
+/* ---------------------------------------------------------------- icons (lucide-style strokes) */
+const P = {
+  home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+  dev: '<rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/>',
+  help: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 8h6M9 12h4"/>',
+  key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 8-8M16 7l3 3"/>',
+  more: '<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  heat: '<path d="M12 3c2 3 5 5 5 9a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3 0-3-1-5 1-7.5z"/>',
+  router: '<rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 16.5h.01M11 16.5h.01M8 9a6 6 0 0 1 8 0M5.5 6.5a10 10 0 0 1 13 0"/>',
+  chev: '<path d="m9 6 6 6-6 6"/>',
+  send: '<path d="M4 12 20 4l-6 16-3-7z"/>',
+  mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+};
+const ic = (n) => `<svg class="i" viewBox="0 0 24 24">${P[n]}</svg>`;
+const LOGO = `<svg class="logo" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#132038"/><path d="M256 92 L436 232 L404 232 L404 246 L108 246 L108 232 L76 232 Z" fill="#38bdf8"/><path d="M124 246 H388 V404 a24 24 0 0 1 -24 24 H148 a24 24 0 0 1 -24 -24 Z" fill="#1b2540" stroke="#38bdf8" stroke-width="10"/><circle cx="256" cy="330" r="74" fill="#0b1120" stroke="#26304a" stroke-width="8"/><path d="M256 268 L280 318 L256 306 L232 318 Z" fill="#7dd3fc"/><path d="M256 392 L232 342 L256 354 L280 342 Z" fill="#64748b"/><circle cx="256" cy="248" r="9" fill="#34d399"/><circle cx="338" cy="330" r="9" fill="#34d399"/><circle cx="174" cy="330" r="9" fill="#34d399"/><circle cx="256" cy="412" r="9" fill="#34d399"/></svg>`;
+
+/* ---------------------------------------------------------------- information architecture (same in A, B, C) */
+const AREAS = [
+  ["start", "Start", "home", []],
+  ["geraete", "Geräte", "dev", ["Liste", "Netzplan", "Netze & WLAN"]],
+  ["hilfe", "Hilfe", "help", ["Dokumentation", "Assistent"]],
+  ["zugaenge", "Zugänge", "key", []],
+  ["mehr", "Mehr", "more", ["Scan", "Benutzer", "Protokoll", "Einstellungen"]],
+];
+
+function shell(dir, phone, area, tab, title, body, extraTop = "", noTabs = false) {
+  const ar = AREAS.find((a) => a[0] === area);
+  const tabs = noTabs ? "" : ar[3].map((t) => `<span class="tab${t === tab ? " on" : ""}">${t}</span>`).join("");
+  if (phone) {
+    return `<div class="app phone ${dir}">
+      <div class="ptop"><div class="row1">${dir === "A" ? LOGO.replace('class="logo"', 'class="logo" style="width:26px;height:26px"') : ""}<b>${title}</b>${ic("search")}</div>
+      ${tabs ? `<div class="ptabs">${tabs}</div>` : '<div style="height:8px"></div>'}${extraTop}</div>
+      <div class="body">${body}</div>
+      <div class="bnav">${AREAS.map((a) => `<div class="${a[0] === area ? "on" : ""}">${ic(a[2])}${a[1]}</div>`).join("")}</div>
+    </div>`;
+  }
+  return `<div class="app ${dir}">
+    <nav class="side"><div class="brand">${LOGO}<div><b>${HOME}</b><small>HomeAtlas · Dein Zuhause, dokumentiert</small></div></div>
+      ${AREAS.map((a) => `<div class="area${a[0] === area ? " on" : ""}">${ic(a[2])}${a[1]}</div>`).join("")}
+      <div class="foot">Angemeldet als admin · Administrator</div></nav>
+    <div class="main"><div class="top"><span class="t">${title}</span>${tabs}<span class="sp"></span>
+      <span class="kbar">${ic("search")}Suchen …<kbd>⌘K</kbd></span></div>
+      ${extraTop}<div class="body">${body}</div></div>
+  </div>`;
+}
+
+const chip = (k, t) => `<span class="chip ${k}"><span class="d"></span>${t}</span>`;
+const li = (icon, name, sub, right) => `<li>${icon ? ic(icon) : ""}<span class="n"><b>${name}</b><small>${sub}</small></span>${right}</li>`;
+
+/* ---------------------------------------------------------------- screens */
+const SCREENS = {
+  start: { label: "Start", render(dir, phone) {
+    const hero = `<div class="hero"><h3>${dir === "C" ? "1 Problem" : "Die Heizung ist nicht erreichbar"}</h3>
+      <div class="quiet">${dir === "C" ? "Heizung (Vitoconnect) · " : ""}seit 07:42 · wichtiges Gerät · alle anderen 5 laufen</div>
+      <div class="row" style="margin-top:10px"><span class="btn">Ansehen</span><span class="btn s">Assistent fragen</span>${phone ? "" : '<span class="btn s">Notfall-Checkliste</span>'}</div></div>`;
+    const line = `<div class="quiet" style="margin:14px 0 4px"><b>${COUNTS.total}</b> Geräte · <b>${COUNTS.online}</b> erreichbar · <b>${COUNTS.critical}</b> wichtig · <b>${COUNTS.accounts}</b> Zugänge · Scan ${LAST_SCAN}</div>`;
+    const crit = `<div class="sec">Wichtige Geräte · live alle 10 s</div><ul class="list ${dir === "A" ? "card" : ""}">${CRIT.slice(0, phone ? 4 : 6).map((c) => li(c[0].startsWith("Heiz") ? "heat" : c[0].startsWith("FRITZ") ? "router" : "dev", c[0], c[1], chip(c[2], phone ? (c[2] === "ok" ? "ok" : "seit 07:42 aus") : c[3]))).join("")}</ul>${phone ? '<div class="more" style="padding:6px 2px">+2 weitere</div>' : ""}`;
+    const kinds = `<div class="sec">Was es im Netz gibt</div><ul class="list ${dir === "A" ? "card" : ""}">${KINDS.map((k) => li("", k[0], "", `<span class="quiet">${k[1]}</span>`)).join("")}</ul>`;
+    const actions = `<div class="sec">Schnell</div><div class="row"><span class="btn s">Internet prüfen</span><span class="btn s">Netzwerk scannen</span></div>`;
+    return shell(dir, phone, "start", "", phone ? HOME : "Start", phone ? hero + line + crit : `${hero}${line}<div class="g2"><div>${crit}</div><div>${kinds}${actions}</div></div>`);
+  }},
+  liste: { label: "Geräte", render(dir, phone) {
+    const filt = `<div class="row" style="margin-bottom:10px"><span class="kbar" style="flex:1;width:auto">${ic("search")}Name, IP, Hersteller, Raum …</span>${phone ? "" : '<span class="btn s">+ Gerät</span>'}</div>
+      <div class="row" style="margin-bottom:8px">${chip("", "Alle 57")}${chip("bad", "Nicht erreichbar 2")}${chip("warn", "Wichtig 6")}${chip("", "Art ▾")}${phone ? "" : chip("", "Compose ▾") + '<span class="sp" style="flex:1"></span>' + chip("warn", "3 mögliche Duplikate")}</div>`;
+    const rows = DEVICES.slice(0, phone ? 8 : 12).map((d) => phone
+      ? li("", d[0], `${d[1]} · ${d[2]}`, chip(d[4], d[4] === "ok" ? "" : "aus"))
+      : `<li><span class="n" style="flex:2.2"><b>${d[0]}${d[5] ? ' <span class="accent">★</span>' : ""}</b></span><span class="n mono" style="flex:1.1"><small style="opacity:.8">${d[1]}</small></span><span class="n" style="flex:1.3"><small>${d[2]}</small></span><span class="n" style="flex:1"><small>${d[3]}</small></span>${chip(d[4], d[4] === "ok" ? "erreichbar" : "nicht erreichbar")}</li>`).join("");
+    return shell(dir, phone, "geraete", "Liste", "Geräte", `${filt}<ul class="list ${dir === "A" ? "card" : ""}">${rows}</ul><div class="more" style="padding:8px 2px">URL: /geraete?q=&amp;status=offline&amp;sort=name — Zurück landet genau hier</div>`);
+  }},
+  geraet: { label: "Gerät (Detail)", render(dir, phone) {
+    const strip = `<div class="strip">
+      <div><small>Status</small>${chip("bad", phone ? "aus" : "nicht erreichbar")}</div>
+      <div><small>Seit</small><b>07:42 (2 Std.)</b></div>
+      <div><small>Adresse</small><b>192.168.178.61</b></div>
+      ${phone ? "" : '<div><small>Quelle</small><b>Scan · mDNS</b></div><div><small>Wichtig</small><b>ja · überwacht per Ping</b></div>'}</div>`;
+    const next = `<div class="row" style="margin:12px 0"><span class="btn">Jetzt neu prüfen</span><span class="btn s">Assistent fragen</span><span class="btn s">Weboberfläche ↗</span>${phone ? "" : '<span class="btn s">Bearbeiten</span>'}<span class="btn s">⋯</span></div>`;
+    const tabs = `<div class="row tabrow" style="gap:4px;margin:4px 0 10px">${["Überblick", "Technik", "Verlauf", "Zugänge", "Steuern"].map((t, i) => `<span class="tab${i === 0 ? " on" : ""}">${t}</span>`).join("")}</div>`;
+    const desc = `<div class="sec">Wofür</div><div class="quiet" style="max-width:62ch">Verbindet die Viessmann-Heizung mit der ViCare-App. Fällt sie aus, heizt die Anlage normal weiter – nur die App und die Fernsteuerung gehen nicht.</div>`;
+    const hist = `<div class="sec">Verlauf</div><ul class="list ${dir === "A" ? "card" : ""}">${li("", "nicht erreichbar", "heute 07:42 · 3 Pings ohne Antwort", "")}${li("", "wieder erreichbar", "Mo 22:10", "")}${phone ? "" : li("", "nicht erreichbar", "Mo 21:58", "")}</ul><div class="more" style="padding:6px 2px">Alle Ereignisse anzeigen ▾</div>`;
+    return shell(dir, phone, "geraete", "Liste", phone ? "← Geräte" : "← Geräte / Heizung (Vitoconnect)", `${phone ? `<div style="font-weight:700;font-size:17px;margin-bottom:8px">Heizung (Vitoconnect)</div>` : ""}${strip}${next}${tabs}<div class="g2"><div>${desc}${phone ? "" : hist}</div><div>${phone ? hist : `<div class="sec">Steckbrief</div><ul class="list ${dir === "A" ? "card" : ""}">${li("", "Viessmann Vitoconnect OPTO2", "Modell", "")}${li("", "Keller, neben dem Kessel", "Standort", "")}${li("", "ViCare-Konto", "1 Zugang hinterlegt", "")}</ul>`}</div></div>`, "", phone);
+  }},
+  doku: { label: "Dokumentation", render(dir, phone) {
+    const chapters = ["Wenn etwas nicht funktioniert", "Überblick", "Internet und Router", "Netzwerk", "Server und Speicher", "Container und VMs", "Smart Home", "Wärme, Klima, Energie", "Drucker, Medien, Kameras", "Zugänge und Konten"];
+    const toc = `<ul class="list">${chapters.map((c, i) => `<li style="padding:6px 10px;${i === 0 ? "font-weight:650" : "opacity:.75"}">${i === 0 ? '<span class="chip bad" style="padding:0 6px">!</span> ' : ""}${c}</li>`).join("")}</ul>`;
+    const steps = `<ol class="steps">
+      <li><b>Leuchten am Router prüfen.</b> „Power“ und „DSL“ an der FRITZ!Box im Flur müssen dauerhaft grün sein.</li>
+      <li><b>Router neu starten.</b> Stecker 10 Sekunden ziehen, wieder einstecken, 3 Minuten warten.</li>
+      <li><b>Nur ein Gerät betroffen?</b> WLAN am Gerät aus- und wieder einschalten.</li>
+      ${phone ? "" : "<li><b>Anbieter anrufen.</b> Telekom-Störungsstelle 0800 330 1000, Kundennummer unter Zugänge.</li>"}
+    </ol>`;
+    const head = `<div class="row" style="justify-content:space-between;margin-bottom:6px"><div style="font-weight:700;font-size:${phone ? 17 : 19}px">Wenn etwas nicht funktioniert</div>${phone ? "" : '<span class="row"><span class="btn s">Verlauf</span><span class="btn s">Bearbeiten</span><span class="btn s">⋯</span></span>'}</div><div class="more" style="margin-bottom:8px">Stand: heute 03:04 · automatisch erzeugt · eigene Notiz vorhanden</div>`;
+    return shell(dir, phone, "hilfe", "Dokumentation", "Hilfe", phone
+      ? `<div class="kbar" style="width:auto;margin-bottom:12px">Kapitel: Wenn etwas nicht funktioniert ▾</div>${head}${steps}`
+      : `<div style="display:grid;grid-template-columns:230px 1fr;gap:24px"><div>${toc}</div><div>${head}${steps}</div></div>`);
+  }},
+  chat: { label: "Assistent", render(dir, phone) {
+    const msgs = `<div class="chat">
+      <div class="b u">Die Heizung ist seit heute früh nicht mehr erreichbar. Was kann ich tun?</div>
+      <div class="b a"><span class="tool">ping 192.168.178.61 · keine Antwort</span><span class="tool">ARP · kein Eintrag</span>
+        <p style="margin:6px 0">Die Vitoconnect antwortet nicht und steht auch nicht in der Geräteliste des Routers. Sie ist also gerade nicht im WLAN.</p>
+        <p style="margin:6px 0"><b>Bitte prüfe:</b> Leuchtet die LED am Modul im Keller grün? Wenn sie blinkt, das Modul 10 Sekunden vom Strom nehmen.</p></div>
+    </div>`;
+    const compose = `<div class="compose">${ic("mic")}<span>Frag etwas …</span>${ic("send")}</div>`;
+    return shell(dir, phone, "hilfe", "Assistent", "Hilfe", `<div style="display:flex;flex-direction:column;height:100%"><div class="row" style="margin-bottom:10px">${chip("", "Heizung nicht erreichbar ▾")}<span class="btn s" style="margin-left:auto">Neu</span></div><div style="flex:1;overflow:hidden">${msgs}</div>${compose}</div>`);
+  }},
+  plan: { label: "Netzplan", render(dir, phone) {
+    const col = { A: ["#38bdf8", "#94a3b8", "#f87171", "#34d399", "#131c31", "#26304a", "#e8edf7"], B: ["#2f6fdb", "#a8a29e", "#b91c1c", "#15803d", "#ffffff", "#d6d3d1", "#1c1917"], "B BD": ["#8ab4ff", "#6f6a64", "#f87171", "#4ade80", "#1e1e1c", "#2e2d2a", "#ecebe8"], C: ["#22d3ee", "#9b9bb4", "#fb7185", "#4ade80", "#1f1f2e", "#2a2a3c", "#f5f5fa"] }[dir];
+    const box = (x, y, t, s) => `<rect x="${x - 62}" y="${y - 16}" width="124" height="32" rx="8" fill="${col[4]}" stroke="${s === "bad" ? col[2] : col[5]}" stroke-width="${s === "bad" ? 2 : 1}"/><circle cx="${x - 50}" cy="${y}" r="4" fill="${s === "bad" ? col[2] : col[3]}"/><text x="${x - 40}" y="${y + 4}" font-size="11" fill="${col[6]}">${t}</text>`;
+    const ln = (x1, y1, x2, y2) => `<path d="M${x1} ${y1} V${(y1 + y2) / 2} H${x2} V${y2}" stroke="${col[1]}" fill="none" opacity=".6"/>`;
+    const kids = [["NAS", 70], ["pve01", 200], ["Home Assist.", 330], ["U6 Pro", 460], ["Heizung", 590]];
+    const svg = `<svg viewBox="0 0 660 250">${ln(330, 34, 330, 94)}${ln(330, 110, 330, 154)}${kids.map((k) => ln(330, 170, k[1], 214)).join("")}
+      ${box(330, 22, "Internet", "ok")}${box(330, 98, "FRITZ!Box", "ok")}${box(330, 158, "Switch 16 PoE", "ok")}${kids.map((k) => box(k[1], 222, k[0], k[0] === "Heizung" ? "bad" : "ok")).join("")}</svg>`;
+    const status = `<div class="quiet" style="margin-bottom:10px">${chip("bad", "1 von 6 überwachten nicht erreichbar")} &nbsp;Heizung · seit 07:42</div>`;
+    return shell(dir, phone, "geraete", "Netzplan", "Geräte", `${status}<div class="row" style="margin-bottom:10px">${chip("", "Physisch")}${chip("", "Layer 3")}<span class="more">ⓘ Wie lese ich den Plan?</span></div>${phone ? `<div class="quiet" style="margin-bottom:6px">Internet › FRITZ!Box › Switch 16 PoE</div><ul class="list ${dir === "A" ? "card" : ""}">${kids.map((k) => li("", k[0], "am Switch · Port " + (k[1] / 65 | 0), chip(k[0] === "Heizung" ? "bad" : "ok", k[0] === "Heizung" ? "aus" : "ok"))).join("")}</ul><div class="more" style="padding:6px 2px">Plan als Bild öffnen (zoombar) ›</div>` : `<div class="planbox plan">${svg}</div>`}<div class="row" style="margin-top:12px"><span class="btn s">Jetzt prüfen</span><span class="btn s">DNS testen</span><span class="btn s">Speedtest</span></div>`);
+  }},
+};
+
+/* ---------------------------------------------------------------- comparison layout */
+const DIRS = [
+  ["B", "B · Hell", "Warmes Papier, Tinte, ein Akzent (Atlas-Blau). Folgt der Systemeinstellung; umschaltbar unter Mehr → Einstellungen → Darstellung."],
+  ["B BD", "B · Dunkel", "Neutrales Graphit statt Navy, gleiche Struktur. Status bleibt Grün/Rot/Gelb, aufgehellt für dunklen Grund."],
+];
+/* Ansicht steht im Hash (#geraet-phone), damit ein Link genau diese Ansicht öffnet. */
+let [screen, view] = (location.hash.slice(1) || "start-both").split("-");
+if (!SCREENS[screen]) screen = "start";
+if (!["both", "desk", "phone"].includes(view)) view = "both";
+
+function syncUrl() { try { history.replaceState(null, "", `#${screen}-${view}`); } catch (e) { /* sandboxed viewer */ } }
+function seg(el, items, cur, set) {
+  el.innerHTML = items.map(([k, l]) => `<button class="${k === cur ? "on" : ""}" data-k="${k}">${l}</button>`).join("");
+  el.onclick = (e) => { const k = e.target.dataset?.k; if (k) { set(k); render(); } };
+}
+function frame(html, w, h, phone) {
+  return `<div class="frame${phone ? " phone" : ""}" data-w="${w}" data-h="${h}"><div class="inner" style="width:${w}px;height:${h}px">${html}</div></div>`;
+}
+function render() {
+  syncUrl();
+  seg(document.getElementById("screens"), Object.entries(SCREENS).map(([k, v]) => [k, v.label]), screen, (k) => (screen = k));
+  seg(document.getElementById("views"), [["both", "Desktop + Handy"], ["desk", "Desktop"], ["phone", "Handy"]], view, (k) => (view = k));
+  const s = SCREENS[screen];
+  document.getElementById("cols").style.gridTemplateColumns = view === "desk" ? "1fr" : "";
+  document.getElementById("cols").innerHTML = DIRS.map(([d, name, desc]) => `<section class="col"><h2>${name}</h2><p class="desc">${desc}</p>
+    ${view !== "phone" ? `<p class="lbl">Desktop 1280 × 800</p>${frame(s.render(d, false), 1280, 800, false)}` : ""}
+    ${view !== "desk" ? `<p class="lbl">Handy 390 × 844</p>${frame(s.render(d, true), 390, 844, true)}` : ""}</section>`).join("");
+  fit();
+}
+function fit() {
+  document.querySelectorAll(".frame").forEach((f) => {
+    const w = +f.dataset.w, h = +f.dataset.h, phone = f.classList.contains("phone");
+    const avail = f.parentElement.clientWidth - (phone ? 16 : 0);
+    const scale = Math.min(1, (phone ? Math.min(avail, view === "phone" ? 390 : 300) : avail) / w);
+    f.style.width = `${w * scale + (phone ? 16 : 0)}px`;
+    f.style.height = `${h * scale + (phone ? 16 : 0)}px`;
+    f.firstElementChild.style.transform = `scale(${scale})`;
+  });
+}
+addEventListener("resize", fit);
+addEventListener("hashchange", () => {
+  const [sc, vw] = location.hash.slice(1).split("-");
+  if (SCREENS[sc] && ["both", "desk", "phone"].includes(vw) && (sc !== screen || vw !== view)) { screen = sc; view = vw; render(); }
+});
+render();
+</script>
+</body>
+</html>
