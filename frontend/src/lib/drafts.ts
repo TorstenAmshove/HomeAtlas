@@ -30,10 +30,27 @@ export function writeDraft(key: string, value: string | null): void {
   }
 }
 
+/** Removes every draft of this tab. Called on logout: notes can hold locations or access hints,
+ *  and on a shared computer they must not stay readable for the next person until the tab closes. */
+export function clearAllDrafts(): void {
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < window.sessionStorage.length; i++) {
+      const key = window.sessionStorage.key(i);
+      if (key?.startsWith(PREFIX)) keys.push(key);
+    }
+    keys.forEach((key) => window.sessionStorage.removeItem(key));
+  } catch {
+    // Storage blocked: nothing was stored either.
+  }
+}
+
 /** Draft keys, in one place so pages can't drift apart. */
 export const draftKeys = {
   docBody: (slug: string) => `doc.body.${slug}`,
   docManual: (slug: string) => `doc.manual.${slug}`,
+  /** `updatedAt` of the chapter the body draft was started from, to warn when it changed since. */
+  docBase: (slug: string) => `doc.base.${slug}`,
   /** `chatId` is "" for "no conversation yet" (the first message creates one). */
   chatInput: (chatId: string) => `chat.input.${chatId || "new"}`,
 };

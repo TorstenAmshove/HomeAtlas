@@ -347,6 +347,10 @@ des Kapitels (auch nach Neuladen) wiederherstellen. Wer mit ungespeicherten Änd
 Link die Seite oder das Kapitel wechselt, MUSS vorher gefragt werden („Hier bleiben“ / „Trotzdem
 wechseln“); Neuladen und Schließen fragen über den Browser (`beforeunload`). Speichern oder Abbrechen
 verwirft den Entwurf. Gilt in alter und neuer Oberfläche. **[Muss]**
+Wurde das Kapitel geändert, nachdem der Entwurf begonnen wurde (Scan, Neu erzeugen), MUSS die
+Wiederherstellung davor warnen, dass Speichern den neueren Text ersetzt (er landet im Verlauf).
+Entwürfe werden nur für Admins wieder geöffnet, und Abmelden löscht alle Entwürfe des Tabs
+(Notizen können Standorte oder Zugangshinweise enthalten).
 
 #### Szenario: Kapitelwechsel beim Bearbeiten
 - **WENN** ein Admin in `netzwerk` „Bearbeiten“ öffnet, Text ändert und auf ein anderes Kapitel klickt

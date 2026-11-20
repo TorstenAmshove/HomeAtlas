@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { ApiError, api, type User } from "./lib/api";
+import { clearAllDrafts } from "./lib/drafts";
 import LoginPage from "./pages/LoginPage";
 import MfaEnrollPage from "./pages/MfaEnrollPage";
 import SetupPage from "./pages/SetupPage";
@@ -100,6 +101,7 @@ export default function App() {
   }, [refresh]);
 
   const logout = useCallback(async () => {
+    clearAllDrafts();
     await api.logout();
     setUser(null);
   }, []);

@@ -100,10 +100,14 @@ export default function DocsPage() {
     // Restore what was typed into this chapter earlier in this tab instead of starting blank.
     const bodyDraft = readDraft(draftKeys.docBody(slug));
     const notesDraft = readDraft(draftKeys.docManual(slug));
-    setEditing(bodyDraft !== null);
-    setDraft(bodyDraft ?? "");
-    setManualDraft(notesDraft);
-    setRestoredDraft(bodyDraft !== null || notesDraft !== null);
+    // Only admins can edit; a draft left in this tab by another (admin) login is not reopened for a
+    // member, who would get an editor without a save button.
+    const restoreBody = isAdmin && bodyDraft !== null;
+    const restoreNotes = isAdmin && notesDraft !== null;
+    setEditing(restoreBody);
+    setDraft(restoreBody ? bodyDraft : "");
+    setManualDraft(restoreNotes ? notesDraft : null);
+    setRestoredDraft(restoreBody || restoreNotes);
     setPage(null);
     let cancelled = false;
     api.getDoc(slug)
@@ -181,15 +185,27 @@ export default function DocsPage() {
 
   // --- drafts: every change is written through to sessionStorage under the chapter's own key.
 
+  // A restored body draft that started from an older version of this chapter (the chapter changed in
+  // the meantime): saving would replace the newer text, so say so instead of silently overwriting.
+  const draftBase = slug ? readDraft(draftKeys.docBase(slug)) : null;
+  const draftIsStale = Boolean(restoredDraft && editing && page && draftBase !== null && draftBase !== (page.updatedAt ?? ""));
+
   function changeDraft(value: string) {
     setDraft(value);
-    if (slug) writeDraft(draftKeys.docBody(slug), value);
+    if (slug) {
+      writeDraft(draftKeys.docBody(slug), value);
+      // Remember which version of the chapter this draft started from (first keystroke only).
+      if (readDraft(draftKeys.docBase(slug)) === null && page) writeDraft(draftKeys.docBase(slug), page.updatedAt ?? "");
+    }
   }
 
   function closeEditor() {
     setEditing(false);
     setRestoredDraft(false);
-    if (slug) writeDraft(draftKeys.docBody(slug), null);
+    if (slug) {
+      writeDraft(draftKeys.docBody(slug), null);
+      writeDraft(draftKeys.docBase(slug), null);
+    }
   }
 
   function changeManual(value: string) {
@@ -385,7 +401,10 @@ export default function DocsPage() {
                 </div>
 
                 {restoredDraft && (editing || manualDraft !== null) && (
-                  <div className="notice info">Ungespeicherter Entwurf aus dieser Sitzung wiederhergestellt.</div>
+                  <div className={`notice ${draftIsStale ? "error" : "info"}`}>
+          Ungespeicherter Entwurf aus dieser Sitzung wiederhergestellt.
+          {draftIsStale && " Achtung: Das Kapitel wurde seitdem geändert (Scan oder Neu erzeugen). Speichern ersetzt den neueren Text; der landet dann im Verlauf."}
+        </div>
                 )}
 
                 {versions && (
@@ -627,7 +646,10 @@ export default function DocsPage() {
       </header>
 
       {restoredDraft && (editing || manualDraft !== null) && (
-        <div className="notice info">Ungespeicherter Entwurf aus dieser Sitzung wiederhergestellt.</div>
+        <div className={`notice ${draftIsStale ? "error" : "info"}`}>
+          Ungespeicherter Entwurf aus dieser Sitzung wiederhergestellt.
+          {draftIsStale && " Achtung: Das Kapitel wurde seitdem geändert (Scan oder Neu erzeugen). Speichern ersetzt den neueren Text; der landet dann im Verlauf."}
+        </div>
       )}
 
       {versionsOpen && (
@@ -726,6 +748,7 @@ export default function DocsPage() {
     </article>
   );
 
+
   return (
     <div className={`docs-calm${slug ? " has-chapter" : ""}`}>
       {leaveDialog}
@@ -766,7 +789,8 @@ export default function DocsPage() {
         title="Alten Stand wiederherstellen?"
         consequences={pending?.kind === "restore" ? [
           <>Das Kapitel bekommt den Text vom {new Date(pending.version.createdAt).toLocaleString("de-DE")} zurück.</>,
-          "Der aktuelle Text wird vorher als Version gesichert.",
+          "Auch die eigenen Notizen werden auf den damaligen Stand gesetzt.",
+          "Der aktuelle Text und die aktuellen Notizen werden vorher als Version gesichert.",
           "Das Kapitel gilt danach als von Hand bearbeitet und wird nicht mehr automatisch erneuert.",
         ] : []}
         confirmLabel="Wiederherstellen"
