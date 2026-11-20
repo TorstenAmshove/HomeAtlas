@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api, type ApiToken, type ModelOption, type NetworkResource, type PasswordPolicy, type SettingsResponse } from "../lib/api";
 import { useAuth } from "../App";
+import { useUi } from "../shell/ui";
+import type { ThemeMode, UiOverride } from "../shell/prefs";
 
 const KEY_FIELD: Record<string, string> = {
   CLAUDE: "claudeApiKey", OPENAI: "openAiApiKey", GEMINI: "geminiApiKey",
@@ -17,10 +19,11 @@ const BASE_URL_FIELD: Record<string, string> = {
 const validCidr = (value: unknown): value is string =>
   typeof value === "string" && /^\d{1,3}(\.\d{1,3}){3}\/\d{1,2}$/.test(value.trim());
 
-type Tab = "general" | "llm" | "scan" | "monitor" | "mcp" | "account" | "about";
+type Tab = "general" | "llm" | "scan" | "monitor" | "mcp" | "account" | "display" | "about";
 
 export default function SettingsPage() {
   const { isAdmin, user } = useAuth();
+  const ui = useUi();
   const [tab, setTab] = useState<Tab>(isAdmin ? "general" : "account");
   const [data, setData] = useState<SettingsResponse | null>(null);
   const [form, setForm] = useState<Record<string, any>>({});
@@ -54,6 +57,22 @@ export default function SettingsPage() {
       const { settings } = await api.updateSettings(patch);
       setForm(settings);
       setNotice({ kind: "ok", text: "Gespeichert." });
+    } catch (e) {
+      setNotice({ kind: "error", text: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBusy("");
+    }
+  }
+
+  // The instance-wide switch for the redesigned shell. Applied right away (no separate save), and
+  // switching back is the same one click.
+  async function saveUiCalm(value: boolean) {
+    setBusy("ui");
+    setNotice(null);
+    try {
+      const { settings } = await api.updateSettings({ uiCalm: value });
+      setForm(settings);
+      ui.setServerCalm(Boolean(settings.uiCalm));
     } catch (e) {
       setNotice({ kind: "error", text: e instanceof Error ? e.message : String(e) });
     } finally {
@@ -102,6 +121,8 @@ export default function SettingsPage() {
     ? [["general", "Allgemein"], ["llm", "KI-Assistent"], ["scan", "Netzwerk-Scan"],
        ["monitor", "Überwachung"], ["mcp", "MCP-Server"], ["account", "Konto"], ["about", "Über"]]
     : [["account", "Konto"], ["about", "Über"]];
+  // "Darstellung" only means something in the new shell; the old UI stays exactly as it was.
+  if (ui.calm) TABS.splice(TABS.length - 1, 0, ["display", "Darstellung"]);
 
   return (
     <>
@@ -135,6 +156,25 @@ export default function SettingsPage() {
           <button onClick={() => void save({ homeName: form.homeName })} disabled={busy !== ""}>
             Speichern
           </button>
+
+          <h3 style={{ marginTop: 26 }}>Neue Oberfläche (Vorschau)</h3>
+          <label className="row" style={{ cursor: "pointer", fontWeight: 400, color: "var(--text)" }}>
+            <input type="checkbox" style={{ width: "auto" }} checked={Boolean(form.uiCalm)}
+                   disabled={busy !== ""} onChange={(e) => void saveUiCalm(e.target.checked)} />
+            Neue Oberfläche für alle einschalten
+          </label>
+          <div className="field-hint">
+            Ruhigeres Menü mit Suche (Strg+K), Handy-Leiste unten und Dunkelmodus. Die Seiten selbst
+            bleiben vorerst gleich. Gilt sofort für alle; Zurückschalten ist derselbe Klick. Nur in
+            diesem Browser ausprobieren: Adresse mit <span className="mono">?ui=calm</span> öffnen
+            (zurück mit <span className="mono">?ui=classic</span>).
+          </div>
+          {ui.override && (
+            <div className="field-hint">
+              Dieser Browser zeigt unabhängig davon immer die {ui.override === "calm" ? "neue" : "bisherige"} Oberfläche.{" "}
+              <a href="#" onClick={(e) => { e.preventDefault(); ui.setOverride(null); }}>Wieder der Einstellung folgen</a>
+            </div>
+          )}
         </div>
       )}
 
@@ -483,6 +523,8 @@ export default function SettingsPage() {
 
       {tab === "account" && <AccountTab username={user?.username ?? ""} totpEnabled={Boolean(user?.totpEnabled)} />}
 
+      {tab === "display" && <DisplayTab />}
+
       {tab === "about" && (
         <div className="card">
           <div className="row" style={{ gap: 16, alignItems: "center", marginBottom: 12 }}>
@@ -698,6 +740,48 @@ function MfaSection({ enabled }: { enabled: boolean }) {
         Gerät mit der App verloren? Ein Administrator setzt die Zwei-Faktor-Anmeldung unter
         „Benutzer" zurück — danach wird sie beim nächsten Login neu eingerichtet.
       </p>
+    </div>
+  );
+}
+
+const THEME_OPTIONS: [ThemeMode, string, string][] = [
+  ["system", "Wie das System", "Folgt der Hell/Dunkel-Einstellung des Geräts, nachts also automatisch dunkel."],
+  ["light", "Hell", "Immer hell."],
+  ["dark", "Dunkel", "Immer dunkel."],
+];
+
+/** Per-browser display choices (localStorage, see shell/prefs.ts); visible to every role. */
+function DisplayTab() {
+  const ui = useUi();
+  const overrideOptions: [UiOverride, string][] = [
+    [null, ui.serverCalm ? "Wie für alle eingestellt (neu)" : "Wie für alle eingestellt (bisherige)"],
+    ["calm", "Immer die neue Oberfläche"],
+    ["classic", "Immer die bisherige Oberfläche"],
+  ];
+  return (
+    <div className="card">
+      <h2>Darstellung</h2>
+      <p className="muted" style={{ marginTop: 0 }}>Gilt nur für diesen Browser.</p>
+      <fieldset style={{ border: 0, padding: 0, margin: "0 0 18px" }}>
+        <legend style={{ fontWeight: 600, marginBottom: 8 }}>Farbmodus</legend>
+        {THEME_OPTIONS.map(([value, label, hint]) => (
+          <label key={value} className="row" style={{ cursor: "pointer", fontWeight: 400, color: "var(--text)", alignItems: "flex-start", flexWrap: "nowrap", marginBottom: 10 }}>
+            <input type="radio" name="theme-mode" style={{ width: "auto", marginTop: 5 }}
+                   checked={ui.themeMode === value} onChange={() => ui.setThemeMode(value)} />
+            <span>{label}<span className="field-hint" style={{ display: "block", marginTop: 0 }}>{hint}</span></span>
+          </label>
+        ))}
+      </fieldset>
+      <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
+        <legend style={{ fontWeight: 600, marginBottom: 8 }}>Oberfläche</legend>
+        {overrideOptions.map(([value, label]) => (
+          <label key={value ?? "server"} className="row" style={{ cursor: "pointer", fontWeight: 400, color: "var(--text)", marginBottom: 10 }}>
+            <input type="radio" name="ui-override" style={{ width: "auto" }}
+                   checked={ui.override === value} onChange={() => ui.setOverride(value)} />
+            {label}
+          </label>
+        ))}
+      </fieldset>
     </div>
   );
 }

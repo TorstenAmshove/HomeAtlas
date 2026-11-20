@@ -62,6 +62,7 @@ verlinkten Fähigkeiten. Quelle Defaults: `backend/app/db.py:408`.
 | `defaultCredentialSecretEnc` | „“ | verschlüsselt, nie ausgeliefert | probe_auth |
 | `defaultCredentialPassphraseEnc` | „“ | verschlüsselt, nie ausgeliefert | probe_auth |
 | `defaultCredentialPort` | 0 | 0 = Port 22 | probe_auth |
+| `uiCalm` | (fehlt in Defaults) = aus | Neue Oberfläche (Redesign-Shell, `docs/redesign/5-information-architecture.md`). Wirksamer Wert: gespeicherter Wert, sonst `HOMEATLAS_UI_CALM_DEFAULT` (`1`/`true`/`yes`/`on`), sonst aus. Admin schaltet ihn unter Einstellungen → Allgemein; jeder Browser kann ihn mit `?ui=calm`/`?ui=classic` übersteuern | `/api/health`, Frontend (`App.tsx`) |
 | `dnsTestNames` | `www.google.com`, `heise.de`, `github.com` | Namen für den DNS-Selbsttest | main (`/api/diagnostics/dns`) |
 
 Fachliche Details: [discovery-und-scan](../discovery-und-scan/spec.md),
@@ -82,6 +83,26 @@ Defaults auffüllen und Änderungen als flaches Zusammenführen anwenden: nur ü
 - **DANN** sind beide Netz-Listen unverändert und der Default von `scanControllerNetworkIds` bleibt `[]`
 
 Quelle: `backend/app/db.py:462`, `backend/app/db.py:474`, Test: `backend/tests/test_main_settings_api.py::test_controller_network_selection_roundtrip`
+
+### Requirement: Schalter „Neue Oberfläche“ (`uiCalm`)
+Das System MUSS den Schalter `uiCalm` standardmäßig aus haben. Solange `uiCalm` nie gespeichert wurde,
+MUSS die Umgebungsvariable `HOMEATLAS_UI_CALM_DEFAULT=1` ihn einschalten; ein gespeicherter Wert geht
+immer vor. Ein Speichern, das den wirksamen Wert unverändert zurückschickt (ganze Formulare), DARF
+den Schlüssel nicht erstmals speichern. `GET /api/health` MUSS den wirksamen Wert als `uiCalm` neben
+`setupCompleted` liefern; `GET`/`PATCH /api/settings` liefern ihn für Admins ebenfalls. Nur Admins
+können ihn ändern (`PATCH /api/settings`, Wert wird zu bool). Ist er aus, MUSS die Oberfläche genau
+wie vorher aussehen; der Browser-Override `?ui=calm` / `?ui=classic` liegt nur im `localStorage`
+dieses Browsers. **[Muss]**
+
+#### Szenario: Test-Instanz mit Umgebungsvariable
+- **WENN** `HOMEATLAS_UI_CALM_DEFAULT=1` gesetzt ist und `uiCalm` nie gespeichert wurde
+- **DANN** liefert `GET /api/health` `uiCalm: true`, auch nachdem andere Einstellungen gespeichert wurden
+
+#### Szenario: Admin schaltet aus
+- **WENN** ein Admin `PATCH /api/settings` mit `{"uiCalm": false}` schickt
+- **DANN** liefert `GET /api/health` `uiCalm: false`, unabhängig von der Umgebungsvariable
+
+Quelle: `backend/app/db/settings.py`, `backend/app/routes/settings.py`, `backend/app/routes/auth.py`, Test: `backend/tests/test_settings_ui_calm.py::test_env_default_applies_only_while_never_set`, `backend/tests/test_settings_ui_calm.py::test_admin_toggle_roundtrip`
 
 ### Requirement: Rollenabhängige Sicht
 Das System MUSS beim Lesen der Einstellungen MEMBER nur `homeName` und `setupCompleted` zeigen; ADMIN
@@ -257,12 +278,16 @@ Fähigkeiten: MCP-Tokens → [assistent-chat-und-mcp](../assistent-chat-und-mcp/
 [discovery-und-scan](../discovery-und-scan/spec.md). Ob ein Anbieter konfiguriert ist, zeigt das
 [dashboard](../dashboard/spec.md) (`llmConfigured`).
 
-UI-Seite(n): `frontend/src/pages/SettingsPage.tsx` (Route `/einstellungen`; Tabs Allgemein, KI-Assistent,
-Netzwerk-Scan, Überwachung, MCP-Server nur für Admins; Konto und Über für alle).
+UI-Seite(n): `frontend/src/pages/SettingsPage.tsx` (Route `/einstellungen`; Tabs Allgemein (inkl.
+Schalter „Neue Oberfläche (Vorschau)“), KI-Assistent, Netzwerk-Scan, Überwachung, MCP-Server nur für
+Admins; Konto und Über für alle; Darstellung (System · Hell · Dunkel, pro Browser) für alle, solange
+die neue Oberfläche aktiv ist).
 
 ## Nicht-Ziele und Grenzen
 
-- Keine Einstellungen pro Benutzer; keine Umgebungsvariablen für diese Werte.
+- Keine Einstellungen pro Benutzer; keine Umgebungsvariablen für diese Werte (Ausnahme: der Startwert
+  von `uiCalm`, siehe oben). Hell/Dunkel-Modus und der `?ui=`-Override gelten pro Browser
+  (`localStorage`), nicht pro Konto.
 - Kein Änderungsverlauf und kein Zugriffsprotokoll für Einstellungsänderungen.
 - Keine serverseitige Validierung von Typen, Wertebereichen oder erlaubten Schlüsseln (siehe OFFEN).
 - Kein Streaming, kein Prompt-Caching, keine Kostenanzeige.

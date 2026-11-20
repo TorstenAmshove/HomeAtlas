@@ -16,6 +16,12 @@ import ScanPage from "./pages/ScanPage";
 import SettingsPage from "./pages/SettingsPage";
 import UsersPage from "./pages/UsersPage";
 import NetworksPage from "./pages/NetworksPage";
+import AppShell, { ShellSkeleton } from "./shell/AppShell";
+import { UiContext, type UiState } from "./shell/ui";
+import {
+  consumeUiQueryParam, getLastServerCalm, getThemeMode, getUiOverride, resolveCalm, setLastServerCalm,
+  setThemeModePref, setUiOverride, type ThemeMode, type UiOverride,
+} from "./shell/prefs";
 
 interface AuthState {
   user: User | null;
@@ -53,11 +59,32 @@ export default function App() {
   const [setupCompleted, setSetupCompleted] = useState(true);
   const location = useLocation();
 
+  // Which shell to render (docs/redesign/5-information-architecture.md, "Schalter"). With the flag
+  // off and no ?ui=calm override, everything below renders exactly the pre-redesign UI.
+  const [override, setOverrideState] = useState<UiOverride>(() => {
+    consumeUiQueryParam();
+    return getUiOverride();
+  });
+  const [serverCalm, setServerCalm] = useState(getLastServerCalm);
+  const [themeMode, setThemeModeState] = useState<ThemeMode>(getThemeMode);
+  const calm = resolveCalm(serverCalm, override);
+  const ui: UiState = {
+    calm,
+    serverCalm,
+    setServerCalm: (value) => { setServerCalm(value); setLastServerCalm(value); },
+    override,
+    setOverride: (value) => { setUiOverride(value); setOverrideState(value); },
+    themeMode,
+    setThemeMode: (value) => { setThemeModePref(value); setThemeModeState(value); },
+  };
+
   const refresh = useCallback(async () => {
     try {
       const [me, health] = await Promise.all([api.me(), api.health()]);
       setUser(me.user);
       setSetupCompleted(health.setupCompleted);
+      setServerCalm(Boolean(health.uiCalm));
+      setLastServerCalm(Boolean(health.uiCalm));
     } catch (error) {
       // A 401 is the normal "not logged in yet" case, not something to surface.
       if (!(error instanceof ApiError && error.status === 401)) console.error(error);
@@ -77,6 +104,13 @@ export default function App() {
   }, []);
 
   if (loading) {
+    if (calm) {
+      return (
+        <UiContext.Provider value={ui}>
+          <ShellSkeleton />
+        </UiContext.Provider>
+      );
+    }
     return (
       <div className="centered">
         <span className="spinner" />
@@ -109,8 +143,42 @@ export default function App() {
     );
   }
 
+  // One route list for both shells, so scripts/check-nav.ts sees every <Route> exactly once and the
+  // admin gating (`isAdmin &&`) is the same whichever frame is around it.
+  const routes = (
+    <Routes>
+      <Route path="/" element={<DashboardPage />} />
+      <Route path="/geraete" element={<InventoryPage />} />
+      <Route path="/geraete/:id" element={<SystemDetailPage />} />
+      {isAdmin && <Route path="/zugaenge" element={<AccountsPage />} />}
+      <Route path="/dokumentation" element={<DocsPage />} />
+      <Route path="/dokumentation/:slug" element={<DocsPage />} />
+      <Route path="/assistent" element={<ChatPage />} />
+      {isAdmin && <Route path="/scan" element={<ScanPage />} />}
+      <Route path="/plan" element={<PlanPage />} />
+      <Route path="/netze" element={<NetworksPage />} />
+      {isAdmin && <Route path="/benutzer" element={<UsersPage />} />}
+      {isAdmin && <Route path="/protokoll" element={<AccessLogPage />} />}
+      <Route path="/einstellungen" element={<SettingsPage />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+
+  if (calm) {
+    return (
+      <AuthContext.Provider value={{ user, isAdmin, setUser, logout }}>
+        <UiContext.Provider value={ui}>
+          <AppShell user={user} isAdmin={isAdmin} onLogout={logout}>
+            {routes}
+          </AppShell>
+        </UiContext.Provider>
+      </AuthContext.Provider>
+    );
+  }
+
   return (
     <AuthContext.Provider value={{ user, isAdmin, setUser, logout }}>
+      <UiContext.Provider value={ui}>
       <div className="app">
         <nav className="sidebar">
           <div className="brand">
@@ -138,24 +206,10 @@ export default function App() {
         </nav>
 
         <main className={`content${location.pathname === "/assistent" ? " content-chat" : ""}`}>
-          <Routes>
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/geraete" element={<InventoryPage />} />
-            <Route path="/geraete/:id" element={<SystemDetailPage />} />
-            {isAdmin && <Route path="/zugaenge" element={<AccountsPage />} />}
-            <Route path="/dokumentation" element={<DocsPage />} />
-            <Route path="/dokumentation/:slug" element={<DocsPage />} />
-            <Route path="/assistent" element={<ChatPage />} />
-            {isAdmin && <Route path="/scan" element={<ScanPage />} />}
-            <Route path="/plan" element={<PlanPage />} />
-            <Route path="/netze" element={<NetworksPage />} />
-            {isAdmin && <Route path="/benutzer" element={<UsersPage />} />}
-            {isAdmin && <Route path="/protokoll" element={<AccessLogPage />} />}
-            <Route path="/einstellungen" element={<SettingsPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          {routes}
         </main>
       </div>
+      </UiContext.Provider>
     </AuthContext.Provider>
   );
 }

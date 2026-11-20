@@ -425,7 +425,7 @@ Aus [data-model](../../contracts/data-model.md):
   `totpEnabled` (0/1), `createdAt`. Öffentlich nur `id, username, role, displayName, totpEnabled, createdAt`.
 - `sessions`: `token`, `userId`, `expiresAt` (geschrieben/gelöscht).
 - `accessLog`: alle Felder (geschrieben, gelesen).
-- `settings`: keine eigenen Keys; `GET /api/health` liest `setupCompleted` (siehe
+- `settings`: keine eigenen Keys; `GET /api/health` liest `setupCompleted` und `uiCalm` (siehe
   [setup-wizard](../setup-wizard/spec.md)).
 
 ## Schnittstellen
