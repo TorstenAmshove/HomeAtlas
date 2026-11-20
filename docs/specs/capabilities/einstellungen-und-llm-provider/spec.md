@@ -104,6 +104,23 @@ dieses Browsers. **[Muss]**
 
 Quelle: `backend/app/db/settings.py`, `backend/app/routes/settings.py`, `backend/app/routes/auth.py`, Test: `backend/tests/test_settings_ui_calm.py::test_env_default_applies_only_while_never_set`, `backend/tests/test_settings_ui_calm.py::test_admin_toggle_roundtrip`
 
+### Requirement: Einstellungs-Reiter in der URL und neue Oberfläche
+Beide Oberflächen MÜSSEN den offenen Reiter in `?tab=` halten (`general`, `llm`, `scan`, `monitor`,
+`mcp`, `account`, `display`, `about`), sodass Zurück und Neuladen auf ihm landen; ein Reiter, den die
+Rolle nicht hat, fällt auf den ersten erlaubten zurück (MEMBER: Konto). In der neuen Oberfläche MUSS
+die Seite auf dem Desktop die Reiter als Liste links zeigen und auf dem Handy als Liste mit
+Unterseite (ohne `?tab=` die Liste); mit ungespeicherten Änderungen MUSS ein Reiterwechsel nachfragen
+(„Verwerfen und wechseln“ / „Hier bleiben“) und das Verlassen der Seite ebenso; Einstellungen werden
+dabei nicht zwischengespeichert (sie können API-Schlüssel enthalten). „Token widerrufen“ liegt unter
+„⋯“ mit Prüfdialog. „Darstellung“ und der Schalter „Neue Oberfläche“ verhalten sich wie bisher. Ein
+MEMBER sieht genau Konto, Darstellung und Über. **[Muss]** (Layout **[Impl]**)
+
+#### Szenario: Zurück landet im Reiter
+- **WENN** jemand im Reiter „Netzwerk-Scan“ eine andere Seite öffnet und Zurück drückt
+- **DANN** ist wieder „Netzwerk-Scan“ offen (beide Oberflächen)
+
+Quelle: `frontend/src/pages/SettingsPage.tsx`, `frontend/src/pages/mehr/mehr.css`
+
 ### Requirement: Rollenabhängige Sicht
 Das System MUSS beim Lesen der Einstellungen MEMBER nur `homeName` und `setupCompleted` zeigen; ADMIN
 sieht alle Schlüssel (maskiert). Beide erhalten zusätzlich die Anbieterliste mit Anzeigenamen, den
@@ -281,7 +298,7 @@ Fähigkeiten: MCP-Tokens → [assistent-chat-und-mcp](../assistent-chat-und-mcp/
 UI-Seite(n): `frontend/src/pages/SettingsPage.tsx` (Route `/einstellungen`; Tabs Allgemein (inkl.
 Schalter „Neue Oberfläche (Vorschau)“), KI-Assistent, Netzwerk-Scan, Überwachung, MCP-Server nur für
 Admins; Konto und Über für alle; Darstellung (System · Hell · Dunkel, pro Browser) für alle, solange
-die neue Oberfläche aktiv ist).
+die neue Oberfläche aktiv ist); offener Reiter in `?tab=`.
 
 ## Nicht-Ziele und Grenzen
 
