@@ -108,16 +108,22 @@ Ein Bereich pro PR, jeweils hinter dem Schalter:
 | 6 | Zugänge + Mehr | Zugänge, Scan, Benutzer, Protokoll, Einstellungen |
 | 7 | Gates | Login, MFA, Einrichtung (Ausweg aus der Einrichtung) |
 
-Fortschritt: **2 von 15 Oberflächen** (12 Seiten + 3 Gates): Dokumentation und Assistent (PR 5, Hilfe). Shell gebaut (PR 1): Schalter, Tokens,
+Fortschritt: **3 von 15 Oberflächen** (12 Seiten + 3 Gates): Start (PR 2), Dokumentation und Assistent (PR 5, Hilfe). Shell gebaut (PR 1): Schalter, Tokens,
 Dunkelmodus, `frontend/src/shell/` (AppShell, ⌘K), Bausteine `components/Skeleton.tsx`,
 `components/ConfirmDialog.tsx`, `lib/useUndoToast.tsx`, `lib/useUrlState.ts`. Die Seiten zeigen in der
 neuen Shell vorerst noch ihren eigenen Seitenkopf; den nimmt jeweils der PR ihres Bereichs heraus.
 
-Hilfe (PR 5): Dokumentation ohne Seitenkopf, Kapitelliste links (Handy: Auswahl oben), Notfall immer
-zuerst und markiert, Kapitelkopf „Stand · automatisch erzeugt/von Hand bearbeitet · eigene Notiz“,
-Verlauf in `?versions=1`, „Neu erzeugen“/„Alles neu erzeugen“ unter „⋯“ mit Prüfdialog, nach „Neu
-erzeugen“ Rückgängig über die gesicherte Version. Assistent mit Route `/assistent/:chatId`,
-Unterhaltung als Auswahl oben, Eingabe auf dem Handy über der unteren Leiste und der Tastatur
-(`visualViewport`), Hinweis, wenn kein KI-Anbieter eingerichtet ist. Entwürfe (Doku-Text, Notizen,
-Chat-Eingabe) liegen in beiden Oberflächen im `sessionStorage`; Kapitelwechsel mit ungespeicherten
-Änderungen fragt nach (`lib/useLeaveGuard.tsx`, ohne Data-Router kein `useBlocker`).
+- **Start** (PR 2, `pages/start/StartCalm.tsx`): Status-Hero aus `/api/monitor` (dieselbe Menge wie
+  der Netzplan, B3), eine ruhige Zahlenzeile statt Untertitel + Kacheln, „+N weitere“ bei mehr als 10
+  kritischen Geräten (B1, verlinkt vorerst auf `/geraete`, bis die Liste `?importance=` kann),
+  „Stand letzter Scan“ für nicht überwachte kritische Geräte (B2), Ergebnis von „Internet prüfen“ mit
+  Uhrzeit, Status-Chip statt KI-Absatz, Skeleton, kein Seitentitel. `recentlyChanged` bleibt bewusst
+  ungenutzt. Bei ausgeschaltetem Schalter rendert `/` unverändert `DashboardPage.tsx`.
+- **Hilfe** (PR 5): Dokumentation ohne Seitenkopf, Kapitelliste links (Handy: Auswahl oben), Notfall immer
+  zuerst und markiert, Kapitelkopf „Stand · automatisch erzeugt/von Hand bearbeitet · eigene Notiz“,
+  Verlauf in `?versions=1`, „Neu erzeugen“/„Alles neu erzeugen“ unter „⋯“ mit Prüfdialog, nach „Neu
+  erzeugen“ Rückgängig über die gesicherte Version. Assistent mit Route `/assistent/:chatId`,
+  Unterhaltung als Auswahl oben, Eingabe auf dem Handy über der unteren Leiste und der Tastatur
+  (`visualViewport`), Hinweis, wenn kein KI-Anbieter eingerichtet ist. Entwürfe (Doku-Text, Notizen,
+  Chat-Eingabe) liegen in beiden Oberflächen im `sessionStorage`; Kapitelwechsel mit ungespeicherten
+  Änderungen fragt nach (`lib/useLeaveGuard.tsx`, ohne Data-Router kein `useBlocker`).
