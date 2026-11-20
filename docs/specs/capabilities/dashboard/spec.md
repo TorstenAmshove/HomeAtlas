@@ -151,10 +151,22 @@ von oben gilt mit Schalter: **[Muss]**
   ein Fehler erscheint dort statt die Seite zu ersetzen.
 - Der KI-Hinweis (nur ADMIN) ist ein Status-Chip „Assistent nicht eingerichtet · Einrichten".
 - Während des Ladens erscheint ein Skeleton statt eines Spinners.
+- Der Hero ist nur grün („Alles erreichbar"), wenn **jedes** überwachte Gerät `online` ist; solange
+  eines noch `unknown` ist (z. B. direkt nach dem Einschalten der Überwachung), steht dort neutral
+  „Wird geprüft …".
+- Schlägt eine spätere Aktualisierung fehl, bleibt der letzte bekannte Stand sichtbar, darüber ein
+  Hinweis „Aktualisierung fehlgeschlagen"; die nächste erfolgreiche Aktualisierung entfernt ihn. Nur
+  ein Fehler beim ersten Laden ersetzt die Seite durch die Fehlermeldung.
+- Wird der Tab wieder sichtbar, lädt die Seite sofort neu (zusätzlich zum Takt der Überwachung).
 
 #### Szenario: Ein überwachtes Gerät fällt aus
 - **WENN** die Überwachung die Heizung seit 07:42 als `offline` führt
 - **DANN** steht oben „Heizung ist nicht erreichbar" mit „seit 07:42" und den drei Aktionen
+
+#### Szenario: Kurzer Aussetzer des Backends
+- **WENN** die Seite geladen ist und eine spätere Aktualisierung fehlschlägt
+- **DANN** bleiben Hero und Listen mit dem letzten Stand stehen, darüber steht „Aktualisierung
+  fehlgeschlagen", und nach der nächsten erfolgreichen Aktualisierung verschwindet der Hinweis
 
 #### Szenario: Zwölf kritische Geräte
 - **WENN** 12 Geräte kritisch sind

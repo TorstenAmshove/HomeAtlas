@@ -265,6 +265,16 @@ export default function StartCalm() {
     };
   }, [data?.monitorIntervalSeconds, data?.monitorEnabled, load]);
 
+  // Coming back to the tab refreshes at once instead of after up to one interval: people often
+  // switch to this page from elsewhere precisely when something seems broken.
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState === "visible") void load();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [load]);
+
   // The "Notfall-Checkliste" action only appears when that chapter exists. Asked once, and only
   // while something is down; a failure just leaves the action out.
   const anyDown = Boolean(monitor?.systems.some((s) => s.status === "offline"));
