@@ -88,6 +88,10 @@ export default function ChatPage() {
   const [localChatId, setLocalChatId] = useState<string>(routeChatId ?? "");
   // New UI: the URL is the source of truth for the open conversation.
   const chatId = calm ? routeChatId ?? "" : localChatId;
+  // The conversation open right now, for async callbacks: an answer that arrives after the user
+  // switched to another conversation must not overwrite that one's messages.
+  const openChatRef = useRef(chatId);
+  openChatRef.current = chatId;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [input, setInputState] = useState(() => readDraft(draftKeys.chatInput(chatId)) ?? "");
@@ -195,12 +199,15 @@ export default function ChatPage() {
     try {
       id = await ensureChat();
       const response = await api.sendMessage(id, trimmed);
-      setMessages(await api.listMessages(id).then((r) => r.messages));
-      setToolsUsed(response.toolsUsed);
+      const messages = await api.listMessages(id).then((r) => r.messages);
+      if (openChatRef.current === id) {
+        setMessages(messages);
+        setToolsUsed(response.toolsUsed);
+      }
       setChats(await api.listChats().then((r) => r.chats));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-      setMessages((current) => current.filter((m) => m.id !== optimistic.id));
+      if (openChatRef.current === id) setMessages((current) => current.filter((m) => m.id !== optimistic.id));
       setInput(trimmed, id);
     } finally {
       justCreated.current = null;
@@ -266,7 +273,7 @@ export default function ChatPage() {
           </div>
           <div className="row">
             {chats.length > 0 && (
-              <select style={{ width: "auto" }} value={chatId} onChange={(e) => setLocalChatId(e.target.value)}>
+              <select style={{ width: "auto" }} value={chatId} disabled={busy} onChange={(e) => setLocalChatId(e.target.value)}>
                 {chats.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
               </select>
             )}
@@ -348,7 +355,7 @@ export default function ChatPage() {
           <label className="chat-picker">
             <span className="visually-hidden">Unterhaltung wählen</span>
             <span className="chat-picker-dot" aria-hidden="true" />
-            <select value={current ? chatId : ""} onChange={(e) => openChat(e.target.value)}>
+            <select value={current ? chatId : ""} disabled={busy} onChange={(e) => openChat(e.target.value)}>
               {!current && <option value="" disabled>Neue Unterhaltung</option>}
               {chats.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
             </select>

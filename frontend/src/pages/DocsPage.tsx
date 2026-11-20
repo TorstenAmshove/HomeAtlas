@@ -69,6 +69,9 @@ export default function DocsPage() {
   const [toast, showToast] = useUndoToast();
   const slugRef = useRef(slug);
   slugRef.current = slug;
+  // Current value for the Undo callback, which runs up to 12 s later (the panel may have changed).
+  const versionsOpenRef = useRef(versionsOpen);
+  versionsOpenRef.current = versionsOpen;
 
   const dirty = Boolean(page) && (
     (editing && draft !== page!.bodyMd) ||
@@ -284,7 +287,7 @@ export default function DocsPage() {
             const { page: restored } = await api.restoreDocVersion(target, snapshot.id);
             if (slugRef.current === target) {
               setPage(restored);
-              if (versionsOpen) setVersions((await api.listDocVersions(target)).versions);
+              if (versionsOpenRef.current) setVersions((await api.listDocVersions(target)).versions);
             }
           } catch (e) {
             fail(e);
