@@ -177,6 +177,30 @@ test("login, MFA enrollment, setup and main routes render without errors", async
     await page.locator(".docs-actions").getByRole("button", { name: "Abbrechen" }).click();
   });
 
+  await test.step("new UI: device tab and edit draft survive reload and Back", async () => {
+    const list = await page.request.get("/api/systems");
+    const device = ((await list.json()).systems as { id: string; name: string }[]).find((s) => s.name === "Smoke-NAS");
+    expect(device, "Smoke-NAS from the device-search step").toBeTruthy();
+    await page.goto(`/geraete/${device!.id}?tab=technik`);
+    const technik = page.locator(".dv-tabs").getByRole("link", { name: "Technik" });
+    await expect(technik).toHaveAttribute("aria-current", "page");
+    await page.reload();
+    await expect(technik).toHaveAttribute("aria-current", "page");
+
+    await page.goto(`/geraete/${device!.id}?edit=1`);
+    const name = page.locator("#device-name");
+    await name.fill("Smoke-NAS-Entwurf");
+    await page.goBack();
+    // Back is not intercepted (no data router); if a leave prompt shows anyway, stay with the draft.
+    const leave = page.getByRole("button", { name: "Trotzdem wechseln" });
+    if (await leave.isVisible().catch(() => false)) await leave.click();
+    await page.goForward();
+    await expect(page.locator("#device-name")).toHaveValue("Smoke-NAS-Entwurf");
+    // Discard, so later steps are not held up by the draft.
+    await page.locator(".dv-edit").getByRole("button", { name: "Abbrechen" }).click();
+    await expect(page.locator("#device-name")).toHaveCount(0);
+  });
+
   await test.step("back to the classic UI", async () => {
     await page.goto("/?ui=classic");
     await expect(page.locator(".app-shell")).toHaveCount(0);

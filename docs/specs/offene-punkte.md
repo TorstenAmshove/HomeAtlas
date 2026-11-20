@@ -60,7 +60,7 @@ Netzplan-Ebenen, `set_switch`), ADR-0009 für die Netzplan-Ebenen. Offen bleiben
 7. Ein Konto ohne aktiven Faktor (neu angelegt oder nach Reset) kann von jedem mit dem Passwort eingerichtet werden – bewusste Abwägung laut `reset_password.py`-Docstring, aber ohne Ablaufzeit.
 8. Initial-Admin via `ADMIN_PASSWORD` und CLI-Passwortreset umgehen die Richtlinie (CLI prüft nur ≥ 8 Zeichen; README-Beispiel `devpass123` erfüllt sie nicht).
 9. UsersPage zeigt „Mindestens 8 Zeichen“ und aktiviert „Anlegen“ ab 8 Zeichen, Richtlinie verlangt 10.
-10. AccessLogPage kennt Label `mfa.disable` (nie geschrieben), aber keines für `mfa.reset`; `mfa.reset` ist auch nicht als kritisch markiert.
+10. AccessLogPage kennt Label `mfa.disable` (nie geschrieben). (`mfa.reset` hat seit PR 6 ein Label und gilt als sicherheitsrelevant.)
 11. Session-Cookie ohne `Secure`-Flag, auch hinter TLS-Proxy.
 12. `X-Real-IP` wird ungeprüft übernommen; sicher nur, solange das Backend ausschließlich über nginx erreichbar ist (ADR-0003).
 13. Benutzernamen sind case-sensitiv und werden weder getrimmt noch validiert (außer ≥ 1 Zeichen).

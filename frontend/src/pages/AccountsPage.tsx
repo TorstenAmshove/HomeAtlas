@@ -1,23 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { api, type Account, type AccountAssignment, type System } from "../lib/api";
+import { useUi } from "../shell/ui";
+import { CATEGORIES, CATEGORY_LABEL } from "./zugaenge/categories";
+import AccountsCalm from "./zugaenge/AccountsCalm";
+import AccountFormCalm from "./zugaenge/AccountFormCalm";
 
-const CATEGORIES: [string, string][] = [
-  ["contract", "Vertrag / Kundenkonto"],
-  ["login", "Anmeldung an Gerät oder Dienst"],
-  ["sshkey", "SSH-Schlüssel"],
-  ["snmp", "SNMP (Community-Zeichenkette)"],
-  ["omada", "Omada Controller (Open API)"],
-  ["unifi", "UniFi Network (API-Key)"],
-  ["homeassistant", "Home Assistant (Long-Lived Access Token)"],
-  ["proxmox", "Proxmox VE (API-Token)"],
-  ["adguard", "AdGuard Home (Basic Auth)"],
-  ["wifi", "WLAN-Zugang"],
-  ["apikey", "API-Schlüssel"],
-  ["other", "Sonstiges"],
-];
-
-const CATEGORY_LABEL = Object.fromEntries(CATEGORIES);
+/**
+ * `/zugaenge`, `/zugaenge/neu`, `/zugaenge/:id`. The new UI has its own components
+ * (pages/zugaenge/); with the switch off the classic page below renders unchanged, and the two form
+ * routes (new-UI only) lead back to it.
+ */
+export default function AccountsPage({ mode = "list" }: { mode?: "list" | "new" | "edit" }) {
+  const { calm } = useUi();
+  if (!calm) return mode === "list" ? <AccountsClassic /> : <Navigate to="/zugaenge" replace />;
+  return mode === "list" ? <AccountsCalm /> : <AccountFormCalm mode={mode} />;
+}
 
 interface Draft {
   id: string | null;
@@ -38,7 +36,7 @@ const emptyDraft = (): Draft => ({
   username: "", secret: "", passphrase: "", url: "", notes: "", allowProbe: false, port: 0,
 });
 
-export default function AccountsPage() {
+function AccountsClassic() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [systems, setSystems] = useState<System[]>([]);
   const [kindLabels, setKindLabels] = useState<Record<string, string>>({});

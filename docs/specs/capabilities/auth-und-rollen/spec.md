@@ -381,6 +381,22 @@ neueste zuerst, `limit` auf 1–1000 begrenzt, `action` exakter Filter, `onlyFai
 
 Quelle: `backend/app/db.py:1846`, `backend/app/db.py:1849`, `backend/app/db.py:1865`, `backend/app/main.py:109`, `backend/app/main.py:1550`
 
+### Requirement: Benutzer und Protokoll in der Oberfläche
+Beide Oberflächen MÜSSEN die Filter des Protokolls in der URL halten (`?action=`, `?failures=1`), sodass
+Zurück dieselbe gefilterte Ansicht zeigt, und `mfa.reset` als „Zwei-Faktor zurückgesetzt“
+(sicherheitsrelevant) benennen. In der neuen Oberfläche MUSS das Protokoll jede Zeile mit einem
+Status-Chip zeigen (fehlgeschlagen · sicherheitsrelevant · ok) und beim Laden ein Skeleton; die
+Benutzerseite MUSS „Löschen“ und „Zwei-Faktor zurücksetzen“ unter „⋯“ mit je einem Prüfdialog führen,
+der die Folge nennt (Löschen: keine Anmeldung mehr, Sitzungen enden, kein Rückgängig; Zurücksetzen:
+Authenticator beim nächsten Login neu einrichten), und die Rollenerklärung hinter „ⓘ“. **[Muss]**
+
+#### Szenario: Filter überlebt Zurück
+- **WENN** ein ADMIN `/protokoll?action=login&failures=1` verlässt und Zurück drückt
+- **DANN** sind „Anmeldung“ und „Nur Fehlversuche“ wieder gewählt
+
+Quelle: `frontend/src/pages/AccessLogPage.tsx`, `frontend/src/pages/mehr/AccessLogCalm.tsx`,
+`frontend/src/pages/mehr/accessLogLabels.ts`, `frontend/src/pages/mehr/UsersCalm.tsx`
+
 ### Requirement: WebSocket-Authentifizierung
 WebSocket-Routen (interaktive Konsolen, siehe [remote-admin](../remote-admin/spec.md)) MÜSSEN vor dem
 Annehmen prüfen: (a) ist ein `Origin`-Header vorhanden, muss dessen Hostname exakt dem Hostnamen aus
@@ -506,7 +522,7 @@ UI-Seite(n): `frontend/src/pages/LoginPage.tsx` (ohne Session, jede Route),
 - > OFFEN: Ein Konto ohne aktiven Faktor (neu angelegt oder nach Reset) kann von jedem mit dem Passwort eingerichtet werden – bewusste Abwägung laut `reset_password.py`-Docstring, aber ohne Ablaufzeit.
 - > OFFEN: Initial-Admin via `ADMIN_PASSWORD` und CLI-Passwortreset umgehen die Richtlinie (CLI prüft nur ≥ 8 Zeichen; README-Beispiel `devpass123` erfüllt sie nicht).
 - > OFFEN: UsersPage zeigt „Mindestens 8 Zeichen“ und aktiviert „Anlegen“ ab 8 Zeichen, Richtlinie verlangt 10.
-- > OFFEN: AccessLogPage kennt Label `mfa.disable` (nie geschrieben), aber keines für `mfa.reset`; `mfa.reset` ist auch nicht als kritisch markiert.
+- > OFFEN: AccessLogPage kennt Label `mfa.disable` (nie geschrieben). (`mfa.reset` hat seit PR 6 ein Label und gilt als sicherheitsrelevant.)
 - > OFFEN: Session-Cookie ohne `Secure`-Flag, auch hinter TLS-Proxy.
 - > OFFEN: `X-Real-IP` wird ungeprüft übernommen; sicher nur, solange das Backend ausschließlich über nginx erreichbar ist (ADR-0003).
 - > OFFEN: Benutzernamen sind case-sensitiv und werden weder getrimmt noch validiert (außer ≥ 1 Zeichen).

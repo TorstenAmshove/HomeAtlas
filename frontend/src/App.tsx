@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { NavLink, Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { ApiError, api, type User } from "./lib/api";
 import { clearAllDrafts, hasDrafts } from "./lib/drafts";
 import ConfirmDialog from "./components/ConfirmDialog";
@@ -56,6 +56,13 @@ const NAV = [
   { to: "/protokoll", label: "Protokoll", icon: "📋", adminOnly: true },
   { to: "/einstellungen", label: "Einstellungen", icon: "⚙️" },
 ];
+
+/** The new device page, remounted per device: switching from one device to another (a link, ⌘K)
+ *  starts from a clean state, so revealed passwords and form state never carry over. */
+function DeviceCalmKeyed() {
+  const { id } = useParams();
+  return <DeviceCalm key={id} />;
+}
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -186,8 +193,10 @@ export default function App() {
     <Routes>
       <Route path="/" element={calm ? <StartCalm /> : <DashboardPage />} />
       <Route path="/geraete" element={<InventoryPage />} />
-      <Route path="/geraete/:id" element={calm ? <DeviceCalm /> : <SystemDetailPage />} />
+      <Route path="/geraete/:id" element={calm ? <DeviceCalmKeyed /> : <SystemDetailPage />} />
       {isAdmin && <Route path="/zugaenge" element={<AccountsPage />} />}
+      {isAdmin && <Route path="/zugaenge/neu" element={<AccountsPage mode="new" />} />}
+      {isAdmin && <Route path="/zugaenge/:id" element={<AccountsPage mode="edit" />} />}
       <Route path="/dokumentation" element={<DocsPage />} />
       <Route path="/dokumentation/:slug" element={<DocsPage />} />
       <Route path="/assistent" element={<ChatPage />} />
