@@ -9,18 +9,10 @@ import Markdown from "../components/Markdown";
 import { KindIcon } from "../lib/icons";
 import Terminal from "../components/Terminal";
 import MergePanel from "../components/MergePanel";
-
-/** Same eligibility test as backend/app/main.py's `_ssh_eligible` / probe_auth's SSH branch --
- *  keep these in sync. */
-function sshEligible(a: Account): boolean {
-  const port = a.port || 0;
-  return a.category === "sshkey" || (a.category === "login" && (port === 0 || port === 22));
-}
-
-const KINDS = [
-  "router", "network", "server", "nas", "container", "vm", "pc", "mobile", "printer",
-  "camera", "smarthome", "climate", "heating", "energy", "media", "iot", "other",
-];
+import DeviceEditForm from "../components/DeviceEditForm";
+import { downloadConfigVersion as downloadConfigFile, proxmoxConsoleUrl, sshEligible } from "../lib/device";
+import { clearDeviceDraft, readDeviceDraft, sameForm, storeDeviceDraft } from "../lib/deviceDraft";
+import { useLeaveGuard } from "../lib/useLeaveGuard";
 
 export default function SystemDetailPage() {
   const { id = "" } = useParams();
@@ -55,12 +47,27 @@ export default function SystemDetailPage() {
   const [switchBusy, setSwitchBusy] = useState("");
   const [switchNotice, setSwitchNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [haEntities, setHaEntities] = useState<HaEntity[] | null>(null);
+  // Bumped after a merge: the kept device is this one, so it is reloaded in place (forensics
+  // "Gerät" 7) instead of window.location.reload() throwing away scroll position and state.
+  const [reloadToken, setReloadToken] = useState(0);
+  const [draftRestored, setDraftRestored] = useState(false);
+
+  // Unsaved edits live in sessionStorage (lib/deviceDraft.ts), so Back and return, or a reload,
+  // bring the form back instead of silently dropping it (forensics "Gerät" 3).
+  const dirty = editing && system !== null && !sameForm(draft, system);
+  const [leaveDialog] = useLeaveGuard(dirty, system ? `„${system.name}“` : "diesem Gerät");
 
   useEffect(() => {
     api
       .getSystem(id)
       .then((r) => {
         setSystem(r.system);
+        const stored = isAdmin ? readDeviceDraft(id) : null;
+        if (stored) {
+          setDraft({ ...r.system, ...stored });
+          setEditing(true);
+          setDraftRestored(true);
+        }
         setAccounts(r.accounts);
         setDerived(r.description);
         setMonitorPorts(r.monitorPortsEffective);
@@ -74,7 +81,7 @@ export default function SystemDetailPage() {
         api.listSystemErrors(id).then((r2) => setErrorEvents(r2.events)).catch(() => setErrorEvents([]));
       })
       .catch((e) => setError(e.message));
-  }, [id, isAdmin]);
+  }, [id, isAdmin, reloadToken]);
 
   useEffect(() => {
     const account = accounts.find((a) => !a.viaAssignment && a.category === "homeassistant");
@@ -99,30 +106,28 @@ export default function SystemDetailPage() {
 
   async function downloadConfigVersion(version: ConfigVersion) {
     try {
-      const full = (await api.getConfigVersion(id, version.id)).version;
-      const content = full.content ?? "";
-      // Binary backups (e.g. an Omada Controller export) are stored as one unbroken Base64
-      // string -- everything else here is multi-line device config text, which no real Base64
-      // payload looks like, so this is a safe way to tell the two apart without a dedicated flag.
-      const isBase64 = content.length % 4 === 0 && /^[A-Za-z0-9+/]+=*$/.test(content);
-      const blob = isBase64
-        ? new Blob([Uint8Array.from(atob(content), (c) => c.charCodeAt(0))], { type: "application/octet-stream" })
-        : new Blob([content], { type: "text/plain" });
-      const safeName = full.label.replace(/[^\w.-]+/g, "_");
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${safeName}.${isBase64 ? "cfg" : "txt"}`;
-      a.click();
-      URL.revokeObjectURL(url);
+      await downloadConfigFile(id, version);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
   }
 
+  function updateDraft(next: Partial<System>) {
+    setDraft(next);
+    if (system) storeDeviceDraft(id, next, system);
+  }
+
+  function cancelEdit() {
+    clearDeviceDraft(id);
+    setDraftRestored(false);
+    setEditing(false);
+  }
+
   async function save() {
     try {
       const { system: updated } = await api.updateSystem(id, draft);
+      clearDeviceDraft(id);
+      setDraftRestored(false);
       setSystem(updated);
       setEditing(false);
       setSaved(true);
@@ -312,6 +317,7 @@ export default function SystemDetailPage() {
 
   return (
     <>
+      {leaveDialog}
       <div className="page-header">
         <div>
           <Link to="/geraete" className="muted">← Zurück zu allen Geräten</Link>
@@ -376,7 +382,10 @@ export default function SystemDetailPage() {
       </div>
 
       {isAdmin && !editing && (
-        <MergePanel key={system.id} system={system} onMerged={() => window.location.reload()} />
+        <MergePanel key={`${system.id}-${reloadToken}`} system={system} onMerged={() => {
+          navigate(`/geraete/${system.id}`, { replace: true });
+          setReloadToken((t) => t + 1);
+        }} />
       )}
 
       {probeNotice && <div className={`notice ${probeNotice.kind}`}>{probeNotice.text}</div>}
@@ -387,91 +396,10 @@ export default function SystemDetailPage() {
 
       {editing ? (
         <div className="card">
-          <h2>Gerät bearbeiten</h2>
-          <div className="grid cols-2">
-            {([
-              ["name", "Name"], ["ip", "Adresse im Netzwerk"], ["hostname", "Hostname"],
-              ["vendor", "Hersteller"], ["model", "Modell"], ["location", "Standort"],
-              ["url", "Weboberfläche (URL)"], ["docUrl", "Hersteller-Dokumentation (URL)"],
-              ["docLink", "Eigene Dokumentation (URL)"], ["purpose", "Zweck in einem Satz"],
-            ] as const).map(([field, label]) => (
-              <div className="field" key={field}>
-                <label>{label}</label>
-                <input value={(draft[field] as string) ?? ""}
-                       onChange={(e) => setDraft({ ...draft, [field]: e.target.value })} />
-              </div>
-            ))}
-            <div className="field">
-              <label>Art des Geräts</label>
-              <select value={draft.kind ?? "other"} onChange={(e) => setDraft({ ...draft, kind: e.target.value })}>
-                {KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
-              </select>
-            </div>
-            <div className="field">
-              <label>Bedeutung</label>
-              <select value={draft.importance ?? "normal"}
-                      onChange={(e) => setDraft({ ...draft, importance: e.target.value as System["importance"] })}>
-                <option value="critical">kritisch — Ausfall fällt im Haus auf</option>
-                <option value="normal">normal</option>
-                <option value="low">gering</option>
-              </select>
-            </div>
-          </div>
-          <div className="field">
-            <label>Beschreibung für Laien (Markdown)</label>
-            <textarea value={draft.descriptionMd ?? ""}
-                      onChange={(e) => setDraft({ ...draft, descriptionMd: e.target.value })} />
-          </div>
-          <div className="field">
-            <label>Interne Notiz</label>
-            <input value={draft.notes ?? ""} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
-          </div>
-          <div className="field">
-            <label>Schlagworte</label>
-            <input
-              placeholder="z. B. PoE, Dachboden"
-              value={(draft.tags ?? []).join(", ")}
-              onChange={(e) => setDraft({ ...draft, tags: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
-            />
-            <div className="field-hint">
-              Frei wählbar. Ein Schlagwort mit „PoE" markiert das Gerät als PoE-abhängig — es
-              funktioniert dann nur an einem PoE-fähigen Switch oder mit einem Injector, was als
-              Hinweis oben und im Geräte-Überblick angezeigt wird.
-            </div>
-          </div>
-
-          <label className="row" style={{ cursor: "pointer", fontWeight: 400, color: "var(--text)", marginBottom: 8 }}>
-            <input type="checkbox" style={{ width: "auto" }} checked={Boolean(draft.monitored)}
-                   onChange={(e) => setDraft({ ...draft, monitored: e.target.checked ? 1 : 0 })} />
-            Dauerhaft überwachen (alle paar Sekunden prüfen)
-          </label>
-          {Boolean(draft.monitored) && (
-            <div className="field">
-              <label>Zu prüfende Ports (optional, max. 3)</label>
-              <input
-                placeholder="z. B. 443, 445 — leer = automatisch bzw. Ping"
-                value={(draft.monitorPorts ?? []).join(", ")}
-                onChange={(e) =>
-                  setDraft({
-                    ...draft,
-                    monitorPorts: e.target.value
-                      .split(",")
-                      .map((s) => Number(s.trim()))
-                      .filter((n) => Number.isInteger(n) && n > 0 && n < 65536)
-                      .slice(0, 3),
-                  })
-                }
-              />
-              <div className="field-hint">
-                Ein geprüfter Port sagt mehr als ein Ping: ein NAS, das auf Ping antwortet, während
-                die Dateifreigabe tot ist, gilt sonst als „erreichbar".
-              </div>
-            </div>
+          {draftRestored && (
+            <div className="notice info">Ungespeicherte Änderungen von vorhin wiederhergestellt.</div>
           )}
-          <div className="row">
-            <button onClick={() => void save()}>Speichern</button>
-            <button className="secondary" onClick={() => setEditing(false)}>Abbrechen</button>
-          </div>
+          <DeviceEditForm draft={draft} onChange={updateDraft} onSave={() => void save()} onCancel={cancelEdit} />
         </div>
       ) : (
         <div className="grid cols-2">
@@ -953,18 +881,6 @@ export default function SystemDetailPage() {
       )}
     </>
   );
-}
-
-/** Native Proxmox noVNC console URL for one guest -- opened in a new tab rather than proxied
- *  through HomeAtlas, same reasoning as the "Weboberfläche öffnen" link elsewhere: Proxmox already
- *  has its own authenticated console, building a second one here would just be a worse copy.
- *  Requires `node` (only known for guests the REST listing itself returned, not ones only found
- *  via the SSH pct/qm fallback -- see RemoteContainer's own doc comment in api.ts). */
-function proxmoxConsoleUrl(baseUrl: string, node: string, kind: RemoteContainer["kind"], vmid: string, name: string): string {
-  const params = new URLSearchParams({
-    console: kind === "vm" ? "kvm" : "lxc", novnc: "1", vmid, vmname: name, node, resize: "off", cmd: "",
-  });
-  return `${baseUrl}/?${params.toString()}`;
 }
 
 /** Docker containers (or, on a Proxmox host, its VMs/LXC containers) on a host reached over

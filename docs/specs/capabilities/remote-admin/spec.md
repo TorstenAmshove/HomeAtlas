@@ -225,13 +225,17 @@ Das System MUSS fehlgeschlagene Geräteaktionen (Verbindung, Anmeldung, Befehl) 
 Quelle: `backend/app/remote_admin.py:72`–`backend/app/remote_admin.py:85`, Test: `backend/tests/test_remote_admin_reboot_and_logs.py::test_remote_container_logs_reports_docker_group_permission_error`
 
 ### Requirement: Bestätigung in der Oberfläche
-Die Oberfläche MUSS vor Stopp/Neustart eines Containers oder Gasts und vor einem Geräte-Neustart eine Bestätigung verlangen; Start und Ein/Aus-Schalten erfolgen ohne Rückfrage. Admin-Bereiche werden nur ADMIN angezeigt. **[Muss]** (Rückfrage-Texte **[Impl]**)
+Die Oberfläche MUSS vor Stopp/Neustart eines Containers oder Gasts und vor einem Geräte-Neustart eine Bestätigung verlangen; Start und Ein/Aus-Schalten erfolgen in der klassischen Oberfläche ohne Rückfrage. In der neuen Oberfläche (Tab „Steuern“, nur ADMIN) verlangt zusätzlich jedes Ausschalten (Shelly, Home-Assistant-Entity) einen Prüfdialog, der in Klartext sagt, was passiert; Start und Einschalten bleiben ohne Rückfrage, und neben jeder Aktion steht der aktuelle Zustand (Gerät, Container, Entity; der Schaltzustand eines Shelly wird nicht abgefragt und das auch so gesagt). Admin-Bereiche werden nur ADMIN angezeigt. **[Muss]** (Rückfrage-Texte **[Impl]**)
 
 #### Szenario: Neustart
 - **WENN** der Admin „Gerät neu starten“ klickt
 - **DANN** Rückfrage „„<Name>“ wirklich neu starten? Das Gerät ist währenddessen kurz nicht erreichbar.“
 
-Quelle: `frontend/src/pages/SystemDetailPage.tsx:175`, `frontend/src/pages/SystemDetailPage.tsx:224`, `frontend/src/pages/SystemDetailPage.tsx:1024`, `frontend/src/pages/SystemDetailPage.tsx:645`
+#### Szenario: Ausschalten in der neuen Oberfläche
+- **WENN** der Admin im Tab „Steuern“ bei einer Home-Assistant-Entity „Aus …“ klickt
+- **DANN** fragt ein Dialog „„<Name>“ ausschalten?“ und schaltet erst nach „Ausschalten“
+
+Quelle: `frontend/src/pages/SystemDetailPage.tsx:175`, `frontend/src/pages/SystemDetailPage.tsx:224`, `frontend/src/pages/SystemDetailPage.tsx:1024`, `frontend/src/pages/SystemDetailPage.tsx:645`, `frontend/src/pages/device/SteuernTab.tsx`, `frontend/src/pages/device/RemoteHostSection.tsx`
 
 ## Daten
 
@@ -261,7 +265,7 @@ Aus [data-model](../../contracts/data-model.md):
 Erfolgsantworten der Aktionen: `{"ok": true}`; Listen: `{"containers": [...], "proxmoxUrl": "…"}` bzw. `{"entities": [...]}`; Logs entfernt: `{"text": "…"}`.
 Berührt: SSH-Schlüssel erzeugen/verteilen (`POST /api/systems/{id}/ssh-keys`, `POST /api/accounts/{id}/deploy`) gehören zu [zugangsdaten](../zugangsdaten/spec.md); `set_switch`/`list_switches` zu [assistent-chat-und-mcp](../assistent-chat-und-mcp/spec.md).
 
-UI-Seite(n): `frontend/src/pages/SystemDetailPage.tsx` (Route `/geraete/:id`), Terminal-Komponente `frontend/src/components/Terminal.tsx`.
+UI-Seite(n): `frontend/src/pages/SystemDetailPage.tsx` (Route `/geraete/:id`), neue Oberfläche `frontend/src/pages/device/SteuernTab.tsx`, Terminal-Komponente `frontend/src/components/Terminal.tsx`.
 
 ## Nicht-Ziele und Grenzen
 

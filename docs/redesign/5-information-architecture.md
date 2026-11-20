@@ -108,8 +108,8 @@ Ein Bereich pro PR, jeweils hinter dem Schalter:
 | 6 | Zugänge + Mehr | Zugänge, Scan, Benutzer, Protokoll, Einstellungen |
 | 7 | Gates | Login, MFA, Einrichtung (Ausweg aus der Einrichtung) |
 
-Fortschritt: **6 von 15 Oberflächen** (12 Seiten + 3 Gates): Start (PR 2), Geräte-Liste, Netzplan und Netze & WLAN
-(PR 3, Geräte), Dokumentation und Assistent (PR 5, Hilfe). Shell gebaut (PR 1): Schalter, Tokens,
+Fortschritt: **7 von 15 Oberflächen** (12 Seiten + 3 Gates): Start (PR 2), Geräte-Liste, Netzplan und Netze & WLAN
+(PR 3, Geräte), Gerät (PR 4), Dokumentation und Assistent (PR 5, Hilfe). Shell gebaut (PR 1): Schalter, Tokens,
 Dunkelmodus, `frontend/src/shell/` (AppShell, ⌘K), Bausteine `components/Skeleton.tsx`,
 `components/ConfirmDialog.tsx`, `lib/useUndoToast.tsx`, `lib/useUrlState.ts`. Die Seiten zeigen in der
 neuen Shell vorerst noch ihren eigenen Seitenkopf; den nimmt jeweils der PR ihres Bereichs heraus.
@@ -143,3 +143,12 @@ neuen Shell vorerst noch ihren eigenen Seitenkopf; den nimmt jeweils der PR ihre
   doppelter Breite in einem seitlich verschiebbaren Rahmen. Netze & WLAN als ruhige Liste mit
   Leerzustand, der den nötigen UniFi-Zugang erklärt. Dazu aus der Hilfe-Prüfung: Abmelden fragt,
   wenn noch Entwürfe im Tab liegen (beide Oberflächen).
+- **Gerät** (PR 4, `pages/device/DeviceCalm.tsx` + ein Baustein je Tab): Tabs in `?tab=`, Bearbeiten in
+  `?edit=1`; Zusammenfassung und eine Hauptaktion nur im Überblick („Jetzt neu prüfen“ bei live
+  gemeldetem Ausfall, sonst „Weboberfläche ↗“), Rest unter „⋯“. Name in der Top-Bar
+  („← Geräte / NAS“, `shell/pageTitle.ts`) statt Seitentitel. „Steuern“ (nur Admin): jede
+  ausschaltende Aktion mit Prüfdialog und Zustand daneben. Löschen mit Liste der mitgelöschten Zugänge
+  und dem Hinweis, dass es kein Rückgängig gibt; Duplikate nur als Hinweis, wenn es Kandidaten gibt.
+  Passwort verbirgt sich nach 30 s. In **beiden** Oberflächen: Formular-Entwurf im `sessionStorage`
+  mit Rückfrage beim Verlassen (`lib/deviceDraft.ts`), nach dem Zusammenführen kein Neuladen der
+  ganzen Seite mehr. Bei ausgeschaltetem Schalter rendert `/geraete/:id` `SystemDetailPage.tsx`.
