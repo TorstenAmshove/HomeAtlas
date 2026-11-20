@@ -105,7 +105,14 @@ Ein Bereich pro PR, jeweils hinter dem Schalter:
 | 6 | Zugänge + Mehr | Zugänge, Scan, Benutzer, Protokoll, Einstellungen |
 | 7 | Gates | Login, MFA, Einrichtung (Ausweg aus der Einrichtung) |
 
-Fortschritt: **0 von 15 Oberflächen** (12 Seiten + 3 Gates). Shell gebaut (PR 1): Schalter, Tokens,
+Fortschritt: **1 von 15 Oberflächen** (12 Seiten + 3 Gates). Shell gebaut (PR 1): Schalter, Tokens,
 Dunkelmodus, `frontend/src/shell/` (AppShell, ⌘K), Bausteine `components/Skeleton.tsx`,
 `components/ConfirmDialog.tsx`, `lib/useUndoToast.tsx`, `lib/useUrlState.ts`. Die Seiten zeigen in der
 neuen Shell vorerst noch ihren eigenen Seitenkopf; den nimmt jeweils der PR ihres Bereichs heraus.
+
+- **Start** (PR 2, `pages/start/StartCalm.tsx`): Status-Hero aus `/api/monitor` (dieselbe Menge wie
+  der Netzplan, B3), eine ruhige Zahlenzeile statt Untertitel + Kacheln, „+N weitere“ bei mehr als 10
+  kritischen Geräten (B1, verlinkt vorerst auf `/geraete`, bis die Liste `?importance=` kann),
+  „Stand letzter Scan“ für nicht überwachte kritische Geräte (B2), Ergebnis von „Internet prüfen“ mit
+  Uhrzeit, Status-Chip statt KI-Absatz, Skeleton, kein Seitentitel. `recentlyChanged` bleibt bewusst
+  ungenutzt. Bei ausgeschaltetem Schalter rendert `/` unverändert `DashboardPage.tsx`.

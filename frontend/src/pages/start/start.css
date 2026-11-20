@@ -1,0 +1,122 @@
+/* Start page of the new UI (StartCalm.tsx). Every rule is scoped to .start-calm, which only renders
+ * inside the new shell, so the tokens (--c-*) from shell/shell.css are always defined here and the
+ * classic UI is untouched. Layout follows docs/redesign/mockups/index.html, screen "Start", B. */
+
+.start-calm { --start-row-h: 48px; }
+
+/* ---------------------------------------------------------------- status hero */
+
+.start-calm .start-hero { border-left: 3px solid var(--c-line); padding: 4px 0 4px 14px; }
+.start-calm .start-hero-bad { border-left-color: var(--c-bad); }
+.start-calm .start-hero-ok { border-left-color: var(--c-ok); }
+.start-calm .start-hero h2 {
+  margin: 0; font-size: 20px; line-height: 1.3; font-weight: 600; letter-spacing: -0.01em; color: var(--c-text);
+  overflow-wrap: anywhere;
+}
+.start-calm .start-hero-sub { margin: 2px 0 0; color: var(--c-muted); font-size: 14px; overflow-wrap: anywhere; }
+.start-calm .start-hero .start-actions { margin-top: 12px; }
+
+/* ---------------------------------------------------------------- buttons */
+
+.start-calm .start-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.app-shell .start-calm .start-btn,
+.app-shell .start-calm button.start-btn {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 16px;
+  border-radius: 8px; border: 1px solid var(--c-line); background: transparent; color: var(--c-text);
+  font: inherit; font-size: 14px; font-weight: 600; white-space: nowrap; text-decoration: none;
+}
+.app-shell .start-calm a.start-btn:hover { background: var(--c-surface-2); text-decoration: none; }
+.app-shell .start-calm .start-btn.primary { background: var(--c-text); color: var(--c-on-text); border-color: var(--c-text); }
+.app-shell .start-calm a.start-btn.primary:hover { background: var(--c-text); opacity: 0.88; }
+
+/* ---------------------------------------------------------------- quiet line */
+
+.start-calm .start-line {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 16px;
+  margin: 18px 0 4px;
+}
+.start-calm .start-quiet { margin: 0; color: var(--c-muted); font-size: 14px; display: flex; flex-wrap: wrap; }
+.start-calm .start-quiet > span { white-space: nowrap; }
+.start-calm .start-quiet > span:not(:last-child)::after { content: "·"; margin: 0 7px; color: var(--c-muted); }
+.start-calm .start-quiet b { color: var(--c-text); font-weight: 650; }
+.start-calm .start-bad { color: var(--c-bad); }
+
+/* ---------------------------------------------------------------- chips */
+
+.start-calm .start-chip {
+  display: inline-flex; align-items: center; gap: 6px; flex: none; font-size: 13px; font-weight: 500;
+  color: var(--c-muted); white-space: nowrap;
+}
+.start-calm .start-chip .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+.start-calm .start-chip.ok { color: var(--c-ok); }
+.start-calm .start-chip.bad { color: var(--c-bad); }
+.start-calm .start-chip.warn { color: var(--c-warn); }
+.start-calm .start-chip-short { display: none; }
+.start-calm .start-chip-link { min-height: 44px; text-decoration: none; }
+.start-calm .start-chip-link:hover { text-decoration: none; }
+.start-calm .start-chip-link u { text-underline-offset: 2px; }
+
+/* ---------------------------------------------------------------- sections and lists */
+
+.start-calm .start-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+@media (min-width: 1000px) {
+  .start-calm .start-grid { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 32px; }
+}
+
+.start-calm .start-sec { margin: 22px 0 4px; font-size: 13px; font-weight: 600; color: var(--c-muted); letter-spacing: 0; }
+.start-calm .start-sec-note { font-weight: 500; }
+
+.start-calm .start-list { list-style: none; margin: 0; padding: 0; }
+.start-calm .start-list li { border-bottom: 1px solid var(--c-line); }
+.start-calm .start-row {
+  display: flex; align-items: center; gap: 12px; min-height: var(--start-row-h); padding: 6px 0;
+  color: var(--c-text); text-decoration: none;
+}
+.start-calm a.start-row:hover { text-decoration: none; }
+.start-calm a.start-row:hover .start-row-name { color: var(--c-accent); }
+.start-calm .start-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.start-calm .start-row-name { line-height: 1.35; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.start-calm .start-row-kind .start-row-name { flex: 1; min-width: 0; font-weight: 500; }
+.start-calm .start-row-sub {
+  font-size: 12.5px; line-height: 1.35; color: var(--c-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.start-calm .start-count { color: var(--c-muted); font-variant-numeric: tabular-nums; }
+.start-calm .start-row-skeleton { border-bottom: 1px solid var(--c-line); }
+
+.start-calm .start-more {
+  display: inline-flex; align-items: center; min-height: 44px; color: var(--c-muted); font-size: 13.5px;
+}
+.start-calm .start-more:hover { color: var(--c-text); }
+.start-calm .start-empty { color: var(--c-muted); font-size: 14px; margin: 8px 0; }
+
+/* ---------------------------------------------------------------- internet check result */
+
+.start-calm .start-check {
+  margin-top: 12px; padding: 4px 0 4px 12px; border-left: 3px solid var(--c-line); font-size: 14px;
+  display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere;
+}
+.start-calm .start-check.ok { border-left-color: var(--c-ok); }
+.start-calm .start-check.bad { border-left-color: var(--c-bad); }
+.start-calm .start-check-time { color: var(--c-muted); font-size: 12.5px; }
+
+/* Mouse and trackpad: denser rows so the page fits one desktop screen; touch keeps 44px targets. */
+@media (pointer: fine) {
+  .start-calm { --start-row-h: 40px; }
+  .start-calm .start-row { padding: 4px 0; }
+  .app-shell .start-calm .start-btn,
+  .app-shell .start-calm button.start-btn { min-height: 38px; }
+  .start-calm .start-more, .start-calm .start-chip-link { min-height: 36px; }
+}
+
+/* ---------------------------------------------------------------- phone */
+
+@media (max-width: 759px) {
+  .start-calm .start-hero h2 { font-size: 19px; }
+  .start-calm .start-line { margin-top: 14px; }
+  .start-calm .start-quiet { font-size: 13.5px; }
+  /* Long offline chips may wrap under the name instead of squeezing it. */
+  .start-calm .start-chip { white-space: normal; text-align: right; }
+  .start-calm .start-chip-long { display: none; }
+  .start-calm .start-chip-short { display: inline; }
+}
