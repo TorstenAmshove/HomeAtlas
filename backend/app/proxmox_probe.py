@@ -3,6 +3,8 @@ containers it runs -- the same reasoning as docker_probe.py: a port scan can onl
 answers on 192.168.1.40", never that it is a specific VM this hypervisor knows about, on which
 node, and whether it is set to run.
 
+Templates (`template: 1`) are skipped, see `_usable_guests`.
+
 Read-only: every call below is a GET. No endpoint that starts/stops/reconfigures a guest is ever
 called from here.
 
@@ -79,6 +81,19 @@ def is_critical_tag(tags: str) -> bool:
     return any(tag.strip().lower() == "critical" for tag in _TAG_SPLIT_RE.split(tags or ""))
 
 
+def _is_template(guest: dict) -> bool:
+    """Proxmox marks VM/LXC templates with `template: 1` in the guest list (older versions omit the
+    field; some clients render it as "1" or true)."""
+    return str(guest.get("template") or 0).lower() in ("1", "true")
+
+
+def _usable_guests(guests: list) -> list:
+    """Guests worth listing: have a vmid and are not templates. Templates never run and are
+    irrelevant for operations, so neither probe() nor list_guests() reports them (and no `/config`
+    request is made for them)."""
+    return [g for g in guests if g.get("vmid") is not None and not _is_template(g)]
+
+
 async def _get(client: httpx.AsyncClient, base_url: str, path: str) -> dict:
     response = await client.get(f"{base_url}/api2/json{path}")
     response.raise_for_status()
@@ -146,7 +161,7 @@ async def probe(base_url: str, token_id: str, token_secret: str) -> dict:
                         # with genuinely zero guests.
                         errors.append(f"{node}/{path}: {exc}")
                         continue
-                    valid_guests = [g for g in guests if g.get("vmid") is not None]
+                    valid_guests = _usable_guests(guests)
                     details = await asyncio.gather(*(
                         _guest_details(client, base_url, node, kind, int(g["vmid"])) for g in valid_guests
                     ))
@@ -245,7 +260,7 @@ async def list_guests(base_url: str, token_id: str, token_secret: str) -> dict:
                         # them" -- see the `errors` check below.
                         errors.append(f"{node}/{path}: {exc}")
                         continue
-                    valid_guests = [g for g in guests if g.get("vmid") is not None]
+                    valid_guests = _usable_guests(guests)
                     details = await asyncio.gather(*(
                         _guest_details(client, base_url, node, kind, int(g["vmid"])) for g in valid_guests
                     ))

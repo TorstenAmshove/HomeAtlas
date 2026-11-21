@@ -255,3 +255,67 @@ def test_guest_task_log_requires_address():
     result = asyncio.run(proxmox_probe.guest_task_log("", "root@pam!token", "secret", "pve", "101"))
     assert not result["ok"]
     assert "Adresse" in result["error"]
+
+
+def _template_routes() -> dict:
+    """Two nodes: a template on pve1, a normal guest on pve2; qemu 100/103 and lxc 200 are
+    templates (103 with the string form), the others are normal guests."""
+    return {
+        "/api2/json/nodes": httpx.Response(200, json={"data": [{"node": "pve1"}, {"node": "pve2"}]}),
+        "/api2/json/nodes/pve1/qemu": httpx.Response(200, json={"data": [
+            {"vmid": 100, "name": "tpl", "status": "stopped", "template": 1},
+            {"vmid": 101, "name": "a", "status": "running", "template": 0},
+            {"vmid": 102, "name": "b", "status": "running"},
+        ]}),
+        "/api2/json/nodes/pve1/lxc": httpx.Response(200, json={"data": [
+            {"vmid": 200, "name": "lxc-tpl", "status": "stopped", "template": 1},
+        ]}),
+        "/api2/json/nodes/pve2/qemu": httpx.Response(200, json={"data": [
+            {"vmid": 103, "name": "tpl2", "status": "stopped", "template": "1"},
+        ]}),
+        "/api2/json/nodes/pve2/lxc": httpx.Response(200, json={"data": [
+            {"vmid": 201, "name": "c", "status": "running", "template": None},
+        ]}),
+        "/api2/json/nodes/pve1/qemu/101/config": httpx.Response(200, json={"data": {}}),
+        "/api2/json/nodes/pve1/qemu/102/config": httpx.Response(200, json={"data": {}}),
+        "/api2/json/nodes/pve2/lxc/201/config": httpx.Response(200, json={"data": {}}),
+    }
+
+
+def _dispatching(monkeypatch, routes: dict, config_calls: list) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path.endswith("/config") and path not in routes:
+            config_calls.append(path)
+        return routes.get(path, httpx.Response(404))
+
+    transport = httpx.MockTransport(handler)
+
+    class _Client(httpx.AsyncClient):
+        def __init__(self, *args, **kwargs):
+            kwargs["transport"] = transport
+            kwargs.pop("verify", None)
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr(proxmox_probe.httpx, "AsyncClient", _Client)
+
+
+def test_probe_skips_templates(monkeypatch):
+    calls: list = []
+    _dispatching(monkeypatch, _template_routes(), calls)
+    result = asyncio.run(proxmox_probe.probe("https://pve.local:8006", "root@pam!t", "s"))
+    assert result["ok"]
+    assert [s["extra"]["proxmox"]["vmid"] for s in result["systems"]] == [101, 102, 201]
+    assert [s["discoveryKey"] for s in result["systems"]] == [
+        "proxmox:pve1:vm:101", "proxmox:pve1:vm:102", "proxmox:pve2:container:201",
+    ]
+    assert calls == []  # no /config request for any template
+
+
+def test_list_guests_skips_templates(monkeypatch):
+    calls: list = []
+    _dispatching(monkeypatch, _template_routes(), calls)
+    result = asyncio.run(proxmox_probe.list_guests("https://pve.local:8006", "root@pam!t", "s"))
+    assert result["ok"]
+    assert [c["id"] for c in result["containers"]] == ["pve1:qemu:101", "pve1:qemu:102", "pve2:lxc:201"]
+    assert calls == []
