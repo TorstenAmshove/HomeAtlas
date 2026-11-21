@@ -361,14 +361,19 @@ Das System MUSS mit API-Token (`Authorization: PVEAPIToken=<id>=<secret>`) nur G
 `/api2/json/nodes`, je Node `qemu` und `lxc`, je Gast `/config`. MAC/IP aus `net0`; Notizen: erste
 `Doc:`/`URL:`-Zeile → `docLink`, erste übrige Textzeile → `purpose` (≤200), Gesamttext →
 `descriptionMd` (≤800); Tag `critical` (`;`/`,`-getrennt) → `importance = critical` (nur
-hochstufen). Scheitern alle Gästelisten und wurde nichts gefunden → Fehler mit Hinweis auf
+hochstufen). Gäste mit `template: 1` (qemu und lxc) werden nicht übernommen und es erfolgt
+kein `/config`-Abruf für sie. Scheitern alle Gästelisten und wurde nichts gefunden → Fehler mit Hinweis auf
 Token-Berechtigung (PVEAuditor). **[Muss]**
 
 #### Szenario: Kritischer Gast
 - **WENN** ein Gast die Tags `web;critical` trägt
 - **DANN** erhält der Fund `importance = critical`
 
-Quelle: `backend/app/proxmox_probe.py:115`, Test: `backend/tests/test_proxmox_probe.py::test_probe_sets_critical_importance_docs_and_purpose_from_notes`, `backend/tests/test_proxmox_probe.py::test_parse_notes_does_not_match_url_mentioned_mid_sentence`
+#### Szenario: Template
+- **WENN** ein Gast `template: 1` hat
+- **DANN** erscheint er nicht in den Funden
+
+Quelle: `backend/app/proxmox_probe.py:115`, Test: `backend/tests/test_proxmox_probe.py::test_probe_sets_critical_importance_docs_and_purpose_from_notes`, `backend/tests/test_proxmox_probe.py::test_probe_skips_templates`, `backend/tests/test_db_systems_templates.py::test_missing_discovered_proxmox_row_is_kept_and_set_offline`, `backend/tests/test_proxmox_probe.py::test_parse_notes_does_not_match_url_mentioned_mid_sentence`
 
 ### Requirement: AdGuard Home lesen
 Das System MUSS per Basic Auth nur GETs ausführen: `/control/dns_info` (Pflicht; 401/403 →
