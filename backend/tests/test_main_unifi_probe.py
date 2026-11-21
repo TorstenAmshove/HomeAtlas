@@ -26,7 +26,7 @@ def test_manual_unifi_probe_syncs_devices_topology_and_network_resources(client,
         "url": "https://192.168.42.2", "secretEnc": crypto.encrypt("api-token"),
     })
 
-    async def fake_probe(url, api_key, account_id, system_id):
+    async def fake_probe(url, api_key, account_id, system_id, client_subnets=None):
         assert (url, api_key, account_id, system_id) == (
             "https://192.168.42.2", "api-token", account["id"], controller["id"],
         )
@@ -64,7 +64,7 @@ def test_manual_unifi_probe_returns_the_controller_error(client, monkeypatch):
         "url": "https://192.168.42.2", "secretEnc": crypto.encrypt("api-token"),
     })
 
-    async def fake_probe(*_args):
+    async def fake_probe(*_args, **_kwargs):
         return {"ok": False, "error": "Der UniFi API-Key wurde abgelehnt.", "warnings": [],
                 "systems": [], "resources": [], "completeScopes": []}
 
@@ -79,3 +79,49 @@ def test_manual_unifi_probe_returns_the_controller_error(client, monkeypatch):
         "purpose": "",
         "reason": "Der UniFi API-Key wurde abgelehnt.",
     }
+
+
+def _setup_account():
+    controller = db.create_system({"kind": "router", "name": "UCG", "ip": "192.168.42.2"})
+    db.create_account({
+        "systemId": controller["id"], "label": "UCG API", "category": "unifi", "allowProbe": 1,
+        "url": "https://192.168.42.2", "secretEnc": crypto.encrypt("api-token"),
+    })
+    return controller
+
+
+def _capture(monkeypatch, systems=()):
+    seen = {}
+
+    async def fake_probe(url, api_key, account_id, system_id, client_subnets=None):
+        seen["subnets"] = client_subnets
+        return {"ok": True, "error": "", "warnings": [], "systems": list(systems), "resources": [],
+                "completeScopes": []}
+
+    monkeypatch.setattr(unifi_probe, "probe", fake_probe)
+    return seen
+
+
+def test_manual_probe_passes_scan_subnets(client, monkeypatch):
+    controller = _setup_account()
+    seen = _capture(monkeypatch)
+    db.update_settings({"scanSubnets": ["10.9.0.0/24"]})
+    assert client.post(f"/api/systems/{controller['id']}/probe").status_code == 200
+    assert "10.9.0.0/24" in seen["subnets"]
+
+
+def test_manual_probe_falls_back_to_host_subnets(client, monkeypatch):
+    from app import discovery
+    controller = _setup_account()
+    seen = _capture(monkeypatch)
+    monkeypatch.setattr(discovery, "local_subnets", lambda: ["172.30.0.0/24"])
+    assert client.post(f"/api/systems/{controller['id']}/probe").status_code == 200
+    assert seen["subnets"] == ["172.30.0.0/24"]
+
+
+def test_filtered_client_does_not_delete_existing_system(client, monkeypatch):
+    controller = _setup_account()
+    guest = db.create_system({"kind": "other", "name": "Gast", "ip": "192.168.50.5"})
+    _capture(monkeypatch)
+    assert client.post(f"/api/systems/{controller['id']}/probe").status_code == 200
+    assert db.get_system(guest["id"])["name"] == "Gast"

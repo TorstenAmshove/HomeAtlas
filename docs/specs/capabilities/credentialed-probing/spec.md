@@ -335,13 +335,21 @@ Gerät, max. 8 parallel), `/clients` (nur WIRED/WIRELESS), `/networks` (+ Detail
 `/wans`; Seitengröße 200 über `offset`/`limit` bis `totalCount`. Geräte → `kind` router (Feature
 `gateway`) sonst network, Hersteller Ubiquiti; Netze/WLANs/WANs → Netzwerkressourcen. Fehler eines
 Teilbereichs einer Site → Warnung, Bereich gilt als nicht vollständig. 401/403 → „Der UniFi
-API-Key wurde abgelehnt.“ ohne den Key zu nennen. Timeout 15 s/Connect 5 s, TLS ungeprüft. **[Muss]**
+API-Key wurde abgelehnt.“ ohne den Key zu nennen. Timeout 15 s/Connect 5 s, TLS ungeprüft.
+Clients MÜSSEN nur übernommen werden, wenn ihre IPv4-Adresse in einem der Scan-Netze
+(`discovery.effective_subnets`, als `client_subnets` übergeben) liegt; Clients ohne IP werden dabei
+übersprungen, Geräte nie gefiltert, bestehende Einträge nie angefasst. Leere bzw. nur ungültige
+Netzliste = kein Filter. **[Muss]**
 
 #### Szenario: Key abgelehnt
 - **WENN** der Controller 401 liefert
 - **DANN** ist `ok: false`, die Meldung enthält „API-Key“, aber nicht den Key selbst
 
-Quelle: `backend/app/unifi_probe.py:169`, Test: `backend/tests/test_unifi_probe.py::test_probe_reports_authentication_failure_without_echoing_api_key`, `backend/tests/test_unifi_probe.py::test_probe_normalizes_all_unifi_sites_without_persisting_api_key`
+#### Szenario: Gäste-Client außerhalb der Scan-Netze
+- **WENN** `client_subnets=["192.168.1.0/24"]` gilt und Clients mit IP in 192.168.1.x, 192.168.50.x und ohne IP existieren
+- **DANN** werden nur die Clients aus 192.168.1.x und alle Geräte übernommen, `skippedClients` zählt die übrigen
+
+Quelle: `backend/app/unifi_probe.py:169`, Test: `backend/tests/test_unifi_probe.py::test_probe_filters_clients_by_subnets`, `backend/tests/test_unifi_probe.py::test_probe_without_client_subnets_keeps_all_clients`, `backend/tests/test_unifi_probe.py::test_probe_ignores_invalid_subnet_entries`, `backend/tests/test_main_unifi_probe.py::test_manual_probe_passes_scan_subnets`, `backend/tests/test_main_unifi_probe.py::test_manual_probe_falls_back_to_host_subnets`, `backend/tests/test_main_unifi_probe.py::test_filtered_client_does_not_delete_existing_system`; `backend/tests/test_unifi_probe.py::test_probe_reports_authentication_failure_without_echoing_api_key`, `backend/tests/test_unifi_probe.py::test_probe_normalizes_all_unifi_sites_without_persisting_api_key`
 
 ### Requirement: Omada Controller lesen
 Das System MUSS `GET /api/info` (→ `omadacId`), den Client-Credentials-Token-Tausch
