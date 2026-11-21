@@ -20,8 +20,8 @@ benutzbar; alles lässt sich später in Inventar, Zugängen und Einstellungen ä
 ## Anforderungen
 
 ### Requirement: Setup-Status öffentlich abfragbar
-`GET /api/health` MUSS ohne Anmeldung `{status: "ok", setupCompleted: bool, uiCalm: bool, userCount: int}`
-liefern (`uiCalm`: siehe [einstellungen-und-llm-provider](../einstellungen-und-llm-provider/spec.md)).
+`GET /api/health` MUSS ohne Anmeldung `{status: "ok", setupCompleted: bool, userCount: int}`
+liefern.
 `setupCompleted` ist `false`, bis das Setup einmal abgeschickt wurde. Die Route dient auch als
 Liveness-Check des Stacks. **[Muss]** (`userCount`: **[Impl]**, siehe OFFEN)
 
@@ -75,10 +75,10 @@ Abgeschickt wird erst am Ende von Schritt 3; Einträge ohne Namen/Bezeichnung we
 - **DANN** wird Setup mit dem Namen, ohne Geräte (Router-Entwurf hat keinen Namen), mit Konto
   „Internetanbieter“ ohne Passwort gespeichert
 
-Quelle: `frontend/src/pages/SetupPage.tsx:27`, `frontend/src/pages/SetupPage.tsx:59`, `frontend/src/pages/SetupPage.tsx:79`, Test: `frontend/e2e/smoke.spec.ts::login, MFA enrollment, setup and main routes render without errors`
+Quelle: `frontend/src/gates/SetupCalm.tsx`, `frontend/src/gates/setupModel.ts`, Test: `frontend/e2e/smoke.spec.ts::login, MFA enrollment, setup and main routes render without errors`
 
 ### Requirement: Ausweg aus dem Wizard (UI)
-Der Wizard MUSS auf jedem Schritt „Abmelden“ anbieten, in beiden Darstellungen des Wizards (klassisch und neu, solange die Gates beide kennen), damit niemand darin festsitzt. Ist schon etwas eingetragen (Angaben weichen von der
+Der Wizard MUSS auf jedem Schritt „Abmelden“ anbieten, damit niemand darin festsitzt. Ist schon etwas eingetragen (Angaben weichen von der
 Vorbelegung ab oder Schritt > 1), MUSS vorher ein Prüfdialog fragen („Deine Angaben aus der
 Einrichtung werden verworfen“, „Trotzdem abmelden“ / „Angemeldet bleiben“). Ein „Überspringen“ gibt
 es nicht: für ADMIN bleibt der Wizard, bis das Setup gespeichert ist. **[Muss]**
@@ -88,7 +88,7 @@ es nicht: für ADMIN bleibt der Wizard, bis das Setup gespeichert ist. **[Muss]*
 - **DANN** fragt die Oberfläche nach; „Angemeldet bleiben“ lässt die Eingaben stehen, „Trotzdem
   abmelden“ führt zum Login, und nach dem nächsten Anmelden beginnt der Wizard bei Schritt 1
 
-Quelle: `frontend/src/pages/SetupPage.tsx`, `frontend/src/gates/SetupCalm.tsx`, Test: `frontend/e2e/gates-calm.spec.ts::calm gates: login, MFA enrollment and setup with their ways out`
+Quelle: `frontend/src/gates/SetupCalm.tsx`, Test: `frontend/e2e/smoke.spec.ts::login, MFA enrollment, setup and main routes render without errors`
 
 ### Requirement: Entwurf übersteht Neuladen, ohne Passwörter und Notizen (neue Oberfläche)
 In der neuen Oberfläche MÜSSEN Schritt und Angaben des Wizards ein Neuladen des Tabs überstehen
@@ -113,7 +113,7 @@ zum Absturz.
 - **DANN** sind Passwort und Notiz leer, der Benutzername steht noch da, der Hinweis erklärt das, und
   der Browser-Speicher enthält die Notiz nicht
 
-Quelle: `frontend/src/gates/setupModel.ts`, `frontend/src/gates/SetupCalm.tsx`, Test: `frontend/e2e/gates-calm.spec.ts::calm gates: login, MFA enrollment and setup with their ways out`
+Quelle: `frontend/src/gates/setupModel.ts`, `frontend/src/gates/SetupCalm.tsx`, Test: `frontend/e2e/smoke.spec.ts::login, MFA enrollment, setup and main routes render without errors`
 
 ### Requirement: Setup speichern (nur ADMIN)
 `POST /api/setup` MUSS ADMIN mit aktivem zweiten Faktor verlangen und akzeptieren:
@@ -197,13 +197,13 @@ Aus [data-model](../../contracts/data-model.md):
 | Methode | Pfad | Rolle | Zweck |
 |---|---|---|---|
 | POST | /api/setup | ADMIN | Wizard-Ergebnis speichern, `setupCompleted` setzen |
-| GET | /api/health | öffentlich | Liveness + `setupCompleted` + `uiCalm` + `userCount` |
+| GET | /api/health | öffentlich | Liveness + `setupCompleted` + `userCount` |
 
 Berührt: `PATCH /api/settings` kann `setupCompleted`/`homeName` ebenfalls ändern (siehe
 [einstellungen-und-llm-provider](../einstellungen-und-llm-provider/spec.md)); `GET /api/settings` gibt
 MEMBER nur `homeName` und `setupCompleted`.
 
-UI-Seite(n): `frontend/src/pages/SetupPage.tsx` bzw. in der neuen Oberfläche `frontend/src/gates/SetupCalm.tsx` (keine eigene Route; ersetzt die App, solange ADMIN
+UI-Seite(n): `frontend/src/gates/SetupCalm.tsx` (keine eigene Route; ersetzt die App, solange ADMIN
 und `setupCompleted` false), Gating in `frontend/src/App.tsx`.
 
 ## Nicht-Ziele und Grenzen

@@ -61,7 +61,9 @@ Neu (eine globale Suche gab es bisher nicht). Quellen in `SEARCH_SOURCES`:
 
 Auf dem Handy öffnet die Lupe in der Kopfzeile dieselbe Suche als Vollbild.
 
-## Schalter (Feature-Flag)
+## Schalter (Feature-Flag) — erledigt
+
+**Erledigt (#81, #82, #83):** Der Schalter `uiCalm`, die Umgebungsvariable `HOMEATLAS_UI_CALM_DEFAULT`, das Health-Feld und die Browser-Übersteuerung sind entfernt; es gibt nur noch die neue Oberfläche. Der Rest dieses Abschnitts ist der damalige Entwurf.
 
 - Einstellung `uiCalm` (Standard **aus**) in der `settings`-Tabelle, umschaltbar von Admins unter
   *Einstellungen → Allgemein → „Neue Oberfläche“*. Zurückschalten dauert einen Klick.
@@ -180,5 +182,4 @@ neuen Shell vorerst noch ihren eigenen Seitenkopf; den nimmt jeweils der PR ihre
   Enter = Weiter. **Abmelden auf jedem Schritt** (mit Rückfrage, wenn schon etwas eingetragen ist), in
   **beiden** Oberflächen; kein „Überspringen“ (das Backend verlangt den Abschluss). Vor dem Login
   folgt die Wahl der Oberfläche jetzt auch der Antwort von `/api/health`, nicht nur dem zuletzt
-  gesehenen Wert. Test: `frontend/e2e/gates-calm.spec.ts` (läuft nach dem Smoke-Test mit einem
-  zweiten Admin, den dieser anlegt).
+  gesehenen Wert. Test: `frontend/e2e/smoke.spec.ts`.
