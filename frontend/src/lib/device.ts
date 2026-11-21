@@ -1,8 +1,8 @@
 import { api, type Account, type ConfigVersion, type RemoteContainer, type System } from "./api";
 
 /**
- * Device-page helpers shared by the classic page (pages/SystemDetailPage.tsx) and the redesigned one
- * (pages/device/DeviceCalm.tsx), so both decide "which account can reboot / open a console" the
+ * Device-page helpers shared by the device page and its tabs
+ * (pages/device/DevicePage.tsx), so both decide "which account can reboot / open a console" the
  * same way. Pure functions over what `GET /api/systems/{id}` already returns.
  */
 

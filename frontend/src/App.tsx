@@ -3,19 +3,19 @@ import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import { ApiError, api, type User } from "./lib/api";
 import { clearAllDrafts, hasDrafts } from "./lib/drafts";
 import ConfirmDialog from "./components/ConfirmDialog";
-import LoginCalm from "./gates/LoginCalm";
-import MfaEnrollCalm from "./gates/MfaEnrollCalm";
-import SetupCalm from "./gates/SetupCalm";
-import StartCalm from "./pages/start/StartCalm";
-import InventoryCalm from "./pages/geraete/InventoryCalm";
-import PlanCalm from "./pages/geraete/PlanCalm";
-import NetworksCalm from "./pages/geraete/NetworksCalm";
-import AccountsCalm from "./pages/zugaenge/AccountsCalm";
-import AccountFormCalm from "./pages/zugaenge/AccountFormCalm";
-import ScanCalm from "./pages/mehr/ScanCalm";
-import UsersCalm from "./pages/mehr/UsersCalm";
-import AccessLogCalm from "./pages/mehr/AccessLogCalm";
-import DeviceCalm from "./pages/device/DeviceCalm";
+import Login from "./gates/Login";
+import MfaEnroll from "./gates/MfaEnroll";
+import Setup from "./gates/Setup";
+import StartPage from "./pages/start/StartPage";
+import InventoryPage from "./pages/geraete/InventoryPage";
+import PlanPage from "./pages/geraete/PlanPage";
+import NetworksPage from "./pages/geraete/NetworksPage";
+import AccountsPage from "./pages/zugaenge/AccountsPage";
+import AccountFormPage from "./pages/zugaenge/AccountFormPage";
+import ScanPage from "./pages/mehr/ScanPage";
+import UsersPage from "./pages/mehr/UsersPage";
+import AccessLogPage from "./pages/mehr/AccessLogPage";
+import DevicePage from "./pages/device/DevicePage";
 import DocsPage from "./pages/DocsPage";
 import ChatPage from "./pages/ChatPage";
 import SettingsPage from "./pages/SettingsPage";
@@ -44,9 +44,9 @@ export const useAuth = () => useContext(AuthContext);
 
 /** The new device page, remounted per device: switching from one device to another (a link, ⌘K)
  *  starts from a clean state, so revealed passwords and form state never carry over. */
-function DeviceCalmKeyed() {
+function DeviceKeyed() {
   const { id } = useParams();
-  return <DeviceCalm key={id} />;
+  return <DevicePage key={id} />;
 }
 
 export default function App() {
@@ -156,7 +156,7 @@ export default function App() {
   if (!user) {
     return (
       <UiContext.Provider value={ui}>
-        <LoginCalm onLoggedIn={() => void refresh()} />
+        <Login onLoggedIn={() => void refresh()} />
       </UiContext.Provider>
     );
   }
@@ -170,7 +170,7 @@ export default function App() {
     return (
       <AuthContext.Provider value={{ user, isAdmin, setUser, logout }}>
         <UiContext.Provider value={ui}>
-          <MfaEnrollCalm onDone={() => void refresh()} />
+          <MfaEnroll onDone={() => void refresh()} />
         </UiContext.Provider>
       </AuthContext.Provider>
     );
@@ -182,7 +182,7 @@ export default function App() {
     return (
       <AuthContext.Provider value={{ user, isAdmin, setUser, logout }}>
         <UiContext.Provider value={ui}>
-          <SetupCalm onDone={() => void refresh()} />
+          <Setup onDone={() => void refresh()} />
         </UiContext.Provider>
       </AuthContext.Provider>
     );
@@ -195,21 +195,21 @@ export default function App() {
       <UiContext.Provider value={ui}>
         <AppShell user={user} isAdmin={isAdmin} onLogout={requestLogout}>
           <Routes>
-            <Route path="/" element={<StartCalm />} />
-            <Route path="/geraete" element={<InventoryCalm />} />
-            <Route path="/geraete/:id" element={<DeviceCalmKeyed />} />
-            {isAdmin && <Route path="/zugaenge" element={<AccountsCalm />} />}
-            {isAdmin && <Route path="/zugaenge/neu" element={<AccountFormCalm mode="new" />} />}
-            {isAdmin && <Route path="/zugaenge/:id" element={<AccountFormCalm mode="edit" />} />}
+            <Route path="/" element={<StartPage />} />
+            <Route path="/geraete" element={<InventoryPage />} />
+            <Route path="/geraete/:id" element={<DeviceKeyed />} />
+            {isAdmin && <Route path="/zugaenge" element={<AccountsPage />} />}
+            {isAdmin && <Route path="/zugaenge/neu" element={<AccountFormPage mode="new" />} />}
+            {isAdmin && <Route path="/zugaenge/:id" element={<AccountFormPage mode="edit" />} />}
             <Route path="/dokumentation" element={<DocsPage />} />
             <Route path="/dokumentation/:slug" element={<DocsPage />} />
             <Route path="/assistent" element={<ChatPage />} />
             <Route path="/assistent/:chatId" element={<ChatPage />} />
-            {isAdmin && <Route path="/scan" element={<ScanCalm />} />}
-            <Route path="/plan" element={<PlanCalm />} />
-            <Route path="/netze" element={<NetworksCalm />} />
-            {isAdmin && <Route path="/benutzer" element={<UsersCalm />} />}
-            {isAdmin && <Route path="/protokoll" element={<AccessLogCalm />} />}
+            {isAdmin && <Route path="/scan" element={<ScanPage />} />}
+            <Route path="/plan" element={<PlanPage />} />
+            <Route path="/netze" element={<NetworksPage />} />
+            {isAdmin && <Route path="/benutzer" element={<UsersPage />} />}
+            {isAdmin && <Route path="/protokoll" element={<AccessLogPage />} />}
             <Route path="/einstellungen" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

@@ -83,15 +83,15 @@ Defaults auffüllen und Änderungen als flaches Zusammenführen anwenden: nur ü
 
 Quelle: `backend/app/db.py:462`, `backend/app/db.py:474`, Test: `backend/tests/test_main_settings_api.py::test_controller_network_selection_roundtrip`
 
-### Requirement: Einstellungs-Reiter in der URL und neue Oberfläche
-Beide Oberflächen MÜSSEN den offenen Reiter in `?tab=` halten (`general`, `llm`, `scan`, `monitor`,
+### Requirement: Einstellungs-Reiter in der URL
+Die Seite MUSS den offenen Reiter in `?tab=` halten (`general`, `llm`, `scan`, `monitor`,
 `mcp`, `account`, `display`, `about`), sodass Zurück und Neuladen auf ihm landen; ein Reiter, den die
-Rolle nicht hat, fällt auf den ersten erlaubten zurück (MEMBER: Konto). In der neuen Oberfläche MUSS
-die Seite auf dem Desktop die Reiter als Liste links zeigen und auf dem Handy als Liste mit
+Rolle nicht hat, fällt auf den ersten erlaubten zurück (MEMBER: Konto). Auf dem Desktop MUSS
+die Seite die Reiter als Liste links zeigen und auf dem Handy als Liste mit
 Unterseite (ohne `?tab=` die Liste); mit ungespeicherten Änderungen MUSS ein Reiterwechsel nachfragen
 („Verwerfen und wechseln“ / „Hier bleiben“) und das Verlassen der Seite ebenso; Einstellungen werden
 dabei nicht zwischengespeichert (sie können API-Schlüssel enthalten). „Token widerrufen“ liegt unter
-„⋯“ mit Prüfdialog. „Darstellung“ und der Schalter „Neue Oberfläche“ verhalten sich wie bisher. Ein
+„⋯“ mit Prüfdialog. Ein
 MEMBER sieht genau Konto, Darstellung und Über. **[Muss]** (Layout **[Impl]**)
 
 #### Szenario: Zurück landet im Reiter
@@ -274,10 +274,8 @@ Fähigkeiten: MCP-Tokens → [assistent-chat-und-mcp](../assistent-chat-und-mcp/
 [discovery-und-scan](../discovery-und-scan/spec.md). Ob ein Anbieter konfiguriert ist, zeigt das
 [dashboard](../dashboard/spec.md) (`llmConfigured`).
 
-UI-Seite(n): `frontend/src/pages/SettingsPage.tsx` (Route `/einstellungen`; Tabs Allgemein (inkl.
-Schalter „Neue Oberfläche (Vorschau)“), KI-Assistent, Netzwerk-Scan, Überwachung, MCP-Server nur für
-Admins; Konto und Über für alle; Darstellung (System · Hell · Dunkel, pro Browser) für alle, solange
-die neue Oberfläche aktiv ist); offener Reiter in `?tab=`.
+UI-Seite(n): `frontend/src/pages/SettingsPage.tsx` (Route `/einstellungen`; Tabs Allgemein, KI-Assistent, Netzwerk-Scan, Überwachung, MCP-Server nur für
+Admins; Konto und Über für alle; Darstellung (System · Hell · Dunkel, pro Browser) für alle); offener Reiter in `?tab=`.
 
 ## Nicht-Ziele und Grenzen
 

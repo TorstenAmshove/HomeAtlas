@@ -1,7 +1,7 @@
 import { readDraft, writeDraft } from "../lib/drafts";
 
 /**
- * What the first-run wizard asks for, used by `gates/SetupCalm.tsx`, which sends it to `POST /api/setup`.
+ * What the first-run wizard asks for, used by `gates/Setup.tsx`, which sends it to `POST /api/setup`.
  */
 
 export interface SystemDraft {
@@ -83,7 +83,7 @@ export function setupBody(form: SetupForm) {
 }
 
 // ------------------------------------------------------------------------------------------------
-// Draft (redesigned wizard only): the household data survives a reload of this tab, in
+// Draft: the household data survives a reload of this tab, in
 // sessionStorage via lib/drafts.ts, so logout clears it like every other draft. Passwords and
 // account notes (people put access hints there) are deliberately NOT part of it -- they must never
 // sit in browser storage. Instead the draft

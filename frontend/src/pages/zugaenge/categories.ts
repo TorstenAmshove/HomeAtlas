@@ -1,4 +1,4 @@
-/** Account categories, shared by the classic page (AccountsPage.tsx) and the new one. */
+/** Account categories, shared by the list and the form. */
 export const CATEGORIES: [string, string][] = [
   ["contract", "Vertrag / Kundenkonto"],
   ["login", "Anmeldung an Gerät oder Dienst"],

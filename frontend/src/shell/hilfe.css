@@ -103,7 +103,7 @@
 
 /* ---------------------------------------------------------------- Assistent */
 
-.app-shell .chat-calm { display: flex; flex-direction: column; flex: 1; min-height: 0; width: 100%; max-width: 860px; }
+.app-shell .chat-page { display: flex; flex-direction: column; flex: 1; min-height: 0; width: 100%; max-width: 860px; }
 .app-shell .chat-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex: none; }
 .app-shell .chat-picker {
   position: relative; display: inline-flex; align-items: center; min-width: 0; flex: 0 1 auto; margin: 0;
@@ -123,12 +123,12 @@
 .app-shell .chat-setup-link {
   display: inline-flex; align-items: center; min-height: 44px; margin-top: 4px; color: var(--c-accent); font-weight: 600;
 }
-.app-shell .chat-calm .notice { flex: none; }
+.app-shell .chat-page .notice { flex: none; }
 
-.app-shell .chat-calm .chat-scroll { padding-right: 4px; }
-.app-shell .chat-calm .bubble { max-width: min(78%, 640px); overflow-wrap: anywhere; }
-.app-shell .chat-calm .bubble.assistant { background: transparent; border: 0; padding: 4px 0; max-width: 100%; }
-.app-shell .chat-calm .bubble .markdown table { display: block; overflow-x: auto; }
+.app-shell .chat-page .chat-scroll { padding-right: 4px; }
+.app-shell .chat-page .bubble { max-width: min(78%, 640px); overflow-wrap: anywhere; }
+.app-shell .chat-page .bubble.assistant { background: transparent; border: 0; padding: 4px 0; max-width: 100%; }
+.app-shell .chat-page .bubble .markdown table { display: block; overflow-x: auto; }
 .app-shell .chat-skeleton { display: grid; gap: 12px; padding-top: 4px; }
 
 .app-shell .chat-empty { padding: 8px 0 4px; max-width: 60ch; }
@@ -182,8 +182,8 @@
   .app-shell .docs-toc { position: static; }
   .app-shell .docs-toc.has-chapter { display: none; }
   /* Chapter index: the Notfall callout above the list, not after twelve entries. */
-  .app-shell .docs-calm:not(.has-chapter) .docs-layout { display: flex; flex-direction: column; }
-  .app-shell .docs-calm:not(.has-chapter) .docs-main { order: -1; margin-bottom: 14px; }
+  .app-shell .docs-page:not(.has-chapter) .docs-layout { display: flex; flex-direction: column; }
+  .app-shell .docs-page:not(.has-chapter) .docs-main { order: -1; margin-bottom: 14px; }
   .app-shell .docs-toc-link { min-height: 48px; align-items: center; font-size: 15px; color: var(--c-text); }
   .app-shell .docs-sos { margin-top: 0; }
 
@@ -208,8 +208,8 @@
   .app-shell .chat-new-long { display: none; }
   .app-shell .chat-new-short { display: inline; }
   .app-shell .chat-suggestions button { min-height: 44px; }
-  .app-shell .chat-calm .bubble { max-width: 88%; }
-  .app-shell .chat-calm .bubble.assistant { max-width: 100%; }
+  .app-shell .chat-page .bubble { max-width: 88%; }
+  .app-shell .chat-page .bubble.assistant { max-width: 100%; }
 
   /* With the keyboard up the bottom bar would sit behind it: hide it and drop its reserved space. */
   html.keyboard-open .app-shell.is-chat .shell-bottom { display: none; }

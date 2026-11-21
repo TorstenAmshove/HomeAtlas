@@ -6,7 +6,7 @@ import { Skeleton } from "../../components/Skeleton";
 import "./geraete.css";
 
 /**
- * "Netze & WLAN" in the redesigned UI (area "Geräte"): a calm list per kind, no page title (the tab says it), and an empty state
+ * "Netze & WLAN" in the UI (area "Geräte"): a plain list per kind, no page title (the tab says it), and an empty state
  * that says what is missing -- these entries only come from a controller account (today UniFi,
  * see pipeline.py → db.sync_network_resources), so an empty page is usually a missing Zugang.
  */
@@ -24,7 +24,7 @@ function details(resource: NetworkResource): string {
   return [facts.type, facts.ip].filter(Boolean).join(" · ");
 }
 
-export default function NetworksCalm() {
+export default function NetworksPage() {
   const { isAdmin } = useAuth();
   const [resources, setResources] = useState<NetworkResource[] | null>(null);
   const [error, setError] = useState("");
@@ -51,10 +51,10 @@ export default function NetworksCalm() {
     }
   }
 
-  if (error && resources === null) return <div className="geraete-calm"><div className="notice error">{error}</div></div>;
+  if (error && resources === null) return <div className="geraete-page"><div className="notice error">{error}</div></div>;
   if (resources === null) {
     return (
-      <div className="geraete-calm" role="status">
+      <div className="geraete-page" role="status">
         <span className="visually-hidden">Wird geladen …</span>
         <Skeleton width={120} height={12} style={{ margin: "18px 0 10px" }} />
         {Array.from({ length: 5 }, (_, i) => (
@@ -71,7 +71,7 @@ export default function NetworksCalm() {
 
   if (resources.length === 0) {
     return (
-      <div className="geraete-calm">
+      <div className="geraete-page">
         {error && <div className="notice error" role="alert">{error}</div>}
         <div className="geraete-empty">
           <h2>Noch keine Netze erfasst</h2>
@@ -94,7 +94,7 @@ export default function NetworksCalm() {
   }
 
   return (
-    <div className="geraete-calm">
+    <div className="geraete-page">
       {error && <div className="notice error" role="alert">{error}</div>}
       {(["network", "wifi", "wan"] as const).map((kind) => {
         const items = resources.filter((resource) => resource.kind === kind);

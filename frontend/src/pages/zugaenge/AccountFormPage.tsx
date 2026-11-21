@@ -20,7 +20,7 @@ import "../mehr/mehr.css";
  * The form keeps a draft in sessionStorage (accountDraft.ts) and asks before leaving with unsaved
  * changes (lib/useLeaveGuard.tsx). The secret fields are the exception on purpose: they live only in
  * this component's state and are never written to storage or the URL; after a reload the form says
- * that the password has to be entered again. Same requests as the classic form.
+ * that the password has to be entered again.
  */
 
 function errorText(e: unknown) {
@@ -43,7 +43,7 @@ function keepHint(category: string): string {
     : "das gespeicherte Passwort"} beizubehalten.`;
 }
 
-export default function AccountFormCalm({ mode }: { mode: "new" | "edit" }) {
+export default function AccountFormPage({ mode }: { mode: "new" | "edit" }) {
   const params = useParams();
   const id = mode === "edit" ? params.id ?? "" : "";
   const draftId = mode === "edit" ? id : NEW_ACCOUNT;
@@ -226,7 +226,7 @@ export default function AccountFormCalm({ mode }: { mode: "new" | "edit" }) {
 
   if (loadError) {
     return (
-      <div className="mehr-calm zugaenge-calm">
+      <div className="mehr-page zugaenge-page">
         <div className="notice error" role="alert">{loadError}</div>
         <Link className="m-link" to="/zugaenge">Zur Liste der Zugänge</Link>
       </div>
@@ -234,7 +234,7 @@ export default function AccountFormCalm({ mode }: { mode: "new" | "edit" }) {
   }
   if (accounts !== null && mode === "edit" && !account) {
     return (
-      <div className="mehr-calm zugaenge-calm">
+      <div className="mehr-page zugaenge-page">
         <div className="m-empty">
           <h2>Diesen Zugang gibt es nicht (mehr)</h2>
           <p>Vielleicht wurde er gelöscht oder der Link ist unvollständig.</p>
@@ -245,7 +245,7 @@ export default function AccountFormCalm({ mode }: { mode: "new" | "edit" }) {
   }
   if (!form) {
     return (
-      <div className="mehr-calm zugaenge-calm m-form" role="status" aria-live="polite">
+      <div className="mehr-page zugaenge-page m-form" role="status" aria-live="polite">
         <span className="visually-hidden">Wird geladen …</span>
         <div className="grid cols-2">
           {Array.from({ length: 6 }, (_, i) => (
@@ -261,7 +261,7 @@ export default function AccountFormCalm({ mode }: { mode: "new" | "edit" }) {
   const editingSecret = !isNew && Boolean(account?.hasSecret);
 
   return (
-    <div className="mehr-calm zugaenge-calm">
+    <div className="mehr-page zugaenge-page">
       {leaveDialog}
       <h1 className="visually-hidden">{isNew ? "Neuer Zugang" : `Zugang „${account?.label}“ bearbeiten`}</h1>
 

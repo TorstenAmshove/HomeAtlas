@@ -507,7 +507,7 @@ export default function DocsPage() {
 
 
   return (
-    <div className={`docs-calm${slug ? " has-chapter" : ""}`}>
+    <div className={`docs-page${slug ? " has-chapter" : ""}`}>
       {leaveDialog}
       {toast}
       <ConfirmDialog

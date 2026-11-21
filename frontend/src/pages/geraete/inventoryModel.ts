@@ -2,8 +2,8 @@ import type { System } from "../../lib/api";
 import { matchesDeviceQuery } from "../../lib/search";
 
 /**
- * Filtering and sorting of the device list, shared by the classic InventoryPage and the new
- * InventoryCalm so both read the same URL (`q`, `sort`, `kind`, `project`, `parentId`, `status`,
+ * Filtering and sorting of the device list, shared by the device list and
+ * InventoryPage so both read the same URL (`q`, `sort`, `kind`, `project`, `parentId`, `status`,
  * `importance`; docs/redesign/5-information-architecture.md, "Zustand in der URL") the same way.
  * Pure functions over the `GET /api/systems` list: no counts are fetched separately.
  */

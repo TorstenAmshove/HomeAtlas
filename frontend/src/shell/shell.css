@@ -1,4 +1,4 @@
-/* The redesigned shell (direction B, docs/redesign/5-information-architecture.md).
+/* The shell (direction B, docs/redesign/5-information-architecture.md).
  *
  * Every theme rule is scoped to `body:has(.app-shell)` / `.app-shell`, so the old UI (no .app-shell
  * in the page) renders exactly as before. Inside the scope the old variable names (--bg, --text,

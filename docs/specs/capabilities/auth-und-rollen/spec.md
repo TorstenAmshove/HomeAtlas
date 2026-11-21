@@ -180,7 +180,7 @@ die Entwürfe bleiben erhalten (gilt für alle Abmelden-Tasten, auch in MFA-Einr
 - **WENN** der Server das Abmelden mit einem Fehler beantwortet
 - **DANN** zeigt die Oberfläche den Fehler, die Person bleibt angemeldet, und die Entwürfe bleiben
 
-Quelle: `frontend/src/App.tsx`, `frontend/src/lib/drafts.ts`, `frontend/src/gates/SetupCalm.tsx`
+Quelle: `frontend/src/App.tsx`, `frontend/src/lib/drafts.ts`, `frontend/src/gates/Setup.tsx`
 
 ### Requirement: Abmelden fragt bei ungespeicherten Entwürfen (UI)
 Liegt mindestens ein Entwurf des Tabs vor, MUSS die Oberfläche vor dem Abmelden einen Prüfdialog
@@ -213,7 +213,7 @@ geschrieben werden. **[Muss]**
 - **WENN** ein Benutzer ohne aktiven Faktor „Abmelden“ wählt
 - **DANN** landet er wieder auf dem Login; der Faktor bleibt inaktiv
 
-Quelle: `frontend/src/gates/LoginCalm.tsx`, `frontend/src/gates/MfaEnrollCalm.tsx`, `frontend/src/App.tsx`, Test: `frontend/e2e/smoke.spec.ts::login, MFA enrollment, setup and main routes render without errors`
+Quelle: `frontend/src/gates/Login.tsx`, `frontend/src/gates/MfaEnroll.tsx`, `frontend/src/App.tsx`, Test: `frontend/e2e/smoke.spec.ts::login, MFA enrollment, setup and main routes render without errors`
 
 ### Requirement: Zweiter Faktor ist Pflicht für jede Route
 Jede Route außer der Allowlist MUSS für eine Session, deren Konto keinen aktiven zweiten Faktor hat,
@@ -416,7 +416,7 @@ Quelle: `backend/app/db.py:1846`, `backend/app/db.py:1849`, `backend/app/db.py:1
 ### Requirement: Benutzer und Protokoll in der Oberfläche
 Beide Oberflächen MÜSSEN die Filter des Protokolls in der URL halten (`?action=`, `?failures=1`), sodass
 Zurück dieselbe gefilterte Ansicht zeigt, und `mfa.reset` als „Zwei-Faktor zurückgesetzt“
-(sicherheitsrelevant) benennen. In der neuen Oberfläche MUSS das Protokoll jede Zeile mit einem
+(sicherheitsrelevant) benennen. Das Protokoll MUSS jede Zeile mit einem
 Status-Chip zeigen (fehlgeschlagen · sicherheitsrelevant · ok) und beim Laden ein Skeleton; die
 Benutzerseite MUSS „Löschen“ und „Zwei-Faktor zurücksetzen“ unter „⋯“ mit je einem Prüfdialog führen,
 der die Folge nennt (Löschen: keine Anmeldung mehr, Sitzungen enden, kein Rückgängig; Zurücksetzen:
@@ -426,8 +426,8 @@ Authenticator beim nächsten Login neu einrichten), und die Rollenerklärung hin
 - **WENN** ein ADMIN `/protokoll?action=login&failures=1` verlässt und Zurück drückt
 - **DANN** sind „Anmeldung“ und „Nur Fehlversuche“ wieder gewählt
 
-Quelle: `frontend/src/pages/mehr/AccessLogCalm.tsx`,
-`frontend/src/pages/mehr/accessLogLabels.ts`, `frontend/src/pages/mehr/UsersCalm.tsx`
+Quelle: `frontend/src/pages/mehr/AccessLogPage.tsx`,
+`frontend/src/pages/mehr/accessLogLabels.ts`, `frontend/src/pages/mehr/UsersPage.tsx`
 
 ### Requirement: WebSocket-Authentifizierung
 WebSocket-Routen (interaktive Konsolen, siehe [remote-admin](../remote-admin/spec.md)) MÜSSEN vor dem
@@ -512,9 +512,9 @@ Aus [data-model](../../contracts/data-model.md):
 „Nicht angemeldet.“; fehlende Admin-Rolle → 403. WebSocket-Regel: siehe Requirement oben; die
 Konsolen-Routen selbst gehören zu [remote-admin](../remote-admin/spec.md).
 
-UI-Seite(n): `frontend/src/gates/LoginCalm.tsx` (ohne Session, jede Route),
-`frontend/src/gates/MfaEnrollCalm.tsx` (solange `totpEnabled` false, jede Route),
-`frontend/src/pages/mehr/UsersCalm.tsx` (Route `/benutzer`, ADMIN), `frontend/src/pages/mehr/AccessLogCalm.tsx`
+UI-Seite(n): `frontend/src/gates/Login.tsx` (ohne Session, jede Route),
+`frontend/src/gates/MfaEnroll.tsx` (solange `totpEnabled` false, jede Route),
+`frontend/src/pages/mehr/UsersPage.tsx` (Route `/benutzer`, ADMIN), `frontend/src/pages/mehr/AccessLogPage.tsx`
 (Route `/protokoll`, ADMIN), Passwortwechsel + MFA-Status in `frontend/src/pages/SettingsPage.tsx`
 (Route `/einstellungen`, Reiter „Konto“), Gating in `frontend/src/App.tsx`.
 
@@ -534,7 +534,7 @@ UI-Seite(n): `frontend/src/gates/LoginCalm.tsx` (ohne Session, jede Route),
   `require_admin` (+ Rolle). `backend/app/main.py:77`–`106`.
 - Session-Tokens liegen im Klartext in der DB (Begründung in `db.py`-Schemakommentar zu `apiTokens`).
 - Login-Fehlerunterscheidung über Exception `MfaRequired(wrong_code)`; Frontend erkennt den Fall nur am
-  Header `X-HomeAtlas-MFA: required` (`frontend/src/gates/LoginCalm.tsx`).
+  Header `X-HomeAtlas-MFA: required` (`frontend/src/gates/Login.tsx`).
 - Die Richtlinie prüft den NFKC-normalisierten Text, gehasht wird der unnormalisierte.
 - Regel 7 (ein wiederholtes Zeichen) ist praktisch unerreichbar, weil Regel 6 vorher greift; die
   zweite Hälfte der `_OBVIOUS`-Bedingung (`security.py:64`) ist redundant.
@@ -545,7 +545,7 @@ UI-Seite(n): `frontend/src/gates/LoginCalm.tsx` (ohne Session, jede Route),
 
 ## OFFEN
 
-- > OFFEN: `DELETE /api/users/{id}` schreibt keinen Protokolleintrag, obwohl die AccessLogCalm ein Label `user.delete` kennt und README „Benutzeränderungen“ als protokolliert nennt (wirkt wie Bug).
+- > OFFEN: `DELETE /api/users/{id}` schreibt keinen Protokolleintrag, obwohl die AccessLogPage ein Label `user.delete` kennt und README „Benutzeränderungen“ als protokolliert nennt (wirkt wie Bug).
 - > OFFEN: `DELETE /api/users/{id}` antwortet für unbekannte IDs mit `{ok: true}` statt 404 (PATCH/mfa-reset liefern 404).
 - > OFFEN: PATCH `/api/users/{id}` ist nicht atomar: Anzeigename/Rolle werden gespeichert, bevor ein zu schwaches `newPassword` mit 400 abgelehnt wird.
 - > OFFEN: POST `/api/users` mappt unbekannte Rollen still auf MEMBER, PATCH antwortet 400 – uneinheitlich.
@@ -553,8 +553,8 @@ UI-Seite(n): `frontend/src/gates/LoginCalm.tsx` (ohne Session, jede Route),
 - > OFFEN: Admin-MFA-Reset beendet keine Sessions, die CLI-Variante schon; eine offene Session des Ziels kann den Faktor danach selbst neu einrichten (nur Passwort-Besitz war nötig für die Session, ist aber u. U. ein Angreifer).
 - > OFFEN: Ein Konto ohne aktiven Faktor (neu angelegt oder nach Reset) kann von jedem mit dem Passwort eingerichtet werden – bewusste Abwägung laut `reset_password.py`-Docstring, aber ohne Ablaufzeit.
 - > OFFEN: Initial-Admin via `ADMIN_PASSWORD` und CLI-Passwortreset umgehen die Richtlinie (CLI prüft nur ≥ 8 Zeichen; README-Beispiel `devpass123` erfüllt sie nicht).
-- > OFFEN: UsersCalm zeigt „Mindestens 8 Zeichen“ und aktiviert „Anlegen“ ab 8 Zeichen, Richtlinie verlangt 10.
-- > OFFEN: AccessLogCalm kennt Label `mfa.disable` (nie geschrieben). (`mfa.reset` hat seit PR 6 ein Label und gilt als sicherheitsrelevant.)
+- > OFFEN: UsersPage zeigt „Mindestens 8 Zeichen“ und aktiviert „Anlegen“ ab 8 Zeichen, Richtlinie verlangt 10.
+- > OFFEN: AccessLogPage kennt Label `mfa.disable` (nie geschrieben). (`mfa.reset` hat seit PR 6 ein Label und gilt als sicherheitsrelevant.)
 - > OFFEN: Session-Cookie ohne `Secure`-Flag, auch hinter TLS-Proxy.
 - > OFFEN: `X-Real-IP` wird ungeprüft übernommen; sicher nur, solange das Backend ausschließlich über nginx erreichbar ist (ADR-0003).
 - > OFFEN: Benutzernamen sind case-sensitiv und werden weder getrimmt noch validiert (außer ≥ 1 Zeichen).

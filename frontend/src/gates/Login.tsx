@@ -17,7 +17,7 @@ function loginError(err: unknown): string {
   return err instanceof Error ? err.message : "Anmeldung fehlgeschlagen.";
 }
 
-export default function LoginCalm({ onLoggedIn }: { onLoggedIn: () => void }) {
+export default function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);

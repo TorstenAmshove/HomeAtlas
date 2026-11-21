@@ -22,7 +22,7 @@ import {
 
 const STEPS = ["Zuhause", "Geräte", "Konten"];
 
-export default function SetupCalm({ onDone }: { onDone: () => void }) {
+export default function Setup({ onDone }: { onDone: () => void }) {
   const { user, logout } = useAuth();
   const userId = user?.id ?? "";
   const [restored] = useState(() => loadSetupDraft(userId));

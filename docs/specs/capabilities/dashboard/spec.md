@@ -19,7 +19,7 @@ mit einem Knopf für den Internet-Schnelltest – und weist den Admin auf fehlen
 | Hinweise „KI-Assistent nicht eingerichtet" / „Überwachung aus" sehen | ja | nein |
 
 Rollenprüfung: `backend/app/main.py:1608` (`Depends(current_user)`); UI-Gating
-`frontend/src/pages/start/StartCalm.tsx`.
+`frontend/src/pages/start/StartPage.tsx`.
 
 ## Anforderungen
 
@@ -36,7 +36,7 @@ Das System MUSS folgende Zähler über das gesamte Inventar liefern: `total` (al
 - **WENN** noch kein Gerät existiert
 - **DANN** weist die Startseite auf das leere Inventar hin (Status-Hero, siehe „Startseite“)
 
-Quelle: `backend/app/main.py:1616`, `frontend/src/pages/start/StartCalm.tsx`
+Quelle: `backend/app/main.py:1616`, `frontend/src/pages/start/StartPage.tsx`
 
 ### Requirement: Geräte nach Art
 Das System MUSS je vorkommender Art (`kind`) die Anzahl Geräte liefern (`byKind`, nur Arten mit
@@ -48,7 +48,7 @@ Geräteliste `/geraete?kind=<art>`. **[Muss]**
 - **WENN** der Nutzer auf „Router (2)" klickt
 - **DANN** öffnet sich die Geräteliste, gefiltert auf Art `router`
 
-Quelle: `backend/app/main.py:1624`, `backend/app/docs.py:21`, `frontend/src/pages/start/StartCalm.tsx`
+Quelle: `backend/app/main.py:1624`, `backend/app/docs.py:21`, `frontend/src/pages/start/StartPage.tsx`
 
 ### Requirement: Wichtigste Geräte live
 Das System MUSS die als kritisch markierten Geräte (höchstens 10, in Inventar-Standardreihenfolge,
@@ -63,7 +63,7 @@ kritisch markiert. **[Muss]**
 - **DANN** erscheint es in der Liste und wird bereits überwacht (nicht dauerhaft „wird geprüft…")
 
 Quelle: `backend/app/main.py:1626`, `backend/app/main.py:1629`, `backend/app/db.py:632`, `backend/app/db.py:1890`,
-`backend/app/monitor.py:40`, `frontend/src/pages/start/StartCalm.tsx`
+`backend/app/monitor.py:40`, `frontend/src/pages/start/StartPage.tsx`
 
 ### Requirement: Überwachungsstatus und automatische Aktualisierung
 Das System MUSS `monitorEnabled` (Default `true`) und `monitorIntervalSeconds` (Default 10) aus den
@@ -76,7 +76,7 @@ für ADMIN ein Hinweis mit Link auf Einstellungen → Überwachung. **[Muss]** (
 - **WENN** der Browser-Tab in den Hintergrund wechselt
 - **DANN** stoppt das periodische Neuladen und startet beim Zurückkehren wieder
 
-Quelle: `backend/app/main.py:1630`, `backend/app/db.py:443`, `backend/app/db.py:444`, `frontend/src/pages/start/StartCalm.tsx`
+Quelle: `backend/app/main.py:1630`, `backend/app/db.py:443`, `backend/app/db.py:444`, `frontend/src/pages/start/StartPage.tsx`
 
 ### Requirement: Letzter Scan
 Das System MUSS den zuletzt gestarteten Scan (nach Startzeit) liefern oder `null`, wenn es keinen
@@ -86,7 +86,7 @@ gibt. Die Oberfläche zeigt ihn in der Zahlenzeile (siehe „Startseite“). **[
 - **WENN** kein Scan existiert
 - **DANN** ist `lastScan = null` und die Zeile entfällt
 
-Quelle: `backend/app/main.py:1633`, `backend/app/db.py:1817`, `frontend/src/pages/start/StartCalm.tsx`
+Quelle: `backend/app/main.py:1633`, `backend/app/db.py:1817`, `frontend/src/pages/start/StartPage.tsx`
 
 ### Requirement: Einrichtungsstand
 Das System MUSS `homeName` (Default „Mein Zuhause", Seitentitel) und `llmConfigured` liefern. `llmConfigured` ist wahr, wenn der gewählte Anbieter Ollama
@@ -99,7 +99,7 @@ ausgeliefert. **[Muss]**
 - **DANN** ist `llmConfigured = true`
 
 Quelle: `backend/app/main.py:1614`, `backend/app/main.py:1634`, `backend/app/llm_providers.py:88`,
-`frontend/src/pages/start/StartCalm.tsx`, `backend/app/db.py:409`
+`frontend/src/pages/start/StartPage.tsx`, `backend/app/db.py:409`
 
 ### Requirement: Internet-Schnelltest
 Die Oberfläche MUSS jedem angemeldeten Nutzer einen Knopf „Internet prüfen" bieten, der den
@@ -110,11 +110,11 @@ Internet erreichbar, DNS funktioniert und Webseiten laden; sonst rot), mit der E
 - **WENN** der Test meldet, dass DNS nicht funktioniert
 - **DANN** erscheint die Erklärung als roter Hinweis
 
-Quelle: `frontend/src/pages/start/StartCalm.tsx`, `backend/app/main.py:1471`;
+Quelle: `frontend/src/pages/start/StartPage.tsx`, `backend/app/main.py:1471`;
 Details: [diagnose](../diagnose/spec.md)
 
 ### Requirement: Startseite
-Die Route `/` MUSS die Startseite `StartCalm` zeigen. Sie ruft `/api/dashboard`, zusätzlich
+Die Route `/` MUSS die Startseite `StartPage` zeigen. Sie ruft `/api/dashboard`, zusätzlich
 `/api/monitor` (und `/api/docs` nur, solange ein Gerät ausgefallen ist) im Takt der Überwachung und
 mit Pause bei verstecktem Tab auf. Zusätzlich zu den oben beschriebenen Daten gilt: **[Muss]**
 - Kein Seitentitel `<h1>` und kein Untertitel; der Name des Zuhauses steht in der Shell.
@@ -160,7 +160,7 @@ mit Pause bei verstecktem Tab auf. Zusätzlich zu den oben beschriebenen Daten g
 - **WENN** 12 Geräte kritisch sind
 - **DANN** zeigt die Liste 10 und darunter „+2 weitere"
 
-Quelle: `frontend/src/pages/start/StartCalm.tsx`, `frontend/src/App.tsx` (Route `/`)
+Quelle: `frontend/src/pages/start/StartPage.tsx`, `frontend/src/App.tsx` (Route `/`)
 
 ## Daten
 
@@ -182,7 +182,7 @@ Berührte fremde Routen: `POST /api/diagnostics` ([diagnose](../diagnose/spec.md
 ([einstellungen-und-llm-provider](../einstellungen-und-llm-provider/spec.md)), `/geraete`
 ([inventar](../inventar/spec.md)).
 
-UI-Seite(n): `frontend/src/pages/start/StartCalm.tsx` (Route `/`).
+UI-Seite(n): `frontend/src/pages/start/StartPage.tsx` (Route `/`).
 
 ## Nicht-Ziele und Grenzen
 

@@ -258,8 +258,8 @@ Siehe [data-model](../../contracts/data-model.md).
 |---|---|---|---|
 | — | — | — | Keine eigene Route; läuft innerhalb von `POST /api/scans`, siehe [discovery-und-scan](../discovery-und-scan/spec.md) |
 
-UI-Seite(n): keine eigene; Ergebnisse in `frontend/src/pages/device/DeviceCalm.tsx` / Inventar,
-Warnungen in `frontend/src/pages/mehr/ScanCalm.tsx` (Route `/scan`).
+UI-Seite(n): keine eigene; Ergebnisse in `frontend/src/pages/device/DevicePage.tsx` / Inventar,
+Warnungen in `frontend/src/pages/mehr/ScanPage.tsx` (Route `/scan`).
 
 ## Nicht-Ziele und Grenzen
 
