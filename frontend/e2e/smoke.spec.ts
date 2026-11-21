@@ -62,16 +62,16 @@ test("login, MFA enrollment, setup and main routes render without errors", async
   });
 
   await test.step("dashboard", async () => {
-    await expect(page.getByRole("heading", { level: 1, name: "Smoke-Test-Zuhause" })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Übersicht/ })).toBeVisible();
+    await expect(page.locator(".app-shell")).toBeVisible();
+    await expect(page.locator("#start-hero-title")).toBeVisible();
   });
 
   await test.step("documentation (Markdown)", async () => {
     // Without a scan there are no chapters yet; generate them without an LLM (none is configured).
     const response = await page.request.post("/api/docs/generate", { data: { useLlm: false } });
     expect(response.ok()).toBe(true);
-    await page.getByRole("link", { name: /Dokumentation/ }).click();
-    const chapter = page.locator('a.nav-link[href^="/dokumentation/"]').first();
+    await page.goto("/dokumentation");
+    const chapter = page.locator("a.docs-toc-link").first();
     await expect(chapter).toBeVisible();
     await chapter.click();
     await expect(page.locator(".markdown").first()).toBeVisible();
@@ -79,29 +79,18 @@ test("login, MFA enrollment, setup and main routes render without errors", async
   });
 
   await test.step("further routes", async () => {
-    for (const [label, heading] of [
-      ["Geräte", "Geräte"],
-      ["Netzplan", "Netzplan und Diagnose"],
-      ["Netze & WLAN", "Netze & WLAN"],
-      ["Einstellungen", "Einstellungen"],
-    ]) {
-      await page.getByRole("link", { name: label, exact: false }).first().click();
-      await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+    for (const path of ["/geraete", "/plan", "/netze", "/einstellungen"]) {
+      await page.goto(path);
+      await expect(page).toHaveURL(new RegExp(`${path}$`));
+      await expect(page.locator(".app-shell")).toBeVisible();
+      await expect(page.locator("main h1, main h2").first()).toBeVisible();
     }
-  });
-
-  await test.step("new UI (uiCalm, per-browser switch)", async () => {
-    // The redesigned shell renders the same routes; this catches render crashes and console errors
-    // in pages that only exist behind the switch (docs/redesign/). ?ui=classic switches back.
-    await page.goto("/?ui=calm");
-    await expect(page.locator(".app-shell")).toBeVisible();
-    await expect(page.locator("#start-hero-title")).toBeVisible();
     await page.locator(".app-shell").getByRole("link", { name: "Geräte", exact: true }).first().click();
     await expect(page).toHaveURL(/\/geraete$/);
   });
 
   await test.step("new UI: Hilfe opens the assistant first", async () => {
-    await page.goto("/?ui=calm");
+    await page.goto("/");
     await page.locator(".shell-side").getByRole("link", { name: "Hilfe", exact: true }).click();
     await expect(page).toHaveURL(/\/assistent$/);
     const tabs = page.getByRole("navigation", { name: "Hilfe: Bereiche" });
@@ -312,9 +301,9 @@ test("login, MFA enrollment, setup and main routes render without errors", async
     await expect(page.locator("#device-name")).toHaveCount(0);
   });
 
-  await test.step("back to the classic UI", async () => {
+  await test.step("?ui=classic after login still shows the new shell", async () => {
     await page.goto("/?ui=classic");
-    await expect(page.locator(".app-shell")).toHaveCount(0);
+    await expect(page.locator(".app-shell")).toBeVisible();
   });
 
   await test.step("hand-over to gates-calm.spec.ts", async () => {
