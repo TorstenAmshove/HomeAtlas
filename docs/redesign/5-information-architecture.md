@@ -37,7 +37,7 @@ Menüeintrag lässt den Build scheitern.
 
 | Seite | Parameter |
 |---|---|
-| Geräte | `q` (Suche), `kind`, `project`, `parentId` (wie bisher), `status`, `importance`, `sort` |
+| Geräte | `q` (Suche), `kind`, `project`, `parentId` (wie bisher), `status`, `importance`, `subnet` (nur neue Oberfläche), `sort` |
 | Gerät | `tab` (`ueberblick` · `technik` · `verlauf` · `zugaenge` · `steuern`), `edit=1` |
 | Netzplan | `view` (`physisch` · `layer3`) |
 | Dokumentation | Kapitel im Pfad (wie bisher), `versions=1` |

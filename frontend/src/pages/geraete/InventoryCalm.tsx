@@ -5,7 +5,8 @@ import { useAuth } from "../../App";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import { Skeleton } from "../../components/Skeleton";
 import {
-  IMPORTANCE_LABEL, STATUS_LABEL, groupByProject, matchesFilter, parseSort, projectOf, readFilter, sortSystems,
+  IMPORTANCE_LABEL, STATUS_LABEL, formatSort, groupByProject, matchesFilter, nextSort, parseSort, parseNetworks, projectOf,
+  readFilter, sortSystems, subnetOptions, type ParsedNetwork, type SortKey,
 } from "./inventoryModel";
 import "./geraete.css";
 
@@ -44,6 +45,10 @@ function writeCollapsed(value: Set<string>) {
     // Storage blocked: the groups just open again next time.
   }
 }
+
+const HEAD_COLS: [SortKey, string][] = [
+  ["name", "Gerät"], ["ip", "Adresse"], ["kind", "Art"], ["location", "Standort"], ["status", "Zustand"],
+];
 
 const SORT_OPTIONS: [string, string][] = [
   ["", "Wichtige zuerst"],
@@ -234,6 +239,12 @@ export default function InventoryCalm() {
 
   useEffect(reloadCandidates, [reloadCandidates]);
 
+  // UniFi network names/CIDRs label the subnet filter; without UniFi (or on error) it falls back to /24 groups.
+  const [networks, setNetworks] = useState<ParsedNetwork[]>([]);
+  useEffect(() => {
+    api.listNetworkResources("network").then((r) => setNetworks(parseNetworks(r.resources))).catch(() => {});
+  }, []);
+
   useEffect(() => {
     api.listSystems()
       .then((r) => {
@@ -247,9 +258,9 @@ export default function InventoryCalm() {
   const visible = useMemo(
     () => {
       const current = readFilter(params);
-      return sortSystems(all.filter((s) => matchesFilter(s, current)), parseSort(params.get("sort") ?? ""), kindLabels);
+      return sortSystems(all.filter((s) => matchesFilter(s, { ...current, networks })), parseSort(params.get("sort") ?? ""), kindLabels);
     },
-    [all, params, kindLabels],
+    [all, params, kindLabels, networks],
   );
   const groups = useMemo(() => groupByProject(visible), [visible]);
 
@@ -281,11 +292,13 @@ export default function InventoryCalm() {
     [all],
   );
 
+  const subnets = useMemo(() => subnetOptions(all, networks), [all, networks]);
+
   const byId = useMemo(() => new Map(all.map((s) => [s.id, s])), [all]);
-  const anyFilter = Boolean(filter.kind || filter.project || filter.parentId || filter.status || filter.importance);
+  const anyFilter = Boolean(filter.kind || filter.project || filter.parentId || filter.status || filter.importance || filter.subnet);
 
   function clearFilters() {
-    update({ kind: "", project: "", parentId: "", status: "", importance: "", q: "" });
+    update({ kind: "", project: "", parentId: "", status: "", importance: "", subnet: "", q: "" });
   }
 
   function toggleCollapsed(name: string) {
@@ -498,7 +511,7 @@ export default function InventoryCalm() {
 
       <div className="inv-chips" role="group" aria-label="Filter">
         <button type="button" className={`sbtn geraete-filter${!anyFilter ? " active" : ""}`}
-                aria-pressed={!anyFilter} onClick={() => update({ kind: "", project: "", parentId: "", status: "", importance: "" })}>
+                aria-pressed={!anyFilter} onClick={() => update({ kind: "", project: "", parentId: "", status: "", importance: "", subnet: "" })}>
           Alle <b>{counts.total}</b>
         </button>
         <button type="button" className={`sbtn geraete-filter${filter.status === "offline" ? " active" : ""}`}
@@ -522,6 +535,18 @@ export default function InventoryCalm() {
             )}
           </select>
         </label>
+        {(subnets.length > 1 || filter.subnet) && (
+          <label className={`geraete-filter geraete-filter-select${filter.subnet ? " active" : ""}`}>
+            <span className="visually-hidden">Netz</span>
+            <select value={filter.subnet} onChange={(e) => update({ subnet: e.target.value })} aria-label="Nach Netz filtern">
+              <option value="">Netz ▾</option>
+              {subnets.map((n) => <option key={n.value} value={n.value}>{n.label} ({n.count})</option>)}
+              {filter.subnet && !subnets.some((n) => n.value === filter.subnet) && (
+                <option value={filter.subnet}>{filter.subnet === "none" ? "ohne Adresse" : filter.subnet} (0)</option>
+              )}
+            </select>
+          </label>
+        )}
         {(projects.length > 0 || filter.project) && (
           <label className={`geraete-filter geraete-filter-select${filter.project ? " active" : ""}`}>
             <span className="visually-hidden">Compose-Projekt</span>
@@ -640,10 +665,22 @@ export default function InventoryCalm() {
         </div>
       ) : (
         <ul className="inv-list" aria-label="Geräte">
-          <li className="inv-head" aria-hidden="true">
+          <li className="inv-head" role="row">
             {selecting && <span className="inv-check" />}
             <span className="inv-head-cols">
-              <span>Gerät</span><span>Adresse</span><span>Art</span><span>Standort</span><span>Zustand</span>
+              {HEAD_COLS.map(([key, label]) => {
+                const cur = parseSort(sortParam);
+                const active = cur?.key === key ? cur : null;
+                return (
+                  <span key={key} role="columnheader"
+                        aria-sort={active ? (active.dir === "asc" ? "ascending" : "descending") : "none"}>
+                    <button type="button" className="inv-head-btn"
+                            onClick={() => update({ sort: formatSort(nextSort(cur, key)) })}>
+                      {label}{active && <span aria-hidden="true"> {active.dir === "asc" ? "▲" : "▼"}</span>}
+                    </button>
+                  </span>
+                );
+              })}
             </span>
           </li>
           {groups.loose.map(renderRow)}

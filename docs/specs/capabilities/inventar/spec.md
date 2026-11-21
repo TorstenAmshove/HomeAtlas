@@ -302,7 +302,7 @@ Erzeuger: `backend/app/pipeline.py:92`, `backend/app/monitor.py:172`
 ### Requirement: Geräteliste in der Oberfläche
 Die Geräteliste MUSS Freitextsuche (Name, Hostname, IP, MAC, Hersteller, Modell, Standort, Zweck),
 Filter nach Art, nach Host (`parentId`) und nach Compose-Projekt (URL-Parameter `kind`, `parentId`,
-`project`) sowie Sortierung nach Name/Adresse (IPv4 numerisch)/Art/Standort/Zustand bieten.
+`project`; in der neuen Oberfläche zusätzlich nach Netz, `subnet`) sowie Sortierung nach Name/Adresse (IPv4 numerisch)/Art/Standort/Zustand bieten.
 Container mit Compose-Projekt (`extra.docker.composeProject`) werden je Projekt in einer
 einklappbaren Gruppe („Compose: <projekt> (n Container)", alphabetisch) nach den übrigen Geräten
 gezeigt; Suche/Sortierung wirken innerhalb der Gruppen. Badges: kritisch, Fehleranzahl, PoE
@@ -321,13 +321,23 @@ Suchtext und Sortierung der Geräteliste MÜSSEN in der URL stehen (`q`, `sort` 
 `location`/`status`, absteigend mit `-` davor, ohne `sort` die Reihenfolge der API mit kritischen
 Geräten zuerst), damit Zurück nach dem Öffnen eines Geräts, Neuladen und ein geteilter Link dieselbe
 Liste zeigen. Zusätzlich zu `kind`, `parentId`, `project` MÜSSEN `status` (`online`/`offline`/
-`unknown`) und `importance` (`critical`/`normal`/`low`) filtern. Die alte Oberfläche hat für
+`unknown`), `importance` (`critical`/`normal`/`low`) und `subnet` (CIDR, `none` = Geräte ohne gültige
+IPv4-Adresse) filtern; `subnet` kennt nur die neue Oberfläche, die alte ignoriert es. Die alte Oberfläche hat für
 `status`/`importance` keine Bedienelemente; sie nennt den aktiven Filter und bietet „Filter aufheben“.
 **[Muss]**
 
 #### Szenario: Suche überlebt Zurück
 - **WENN** ein Benutzer „nas“ sucht, ein Gerät öffnet und Zurück drückt
 - **DANN** steht „nas“ wieder im Suchfeld und die Liste ist gefiltert (`/geraete?q=nas`)
+
+#### Szenario: Netz filtern
+- **WENN** ein Benutzer in der neuen Oberfläche „Netz“ auf ein Netz stellt
+- **DANN** zeigt die Liste nur dessen Geräte, die URL enthält `?subnet=<CIDR>` und Neuladen sowie
+  Zurück behalten den Filter
+
+#### Szenario: Spaltenkopf sortiert
+- **WENN** ein Benutzer dreimal auf „Adresse“ klickt
+- **DANN** steht nacheinander `?sort=ip`, `?sort=-ip` und kein `sort` in der URL
 
 #### Szenario: Wichtige Geräte von der Startseite
 - **WENN** die Startseite „+2 weitere“ anzeigt und ein Benutzer darauf tippt
@@ -340,12 +350,19 @@ Quelle: `frontend/src/pages/geraete/inventoryModel.ts`, `frontend/src/pages/Inve
 Mit Schalter `uiCalm` MUSS `/geraete` die ruhige Liste `InventoryCalm` zeigen (ohne Seitentitel und
 Erklärabsatz; Skeleton beim Laden). Sie rechnet nur aus derselben `GET /api/systems`-Liste:
 **[Muss]**
-- Filterzeile „Alle N · Nicht erreichbar N · Wichtig N · Art ▾ · Compose ▾“; N zählt über das ganze
+- Filterzeile „Alle N · Nicht erreichbar N · Wichtig N · Art ▾ · Netz ▾ · Compose ▾“; N zählt über das ganze
   Inventar (Alle = alle Geräte, Nicht erreichbar = `status = offline` aller Geräte, Wichtig =
   `importance = critical`), nicht über die gerade gefilterte Liste. Weitere aktive Filter (Host,
   andere Zustände/Bedeutungen) stehen als eigene Chips mit ×.
-- Sortieren über ein sichtbares Menü (statt klickbarer Spaltenköpfe mit unsichtbarem Zurücksetzen);
-  das Menü hat für jeden Wert, den `sort` annehmen kann, einen Eintrag (auch absteigend).
+- Sortieren über ein sichtbares Menü **und** klickbare Spaltenköpfe (Gerät, Adresse, Art, Standort,
+  Zustand; Klick: aufsteigend → absteigend → unsortiert), beide lesen und schreiben `?sort=`. Die
+  aktive Spalte zeigt ▲/▼ und `aria-sort`. Das Menü hat für jeden Wert, den `sort` annehmen kann,
+  einen Eintrag (auch absteigend). Auf dem Handy ist die Kopfzeile ausgeblendet, das Menü bleibt.
+- Netz-Filter (Dropdown „Netz“, Einfachauswahl, `?subnet=`): das Netz eines Geräts wird aus seiner
+  IPv4 berechnet – das engste passende UniFi-Netz (`facts.cidr` der Netz-Ressourcen, Option „Name
+  (CIDR)“), sonst das /24 (nur CIDR); ohne gültige IPv4 „ohne Adresse“ (`subnet=none`). Angeboten
+  werden nur belegte Netze mit Anzahl über das ganze Inventar, nach Netzadresse sortiert; bei
+  weniger als zwei Netzen ohne aktiven Filter entfällt das Dropdown.
 - Duplikat-Vorschläge (ADMIN) als Chip „N mögliche Duplikate“, der eine Prüfansicht öffnet
   (`?duplikate=1`) mit „Behalte A“ / „Behalte B“ / „Kein Duplikat“ je Paar.
 - Unter 640 px Breite wird jede Zeile ein Listeneintrag (Name, IP · Art, Status-Chip), ohne seitliches

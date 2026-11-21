@@ -33,6 +33,12 @@ export function parseSort(value: string): Sort | null {
   return SORT_KEYS.includes(key) ? { key, dir: desc ? "desc" : "asc" } : null;
 }
 
+/** Header click cycle: ascending -> descending -> unsorted (shared by both list views). */
+export function nextSort(sort: Sort | null, key: SortKey): Sort | null {
+  if (!sort || sort.key !== key) return { key, dir: "asc" };
+  return sort.dir === "asc" ? { key, dir: "desc" } : null;
+}
+
 export function formatSort(sort: Sort | null): string {
   if (!sort) return "";
   return sort.dir === "desc" ? `-${sort.key}` : sort.key;
@@ -61,6 +67,67 @@ export interface InventoryFilter {
   parentId: string;
   status: string;
   importance: string;
+  /** CIDR such as `192.168.20.0/24`, or `none` for devices without a usable IPv4 address. */
+  subnet: string;
+}
+
+export const NO_SUBNET = "none";
+
+export interface ParsedNetwork { base: number; prefix: number; cidr: string; name: string }
+
+function ipv4ToInt(ip: string): number | null {
+  const parts = ip.trim().split(".");
+  if (parts.length !== 4 || !parts.every((p) => /^\d{1,3}$/.test(p) && Number(p) <= 255)) return null;
+  return parts.reduce((acc, p) => acc * 256 + Number(p), 0) >>> 0;
+}
+
+const intToIpv4 = (n: number): string => [24, 16, 8, 0].map((sh) => (n >>> sh) & 255).join(".");
+const maskOf = (prefix: number): number => (prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0);
+
+/** Parses UniFi network facts (`facts.cidr`); invalid values and IPv6 are dropped. */
+export function parseNetworks(resources: { name: string; facts: Record<string, any> }[]): ParsedNetwork[] {
+  const out: ParsedNetwork[] = [];
+  for (const r of resources) {
+    const raw = typeof r.facts?.cidr === "string" ? r.facts.cidr.trim() : "";
+    const m = /^([\d.]+)\/(\d{1,2})$/.exec(raw);
+    if (!m) continue;
+    const addr = ipv4ToInt(m[1]);
+    const prefix = Number(m[2]);
+    if (addr === null || prefix > 32) continue;
+    const base = (addr & maskOf(prefix)) >>> 0;
+    out.push({ base, prefix, cidr: `${intToIpv4(base)}/${prefix}`, name: (r.name ?? "").trim() });
+  }
+  return out;
+}
+
+/** Subnet of an IP: the narrowest matching UniFi network, else its /24; no valid IPv4 = `none`. */
+export function subnetOf(ip: string, networks: ParsedNetwork[]): { key: string; base: number; prefix: number; name: string } {
+  const n = ipv4ToInt(ip || "");
+  if (n === null) return { key: NO_SUBNET, base: Infinity, prefix: 0, name: "" };
+  let best: ParsedNetwork | null = null;
+  for (const net of networks) {
+    if (((n & maskOf(net.prefix)) >>> 0) === net.base && (!best || net.prefix > best.prefix)) best = net;
+  }
+  if (best) return { key: best.cidr, base: best.base, prefix: best.prefix, name: best.name };
+  const base = (n & maskOf(24)) >>> 0;
+  return { key: `${intToIpv4(base)}/24`, base, prefix: 24, name: "" };
+}
+
+/** Occupied subnets (whole inventory) for the filter dropdown, ordered by network address. */
+export function subnetOptions(systems: System[], networks: ParsedNetwork[]): { value: string; label: string; count: number }[] {
+  const map = new Map<string, { base: number; prefix: number; name: string; count: number }>();
+  for (const s of systems) {
+    const sub = subnetOf(s.ip, networks);
+    const cur = map.get(sub.key);
+    if (cur) cur.count += 1; else map.set(sub.key, { base: sub.base, prefix: sub.prefix, name: sub.name, count: 1 });
+  }
+  return [...map.entries()]
+    .sort((a, b) => (a[1].base - b[1].base) || (a[1].prefix - b[1].prefix) || 0)
+    .map(([value, v]) => ({
+      value,
+      label: value === NO_SUBNET ? "ohne Adresse" : v.name ? `${v.name} (${value})` : value,
+      count: v.count,
+    }));
 }
 
 export function readFilter(params: URLSearchParams): InventoryFilter {
@@ -71,15 +138,17 @@ export function readFilter(params: URLSearchParams): InventoryFilter {
     parentId: params.get("parentId") ?? "",
     status: params.get("status") ?? "",
     importance: params.get("importance") ?? "",
+    subnet: params.get("subnet") ?? "",
   };
 }
 
-export function matchesFilter(s: System, f: InventoryFilter): boolean {
+export function matchesFilter(s: System, f: InventoryFilter & { networks?: ParsedNetwork[] }): boolean {
   if (f.kind && s.kind !== f.kind) return false;
   if (f.parentId && s.parentId !== f.parentId) return false;
   if (f.project && projectOf(s) !== f.project) return false;
   if (f.status && s.status !== f.status) return false;
   if (f.importance && s.importance !== f.importance) return false;
+  if (f.subnet && subnetOf(s.ip, f.networks ?? []).key !== f.subnet) return false;
   return matchesDeviceQuery(s, f.q);
 }
 

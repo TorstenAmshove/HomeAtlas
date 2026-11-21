@@ -123,6 +123,37 @@ test("login, MFA enrollment, setup and main routes render without errors", async
     await expect(page).toHaveURL(/[?&]importance=normal/);
     await expect(page).toHaveURL(/[?&]sort=-ip/);
     await expect(page.getByLabel("Sortieren")).toHaveValue("-ip");
+
+    // Column headers sort too: asc -> desc -> unsorted, in sync with `?sort=` and the sort menu.
+    await page.goto("/geraete");
+    for (const [label, key] of [["Gerät", "name"], ["Adresse", "ip"], ["Art", "kind"], ["Standort", "location"], ["Zustand", "status"]]) {
+      const head = page.getByRole("columnheader", { name: label, exact: true });
+      await head.getByRole("button").click();
+      await expect(page).toHaveURL(new RegExp(`[?&]sort=${key}$`));
+      await expect(head).toHaveAttribute("aria-sort", "ascending");
+      await head.getByRole("button").click();
+      await expect(page).toHaveURL(new RegExp(`[?&]sort=-${key}$`));
+      await expect(head).toHaveAttribute("aria-sort", "descending");
+      await expect(page.getByLabel("Sortieren")).toHaveValue(`-${key}`);
+      await head.getByRole("button").click();
+      await expect(page).not.toHaveURL(/[?&]sort=/);
+      await expect(head).toHaveAttribute("aria-sort", "none");
+    }
+
+    // Subnet filter (no UniFi in the smoke run -> /24 groups); survives reload and Back.
+    await page.goto("/geraete?subnet=192.0.2.0%2F24");
+    await expect(page.locator(".inv-list").getByRole("link", { name: /Smoke-NAS/ })).toBeVisible();
+    await page.reload();
+    await expect(page.getByLabel("Nach Netz filtern")).toHaveValue("192.0.2.0/24");
+    await page.locator(".inv-list").getByRole("link", { name: /Smoke-NAS/ }).click();
+    await page.goBack();
+    await expect(page).toHaveURL(/[?&]subnet=192\.0\.2\.0%2F24/);
+    await page.goto("/geraete?subnet=192.0.2.0%2F24&kind=router");
+    await expect(page.locator(".inv-list").getByRole("link", { name: /Smoke-NAS/ })).toHaveCount(0);
+    await page.goto("/geraete?subnet=198.51.100.0%2F24");
+    await expect(page.getByText("Kein Gerät passt zu diesem Filter.")).toBeVisible();
+    await page.getByRole("button", { name: "Filter zurücksetzen" }).click();
+    await expect(page).not.toHaveURL(/subnet=/);
   });
 
   await test.step("new UI: a doc draft survives switching chapters", async () => {
