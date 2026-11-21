@@ -61,7 +61,7 @@ Pflicht in der UI. Port ist nur für `sshkey`/`login`/`snmp` relevant. **[Muss]*
 - **WENN** ein Admin die Kategorie „Proxmox VE (API-Token)“ wählt
 - **DANN** fragt die UI Token-ID, Token-Secret und Adresse ab
 
-Quelle: `frontend/src/pages/AccountsPage.tsx:5`, `frontend/src/pages/AccountsPage.tsx:293`
+Quelle: `frontend/src/pages/zugaenge/AccountFormCalm.tsx`
 
 ### Requirement: Zugangsliste ohne Secrets
 Das System MUSS Admins alle Zugänge sortiert nach Bezeichnung (case-insensitiv) liefern, je Eintrag
@@ -310,8 +310,8 @@ Berührte fremde Routen: `GET /api/systems/{id}` liefert Zugänge des Geräts oh
 ([inventar](../inventar/spec.md)); `PATCH /api/settings` für den Standard-Zugang
 ([einstellungen-und-llm-provider](../einstellungen-und-llm-provider/spec.md)).
 
-UI-Seite(n): `frontend/src/pages/AccountsPage.tsx` (Routen `/zugaenge`, `/zugaenge/neu`,
-`/zugaenge/:id`, nur Admin; neue Oberfläche in `frontend/src/pages/zugaenge/`).
+UI-Seite(n): `frontend/src/pages/zugaenge/AccountsCalm.tsx`, `frontend/src/pages/zugaenge/AccountFormCalm.tsx` (Routen `/zugaenge`, `/zugaenge/neu`,
+`/zugaenge/:id`, nur Admin).
 
 ## Nicht-Ziele und Grenzen
 

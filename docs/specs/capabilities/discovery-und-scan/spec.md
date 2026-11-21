@@ -568,9 +568,8 @@ Siehe [data-model](../../contracts/data-model.md).
 Berührt: `GET /api/settings` liefert `ouiLoaded`, `ouiEntries`
 ([einstellungen-und-llm-provider](../einstellungen-und-llm-provider/spec.md)).
 
-UI-Seite(n): `frontend/src/pages/ScanPage.tsx` (Route `/scan`, admin-only; pollt alle 1,5 s nur
-solange der Scan läuft; neue Oberfläche `frontend/src/pages/mehr/ScanCalm.tsx`, dort zusätzlich nur bei
-sichtbarem Tab). Scan-Einstellungen in `frontend/src/pages/SettingsPage.tsx`.
+UI-Seite(n): `frontend/src/pages/mehr/ScanCalm.tsx` (Route `/scan`, admin-only; pollt alle 1,5 s nur
+solange der Scan läuft und der Tab sichtbar ist). Scan-Einstellungen in `frontend/src/pages/SettingsPage.tsx`.
 
 ## Nicht-Ziele und Grenzen
 

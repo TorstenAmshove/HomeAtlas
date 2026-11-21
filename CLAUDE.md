@@ -202,6 +202,7 @@ device-write modules, the `tools.py` boundary, deploy and CI). Details: `docs/ai
 in `docs/redesign/`; `npm run build` runs `scripts/check-nav.ts`, which fails when a `<Route>` in
 `App.tsx` has no entry there or a pre-redesign route lost its home. Add every new route to both.
 
-Pages under `pages/` map roughly 1:1 to the nav items in `App.tsx`'s `NAV` array; several are
+Pages under `pages/` map roughly 1:1 to the entries in `nav/config.ts`; `App.tsx` always renders
+`AppShell` after the gates and points each `<Route>` directly at its page component. Several pages are
 admin-only both in the route guard (`isAdmin &&` around the `<Route>`) and on the corresponding
 backend routes — when adding an admin-only page, gate both sides.

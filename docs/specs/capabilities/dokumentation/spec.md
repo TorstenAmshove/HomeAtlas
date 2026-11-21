@@ -361,8 +361,8 @@ auftrat: beim Kapitelwechsel verschwindet sie.
 
 Quelle: `frontend/src/pages/DocsPage.tsx`, `frontend/src/lib/drafts.ts`, `frontend/src/lib/useLeaveGuard.tsx`
 
-### Requirement: Neuerzeugen mit Prüfschritt und Rückgängig (neue Oberfläche)
-In der neuen Oberfläche (`uiCalm`) MÜSSEN „Neu erzeugen“ (Kapitel) und „Alles neu erzeugen“ hinter
+### Requirement: Neuerzeugen mit Prüfschritt und Rückgängig
+MÜSSEN „Neu erzeugen“ (Kapitel) und „Alles neu erzeugen“ hinter
 „⋯“ liegen und vor dem Ausführen einen Prüfdialog zeigen, der die Folgen im Klartext nennt. Nach
 „Neu erzeugen“ eines von Hand bearbeiteten Kapitels MUSS die Oberfläche „Rückgängig“ anbieten, das
 die beim Reset entstandene Version (Anlass „automatisch neu erzeugt“) über die bestehende

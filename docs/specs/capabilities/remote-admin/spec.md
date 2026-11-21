@@ -235,7 +235,7 @@ Die Oberfläche MUSS vor Stopp/Neustart eines Containers oder Gasts und vor eine
 - **WENN** der Admin im Tab „Steuern“ bei einer Home-Assistant-Entity „Aus …“ klickt
 - **DANN** fragt ein Dialog „„<Name>“ ausschalten?“ und schaltet erst nach „Ausschalten“
 
-Quelle: `frontend/src/pages/SystemDetailPage.tsx:175`, `frontend/src/pages/SystemDetailPage.tsx:224`, `frontend/src/pages/SystemDetailPage.tsx:1024`, `frontend/src/pages/SystemDetailPage.tsx:645`, `frontend/src/pages/device/SteuernTab.tsx`, `frontend/src/pages/device/RemoteHostSection.tsx`
+Quelle: `frontend/src/pages/device/DeviceCalm.tsx`, `frontend/src/pages/device/SteuernTab.tsx`, `frontend/src/pages/device/RemoteHostSection.tsx`
 
 ## Daten
 
@@ -265,7 +265,7 @@ Aus [data-model](../../contracts/data-model.md):
 Erfolgsantworten der Aktionen: `{"ok": true}`; Listen: `{"containers": [...], "proxmoxUrl": "…"}` bzw. `{"entities": [...]}`; Logs entfernt: `{"text": "…"}`.
 Berührt: SSH-Schlüssel erzeugen/verteilen (`POST /api/systems/{id}/ssh-keys`, `POST /api/accounts/{id}/deploy`) gehören zu [zugangsdaten](../zugangsdaten/spec.md); `set_switch`/`list_switches` zu [assistent-chat-und-mcp](../assistent-chat-und-mcp/spec.md).
 
-UI-Seite(n): `frontend/src/pages/SystemDetailPage.tsx` (Route `/geraete/:id`), neue Oberfläche `frontend/src/pages/device/SteuernTab.tsx`, Terminal-Komponente `frontend/src/components/Terminal.tsx`.
+UI-Seite(n): `frontend/src/pages/device/SteuernTab.tsx` (Route `/geraete/:id`), Terminal-Komponente `frontend/src/components/Terminal.tsx`.
 
 ## Nicht-Ziele und Grenzen
 
@@ -292,7 +292,7 @@ UI-Seite(n): `frontend/src/pages/SystemDetailPage.tsx` (Route `/geraete/:id`), n
 - > OFFEN: Assistent schaltet bei Shelly immer Kanal 0; REST-Route akzeptiert beliebige `channel`-Ganzzahl ohne Bereichsprüfung.
 - > OFFEN: Proxmox-Steuerung fällt bei *jedem* API-Fehler auf SSH zurück – auch bei fachlichen Fehlern der API (z. B. Gast bereits gestoppt); mögliche Doppelausführung/irreführende Meldung. (`backend/app/main.py:1061`)
 - > OFFEN: Reboot meldet evtl. Fehler, obwohl der Neustart ausgelöst wurde (SSH-Verbindung bricht beim Reboot ab, bevor ein Exit-Status kommt). Nicht durch Tests abgedeckt.
-- > OFFEN: Kategorie `router` wird im Reboot-Pfad akzeptiert, existiert aber in der UI-Kategorieliste nicht (`frontend/src/pages/AccountsPage.tsx:5`) – toter Zweig oder Altbestand?
+- > OFFEN: Kategorie `router` wird im Reboot-Pfad akzeptiert, existiert aber in der UI-Kategorieliste nicht (`frontend/src/pages/zugaenge/AccountFormCalm.tsx`) – toter Zweig oder Altbestand?
 - > OFFEN: SSH-Befehle (`connection.run`) haben kein Gesamt-Timeout; ein hängender Befehl blockiert die Anfrage unbegrenzt.
 - > OFFEN: Nicht-numerische `cols`/`rows` in einer Resize-Nachricht lösen eine Ausnahme aus und beenden die Sitzung statt ignoriert zu werden. (`backend/app/main.py:864`)
 - > OFFEN: `Terminal.tsx` erwartet laut Kommentar eine Server-Nachricht `{"type":"exit"}`, die das Backend nie sendet.

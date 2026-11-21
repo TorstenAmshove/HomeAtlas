@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { NavLink, Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
+import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import { ApiError, api, type User } from "./lib/api";
 import { clearAllDrafts, hasDrafts } from "./lib/drafts";
 import ConfirmDialog from "./components/ConfirmDialog";
@@ -9,20 +9,19 @@ import SetupPage from "./pages/SetupPage";
 import LoginCalm from "./gates/LoginCalm";
 import MfaEnrollCalm from "./gates/MfaEnrollCalm";
 import SetupCalm from "./gates/SetupCalm";
-import DashboardPage from "./pages/DashboardPage";
 import StartCalm from "./pages/start/StartCalm";
-import InventoryPage from "./pages/InventoryPage";
-import SystemDetailPage from "./pages/SystemDetailPage";
+import InventoryCalm from "./pages/geraete/InventoryCalm";
+import PlanCalm from "./pages/geraete/PlanCalm";
+import NetworksCalm from "./pages/geraete/NetworksCalm";
+import AccountsCalm from "./pages/zugaenge/AccountsCalm";
+import AccountFormCalm from "./pages/zugaenge/AccountFormCalm";
+import ScanCalm from "./pages/mehr/ScanCalm";
+import UsersCalm from "./pages/mehr/UsersCalm";
+import AccessLogCalm from "./pages/mehr/AccessLogCalm";
 import DeviceCalm from "./pages/device/DeviceCalm";
-import AccessLogPage from "./pages/AccessLogPage";
-import AccountsPage from "./pages/AccountsPage";
 import DocsPage from "./pages/DocsPage";
-import PlanPage from "./pages/PlanPage";
 import ChatPage from "./pages/ChatPage";
-import ScanPage from "./pages/ScanPage";
 import SettingsPage from "./pages/SettingsPage";
-import UsersPage from "./pages/UsersPage";
-import NetworksPage from "./pages/NetworksPage";
 import AppShell, { ShellSkeleton } from "./shell/AppShell";
 import { UiContext, type UiState } from "./shell/ui";
 import {
@@ -46,20 +45,6 @@ const AuthContext = createContext<AuthState>({
 
 export const useAuth = () => useContext(AuthContext);
 
-const NAV = [
-  { to: "/", label: "Übersicht", icon: "🏠", end: true },
-  { to: "/geraete", label: "Geräte", icon: "🖧" },
-  { to: "/plan", label: "Netzplan", icon: "🗺️" },
-  { to: "/netze", label: "Netze & WLAN", icon: "📡" },
-  { to: "/zugaenge", label: "Zugänge", icon: "🔑", adminOnly: true },
-  { to: "/dokumentation", label: "Dokumentation", icon: "📘" },
-  { to: "/assistent", label: "KI-Assistent", icon: "💬" },
-  { to: "/scan", label: "Netzwerk-Scan", icon: "🔍", adminOnly: true },
-  { to: "/benutzer", label: "Benutzer", icon: "👥", adminOnly: true },
-  { to: "/protokoll", label: "Protokoll", icon: "📋", adminOnly: true },
-  { to: "/einstellungen", label: "Einstellungen", icon: "⚙️" },
-];
-
 /** The new device page, remounted per device: switching from one device to another (a link, ⌘K)
  *  starts from a clean state, so revealed passwords and form state never carry over. */
 function DeviceCalmKeyed() {
@@ -71,7 +56,6 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [setupCompleted, setSetupCompleted] = useState(true);
-  const location = useLocation();
 
   // Which shell to render (docs/redesign/5-information-architecture.md, "Schalter"). With the flag
   // off and no ?ui=calm override, everything below renders exactly the pre-redesign UI.
@@ -236,77 +220,33 @@ export default function App() {
     );
   }
 
-  // One route list for both shells, so scripts/check-nav.ts sees every <Route> exactly once and the
-  // admin gating (`isAdmin &&`) is the same whichever frame is around it.
-  const routes = (
-    <Routes>
-      <Route path="/" element={calm ? <StartCalm /> : <DashboardPage />} />
-      <Route path="/geraete" element={<InventoryPage />} />
-      <Route path="/geraete/:id" element={calm ? <DeviceCalmKeyed /> : <SystemDetailPage />} />
-      {isAdmin && <Route path="/zugaenge" element={<AccountsPage />} />}
-      {isAdmin && <Route path="/zugaenge/neu" element={<AccountsPage mode="new" />} />}
-      {isAdmin && <Route path="/zugaenge/:id" element={<AccountsPage mode="edit" />} />}
-      <Route path="/dokumentation" element={<DocsPage />} />
-      <Route path="/dokumentation/:slug" element={<DocsPage />} />
-      <Route path="/assistent" element={<ChatPage />} />
-      <Route path="/assistent/:chatId" element={<ChatPage />} />
-      {isAdmin && <Route path="/scan" element={<ScanPage />} />}
-      <Route path="/plan" element={<PlanPage />} />
-      <Route path="/netze" element={<NetworksPage />} />
-      {isAdmin && <Route path="/benutzer" element={<UsersPage />} />}
-      {isAdmin && <Route path="/protokoll" element={<AccessLogPage />} />}
-      <Route path="/einstellungen" element={<SettingsPage />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
-  );
-
-  if (calm) {
-    return (
-      <AuthContext.Provider value={{ user, isAdmin, setUser, logout }}>
-        <UiContext.Provider value={ui}>
-          <AppShell user={user} isAdmin={isAdmin} onLogout={requestLogout}>
-            {routes}
-          </AppShell>
-          {logoutDialog}
-        </UiContext.Provider>
-      </AuthContext.Provider>
-    );
-  }
-
+  // Every <Route> appears exactly once (scripts/check-nav.ts), and the admin gating (`isAdmin &&`)
+  // is the same on the backend routes behind these pages.
   return (
     <AuthContext.Provider value={{ user, isAdmin, setUser, logout }}>
       <UiContext.Provider value={ui}>
-      <div className="app">
-        <nav className="sidebar">
-          <div className="brand">
-            <span className="brand-mark">🧭</span>
-            <div>
-              <div className="brand-name">HomeAtlas</div>
-              <div className="brand-sub">Dein Zuhause, dokumentiert</div>
-            </div>
-          </div>
-          {NAV.filter((item) => !item.adminOnly || isAdmin).map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.end} className="nav-link">
-              <span aria-hidden>{item.icon}</span>
-              {item.label}
-            </NavLink>
-          ))}
-          <div className="sidebar-footer">
-            <div>
-              Angemeldet als <strong>{user.displayName || user.username}</strong>
-            </div>
-            <div className="muted">{isAdmin ? "Administrator" : "Mitglied (nur lesen)"}</div>
-            <button className="secondary small" style={{ marginTop: 10 }} onClick={() => void requestLogout()}>
-              Abmelden
-            </button>
-          </div>
-        </nav>
-
-        <main className={`content${location.pathname === "/assistent" || location.pathname.startsWith("/assistent/") ? " content-chat" : ""}`}>
-          {routes}
-        </main>
-      </div>
-      {logoutDialog}
+        <AppShell user={user} isAdmin={isAdmin} onLogout={requestLogout}>
+          <Routes>
+            <Route path="/" element={<StartCalm />} />
+            <Route path="/geraete" element={<InventoryCalm />} />
+            <Route path="/geraete/:id" element={<DeviceCalmKeyed />} />
+            {isAdmin && <Route path="/zugaenge" element={<AccountsCalm />} />}
+            {isAdmin && <Route path="/zugaenge/neu" element={<AccountFormCalm mode="new" />} />}
+            {isAdmin && <Route path="/zugaenge/:id" element={<AccountFormCalm mode="edit" />} />}
+            <Route path="/dokumentation" element={<DocsPage />} />
+            <Route path="/dokumentation/:slug" element={<DocsPage />} />
+            <Route path="/assistent" element={<ChatPage />} />
+            <Route path="/assistent/:chatId" element={<ChatPage />} />
+            {isAdmin && <Route path="/scan" element={<ScanCalm />} />}
+            <Route path="/plan" element={<PlanCalm />} />
+            <Route path="/netze" element={<NetworksCalm />} />
+            {isAdmin && <Route path="/benutzer" element={<UsersCalm />} />}
+            {isAdmin && <Route path="/protokoll" element={<AccessLogCalm />} />}
+            <Route path="/einstellungen" element={<SettingsPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </AppShell>
+        {logoutDialog}
       </UiContext.Provider>
     </AuthContext.Provider>
   );

@@ -70,8 +70,7 @@ export default function SettingsPage() {
     ? [["general", "Allgemein"], ["llm", "KI-Assistent"], ["scan", "Netzwerk-Scan"],
        ["monitor", "Überwachung"], ["mcp", "MCP-Server"], ["account", "Konto"], ["about", "Über"]]
     : [["account", "Konto"], ["about", "Über"]];
-  // "Darstellung" only means something in the new shell; the old UI stays exactly as it was.
-  if (ui.calm) TABS.splice(TABS.length - 1, 0, ["display", "Darstellung"]);
+  TABS.splice(TABS.length - 1, 0, ["display", "Darstellung"]);
   const tabLabel = (value: Tab | null) => TABS.find(([t]) => t === value)?.[1] ?? "";
   // A tab this role doesn't have (e.g. a member opening ?tab=llm) falls back to the first one.
   const tab: Tab = TABS.some(([t]) => t === tabParam) ? (tabParam as Tab) : TABS[0][0];
@@ -82,24 +81,20 @@ export default function SettingsPage() {
   );
   const dirty = formDirty || accountDirty;
   const dirtyWhere = [formDirty ? tabLabel(editedTab) : "", accountDirty ? tabLabel("account") : ""].filter(Boolean);
-  const [leaveDialog] = useLeaveGuard(ui.calm && dirty, "den Einstellungen");
+  const [leaveDialog] = useLeaveGuard(dirty, "den Einstellungen");
 
   function goTab(value: Tab | "") {
-    if (ui.calm) {
-      // From the phone's list into a sub-page: remember it, so "← Einstellungen" is a real Back.
-      if (value === "") {
-        if ((location.state as { fromList?: boolean } | null)?.fromList) navigate(-1);
-        else setTabParam("", { push: true });
-      } else {
-        navigate({ search: `?tab=${value}` }, { state: { fromList: onList } });
-      }
+    // From the phone's list into a sub-page: remember it, so "← Einstellungen" is a real Back.
+    if (value === "") {
+      if ((location.state as { fromList?: boolean } | null)?.fromList) navigate(-1);
+      else setTabParam("", { push: true });
     } else {
-      setTabParam(value, { push: true });
+      navigate({ search: `?tab=${value}` }, { state: { fromList: onList } });
     }
   }
 
   function setTab(value: Tab) {
-    if (ui.calm && dirty && value !== tab) {
+    if (dirty && value !== tab) {
       setPendingTab(value);
       return;
     }
@@ -206,7 +201,6 @@ export default function SettingsPage() {
   }
 
   if (!data) {
-    if (!ui.calm) return <span className="spinner" />;
     return (
       <div className="mehr-calm settings-calm" role="status" aria-live="polite">
         <span className="visually-hidden">Wird geladen …</span>
@@ -601,7 +595,7 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {tab === "mcp" && isAdmin && <McpTab calm={ui.calm} />}
+      {tab === "mcp" && isAdmin && <McpTab />}
 
       {tab === "account" && (
         <AccountTab key={accountKey} username={user?.username ?? ""} totpEnabled={Boolean(user?.totpEnabled)}
@@ -636,29 +630,6 @@ export default function SettingsPage() {
       )}
     </>
   );
-
-  if (!ui.calm) {
-    return (
-      <>
-        <div className="page-header">
-          <div>
-            <h1>Einstellungen</h1>
-            <p>Anbieter für den KI-Assistenten, Umfang des Netzwerk-Scans und das eigene Konto.</p>
-          </div>
-        </div>
-
-        <div className="row" style={{ marginBottom: 18 }}>
-          {TABS.map(([value, label]) => (
-            <button key={value} className={tab === value ? "" : "secondary"} onClick={() => setTab(value)}>
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {content}
-      </>
-    );
-  }
 
   const dirtyDot = (value: Tab) =>
     (formDirty && editedTab === value) || (accountDirty && value === "account")
@@ -729,7 +700,7 @@ export default function SettingsPage() {
   );
 }
 
-function McpTab({ calm = false }: { calm?: boolean }) {
+function McpTab() {
   const [tokens, setTokens] = useState<ApiToken[] | null>(null);
   const [label, setLabel] = useState("");
   const [freshToken, setFreshToken] = useState<ApiToken | null>(null);
@@ -761,14 +732,7 @@ function McpTab({ calm = false }: { calm?: boolean }) {
     }
   }
 
-  async function remove(id: string) {
-    if (!window.confirm("Dieses Token wirklich löschen? Clients, die es benutzen, verlieren sofort den Zugriff.")) return;
-    await api.deleteMcpToken(id);
-    if (freshToken?.id === id) setFreshToken(null);
-    load();
-  }
-
-  // New UI: the same request after a review step instead of window.confirm.
+  // Revoking goes through a review step.
   async function runRevoke() {
     if (!revoking) return;
     setRevokeBusy(true);
@@ -845,7 +809,7 @@ function McpTab({ calm = false }: { calm?: boolean }) {
       </ConfirmDialog>
 
       {tokens === null ? (
-        calm ? <SkeletonText lines={3} /> : <span className="spinner" />
+        <SkeletonText lines={3} />
       ) : tokens.length === 0 ? (
         <p className="muted">Noch kein Token erzeugt.</p>
       ) : (
@@ -861,12 +825,8 @@ function McpTab({ calm = false }: { calm?: boolean }) {
                   <td className="muted">{new Date(t.createdAt).toLocaleString("de-DE")}</td>
                   <td className="muted">{t.lastUsedAt ? new Date(t.lastUsedAt).toLocaleString("de-DE") : "noch nie"}</td>
                   <td style={{ width: 1 }}>
-                    {calm ? (
-                      <OverflowMenu label={`Aktionen für Token ${t.label}`}
-                                    items={[{ label: "Widerrufen …", danger: true, onSelect: () => setRevoking(t) }]} />
-                    ) : (
-                      <button className="danger" onClick={() => void remove(t.id)}>Widerrufen</button>
-                    )}
+                    <OverflowMenu label={`Aktionen für Token ${t.label}`}
+                                  items={[{ label: "Widerrufen …", danger: true, onSelect: () => setRevoking(t) }]} />
                   </td>
                 </tr>
               ))}

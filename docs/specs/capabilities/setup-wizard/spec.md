@@ -78,8 +78,7 @@ Abgeschickt wird erst am Ende von Schritt 3; Einträge ohne Namen/Bezeichnung we
 Quelle: `frontend/src/pages/SetupPage.tsx:27`, `frontend/src/pages/SetupPage.tsx:59`, `frontend/src/pages/SetupPage.tsx:79`, Test: `frontend/e2e/smoke.spec.ts::login, MFA enrollment, setup and main routes render without errors`
 
 ### Requirement: Ausweg aus dem Wizard (UI)
-Der Wizard MUSS auf jedem Schritt „Abmelden“ anbieten, in beiden Oberflächen (klassisch und neue
-Oberfläche), damit niemand darin festsitzt. Ist schon etwas eingetragen (Angaben weichen von der
+Der Wizard MUSS auf jedem Schritt „Abmelden“ anbieten, in beiden Darstellungen des Wizards (klassisch und neu, solange die Gates beide kennen), damit niemand darin festsitzt. Ist schon etwas eingetragen (Angaben weichen von der
 Vorbelegung ab oder Schritt > 1), MUSS vorher ein Prüfdialog fragen („Deine Angaben aus der
 Einrichtung werden verworfen“, „Trotzdem abmelden“ / „Angemeldet bleiben“). Ein „Überspringen“ gibt
 es nicht: für ADMIN bleibt der Wizard, bis das Setup gespeichert ist. **[Muss]**
