@@ -155,7 +155,9 @@ neuen Shell vorerst noch ihren eigenen Seitenkopf; den nimmt jeweils der PR ihre
   `sessionStorage`. Netzplan mit `?view=layer3`, Erklärtext hinter „ⓘ“, **einer** Statuszeile aus
   `/api/monitor` (dieselbe Menge und Wortwahl wie der Start-Hero, Alarm nur bei laufender
   Überwachung), Liste „Überwachte Geräte“ (auf dem Handy vor dem Bild), Diagnose-Aktionen darunter.
-  Das SVG bleibt statisch (ADR-0008/0009: kein Zoom-Bedienelement); auf dem Handy liegt es in
+  Das SVG bleibt statisch (ADR-0008/0009: kein Zoom-Bedienelement). Bewusst keine Zoom-/Ziehen-Bedienelemente
+  (ADR-0008, Constitution D5). Auf dem Handy seitlich verschiebbar, Pinch-Zoom des Browsers. Eine
+  Änderung bräuchte eine neue ADR. Auf dem Handy liegt das SVG in
   doppelter Breite in einem seitlich verschiebbaren Rahmen. Netze & WLAN als ruhige Liste mit
   Leerzustand, der den nötigen UniFi-Zugang erklärt. Dazu aus der Hilfe-Prüfung: Abmelden fragt,
   wenn noch Entwürfe im Tab liegen (beide Oberflächen).

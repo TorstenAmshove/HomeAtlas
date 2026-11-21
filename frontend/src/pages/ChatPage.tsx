@@ -103,6 +103,11 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [input, setInputState] = useState(() => readDraft(draftKeys.chatInput(chatId)) ?? "");
+  // Text typed while `listChats` was still loading sits under the draft key of `/assistent`; when
+  // that redirects to the latest conversation it is carried over to that conversation's draft.
+  const inputRef = useRef(input);
+  inputRef.current = input;
+  const carryOver = useRef<{ id: string; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [toolsUsed, setToolsUsed] = useState<string[]>([]);
@@ -136,8 +141,10 @@ export default function ChatPage() {
   useEffect(() => {
     if (!calm || !chatsLoaded || routeIsNew) return;
     if (routeChatId && chats.some((c) => c.id === routeChatId)) return;
-    if (chats.length > 0) navigate(`/assistent/${chats[0].id}`, { replace: true });
-    else if (routeChatId) navigate("/assistent", { replace: true });
+    if (chats.length > 0) {
+      if (!routeChatId && inputRef.current) carryOver.current = { id: chats[0].id, text: inputRef.current };
+      navigate(`/assistent/${chats[0].id}`, { replace: true });
+    } else if (routeChatId) navigate("/assistent", { replace: true });
   }, [calm, chatsLoaded, chats, routeChatId, routeIsNew, navigate]);
 
   // ADMIN sees everyone's conversations: the delete dialog names the owner of a foreign one.
@@ -154,7 +161,16 @@ export default function ChatPage() {
 
   // Each conversation has its own unsent draft.
   useEffect(() => {
-    setInputState(readDraft(draftKeys.chatInput(chatId)) ?? "");
+    const stored = readDraft(draftKeys.chatInput(chatId)) ?? "";
+    const carry = carryOver.current;
+    carryOver.current = null;
+    if (carry && carry.id === chatId && carry.text && !stored) {
+      // The target conversation's own draft wins; only an empty one takes the carried text.
+      setInput(carry.text, chatId);
+      writeDraft(draftKeys.chatInput(""), null);
+      return;
+    }
+    setInputState(stored);
   }, [chatId]);
 
   const known = !calm || chats.some((c) => c.id === chatId);

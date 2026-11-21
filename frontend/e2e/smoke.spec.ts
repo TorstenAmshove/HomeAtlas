@@ -208,6 +208,61 @@ test("login, MFA enrollment, setup and main routes render without errors", async
     await expect(page).not.toHaveURL(/subnet=/);
   });
 
+  await test.step("new UI: the device selection follows the visible list", async () => {
+    // Two selected, search hides one: the count drops to 1 and "Löschen …" names only the visible one.
+    const created = await page.request.post("/api/systems", { data: { name: "Smoke-Drucker", kind: "printer", ip: "192.0.2.11" } });
+    expect(created.ok()).toBe(true);
+    const printerId = ((await created.json()) as { system: { id: string } }).system.id;
+    try {
+      await page.goto("/geraete");
+      await page.getByRole("button", { name: "Auswählen", exact: true }).click();
+      await page.getByLabel("Smoke-NAS auswählen").check();
+      await page.getByLabel("Smoke-Drucker auswählen").check();
+      const bar = page.getByRole("region", { name: "Auswahl" });
+      await expect(bar.locator(".inv-selectbar-count")).toHaveText("2 ausgewählt");
+      await page.getByLabel("Geräte durchsuchen").fill("Smoke-NAS");
+      await expect(bar.locator(".inv-selectbar-count")).toHaveText("1 ausgewählt");
+      await bar.getByRole("button", { name: "Löschen …" }).click();
+      const dialog = page.getByRole("alertdialog");
+      await expect(dialog).toContainText("Smoke-NAS");
+      await expect(dialog).not.toContainText("Smoke-Drucker");
+      await dialog.getByRole("button", { name: "Abbrechen" }).click();
+    } finally {
+      await page.request.delete(`/api/systems/${printerId}`);
+    }
+  });
+
+  await test.step("new UI: chat text typed while the conversations load is kept", async () => {
+    const created = await page.request.post("/api/chats", { data: {} });
+    expect(created.ok()).toBe(true);
+    const chatId = ((await created.json()) as { chat: { id: string } }).chat.id;
+    try {
+      let open!: () => void;
+      const gate = new Promise<void>((resolve) => { open = resolve; });
+      await page.route("**/api/chats", async (route) => {
+        if (route.request().method() === "GET") await gate;
+        await route.continue();
+      });
+      await page.goto("/assistent");
+      const question = page.getByLabel("Frage an den Assistenten");
+      await question.fill("Ladesekunden-Frage");
+      open();
+      await expect(page).toHaveURL(new RegExp(`/assistent/[^/]+$`));
+      await expect(page).not.toHaveURL(/\/assistent\/neu$/);
+      await expect(question).toHaveValue("Ladesekunden-Frage");
+      await page.unroute("**/api/chats");
+
+      // Text typed on /assistent/neu stays out of an existing conversation.
+      await page.goto("/assistent/neu");
+      await page.getByLabel("Frage an den Assistenten").fill("nur-neu");
+      await page.goto(`/assistent/${chatId}`);
+      await expect(page.getByLabel("Frage an den Assistenten")).not.toHaveValue("nur-neu");
+    } finally {
+      await page.unroute("**/api/chats").catch(() => {});
+      await page.request.delete(`/api/chats/${chatId}`);
+    }
+  });
+
   await test.step("new UI: a doc draft survives switching chapters", async () => {
     await page.goto("/dokumentation");
     const chapters = page.locator("a.docs-toc-link");

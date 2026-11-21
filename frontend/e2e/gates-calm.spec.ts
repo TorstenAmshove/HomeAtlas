@@ -1,5 +1,5 @@
 import { expect, test, type ConsoleMessage, type Page } from "@playwright/test";
-import { CALM_PASSWORD, CALM_USERNAME, PASSWORD, totp } from "./helpers";
+import { CALM_PASSWORD, CALM_USERNAME, PASSWORD, freshTotp, totp } from "./helpers";
 
 // The redesigned gates (login -> MFA enrollment -> setup wizard, docs/redesign PR 7) on the same
 // fresh backend as smoke.spec.ts, which runs first (project dependency in playwright.config.ts) and
@@ -51,6 +51,11 @@ test("calm gates: login, MFA enrollment and setup with their ways out", async ({
   const username = gate.getByLabel("Benutzername");
   const password = gate.getByLabel("Passwort", { exact: true });
   let secret = "";
+  let enrolledAt = 0; // when the enrollment code was computed: its 30 s window is used up
+  let setupPosts = 0;
+  page.on("request", (req) => {
+    if (req.method() === "POST" && /\/api\/setup$/.test(req.url())) setupPosts += 1;
+  });
 
   async function login() {
     await username.fill(CALM_USERNAME);
@@ -103,7 +108,8 @@ test("calm gates: login, MFA enrollment and setup with their ways out", async ({
     await code.press("Enter");
     await expect(alert).toContainText("stimmt nicht");
 
-    await code.fill(totp(secret));
+    enrolledAt = Date.now();
+    await code.fill(totp(secret, enrolledAt));
     await gate.getByRole("button", { name: "Aktivieren" }).click();
     await expect(page.getByRole("heading", { name: "Willkommen bei HomeAtlas" })).toBeVisible();
   });
@@ -121,10 +127,10 @@ test("calm gates: login, MFA enrollment and setup with their ways out", async ({
     expect(await storageDump(page)).not.toContain("Calm-Zuhause");
 
     // Back in: the factor is active now, so the code field appears. The enrollment code's time step
-    // is used up (codes are single-use), the next one is within the server's tolerance.
+    // is used up (codes are single-use), so wait for the next window and use its current code.
     await login();
     const code = gate.getByLabel("Code aus der Authenticator-App");
-    await code.fill(totp(secret, Date.now() + 30_000));
+    await code.fill(await freshTotp(secret, enrolledAt));
     await code.press("Enter");
     await expect(page.getByRole("heading", { name: "Willkommen bei HomeAtlas" })).toBeVisible();
     await expect(gate.getByLabel("Wie soll dein Zuhause heißen?")).toHaveValue("Mein Zuhause");
@@ -142,7 +148,7 @@ test("calm gates: login, MFA enrollment and setup with their ways out", async ({
     await expect(page.getByRole("heading", { name: "Die wichtigsten Geräte" })).toBeVisible();
     await expect(gate.getByLabel("Name", { exact: true })).toHaveValue("Calm-Router");
     await expect(gate.getByLabel("Passwort (optional)")).toHaveValue("");
-    await expect(gate.getByText("Passwörter werden aus Sicherheitsgründen nicht zwischengespeichert")).toBeVisible();
+    await expect(gate.getByText("Passwörter und Notizen werden aus Sicherheitsgründen nicht zwischengespeichert")).toBeVisible();
     const stored = await storageDump(page);
     expect(stored).toContain("Calm-Router");
     expect(stored).not.toContain("Router-Geheim-42");
@@ -155,12 +161,36 @@ test("calm gates: login, MFA enrollment and setup with their ways out", async ({
     await gate.getByRole("button", { name: "Weiter", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Wichtige Konten" })).toBeVisible();
     await gate.getByLabel("Passwort", { exact: true }).fill("Konto-Geheim-7");
-    expect(await storageDump(page)).not.toContain("Konto-Geheim-7");
+    await gate.getByLabel("Benutzername / Kundennummer").fill("Kunde-4711");
+    await gate.getByLabel("Notiz (optional)").fill("Hotline 0800 123");
+    const typed = await storageDump(page);
+    expect(typed).not.toContain("Konto-Geheim-7");
+    expect(typed).not.toContain("Hotline 0800 123");
+
+    // Notes are dropped on reload like passwords (people put access hints there); the user name stays.
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Wichtige Konten" })).toBeVisible();
+    await expect(gate.getByLabel("Notiz (optional)")).toHaveValue("");
+    await expect(gate.getByLabel("Passwort", { exact: true })).toHaveValue("");
+    await expect(gate.getByLabel("Benutzername / Kundennummer")).toHaveValue("Kunde-4711");
+    await expect(gate.getByText("Passwörter und Notizen werden aus Sicherheitsgründen nicht zwischengespeichert")).toBeVisible();
+    expect(await storageDump(page)).not.toContain("Hotline 0800 123");
+  });
+
+  await test.step("setup: a double click on Weiter does not finish the setup", async () => {
+    await gate.getByRole("button", { name: "Zurück" }).click();
+    await expect(page.getByRole("heading", { name: "Die wichtigsten Geräte" })).toBeVisible();
+    await gate.getByRole("button", { name: "Weiter", exact: true }).dblclick();
+    await expect(page.getByRole("heading", { name: "Wichtige Konten" })).toBeVisible();
+    await expect(gate.getByRole("button", { name: /Fertig/ })).toBeVisible();
+    expect(setupPosts).toBe(0);
   });
 
   await test.step("setup done: the calm Start page", async () => {
-    await gate.getByRole("button", { name: /Fertig/ }).click();
+    // A double click on "Fertig" sends POST /api/setup once (busy/disabled guard).
+    await gate.getByRole("button", { name: /Fertig/ }).dblclick();
     await expect(page.locator(".app-shell")).toBeVisible();
+    expect(setupPosts).toBe(1);
     await expect(page.locator("#start-hero-title")).toBeVisible();
     expect(await storageDump(page)).not.toContain("Calm-Router");
   });

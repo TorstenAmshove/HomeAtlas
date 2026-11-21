@@ -91,11 +91,12 @@ es nicht: für ADMIN bleibt der Wizard, bis das Setup gespeichert ist. **[Muss]*
 
 Quelle: `frontend/src/pages/SetupPage.tsx`, `frontend/src/gates/SetupCalm.tsx`, Test: `frontend/e2e/gates-calm.spec.ts::calm gates: login, MFA enrollment and setup with their ways out`
 
-### Requirement: Entwurf übersteht Neuladen, ohne Passwörter (neue Oberfläche)
+### Requirement: Entwurf übersteht Neuladen, ohne Passwörter und Notizen (neue Oberfläche)
 In der neuen Oberfläche MÜSSEN Schritt und Angaben des Wizards ein Neuladen des Tabs überstehen
-(`sessionStorage`, Schlüssel `homeatlas.draft.setup.wizard`). Passwörter von Geräten und Konten DÜRFEN
-NICHT in den Entwurf gelangen; wurden welche eingegeben, MUSS der Wizard nach dem Neuladen darauf
-hinweisen, dass sie erneut einzugeben sind. Abmelden und erfolgreiches Speichern löschen den Entwurf.
+(`sessionStorage`, Schlüssel `homeatlas.draft.setup.wizard`). Passwörter von Geräten und Konten sowie
+Konto-Notizen (dort stehen gelegentlich Zugangshinweise) DÜRFEN NICHT in den Entwurf gelangen;
+wurden welche eingegeben, MUSS der Wizard nach dem Neuladen darauf hinweisen, dass sie erneut
+einzugeben sind. Benutzername bzw. Kundennummer bleiben erhalten. Abmelden und erfolgreiches Speichern löschen den Entwurf.
 Der Entwurf gehört dem angemeldeten Admin (gespeichert mit seiner Benutzer-ID): meldet sich nach
 abgelaufener Sitzung im selben Tab jemand anderes an, wird er nicht angezeigt, sondern verworfen.
 Beim Laden wird jedes Feld auf seinen Typ geprüft; ein beschädigter Eintrag bringt den Wizard nicht
@@ -106,6 +107,12 @@ zum Absturz.
 - **WENN** der Admin in Schritt 2 einen Gerätenamen und ein Passwort eingibt und die Seite neu lädt
 - **DANN** steht er wieder in Schritt 2 mit dem Gerätenamen, das Passwortfeld ist leer, ein Hinweis
   erklärt das, und der Browser-Speicher enthält das Passwort nicht
+
+#### Szenario: Notiz in Schritt 3
+- **WENN** der Admin in Schritt 3 Benutzername, Passwort und eine Notiz eines Kontos eingibt und die
+  Seite neu lädt
+- **DANN** sind Passwort und Notiz leer, der Benutzername steht noch da, der Hinweis erklärt das, und
+  der Browser-Speicher enthält die Notiz nicht
 
 Quelle: `frontend/src/gates/setupModel.ts`, `frontend/src/gates/SetupCalm.tsx`, Test: `frontend/e2e/gates-calm.spec.ts::calm gates: login, MFA enrollment and setup with their ways out`
 

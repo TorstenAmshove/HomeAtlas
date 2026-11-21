@@ -34,3 +34,18 @@ export function totp(secret: string, now = Date.now()): string {
   const code = (hmac.readUInt32BE(offset) & 0x7fffffff) % 1_000_000;
   return code.toString().padStart(6, "0");
 }
+
+/**
+ * A code from a 30 s window after the one containing `usedAtMs`. TOTP codes are single-use, so a
+ * second login with the same secret needs a window that has not been used; waiting for it (at most
+ * ~30 s) is sturdier than relying on the server's +-1 step tolerance for the *next* window.
+ */
+export async function freshTotp(secret: string, usedAtMs: number): Promise<string> {
+  const step = (ms: number) => Math.floor(ms / 30_000);
+  const deadline = Date.now() + 32_000;
+  while (step(Date.now()) <= step(usedAtMs)) {
+    if (Date.now() > deadline) throw new Error("No new TOTP window began in time");
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  return totp(secret);
+}

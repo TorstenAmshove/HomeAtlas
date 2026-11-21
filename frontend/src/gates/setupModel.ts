@@ -85,8 +85,9 @@ export function setupBody(form: SetupForm) {
 
 // ------------------------------------------------------------------------------------------------
 // Draft (redesigned wizard only): the household data survives a reload of this tab, in
-// sessionStorage via lib/drafts.ts, so logout clears it like every other draft. Passwords are
-// deliberately NOT part of it -- a secret must never sit in browser storage. Instead the draft
+// sessionStorage via lib/drafts.ts, so logout clears it like every other draft. Passwords and
+// account notes (people put access hints there) are deliberately NOT part of it -- they must never
+// sit in browser storage. Instead the draft
 // remembers *that* a password had been typed (`hadSecrets`), so the wizard can say after a reload
 // that those fields need to be filled in again rather than losing them silently.
 // ------------------------------------------------------------------------------------------------
@@ -100,7 +101,7 @@ export interface SetupDraft {
 }
 
 export const hasTypedSecrets = (form: SetupForm) =>
-  form.systems.some((s) => s.password) || form.accounts.some((a) => a.secret);
+  form.systems.some((s) => s.password) || form.accounts.some((a) => a.secret || a.notes);
 
 /** `secretsMissing`: a reload already dropped typed passwords and they are not re-entered yet.
  *  `userId`: the draft belongs to the admin who typed it. If a session expires in this tab and a
@@ -115,7 +116,7 @@ export function saveSetupDraft(userId: string, step: number, form: SetupForm, se
       homeName: form.homeName,
       subnet: form.subnet,
       systems: form.systems.map((s) => ({ ...s, password: "" })),
-      accounts: form.accounts.map((a) => ({ ...a, secret: "" })),
+      accounts: form.accounts.map((a) => ({ ...a, secret: "", notes: "" })),
     },
   };
   writeDraft(DRAFT_KEY, JSON.stringify(stored));
@@ -151,7 +152,7 @@ export function loadSetupDraft(userId: string): SetupDraft | null {
       const empty = emptyAccount();
       return {
         label: text(src.label, ""), category: text(src.category, empty.category), username: text(src.username, ""),
-        secret: "", url: text(src.url, ""), notes: text(src.notes, ""),
+        secret: "", url: text(src.url, ""), notes: "",
       };
     };
     const systems = Array.isArray(form.systems) && form.systems.length
