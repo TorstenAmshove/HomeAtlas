@@ -12,7 +12,7 @@ in die Top-Bar.
 |---|---|---|---|
 | **Start** | – | `/` | alle |
 | **Geräte** | Liste · Netzplan · Netze & WLAN | `/geraete`, `/geraete/:id`, `/plan`, `/netze` | alle |
-| **Hilfe** | Dokumentation · Assistent | `/dokumentation`, `/dokumentation/:slug`, `/assistent` | alle |
+| **Hilfe** | Assistent · Dokumentation | `/assistent` (Einstieg), `/dokumentation`, `/dokumentation/:slug` | alle |
 | **Zugänge** | – | `/zugaenge`, `/zugaenge/neu`, `/zugaenge/:id` | nur Admin |
 | **Mehr** | Scan · Benutzer · Protokoll · Einstellungen | `/scan`, `/benutzer`, `/protokoll`, `/einstellungen` | Admin alle Tabs, Mitglied nur Einstellungen |
 
@@ -104,7 +104,7 @@ Ein Bereich pro PR, jeweils hinter dem Schalter:
 | 2 | Start | Übersicht |
 | 3 | Geräte | Liste, Netzplan, Netze & WLAN |
 | 4 | Gerät | Detailseite (eigener PR, 1185 Zeilen) |
-| 5 | Hilfe | Dokumentation, Assistent |
+| 5 | Hilfe | Assistent, Dokumentation |
 | 6 | Zugänge + Mehr | Zugänge, Scan, Benutzer, Protokoll, Einstellungen |
 | 7 | Gates | Login, MFA, Einrichtung (Ausweg aus der Einrichtung) |
 
