@@ -44,10 +44,10 @@ export const AREAS: Area[] = [
     ],
   },
   {
-    id: "hilfe", label: "Hilfe", icon: "BookOpen", path: "/dokumentation",
+    id: "hilfe", label: "Hilfe", icon: "BookOpen", path: "/assistent",
     tabs: [
-      { id: "doku", label: "Dokumentation", path: "/dokumentation" },
       { id: "assistent", label: "Assistent", path: "/assistent" },
+      { id: "doku", label: "Dokumentation", path: "/dokumentation" },
     ],
   },
   { id: "zugaenge", label: "Zugänge", icon: "KeyRound", path: "/zugaenge", adminOnly: true, tabs: [] },

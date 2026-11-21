@@ -26,6 +26,8 @@ Vorgeschlagener Bereich = Vorschlag für Phase 3 (Mockup-Shell nutzt ihn schon).
 | `/dokumentation` | DocsPage | alle | **Hilfe → Dokumentation** | Kapitel wählen · Zur Notfall-Checkliste · Alles neu erzeugen (admin) |
 | `/dokumentation/:slug` | DocsPage | alle | **Hilfe → Dokumentation** | Bearbeiten/Speichern · Notiz hinzufügen/bearbeiten · Verlauf · Ansehen · Wiederherstellen · Zurück zum aktuellen Stand · Neu erzeugen (admin) |
 | `/assistent` | ChatPage | alle | **Hilfe → Assistent** | Senden · Spracheingabe · Vorschlag antippen · Unterhaltung wählen · Neue Unterhaltung |
+
+Der Bereich **Hilfe** selbst (Sidebar, Bottom-Bar) führt auf `/assistent`; der Tab „Assistent“ steht vor „Dokumentation“.
 | `/zugaenge` | AccountsPage | **admin** | **Zugänge** | Neuer Zugang · Bearbeiten · Speichern · Löschen · Anzeigen (Secret) · Zuordnung hinzufügen/entfernen · SSH-Schlüssel erzeugen · Schlüssel verteilen |
 | `/scan` | ScanPage | **admin** | **Mehr → Scan** | Scan starten · frühere Scans · Log |
 | `/benutzer` | UsersPage | **admin** | **Mehr → Benutzer** | Anlegen · Bearbeiten · Löschen · MFA zurücksetzen |

@@ -100,6 +100,26 @@ test("login, MFA enrollment, setup and main routes render without errors", async
     await expect(page).toHaveURL(/\/geraete$/);
   });
 
+  await test.step("new UI: Hilfe opens the assistant first", async () => {
+    await page.goto("/?ui=calm");
+    await page.locator(".shell-side").getByRole("link", { name: "Hilfe", exact: true }).click();
+    await expect(page).toHaveURL(/\/assistent$/);
+    const tabs = page.getByRole("navigation", { name: "Hilfe: Bereiche" });
+    await expect(tabs.getByRole("link").nth(0)).toHaveText("Assistent");
+    await expect(tabs.getByRole("link").nth(0)).toHaveAttribute("aria-current", "page");
+    await expect(tabs.getByRole("link").nth(1)).toHaveText("Dokumentation");
+    await tabs.getByRole("link", { name: "Dokumentation" }).click();
+    await expect(page).toHaveURL(/\/dokumentation/);
+    await expect(page.locator(".shell-side").getByRole("link", { name: "Hilfe", exact: true })).toHaveAttribute("aria-current", "page");
+
+    // Bottom bar (phone layout) takes the same entry.
+    await page.setViewportSize({ width: 390, height: 800 });
+    await page.goto("/");
+    await page.locator(".shell-bottom").getByRole("link", { name: "Hilfe", exact: true }).click();
+    await expect(page).toHaveURL(/\/assistent$/);
+    await page.setViewportSize({ width: 1280, height: 720 });
+  });
+
   await test.step("new UI: device search survives opening a device and Back", async () => {
     // A fresh backend has no devices; one created through the API is enough for the list.
     const created = await page.request.post("/api/systems", { data: { name: "Smoke-NAS", kind: "nas", ip: "192.0.2.10" } });
