@@ -120,6 +120,38 @@ test("login, MFA enrollment, setup and main routes render without errors", async
     await page.setViewportSize({ width: 1280, height: 720 });
   });
 
+  await test.step("new UI: assistant creates no empty conversation and deletes with confirmation", async () => {
+    const count = async () => ((await (await page.request.get("/api/chats")).json()) as { chats: unknown[] }).chats.length;
+    const before = await count();
+    const created = await page.request.post("/api/chats", { data: {} });
+    expect(created.ok()).toBe(true);
+    const chatId = ((await created.json()) as { chat: { id: string } }).chat.id;
+
+    await page.goto("/assistent");
+    await expect(page).toHaveURL(new RegExp(`/assistent/${chatId}$`));
+    await page.getByRole("button", { name: "Neue Unterhaltung" }).click();
+    await expect(page).toHaveURL(/\/assistent\/neu$/);
+    await expect(page.getByRole("heading", { name: "Womit kann ich helfen?" })).toBeVisible();
+    expect(await count()).toBe(before + 1);
+
+    await page.goto(`/assistent/${chatId}`);
+    await page.getByRole("button", { name: "Weitere Aktionen" }).click();
+    await page.getByRole("menuitem", { name: "Unterhaltung löschen …" }).click();
+    await page.getByRole("button", { name: "Abbrechen" }).click();
+    expect(await count()).toBe(before + 1);
+
+    await page.getByRole("button", { name: "Weitere Aktionen" }).click();
+    await page.getByRole("menuitem", { name: "Unterhaltung löschen …" }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Unterhaltung löschen" }).click();
+    await expect(page.getByText("Unterhaltung gelöscht")).toBeVisible();
+    expect(await count()).toBe(before);
+
+    // Reload on the deleted id falls back without an error.
+    await page.goto(`/assistent/${chatId}`);
+    await expect(page.locator(".notice.error")).toHaveCount(0);
+    await expect(page).not.toHaveURL(new RegExp(chatId));
+  });
+
   await test.step("new UI: device search survives opening a device and Back", async () => {
     // A fresh backend has no devices; one created through the API is enough for the list.
     const created = await page.request.post("/api/systems", { data: { name: "Smoke-NAS", kind: "nas", ip: "192.0.2.10" } });

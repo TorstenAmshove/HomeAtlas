@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Mic, Plus, SendHorizontal, Square } from "lucide-react";
-import { api, type Chat, type ChatMessage } from "../lib/api";
+import { ApiError, api, type Chat, type ChatMessage, type User } from "../lib/api";
 import { useAuth } from "../App";
+import ConfirmDialog from "../components/ConfirmDialog";
 import Markdown from "../components/Markdown";
+import OverflowMenu from "../components/OverflowMenu";
 import { Skeleton } from "../components/Skeleton";
 import { draftKeys, readDraft, writeDraft } from "../lib/drafts";
+import { useUndoToast } from "../lib/useUndoToast";
 import { useUi } from "../shell/ui";
 
 /**
@@ -15,7 +18,9 @@ import { useUi } from "../shell/ui";
  * question, looking something up on another page and coming back must not lose it.
  *
  * New UI (`useUi().calm`): the open conversation is in the URL (`/assistent/:chatId`), so Back and
- * reload land in the same one; `/assistent` opens the latest. Old UI: selection stays in component
+ * reload land in the same one; `/assistent` opens the latest. `/assistent/neu` is the local empty
+ * state behind "Neue Unterhaltung": nothing is created on the server until the first question is sent
+ * (`ensureChat`). The open conversation can be deleted via "⋯" after a confirmation. Old UI: selection stays in component
  * state as before (a `/assistent/:chatId` link still opens that conversation there).
  */
 
@@ -80,14 +85,17 @@ function useKeyboardInset(enabled: boolean) {
 
 export default function ChatPage() {
   const { calm } = useUi();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user: me } = useAuth();
   const navigate = useNavigate();
   const { chatId: routeChatId } = useParams();
   const [chats, setChats] = useState<Chat[]>([]);
   const [chatsLoaded, setChatsLoaded] = useState(false);
-  const [localChatId, setLocalChatId] = useState<string>(routeChatId ?? "");
+  // `/assistent/neu` is the empty state, not a conversation id (ids are UUIDs).
+  const routeIsNew = routeChatId === "neu";
+  const urlChatId = routeIsNew ? "" : routeChatId ?? "";
+  const [localChatId, setLocalChatId] = useState<string>(urlChatId);
   // New UI: the URL is the source of truth for the open conversation.
-  const chatId = calm ? routeChatId ?? "" : localChatId;
+  const chatId = calm ? urlChatId : localChatId;
   // The conversation open right now, for async callbacks: an answer that arrives after the user
   // switched to another conversation must not overwrite that one's messages.
   const openChatRef = useRef(chatId);
@@ -105,6 +113,10 @@ export default function ChatPage() {
   // A conversation this page just created: it is known to be empty, and fetching its messages
   // would wipe the optimistic echo of the question being sent.
   const justCreated = useRef<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
+  const [toast, showToast] = useUndoToast();
 
   useKeyboardInset(calm);
 
@@ -115,18 +127,24 @@ export default function ChatPage() {
   useEffect(() => {
     api.listChats().then((r) => {
       setChats(r.chats);
-      if (!calm && !routeChatId && r.chats.length > 0) setLocalChatId(r.chats[0].id);
+      if (!calm && !urlChatId && r.chats.length > 0) setLocalChatId(r.chats[0].id);
     }).catch((e) => setError(e.message)).finally(() => setChatsLoaded(true));
     // Loaded once per visit; `calm`/`routeChatId` only pick the initial selection.
   }, []);
 
   // New UI: `/assistent` opens the latest conversation; an unknown id falls back to it too.
   useEffect(() => {
-    if (!calm || !chatsLoaded) return;
+    if (!calm || !chatsLoaded || routeIsNew) return;
     if (routeChatId && chats.some((c) => c.id === routeChatId)) return;
     if (chats.length > 0) navigate(`/assistent/${chats[0].id}`, { replace: true });
     else if (routeChatId) navigate("/assistent", { replace: true });
-  }, [calm, chatsLoaded, chats, routeChatId, navigate]);
+  }, [calm, chatsLoaded, chats, routeChatId, routeIsNew, navigate]);
+
+  // ADMIN sees everyone's conversations: the delete dialog names the owner of a foreign one.
+  useEffect(() => {
+    if (!calm || !isAdmin) return;
+    api.listUsers().then((r) => setUsers(r.users)).catch(() => setUsers([]));
+  }, [calm, isAdmin]);
 
   // Whether a model is configured: shown up front instead of only after the first failed send.
   useEffect(() => {
@@ -248,6 +266,14 @@ export default function ChatPage() {
   }
 
   async function newChat() {
+    if (calm) {
+      // Nothing is created on the server: the conversation appears with the first question.
+      setMessages([]);
+      setToolsUsed([]);
+      setError("");
+      navigate("/assistent/neu");
+      return;
+    }
     try {
       const { chat } = await api.createChat();
       justCreated.current = chat.id;
@@ -258,6 +284,30 @@ export default function ChatPage() {
       openChat(chat.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function deleteCurrent() {
+    const id = chatId;
+    if (!id) return;
+    setDeleting(true);
+    try {
+      await api.deleteChat(id);
+      writeDraft(draftKeys.chatInput(id), null);
+      const rest = chats.filter((c) => c.id !== id);
+      setChats(rest);
+      setConfirmDelete(false);
+      navigate(rest.length > 0 ? `/assistent/${rest[0].id}` : "/assistent", { replace: true });
+      showToast({ message: "Unterhaltung gelöscht" });
+    } catch (e) {
+      setConfirmDelete(false);
+      setError(e instanceof Error ? e.message : String(e));
+      // Already gone (e.g. deleted in another tab): refresh the list so it does not stay stale.
+      if (e instanceof ApiError && e.status === 404) {
+        api.listChats().then((r) => setChats(r.chats)).catch(() => {});
+      }
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -349,6 +399,9 @@ export default function ChatPage() {
   // ----------------------------------------------------------------------------------- new UI
 
   const current = chats.find((c) => c.id === chatId);
+  const foreignOwner = isAdmin && current?.userId && me && current.userId !== me.id
+    ? users.find((u) => u.id === current.userId)?.displayName || "einem anderen Benutzer"
+    : null;
   const showSkeleton = !chatsLoaded || (messagesLoading && messages.length === 0);
 
   return (
@@ -364,13 +417,33 @@ export default function ChatPage() {
             </select>
           </label>
         )}
-        <button type="button" className="secondary small chat-new" onClick={() => void newChat()} disabled={busy}
+        <button type="button" className="secondary small chat-new" onClick={() => void newChat()} disabled={busy || chatId === ""}
                 aria-label="Neue Unterhaltung">
           <Plus size={16} aria-hidden="true" />
           <span className="chat-new-long">Neue Unterhaltung</span>
           <span className="chat-new-short" aria-hidden="true">Neu</span>
         </button>
+        {current && (
+          <OverflowMenu items={[{ label: "Unterhaltung löschen …", danger: true, disabled: busy, onSelect: () => setConfirmDelete(true) }]} />
+        )}
       </div>
+
+      <ConfirmDialog
+        open={confirmDelete && !!current}
+        title="Unterhaltung löschen?"
+        confirmLabel="Unterhaltung löschen"
+        danger
+        busy={deleting}
+        onConfirm={deleteCurrent}
+        onCancel={() => setConfirmDelete(false)}
+      >
+        <p>
+          Die Unterhaltung „{current?.title}“ und alle ihre Nachrichten werden gelöscht. Das lässt sich
+          nicht rückgängig machen.
+          {foreignOwner && <> Sie gehört {foreignOwner}.</>}
+        </p>
+      </ConfirmDialog>
+      {toast}
 
       {llmConfigured === false && (
         <div className="notice info chat-setup">

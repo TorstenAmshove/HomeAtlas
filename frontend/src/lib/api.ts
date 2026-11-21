@@ -354,6 +354,8 @@ export interface ChatMessage {
 export interface Chat {
   id: string;
   title: string;
+  /** Owner; null for conversations from before ownership existed (ADMIN-only). */
+  userId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
