@@ -332,7 +332,7 @@ Die Namensgebung folgt einer festen Rangfolge: ein manuell in HomeAtlas gepflegt
 in UniFi vergebenen Namen vor Selbstauskunft (UPnP `friendlyName`, dann mDNS-Name), DNS-Hostname,
 Webseiten-Titel und „Hersteller + letztes IP-Oktett". Die KI-Einordnung läuft erst danach, nur für
 Geräte, die dabei erstmals im Inventar auftauchen, und nur wenn die Regeln sie nicht sicher zuordnen konnten — ein eindeutig erkannter FRITZ!Box kostet
-keine Tokens; bekannte Geräte werden bei späteren Scans nicht erneut gefragt (das Ergebnis bleibt erhalten). Bestehende Geräte werden nach dem Update nicht nachgezogen, und ein neues Gerät, das beim ersten Scan nicht eingeordnet werden konnte (kein KI-Zugang, Fehler, niedrige Konfidenz), wird nicht automatisch nachgeholt: dafür gibt es am Gerät (nur Admin) den Button „KI-Einordnung wiederholen“. Antworten mit niedriger Konfidenz werden verworfen: die regelbasierte Vermutung ist
+keine Tokens; bekannte Geräte werden bei späteren Scans nicht erneut gefragt (das Ergebnis bleibt erhalten). Bestehende Geräte werden nach dem Update nicht nachgezogen, und ein neues Gerät, das beim ersten Scan nicht eingeordnet werden konnte (kein KI-Zugang, Fehler, niedrige Konfidenz), wird nicht automatisch nachgeholt: dafür gibt es am Gerät (nur Admin) den Menüpunkt „KI-Einordnung wiederholen“ im „⋯“-Menü. Antworten mit niedriger Konfidenz werden verworfen: die regelbasierte Vermutung ist
 besser als ein Schulterzucken. Selbst gemeldete Namen (UPnP, mDNS, Shelly-App-Name) benennt die KI nie um; den Gerätetyp darf sie weiterhin ergänzen.
 
 ### Geräte zusammenführen
