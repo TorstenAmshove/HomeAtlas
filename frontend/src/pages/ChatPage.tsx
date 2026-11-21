@@ -312,7 +312,7 @@ export default function ChatPage() {
   const showSkeleton = !chatsLoaded || (messagesLoading && messages.length === 0);
 
   return (
-    <div className="chat-calm">
+    <div className="chat-page">
       <div className="chat-bar">
         {chats.length > 0 && (
           <label className="chat-picker">

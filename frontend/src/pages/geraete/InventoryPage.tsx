@@ -11,7 +11,7 @@ import {
 import "./geraete.css";
 
 /**
- * Device list of the redesigned UI (docs/redesign/5-information-architecture.md, area "Geräte",
+ * Device list of the UI (docs/redesign/5-information-architecture.md, area "Geräte",
  * tab "Liste").
  *
  * Everything that decides what the list shows is in the URL (`q`, `sort`, `status`, `importance`,
@@ -19,7 +19,7 @@ import "./geraete.css";
  * coming Back lands on exactly the same list (forensics "Geräte" 2).
  *
  * Numbers (docs/redesign/3-numbers-audit.md): every count is computed from the one
- * `GET /api/systems` list over the whole inventory, the same way the classic filter works --
+ * `GET /api/systems` list over the whole inventory, as the filter always did --
  * "Alle" = all rows (= dashboard `counts.total`), "Nicht erreichbar" = status 'offline'
  * (computed locally, every device, not only the monitored ones the Start alarm uses, B3),
  * "Wichtig" = importance 'critical' (= `counts.critical`). Duplicates = length of
@@ -200,7 +200,7 @@ function AddDeviceDialog({ open, kindLabels, onCancel, onCreated }: {
   );
 }
 
-export default function InventoryCalm() {
+export default function InventoryPage() {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -437,8 +437,8 @@ export default function InventoryCalm() {
     );
   }
 
-  if (error && systems === null) return <div className="geraete-calm"><div className="notice error">{error}</div></div>;
-  if (systems === null) return <div className="geraete-calm"><ListSkeleton /></div>;
+  if (error && systems === null) return <div className="geraete-page"><div className="notice error">{error}</div></div>;
+  if (systems === null) return <div className="geraete-page"><ListSkeleton /></div>;
 
   const selectedList = all.filter((s) => selected.has(s.id));
   const parentSystem = filter.parentId ? byId.get(filter.parentId) : undefined;
@@ -491,7 +491,7 @@ export default function InventoryCalm() {
   }
 
   return (
-    <div className={`geraete-calm${selecting ? " is-selecting" : ""}`}>
+    <div className={`geraete-page${selecting ? " is-selecting" : ""}`}>
       {error && <div className="notice error" role="alert">{error}</div>}
       {notice && <p className="geraete-quiet" role="status">{notice}</p>}
 

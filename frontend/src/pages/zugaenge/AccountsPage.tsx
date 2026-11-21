@@ -13,10 +13,10 @@ import DeleteAccountDialog from "./DeleteAccountDialog";
 import "../mehr/mehr.css";
 
 /**
- * "Zugänge" in the redesigned UI (docs/redesign/5-information-architecture.md).
- * A calm list with the search in `?q=`; "Neuer Zugang" and
- * editing are their own routes (`/zugaenge/neu`, `/zugaenge/:id`, AccountFormCalm.tsx), so Back
- * no longer throws a half-filled form away. Every call is one the classic page already makes.
+ * "Zugänge" in the UI (docs/redesign/5-information-architecture.md).
+ * A plain list with the search in `?q=`; "Neuer Zugang" and
+ * editing are their own routes (`/zugaenge/neu`, `/zugaenge/:id`, AccountFormPage.tsx), so Back
+ * no longer throws a half-filled form away.
  *
  * Secrets: shown one at a time via the existing `revealSecret` and hidden again after 30 s
  * (lib/useRevealedSecrets.ts); never in storage or the URL. Deleting goes through a review step that
@@ -74,7 +74,7 @@ function ListSkeleton() {
   );
 }
 
-export default function AccountsCalm() {
+export default function AccountsPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useUrlState("q");
   const [accounts, setAccounts] = useState<Account[] | null>(null);
@@ -112,7 +112,7 @@ export default function AccountsCalm() {
     const needle = query.trim().toLowerCase();
     if (!accounts) return [];
     if (!needle) return accounts;
-    // Same fields as the classic search.
+    //
     return accounts.filter((a) =>
       [a.label, a.username, a.url, a.notes, systemName[a.systemId ?? ""] ?? ""].join(" ").toLowerCase().includes(needle),
     );
@@ -158,7 +158,7 @@ export default function AccountsCalm() {
 
   if (accounts === null) {
     return (
-      <div className="mehr-calm zugaenge-calm">
+      <div className="mehr-page zugaenge-page">
         {error ? <div className="notice error" role="alert">{error}</div> : <ListSkeleton />}
       </div>
     );
@@ -171,7 +171,7 @@ export default function AccountsCalm() {
   const deployDevice = deploy ? systemName[deploy.account.systemId ?? ""] ?? "das Gerät" : "";
 
   return (
-    <div className="mehr-calm zugaenge-calm">
+    <div className="mehr-page zugaenge-page">
       {toast}
       <h1 className="visually-hidden">Zugänge</h1>
 

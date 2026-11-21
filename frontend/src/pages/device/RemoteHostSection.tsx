@@ -6,7 +6,7 @@ import { LogBox, NoticeLine, Section, StateChip, type Notice } from "./common";
 import type { PendingAction } from "./SteuernTab";
 
 /**
- * Docker containers on a host reached over SSH, or VMs/LXC guests on a Proxmox host -- the calm
+ * Docker containers on a host reached over SSH, or VMs/LXC guests on a Proxmox host -- the plain
  * version of SystemDetailPage's RemoteContainersCard, with the same calls (list, start/stop/restart,
  * logs, journal, task log, `docker exec` console, noVNC link). Differences: stop and restart go
  * through the page's review step instead of window.confirm, and on a phone each container is a
@@ -32,7 +32,7 @@ export default function RemoteHostSection({ systemId, sshAccounts, isProxmoxHost
 
   useEffect(() => {
     if (isProxmoxHost || accountId) void load();
-    // Mount-time only, as on the classic page: switching the SSH account must not re-fetch mid-choice.
+    // Mount-time only: switching the SSH account must not re-fetch mid-choice.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

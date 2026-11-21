@@ -24,14 +24,14 @@ import SteuernTab from "./SteuernTab";
 import "./device.css";
 
 /**
- * Device page of the redesigned UI (docs/redesign/5-information-architecture.md, "Gerät"), shown
+ * Device page of the UI (docs/redesign/5-information-architecture.md, "Gerät"), shown
  * for `/geraete/:id`.
  *
  * Summary first, on the overview tab only: one strip (status · since · address · source ·
  * importance), then exactly one primary next action that depends on the state, quiet secondary
- * buttons and "⋯" for the rest. The 15 stacked sections of the classic page are split into tabs
+ * buttons and "⋯" for the rest. The sections are split into tabs
  * kept in `?tab=` (Überblick · Technik · Verlauf · Zugänge · Steuern); nothing was dropped, see the
- * route-map table in the PR. Every call is one the classic page already makes.
+ * route-map table in the PR.
  *
  * Status follows the Start page's rule: a live chip only when the monitor is on and watches this
  * device (`/api/monitor`), otherwise "Stand letzter Scan".
@@ -55,7 +55,7 @@ function errorText(e: unknown) {
 
 function DeviceSkeleton() {
   return (
-    <div className="device-calm" role="status" aria-live="polite">
+    <div className="device-page" role="status" aria-live="polite">
       <span className="visually-hidden">Wird geladen …</span>
       <div className="dv-strip">
         {[90, 120, 110, 100, 130].map((w, i) => (
@@ -72,7 +72,7 @@ function DeviceSkeleton() {
   );
 }
 
-export default function DeviceCalm() {
+export default function DevicePage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
@@ -202,7 +202,7 @@ export default function DeviceCalm() {
     if (!system || !draft) return;
     setSaving(true);
     try {
-      // Same request as the classic page: the device with the form's fields laid over it.
+      // the device with the form's fields laid over it.
       const { system: updated } = await api.updateSystem(id, { ...system, ...formOf(draft) });
       clearDeviceDraft(id);
       setData((current) => (current ? { ...current, system: updated } : current));
@@ -294,7 +294,7 @@ export default function DeviceCalm() {
       clearDeviceDraft(merge.choice); // the removed device no longer exists; drop its stale form draft
       setMerge(null);
       // The kept device is this one: land on its overview (tab/edit dropped) and reload in place,
-      // instead of the classic page's window.location.reload() (forensics "Gerät" 7).
+      // instead of a full page reload.
       navigate(`/geraete/${id}`, { replace: true });
       await loadAll();
       showToast({ message: `Zusammengeführt: „${removed}“ ist jetzt Teil von „${system.name}“.` });
@@ -331,7 +331,7 @@ export default function DeviceCalm() {
 
   if (error && !data) {
     return (
-      <div className="device-calm">
+      <div className="device-page">
         <div className="notice error">{error}</div>
         <Link className="dv-link" to="/geraete">Zur Geräteliste</Link>
       </div>
@@ -437,7 +437,7 @@ export default function DeviceCalm() {
   const mergeTargetName = mergeTarget?.name ?? (merge?.choice ? candidateName(merge.choice) : "") ?? "";
 
   return (
-    <div className="device-calm">
+    <div className="device-page">
       {leaveDialog}
       {toast}
       <h1 className="visually-hidden">{system.name}</h1>

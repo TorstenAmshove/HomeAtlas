@@ -7,12 +7,11 @@ import { ACTION_LABEL, CRITICAL_ACTIONS } from "./accessLogLabels";
 import "./mehr.css";
 
 /**
- * "Protokoll" under Mehr in the new UI. Filters live in the URL (`?action=`, `?failures=1`, as in
- * the classic page), every row carries a status chip (fehlgeschlagen / sicherheitsrelevant / ok),
- * and a skeleton shows while it loads. Same endpoint and limit as the classic page.
+ * "Protokoll" under Mehr in the new UI. Filters live in the URL (`?action=`, `?failures=1`), every row carries a status chip (fehlgeschlagen / sicherheitsrelevant / ok),
+ * and a skeleton shows while it loads.
  */
 
-export default function AccessLogCalm() {
+export default function AccessLogPage() {
   const [action, setAction] = useUrlState("action");
   const [failuresParam, setFailures] = useUrlState("failures");
   const onlyFailures = failuresParam === "1";
@@ -40,7 +39,7 @@ export default function AccessLogCalm() {
   const failures = (entries ?? []).filter((e) => !e.ok).length;
 
   return (
-    <div className="mehr-calm log-calm">
+    <div className="mehr-page log-page">
       <h1 className="visually-hidden">Zugriffsprotokoll</h1>
       <div className="m-toolbar">
         <label className="m-filter">

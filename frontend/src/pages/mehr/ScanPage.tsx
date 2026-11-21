@@ -8,8 +8,8 @@ import "./mehr.css";
 /**
  * "Scan" under Mehr in the new UI. Summary first: what is running (phase and progress) or how the
  * last scan ended, with one line "Was ist neu?" built only from numbers the scan summary already
- * carries (`created`, `updated`, `devicesFound`; pipeline.py), then the history. Same endpoints as
- * the classic page. Polling rule: only while a scan runs, and only while the tab is visible.
+ * carries (`created`, `updated`, `devicesFound`; pipeline.py), then the history.
+ * Polling rule: only while a scan runs, and only while the tab is visible.
  */
 
 const STATUS_WORD: Record<Scan["status"], string> = { running: "läuft", completed: "fertig", failed: "fehlgeschlagen" };
@@ -19,7 +19,7 @@ function n(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
-export default function ScanCalm() {
+export default function ScanPage() {
   const [scan, setScan] = useState<Scan | null>(null);
   const [history, setHistory] = useState<Scan[] | null>(null);
   const [error, setError] = useState("");
@@ -67,7 +67,7 @@ export default function ScanCalm() {
 
   if (history === null) {
     return (
-      <div className="mehr-calm scan-calm" role="status" aria-live="polite">
+      <div className="mehr-page scan-page" role="status" aria-live="polite">
         <span className="visually-hidden">Wird geladen …</span>
         <div className="scan-hero"><div style={{ display: "grid", gap: 8, flex: 1 }}><Skeleton width={220} height={20} /><Skeleton width="50%" /></div><Skeleton width={130} height={40} radius={8} /></div>
         <Skeleton width="70%" />
@@ -87,7 +87,7 @@ export default function ScanCalm() {
   );
 
   return (
-    <div className="mehr-calm scan-calm">
+    <div className="mehr-page scan-page">
       <h1 className="visually-hidden">Netzwerk-Scan</h1>
       {error && <div className="notice error" role="alert">{error}</div>}
 

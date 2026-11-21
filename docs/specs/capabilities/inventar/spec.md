@@ -93,7 +93,7 @@ Defaults: `kind=other`, `name="Unbenannt"`, `importance=normal`, `status=unknown
 - **DANN** wird ein Gerät mit diesem Namen und `kind=other` angelegt und oben in der Liste gezeigt
 
 Quelle: `backend/app/main.py:559`, `backend/app/db.py:642`, `backend/app/db.py:655`,
-`frontend/src/pages/geraete/InventoryCalm.tsx`
+`frontend/src/pages/geraete/InventoryPage.tsx`
 
 ### Requirement: Gerät bearbeiten
 Das System MUSS ADMIN erlauben, per Teil-Update genau diese Felder zu ändern: `kind, name,
@@ -118,7 +118,7 @@ Editierbar in der UI (Formular „Gerät bearbeiten"): Name, Adresse, Hostname, 
 Standort, Weboberfläche-URL, Hersteller-Doku-URL, eigene Doku-URL, Zweck, Art (17 Arten, siehe
 [data-model](../../contracts/data-model.md)), Bedeutung (`critical`/`normal`/`low`), Beschreibung
 (Markdown), interne Notiz, Schlagworte (kommagetrennt), „Dauerhaft überwachen", Prüfports (max. 3,
-1–65535). `frontend/src/pages/device/DeviceCalm.tsx`.
+1–65535). `frontend/src/pages/device/DevicePage.tsx`.
 
 ### Requirement: Gepflegte Angaben überstehen Scans
 Das System MUSS bei einem bestätigten Gerät (`confirmed=1`) durch Scans nur flüchtige Fakten
@@ -314,7 +314,7 @@ Zusammenführen mit Wahl des Behaltenen, Duplikat-Hinweise mit „Behalte X"/„
 - **WENN** drei Container des Projekts „immich" und zwei Geräte ohne Projekt vorhanden sind
 - **DANN** stehen die zwei Geräte oben, darunter eine Gruppe „Compose: immich (3 Container)"
 
-Quelle: `frontend/src/pages/geraete/InventoryCalm.tsx`, `frontend/src/pages/geraete/inventoryModel.ts`
+Quelle: `frontend/src/pages/geraete/InventoryPage.tsx`, `frontend/src/pages/geraete/inventoryModel.ts`
 
 ### Requirement: Listenzustand in der URL
 Suchtext und Sortierung der Geräteliste MÜSSEN in der URL stehen (`q`, `sort` = `name`/`ip`/`kind`/
@@ -331,7 +331,7 @@ stehen als Chips mit × und „Filter aufheben“.
 - **DANN** steht „nas“ wieder im Suchfeld und die Liste ist gefiltert (`/geraete?q=nas`)
 
 #### Szenario: Netz filtern
-- **WENN** ein Benutzer in der neuen Oberfläche „Netz“ auf ein Netz stellt
+- **WENN** ein Benutzer „Netz“ auf ein Netz stellt
 - **DANN** zeigt die Liste nur dessen Geräte, die URL enthält `?subnet=<CIDR>` und Neuladen sowie
   Zurück behalten den Filter
 
@@ -343,11 +343,11 @@ stehen als Chips mit × und „Filter aufheben“.
 - **WENN** die Startseite „+2 weitere“ anzeigt und ein Benutzer darauf tippt
 - **DANN** öffnet `/geraete?importance=critical` mit genau den kritischen Geräten
 
-Quelle: `frontend/src/pages/geraete/inventoryModel.ts`, `frontend/src/pages/geraete/InventoryCalm.tsx`,
-`frontend/src/pages/start/StartCalm.tsx`, `frontend/e2e/smoke.spec.ts`
+Quelle: `frontend/src/pages/geraete/inventoryModel.ts`, `frontend/src/pages/geraete/InventoryPage.tsx`,
+`frontend/src/pages/start/StartPage.tsx`, `frontend/e2e/smoke.spec.ts`
 
-### Requirement: Geräteliste (Ansicht `InventoryCalm`)
-Die Route `/geraete` MUSS die ruhige Liste `InventoryCalm` zeigen (ohne Seitentitel und
+### Requirement: Geräteliste (Ansicht `InventoryPage`)
+Die Route `/geraete` MUSS die ruhige Liste `InventoryPage` zeigen (ohne Seitentitel und
 Erklärabsatz; Skeleton beim Laden). Sie rechnet nur aus derselben `GET /api/systems`-Liste:
 **[Muss]**
 - Filterzeile „Alle N · Nicht erreichbar N · Wichtig N · Art ▾ · Netz ▾ · Compose ▾“; N zählt über das ganze
@@ -381,7 +381,7 @@ Erklärabsatz; Skeleton beim Laden). Sie rechnet nur aus derselben `GET /api/sys
 - **DANN** nennt der Dialog beide Namen und „1 hinterlegter Zugang wird mitgelöscht“; erst „2 Geräte
   löschen“ löscht
 
-Quelle: `frontend/src/pages/geraete/InventoryCalm.tsx`, `frontend/src/pages/geraete/geraete.css`
+Quelle: `frontend/src/pages/geraete/InventoryPage.tsx`, `frontend/src/pages/geraete/geraete.css`
 
 ### Requirement: Detailseite
 Die Detailseite MUSS zeigen: Kopf (Name, Zweck, Zustand, kritisch, Fehleranzahl als Schalter zum
@@ -400,7 +400,7 @@ Zugänge und keine Schreibaktionen)
 - **WENN** ein MEMBER die Detailseite öffnet
 - **DANN** sieht er keine Buttons zum Bearbeiten/Löschen/Zusammenführen und keinen Bereich „Zugänge"
 
-Quelle: `frontend/src/pages/device/DeviceCalm.tsx`
+Quelle: `frontend/src/pages/device/DevicePage.tsx`
 
 ### Requirement: Detailseite in Tabs
 `/geraete/:id` MUSS alle Inhalte und Aktionen der Detailseite zeigen, aufgeteilt auf Tabs in `?tab=` (`ueberblick`
@@ -429,7 +429,7 @@ Ein angezeigtes Passwort wird nach 30 s wieder verborgen. **[Muss]** (Aufteilung
 - **WENN** ein ADMIN im Tab „Zugänge“ „Passwort anzeigen“ klickt
 - **DANN** ist das Passwort nach 30 s nicht mehr zu sehen
 
-Quelle: `frontend/src/pages/device/DeviceCalm.tsx`, `frontend/src/pages/device/ZugaengeTab.tsx`,
+Quelle: `frontend/src/pages/device/DevicePage.tsx`, `frontend/src/pages/device/ZugaengeTab.tsx`,
 `frontend/src/pages/device/SteuernTab.tsx`, `frontend/src/App.tsx`
 
 ### Requirement: Bearbeiten verliert keinen Entwurf
@@ -444,7 +444,7 @@ bleibt die Seite auf dem behaltenen Gerät und lädt es neu, ohne die ganze Seit
 - **DANN** steht der geänderte Standort wieder im Formular
 
 Quelle: `frontend/src/lib/deviceDraft.ts`, `frontend/src/components/DeviceEditForm.tsx`,
-`frontend/src/pages/device/DeviceCalm.tsx`
+`frontend/src/pages/device/DevicePage.tsx`
 
 ## Daten
 
@@ -477,8 +477,8 @@ Berührte fremde Routen (nur verlinkt): Auslesen `POST /api/systems/{id}/probe`,
 ([remote-admin](../remote-admin/spec.md)), Zugänge ([zugangsdaten](../zugangsdaten/spec.md)).
 LLM-Lesezugriff aufs Inventar: [llm-tools](../../contracts/llm-tools.md).
 
-UI-Seite(n): `frontend/src/pages/geraete/InventoryCalm.tsx` (Route `/geraete`),
-`frontend/src/pages/device/DeviceCalm.tsx` (Route `/geraete/:id`).
+UI-Seite(n): `frontend/src/pages/geraete/InventoryPage.tsx` (Route `/geraete`),
+`frontend/src/pages/device/DevicePage.tsx` (Route `/geraete/:id`).
 
 ## Nicht-Ziele und Grenzen
 

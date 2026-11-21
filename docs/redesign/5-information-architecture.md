@@ -63,25 +63,12 @@ Auf dem Handy öffnet die Lupe in der Kopfzeile dieselbe Suche als Vollbild.
 
 ## Schalter (Feature-Flag) — erledigt
 
-**Erledigt (#81, #82, #83):** Der Schalter `uiCalm`, die Umgebungsvariable `HOMEATLAS_UI_CALM_DEFAULT`, das Health-Feld und die Browser-Übersteuerung sind entfernt; es gibt nur noch die neue Oberfläche. Der Rest dieses Abschnitts ist der damalige Entwurf.
-
-- Einstellung `uiCalm` (Standard **aus**) in der `settings`-Tabelle, umschaltbar von Admins unter
-  *Einstellungen → Allgemein → „Neue Oberfläche“*. Zurückschalten dauert einen Klick.
-- Ausgeliefert über `GET /api/health` (wie `setupCompleted`), damit die Oberfläche vor dem ersten
-  Seitenaufbau weiß, welche Shell sie zeigt.
-- Pro Browser übersteuerbar: `?ui=calm` bzw. `?ui=classic` merkt sich die Wahl in `localStorage`.
-  So lässt sich die neue Oberfläche auf dem eigenen Handy testen, ohne sie für alle einzuschalten.
-- **Staging:** es gibt keine Staging-Instanz. Ersatz: eine Test-Instanz mit
-  `HOMEATLAS_UI_CALM_DEFAULT=1` (gilt nur, solange `uiCalm` nie gesetzt wurde) oder die
-  Browser-Übersteuerung oben auf der echten Instanz.
-- Alte und neue Shell rendern **dieselben Seiten-Komponenten**, solange ein Bereich noch nicht
-  umgebaut ist. Umgebaute Seiten prüfen den Schalter selbst und fallen sonst auf die alte Fassung
-  zurück, bis der Schalter überall an ist und die alte Fassung entfernt wird.
+**Erledigt (#81, #82, #83):** Der Schalter `uiCalm`, die Umgebungsvariable `HOMEATLAS_UI_CALM_DEFAULT`, das Health-Feld und die Browser-Übersteuerung sind entfernt; es gibt nur noch die neue Oberfläche.
 
 ## Design-Tokens und Dunkelmodus
 
 Palette aus dem Mockup (`mockups/index.html`), als CSS-Variablen unter `body:has(.app-shell)`, damit
-die alte Oberfläche (ohne `.app-shell`) unverändert bleibt:
+die Tokens nur innerhalb der Shell gelten:
 
 | Token | Hell | Dunkel |
 |---|---|---|
@@ -119,7 +106,7 @@ Dunkelmodus, `frontend/src/shell/` (AppShell, ⌘K), Bausteine `components/Skele
 `components/ConfirmDialog.tsx`, `lib/useUndoToast.tsx`, `lib/useUrlState.ts`. Die Seiten zeigen in der
 neuen Shell vorerst noch ihren eigenen Seitenkopf; den nimmt jeweils der PR ihres Bereichs heraus.
 
-- **Start** (PR 2, `pages/start/StartCalm.tsx`): Status-Hero aus `/api/monitor` (dieselbe Menge wie
+- **Start** (PR 2, `pages/start/StartPage.tsx`): Status-Hero aus `/api/monitor` (dieselbe Menge wie
   der Netzplan, B3), eine ruhige Zahlenzeile statt Untertitel + Kacheln, „+N weitere“ bei mehr als 10
   kritischen Geräten (B1, verlinkt auf `/geraete?importance=critical`),
   „Stand letzter Scan“ für nicht überwachte kritische Geräte (B2), Ergebnis von „Internet prüfen“ mit
@@ -163,7 +150,7 @@ neuen Shell vorerst noch ihren eigenen Seitenkopf; den nimmt jeweils der PR ihre
   doppelter Breite in einem seitlich verschiebbaren Rahmen. Netze & WLAN als ruhige Liste mit
   Leerzustand, der den nötigen UniFi-Zugang erklärt. Dazu aus der Hilfe-Prüfung: Abmelden fragt,
   wenn noch Entwürfe im Tab liegen (beide Oberflächen).
-- **Gerät** (PR 4, `pages/device/DeviceCalm.tsx` + ein Baustein je Tab): Tabs in `?tab=`, Bearbeiten in
+- **Gerät** (PR 4, `pages/device/DevicePage.tsx` + ein Baustein je Tab): Tabs in `?tab=`, Bearbeiten in
   `?edit=1`; Zusammenfassung und eine Hauptaktion nur im Überblick („Jetzt neu prüfen“ bei live
   gemeldetem Ausfall, sonst „Weboberfläche ↗“), Rest unter „⋯“. Name in der Top-Bar
   („← Geräte / NAS“, `shell/pageTitle.ts`) statt Seitentitel. „Steuern“ (nur Admin): jede

@@ -1,4 +1,4 @@
-/* The redesigned gates (login, MFA enrollment, setup wizard), direction B.
+/* The gates (login, MFA enrollment, setup wizard), direction B.
  *
  * The gates render before the app, outside `.app-shell`, so they carry their own root class and every
  * rule here is scoped to `body:has(.gate-shell)` / `.gate-shell`: nothing else in the

@@ -7,7 +7,7 @@ import { clock, downSince, when } from "../../lib/time";
 import "./start.css";
 
 /**
- * Start page of the redesigned UI (direction B, docs/redesign/5-information-architecture.md).
+ * Start page of the UI (direction B, docs/redesign/5-information-architecture.md).
  * Summary first: a status hero answers "is anything
  * down?", one quiet line carries every count exactly once, then the lists.
  *
@@ -23,7 +23,7 @@ const STATUS_WORD: Record<string, string> = { online: "erreichbar", offline: "ni
 
 function StartSkeleton() {
   return (
-    <div className="start-calm" role="status" aria-live="polite">
+    <div className="start-page" role="status" aria-live="polite">
       <span className="visually-hidden">Wird geladen …</span>
       <div className="start-hero start-hero-neutral">
         <Skeleton width="min(340px, 80%)" height={22} />
@@ -186,7 +186,7 @@ function StatusHero({ data, monitor, isAdmin, hasEmergencyDoc }: {
   );
 }
 
-export default function StartCalm() {
+export default function StartPage() {
   const { isAdmin } = useAuth();
   const [data, setData] = useState<Dashboard | null>(null);
   const [monitor, setMonitor] = useState<MonitorState | null>(null);
@@ -211,7 +211,7 @@ export default function StartCalm() {
     void load();
   }, [load]);
 
-  // Same cadence and visibility rule as the classic page: the monitor's interval, never under 5 s,
+  // Cadence and visibility rule: the monitor's interval, never under 5 s,
   // and nothing while the tab is hidden.
   useEffect(() => {
     function schedule(event?: Event) {
@@ -271,7 +271,7 @@ export default function StartCalm() {
     : false;
 
   return (
-    <div className="start-calm">
+    <div className="start-page">
       {error && (
         <div className="notice error" role="status">
           Aktualisierung fehlgeschlagen ({error}). Angezeigt wird der letzte bekannte Stand; es wird
@@ -327,7 +327,7 @@ export default function StartCalm() {
             <Link className="start-more" to="/geraete?importance=critical">+{hiddenCritical} weitere</Link>
           )}
           {/* Monitoring off: the hero says so and links to the settings, unless it is busy with
-              an alarm or the empty inventory; then the hint stays here, as on the classic page. */}
+              an alarm or the empty inventory; then the hint stays here. */}
           {!data.monitorEnabled && isAdmin && (anyDown || counts.total === 0) && (
             <p className="start-empty">
               Die Dauerüberwachung ist abgeschaltet. Einschalten unter{" "}

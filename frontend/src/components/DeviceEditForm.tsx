@@ -1,7 +1,7 @@
 import type { System } from "../lib/api";
 import { KINDS } from "../lib/device";
 
-/** The "Gerät bearbeiten" form, shared by the classic and the redesigned device page (same fields,
+/** The "Gerät bearbeiten" form, shared by the device page (same fields,
  *  same parsing of tags and ports). The parent owns the draft and where it is kept (lib/deviceDraft.ts). */
 export default function DeviceEditForm({ draft, onChange, onSave, onCancel, saving = false, title = "Gerät bearbeiten" }: {
   draft: Partial<System>;

@@ -187,10 +187,10 @@ fehlende Werte als „-“. **[Impl]**
 - **WENN** ein aktives WLAN „Gast“ im Controller ausgeschaltet ist
 - **DANN** steht es im Abschnitt „WLANs“ als „Gast (deaktiviert)“
 
-Quelle: `frontend/src/pages/geraete/NetworksCalm.tsx`, `frontend/src/lib/api.ts`
+Quelle: `frontend/src/pages/geraete/NetworksPage.tsx`, `frontend/src/lib/api.ts`
 
 ### Requirement: „Netze & WLAN“-Seite
-Die Route `/netze` MUSS die Seite `NetworksCalm` zeigen: kein Seitentitel, je Abschnitt
+Die Route `/netze` MUSS die Seite `NetworksPage` zeigen: kein Seitentitel, je Abschnitt
 eine ruhige Liste (Name, Zusatz „deaktiviert“, darunter Standort · Details, die Notiz als Klartext),
 für ADMIN „Notiz hinzufügen“/„Notiz bearbeiten“ mit Speichern/Abbrechen, Skeleton beim Laden. Ohne
 Ressourcen erklärt die Seite, dass die Einträge aus dem Netzwerk-Controller (UniFi) kommen und dafür
@@ -203,7 +203,7 @@ und „Netzwerk scannen“ (`/scan`), MEMBER den Hinweis, dass ein Administrator
 - **DANN** liest er, dass ein Administrator unter „Zugänge“ einen UniFi-Zugang hinterlegen muss, und
   sieht keine Links zu Admin-Seiten
 
-Quelle: `frontend/src/pages/geraete/NetworksCalm.tsx`
+Quelle: `frontend/src/pages/geraete/NetworksPage.tsx`
 
 ### Requirement: Netze als Scan-Auswahl
 Das System MUSS aktive, im Controller aktivierte Netze mit gültigem IPv4-CIDR als auswählbare
@@ -276,7 +276,7 @@ Abgleich aus ([discovery-und-scan](../discovery-und-scan/spec.md),
 [credentialed-probing](../credentialed-probing/spec.md)); Zugangsverwaltung in
 [zugangsdaten](../zugangsdaten/spec.md).
 
-UI-Seite(n): `frontend/src/pages/geraete/NetworksCalm.tsx` (Route `/netze`, Navigation „Netze & WLAN“, alle
+UI-Seite(n): `frontend/src/pages/geraete/NetworksPage.tsx` (Route `/netze`, Navigation „Netze & WLAN“, alle
 Rollen). Scan-Netzauswahl in `frontend/src/pages/SettingsPage.tsx` (Route `/einstellungen`).
 
 ## Nicht-Ziele und Grenzen
@@ -304,7 +304,7 @@ Rollen). Scan-Netzauswahl in `frontend/src/pages/SettingsPage.tsx` (Route `/eins
 
 ## OFFEN
 
-- > OFFEN: Seite „Netze & WLAN“ zeigt bei WLAN `facts.networkName` und bei WAN `facts.type`/`facts.ip`; der Abgleich liefert diese Felder nie (WLAN hat nur `networkExternalId`, WAN `{}`). WAN-Details sind daher immer „-“, das zugehörige Netz eines WLANs wird nie angezeigt (`frontend/src/pages/geraete/NetworksCalm.tsx`). Dasselbe gilt für die WAN-Tabelle der Dokumentation (`backend/app/docs.py:380`).
+- > OFFEN: Seite „Netze & WLAN“ zeigt bei WLAN `facts.networkName` und bei WAN `facts.type`/`facts.ip`; der Abgleich liefert diese Felder nie (WLAN hat nur `networkExternalId`, WAN `{}`). WAN-Details sind daher immer „-“, das zugehörige Netz eines WLANs wird nie angezeigt (`frontend/src/pages/geraete/NetworksPage.tsx`). Dasselbe gilt für die WAN-Tabelle der Dokumentation (`backend/app/docs.py:380`).
 - > OFFEN: Fähigkeitsbeschreibung nennt Omada und Discovery-Subnetze als Quelle; im Code liefert nur UniFi Netzwerkressourcen. Soll eine Alternative Omada-Netze übernehmen?
 - > OFFEN: Feld heißt `manualMd`, wird aber weder auf der Seite noch sonst als Markdown gerendert; Eingabe ist einzeilig.
 - > OFFEN: Inaktive Ressourcen sind in der UI nirgends sichtbar (nur über die API), ihre Notizen also faktisch versteckt; gewollt?

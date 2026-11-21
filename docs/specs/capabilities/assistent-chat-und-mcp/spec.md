@@ -46,7 +46,7 @@ Quelle: `backend/app/routes/chat.py` (`_visible_chat`), `backend/app/db.py` (`ch
 - **WENN** ein Benutzer „Neue Unterhaltung“ anlegt (API)
 - **DANN** erscheint sie mit Titel „Neue Unterhaltung“ oben in der Liste
 
-Die neue Oberfläche legt nichts an, solange keine Frage gestellt wird (siehe „Unterhaltung in der URL …“).
+Die Oberfläche legt nichts an, solange keine Frage gestellt wird (siehe „Unterhaltung in der URL …“).
 
 #### Szenario: Automatischer Titel
 - **WENN** die erste Nachricht in einer Unterhaltung mit Titel „Neue Unterhaltung“ gesendet wird
@@ -79,11 +79,11 @@ wechselt dann per `replace` auf deren ID), ohne Frage bleibt auf dem Server nich
 sagt die Seite das vor der ersten Frage. **[Muss]**
 
 #### Szenario: Neuladen
-- **WENN** ein Benutzer in der neuen Oberfläche eine ältere Unterhaltung wählt und die Seite neu lädt
+- **WENN** ein Benutzer eine ältere Unterhaltung wählt und die Seite neu lädt
 - **DANN** ist dieselbe Unterhaltung geöffnet
 
 #### Szenario: Neu ohne Frage
-- **WENN** jemand in der neuen Oberfläche „Neue Unterhaltung“ wählt und keine Frage sendet
+- **WENN** jemand „Neue Unterhaltung“ wählt und keine Frage sendet
 - **DANN** enthält `GET /api/chats` keine zusätzliche Unterhaltung
 
 #### Szenario: Seitenwechsel mit halber Frage
@@ -93,7 +93,7 @@ sagt die Seite das vor der ersten Frage. **[Muss]**
 Quelle: `frontend/src/pages/ChatPage.tsx`, `frontend/src/lib/drafts.ts`
 
 ### Requirement: Unterhaltung löschen (UI)
-Die neue Oberfläche MUSS die geöffnete Unterhaltung über „⋯ → Unterhaltung löschen …“ löschen lassen, erst
+Die Oberfläche MUSS die geöffnete Unterhaltung über „⋯ → Unterhaltung löschen …“ löschen lassen, erst
 nach einem Prüfdialog, der Titel und das Löschen aller Nachrichten nennt und sagt, dass es sich nicht
 rückgängig machen lässt. Während eine Antwort läuft, ist Löschen gesperrt. Die Rechte erzwingt das Backend
 (Mitglied nur eigene, ADMIN alle); sie ist keine Fähigkeit des Assistenten (kein LLM-Werkzeug). **[Muss]**

@@ -179,7 +179,7 @@ export default function SettingsPage() {
 
   if (!data) {
     return (
-      <div className="mehr-calm settings-calm" role="status" aria-live="polite">
+      <div className="mehr-page settings-page" role="status" aria-live="polite">
         <span className="visually-hidden">Wird geladen …</span>
         <div className="settings-nav">{TABS.map(([value]) => <Skeleton key={value} width="70%" height={16} style={{ margin: "10px" }} />)}</div>
         <div className="settings-pane"><Skeleton width={160} height={18} /><div style={{ height: 14 }} /><SkeletonText lines={5} /></div>
@@ -595,7 +595,7 @@ export default function SettingsPage() {
       : null;
 
   return (
-    <div className={`mehr-calm settings-calm${onList ? " is-list" : ""}`}>
+    <div className={`mehr-page settings-page${onList ? " is-list" : ""}`}>
       {leaveDialog}
       <h1 className="visually-hidden">Einstellungen</h1>
       <ConfirmDialog
@@ -869,7 +869,7 @@ function AccountTab({ username, totpEnabled, onDirtyChange }: {
   );
 }
 
-/** Zwei-Faktor-Anmeldung ist inzwischen Pflicht (siehe MfaEnrollCalm) -- die Einrichtung passiert
+/** Zwei-Faktor-Anmeldung ist inzwischen Pflicht (siehe MfaEnroll) -- die Einrichtung passiert
  *  dort direkt nach dem Login, nicht mehr hier. Diese Karte zeigt nur noch den Status; es gibt
  *  bewusst keine Selbstabschaltung mehr, nur ein Administrator kann sie zurücksetzen
  *  (Benutzerverwaltung), damit ein gestohlenes Passwort allein sie nicht aushebeln kann. */

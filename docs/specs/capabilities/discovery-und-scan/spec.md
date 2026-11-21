@@ -512,8 +512,8 @@ routedFound}, warnings}` speichern; ein gescheiterter `{error, warnings}` plus P
 
 Quelle: `backend/app/pipeline.py:540`, `backend/app/pipeline.py:554`, `backend/app/db.py:1804`
 
-### Requirement: Scan-Seite in der neuen Oberfläche
-Bei eingeschalteter neuer Oberfläche MUSS `/scan` zuerst zusammenfassen: laufend Phase und Fortschritt
+### Requirement: Scan-Seite
+`/scan` MUSS zuerst zusammenfassen: laufend Phase und Fortschritt
 (abgefragt alle 1,5 s nur, solange der Scan läuft und der Browser-Tab sichtbar ist), sonst Ergebnis des
 letzten Scans mit einer Zeile „Was ist neu?“ ausschließlich aus `summary.created`, `summary.updated`,
 `summary.devicesFound` (und `gateway`), ohne neu berechnete Zahlen; danach Hinweise, Protokoll und die
@@ -523,7 +523,7 @@ früheren Scans (ohne den oben gezeigten). **[Muss]** (Texte **[Impl]**)
 - **WENN** der letzte Scan `created=2, updated=12, devicesFound=14` meldet
 - **DANN** zeigt die Seite „Was ist neu? 2 neue Geräte · 12 aktualisiert · 14 gefunden“
 
-Quelle: `frontend/src/pages/mehr/ScanCalm.tsx`
+Quelle: `frontend/src/pages/mehr/ScanPage.tsx`
 
 ### Requirement: Automatischer Scan (Zeitplan)
 Ist `scanAutoEnabled` (Default aus) gesetzt, MUSS das System einen Scan starten, sobald der letzte
@@ -568,7 +568,7 @@ Siehe [data-model](../../contracts/data-model.md).
 Berührt: `GET /api/settings` liefert `ouiLoaded`, `ouiEntries`
 ([einstellungen-und-llm-provider](../einstellungen-und-llm-provider/spec.md)).
 
-UI-Seite(n): `frontend/src/pages/mehr/ScanCalm.tsx` (Route `/scan`, admin-only; pollt alle 1,5 s nur
+UI-Seite(n): `frontend/src/pages/mehr/ScanPage.tsx` (Route `/scan`, admin-only; pollt alle 1,5 s nur
 solange der Scan läuft und der Tab sichtbar ist). Scan-Einstellungen in `frontend/src/pages/SettingsPage.tsx`.
 
 ## Nicht-Ziele und Grenzen

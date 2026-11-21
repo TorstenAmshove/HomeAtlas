@@ -127,7 +127,7 @@ Das System MUSS einem ADMIN erlauben, sofort eine Prüfrunde auszuführen, und d
 - **WENN** `POST /api/monitor/run` aufgerufen wird
 - **DANN** antwortet das System nach Abschluss der Runde mit `{"changes": [...]}`; MEMBER erhält 403
 
-Quelle: `backend/app/main.py:1576`–`backend/app/main.py:1580`, `frontend/src/pages/geraete/PlanCalm.tsx`
+Quelle: `backend/app/main.py:1576`–`backend/app/main.py:1580`, `frontend/src/pages/geraete/PlanPage.tsx`
 
 ### Requirement: Robuster Dauerbetrieb
 Das System MUSS die Überwachung beim Start der Anwendung starten und beim Herunterfahren beenden; ein Fehler in einer Runde oder bei einem einzelnen Gerät DARF die Überwachung nicht beenden (Fehlertext in `lastError`, nächste Runde läuft normal). Geräte einer Runde werden parallel geprüft. **[Muss]**
@@ -155,7 +155,7 @@ Aus [data-model](../../contracts/data-model.md):
 
 Berührt: Markieren als überwacht / Monitor-Ports über `PATCH /api/systems/{id}` ([inventar](../inventar/spec.md)); Fehlerereignisse eines Geräts über `GET /api/systems/{id}/errors` ([inventar](../inventar/spec.md)); kritische Geräte auf dem [dashboard](../dashboard/spec.md); Einstellungen über `PATCH /api/settings`.
 
-UI-Seite(n): `frontend/src/pages/geraete/PlanCalm.tsx` (Route `/plan`, Überwachungsbereich, Button „Jetzt prüfen“ nur ADMIN); `frontend/src/pages/device/DeviceCalm.tsx` (Route `/geraete/:id`, Badge „überwacht · Port …/Ping“, Checkbox + Ports im Bearbeiten-Modus); `frontend/src/pages/SettingsPage.tsx` (Route `/einstellungen`, An/Aus, Intervall 5–600 s, Timeout 200–10000 ms).
+UI-Seite(n): `frontend/src/pages/geraete/PlanPage.tsx` (Route `/plan`, Überwachungsbereich, Button „Jetzt prüfen“ nur ADMIN); `frontend/src/pages/device/DevicePage.tsx` (Route `/geraete/:id`, Badge „überwacht · Port …/Ping“, Checkbox + Ports im Bearbeiten-Modus); `frontend/src/pages/SettingsPage.tsx` (Route `/einstellungen`, An/Aus, Intervall 5–600 s, Timeout 200–10000 ms).
 
 ## Nicht-Ziele und Grenzen
 

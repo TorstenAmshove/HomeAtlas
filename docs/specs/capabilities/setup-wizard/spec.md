@@ -75,7 +75,7 @@ Abgeschickt wird erst am Ende von Schritt 3; Einträge ohne Namen/Bezeichnung we
 - **DANN** wird Setup mit dem Namen, ohne Geräte (Router-Entwurf hat keinen Namen), mit Konto
   „Internetanbieter“ ohne Passwort gespeichert
 
-Quelle: `frontend/src/gates/SetupCalm.tsx`, `frontend/src/gates/setupModel.ts`, Test: `frontend/e2e/smoke.spec.ts::login, MFA enrollment, setup and main routes render without errors`
+Quelle: `frontend/src/gates/Setup.tsx`, `frontend/src/gates/setupModel.ts`, Test: `frontend/e2e/smoke.spec.ts::login, MFA enrollment, setup and main routes render without errors`
 
 ### Requirement: Ausweg aus dem Wizard (UI)
 Der Wizard MUSS auf jedem Schritt „Abmelden“ anbieten, damit niemand darin festsitzt. Ist schon etwas eingetragen (Angaben weichen von der
@@ -88,10 +88,10 @@ es nicht: für ADMIN bleibt der Wizard, bis das Setup gespeichert ist. **[Muss]*
 - **DANN** fragt die Oberfläche nach; „Angemeldet bleiben“ lässt die Eingaben stehen, „Trotzdem
   abmelden“ führt zum Login, und nach dem nächsten Anmelden beginnt der Wizard bei Schritt 1
 
-Quelle: `frontend/src/gates/SetupCalm.tsx`, Test: `frontend/e2e/smoke.spec.ts::login, MFA enrollment, setup and main routes render without errors`
+Quelle: `frontend/src/gates/Setup.tsx`, Test: `frontend/e2e/smoke.spec.ts::login, MFA enrollment, setup and main routes render without errors`
 
-### Requirement: Entwurf übersteht Neuladen, ohne Passwörter und Notizen (neue Oberfläche)
-In der neuen Oberfläche MÜSSEN Schritt und Angaben des Wizards ein Neuladen des Tabs überstehen
+### Requirement: Entwurf übersteht Neuladen, ohne Passwörter und Notizen
+Schritt und Angaben des Wizards MÜSSEN ein Neuladen des Tabs überstehen
 (`sessionStorage`, Schlüssel `homeatlas.draft.setup.wizard`). Passwörter von Geräten und Konten sowie
 Konto-Notizen (dort stehen gelegentlich Zugangshinweise) DÜRFEN NICHT in den Entwurf gelangen;
 wurden welche eingegeben, MUSS der Wizard nach dem Neuladen darauf hinweisen, dass sie erneut
@@ -113,7 +113,7 @@ zum Absturz.
 - **DANN** sind Passwort und Notiz leer, der Benutzername steht noch da, der Hinweis erklärt das, und
   der Browser-Speicher enthält die Notiz nicht
 
-Quelle: `frontend/src/gates/setupModel.ts`, `frontend/src/gates/SetupCalm.tsx`, Test: `frontend/e2e/smoke.spec.ts::login, MFA enrollment, setup and main routes render without errors`
+Quelle: `frontend/src/gates/setupModel.ts`, `frontend/src/gates/Setup.tsx`, Test: `frontend/e2e/smoke.spec.ts::login, MFA enrollment, setup and main routes render without errors`
 
 ### Requirement: Setup speichern (nur ADMIN)
 `POST /api/setup` MUSS ADMIN mit aktivem zweiten Faktor verlangen und akzeptieren:
@@ -203,16 +203,14 @@ Berührt: `PATCH /api/settings` kann `setupCompleted`/`homeName` ebenfalls ände
 [einstellungen-und-llm-provider](../einstellungen-und-llm-provider/spec.md)); `GET /api/settings` gibt
 MEMBER nur `homeName` und `setupCompleted`.
 
-UI-Seite(n): `frontend/src/gates/SetupCalm.tsx` (keine eigene Route; ersetzt die App, solange ADMIN
+UI-Seite(n): `frontend/src/gates/Setup.tsx` (keine eigene Route; ersetzt die App, solange ADMIN
 und `setupCompleted` false), Gating in `frontend/src/App.tsx`.
 
 ## Nicht-Ziele und Grenzen
 
 - Kein Anlegen weiterer Benutzer, kein LLM-Provider, keine Scan-Optionen außer einem Netzbereich.
 - Keine Validierung von IP-Adressen, CIDR-Angaben oder Gerätearten im Backend.
-- Kein Zwischenspeichern in der klassischen Oberfläche: dort sind die Eingaben nach einem Reload
-  verloren. In der neuen Oberfläche übersteht der Entwurf (ohne Passwörter) ein Reload; Abmelden
-  verwirft ihn in beiden.
+- Der Entwurf (ohne Passwörter) übersteht ein Reload; Abmelden verwirft ihn.
 - Kein „Setup erneut ausführen“ in der UI.
 
 ## Ist-Implementierung (nur Referenz, [Impl])

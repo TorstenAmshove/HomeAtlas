@@ -8,9 +8,9 @@ import { useUndoToast } from "../../lib/useUndoToast";
 import "./mehr.css";
 
 /**
- * "Benutzer" under Mehr in the new UI: a calm list, "Bearbeiten" on the row, and the two
+ * "Benutzer" under Mehr in the new UI: a plain list, "Bearbeiten" on the row, and the two
  * consequential actions (Löschen, Zwei-Faktor zurücksetzen) under "⋯", each with a review step that
- * says what happens. The roles explanation sits behind "ⓘ". Same endpoints as the classic page.
+ * says what happens. The roles explanation sits behind "ⓘ".
  */
 
 const ROLE_LABEL: Record<Role, string> = { ADMIN: "Administrator", MEMBER: "Mitglied" };
@@ -23,7 +23,7 @@ function errorText(e: unknown) {
   return e instanceof Error ? e.message : String(e);
 }
 
-export default function UsersCalm() {
+export default function UsersPage() {
   const { user: me } = useAuth();
   const [users, setUsers] = useState<User[] | null>(null);
   const [error, setError] = useState("");
@@ -138,7 +138,7 @@ export default function UsersCalm() {
 
   if (users === null) {
     return (
-      <div className="mehr-calm users-calm" role="status" aria-live="polite">
+      <div className="mehr-page users-page" role="status" aria-live="polite">
         <span className="visually-hidden">Wird geladen …</span>
         <div className="m-toolbar"><Skeleton width={200} /><Skeleton width={150} height={40} radius={8} style={{ marginLeft: "auto" }} /></div>
         {Array.from({ length: 3 }, (_, i) => (
@@ -154,7 +154,7 @@ export default function UsersCalm() {
   const adminCount = users.filter((u) => u.role === "ADMIN").length;
 
   return (
-    <div className="mehr-calm users-calm">
+    <div className="mehr-page users-page">
       {toast}
       <h1 className="visually-hidden">Benutzer</h1>
 

@@ -15,7 +15,7 @@ import GateShell, { GateBrand } from "./GateShell";
 /** Groups of four for reading and typing; authenticator apps ignore the spaces. */
 const grouped = (secret: string) => secret.replace(/(.{4})(?=.)/g, "$1 ");
 
-export default function MfaEnrollCalm({ onDone }: { onDone: () => void }) {
+export default function MfaEnroll({ onDone }: { onDone: () => void }) {
   const { user, logout } = useAuth();
   const [setup, setSetup] = useState<{ secret: string; qrSvg: string } | null>(null);
   const [code, setCode] = useState("");

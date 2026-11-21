@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-/** Small building blocks shared by the tabs of the redesigned device page. */
+/** Small building blocks shared by the tabs of the device page. */
 
 export type Notice = { kind: "ok" | "error" | "info"; text: string } | null;
 

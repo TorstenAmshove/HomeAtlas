@@ -53,7 +53,7 @@ function errorText(e: unknown) {
  * Tab "Steuern" (admin only): every action that changes something on or at the device, each with
  * its current state shown before the click. Stop/off/restart/reboot go through a review step that
  * says in plain words what happens; start and switch-on run directly, as they did before. The calls
- * are the same admin-gated endpoints as on the classic page (routes/remote.py, docker_admin,
+ * are admin-gated endpoints (routes/remote.py, docker_admin,
  * switch_admin); nothing here is reachable for the LLM tools.
  */
 export default function SteuernTab({ system, status, accounts, onSystemChanged }: {

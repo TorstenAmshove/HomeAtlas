@@ -9,20 +9,20 @@ import { STATUS_LABEL } from "./inventoryModel";
 import "./geraete.css";
 
 /**
- * Netzplan of the redesigned UI (area "Geräte", tab "Netzplan").
+ * Netzplan of the UI (area "Geräte", tab "Netzplan").
  *
  * - `?view=layer3` keeps the chosen picture across Back and reload.
  * - One status line, not a banner plus a list naming the same devices (forensics "Netzplan" 3).
  *   It speaks about the same set as the Start page: "überwachte Geräte" from `/api/monitor`, and
  *   it only raises the alarm while monitoring is on (a stale "offline" from a switched-off monitor
- *   is not an outage), exactly like StartCalm's hero (numbers audit B3).
+ *   is not an outage), exactly like StartPage's hero (numbers audit B3).
  * - The server-rendered SVG stays as it is, a static picture without zoom or drag controls
  *   (ADR-0008/0009). On phones it is drawn at twice the screen width inside a frame that scrolls
  *   sideways (the page itself never does), and the watched devices come first as a list with chips.
  * - DNS test, speedtest and "Jetzt prüfen" stay as actions under "Diagnose".
  */
 
-/** Same grouping as the classic page (and topology.py): everything the plan does not draw. */
+/** Same grouping as topology.py: everything the plan does not draw. */
 const DEVICE_GROUPS: [string, string[]][] = [
   ["Server & Speicher", ["server", "nas"]],
   ["Container & VMs", ["container", "vm"]],
@@ -86,7 +86,7 @@ function StatusLine({ monitor, isAdmin }: { monitor: MonitorState | null; isAdmi
   );
 }
 
-export default function PlanCalm() {
+export default function PlanPage() {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const [view, setView] = useUrlState("view", "physisch");
@@ -137,7 +137,7 @@ export default function PlanCalm() {
     void loadMonitor();
   }, [loadMonitor]);
 
-  // Poll only while the tab is visible (same rule as the classic page and Start).
+  // Poll only while the tab is visible (same rule as Start).
   useEffect(() => {
     function schedule(event?: Event) {
       if (timer.current) window.clearInterval(timer.current);
@@ -172,7 +172,7 @@ export default function PlanCalm() {
   }
 
   // A host box with containers/VMs (data-expand) opens the list of its children; every other named
-  // box opens its device page (same as the classic page).
+  // box opens its device page.
   function handlePlanClick(e: MouseEvent<HTMLDivElement>) {
     const expandTarget = (e.target as Element).closest('[data-expand="1"]');
     if (expandTarget) {
@@ -191,7 +191,7 @@ export default function PlanCalm() {
 
 
   return (
-    <div className="geraete-calm">
+    <div className="geraete-page">
       {error && <div className="notice error" role="alert">{error}</div>}
       <StatusLine monitor={monitor} isAdmin={isAdmin} />
 

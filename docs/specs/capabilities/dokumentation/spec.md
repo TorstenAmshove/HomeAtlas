@@ -346,7 +346,7 @@ Die Oberfläche MUSS ungespeicherten Text eines Kapitels – den Entwurf von „
 des Kapitels (auch nach Neuladen) wiederherstellen. Wer mit ungespeicherten Änderungen über einen
 Link die Seite oder das Kapitel wechselt, MUSS vorher gefragt werden („Hier bleiben“ / „Trotzdem
 wechseln“); Neuladen und Schließen fragen über den Browser (`beforeunload`). Speichern oder Abbrechen
-verwirft den Entwurf. Gilt in alter und neuer Oberfläche. **[Muss]**
+verwirft den Entwurf. **[Muss]**
 Wurde das Kapitel geändert, nachdem der Entwurf begonnen wurde (Scan, Neu erzeugen), MUSS die
 Wiederherstellung davor warnen, dass Speichern den neueren Text ersetzt (er landet im Verlauf).
 Entwürfe werden nur für Admins wieder geöffnet, und Abmelden löscht alle Entwürfe des Tabs
@@ -404,8 +404,8 @@ Siehe [data-model](../../contracts/data-model.md).
 [llm-tools](../../contracts/llm-tools.md)); der Scan-Auslöser ist in
 [discovery-und-scan](../discovery-und-scan/spec.md) beschrieben.
 
-UI-Seite(n): `frontend/src/pages/DocsPage.tsx` (Routen `/dokumentation`, `/dokumentation/:slug`; neue Oberfläche
-mit `?versions=1` für den offenen Verlauf).
+UI-Seite(n): `frontend/src/pages/DocsPage.tsx` (Routen `/dokumentation`, `/dokumentation/:slug`; `?versions=1`
+für den offenen Verlauf).
 
 ## Nicht-Ziele und Grenzen
 
@@ -429,7 +429,6 @@ mit `?versions=1` für den offenen Verlauf).
 - > OFFEN: `GET /api/docs/{slug}/versions` mit unbekanntem Slug liefert leere Liste statt 404.
 - > OFFEN: `PUT /api/docs/{slug}` ohne Feld `bodyMd` speichert leeren Text (keine Validierung).
 - > OFFEN: Wiederherstellen überschreibt auch die eigenen Notizen mit dem alten Stand — gewollt, obwohl Notizen „nie angefasst“ werden sollen (gilt laut Code nur für die Automatik)?
-- > OFFEN: UI-Bestätigung beim Reset sagt in der alten Oberfläche „Änderungen gehen verloren“, tatsächlich bleiben sie im Verlauf (die neue Oberfläche sagt es richtig und bietet Rückgängig).
 - > OFFEN: Kapitel, deren Slug nicht mehr definiert ist, werden nie gelöscht (`db.delete_doc_page` ungenutzt).
 - > OFFEN: Benutzernamen und URLs von Zugängen sind über die Doku für MEMBER sichtbar, obwohl die Zugangs-API admin-only ist. Ebenso Gerätenotizen und ausgelesene Gerätewerte — falls dort Geheimnisse stehen, landen sie in der Doku.
 - > OFFEN: Keine Sperre gegen gleichzeitige Generierungen (Scan + manueller Lauf) — mögliche doppelte Versionen/Race.

@@ -4,7 +4,7 @@ import { useUi } from "../shell/ui";
 import "./gates.css";
 
 /**
- * Frame of the redesigned gates (login, MFA enrollment, setup wizard; PR 7 of
+ * Frame of the gates (login, MFA enrollment, setup wizard; PR 7 of
  * docs/redesign/5-information-architecture.md). They run before the app, so they are not inside
  * `.app-shell`: their tokens live in gates.css under `body:has(.gate-shell)`, with the same values
  * as the shell.

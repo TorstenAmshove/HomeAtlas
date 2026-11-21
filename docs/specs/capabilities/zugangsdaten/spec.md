@@ -61,7 +61,7 @@ Pflicht in der UI. Port ist nur für `sshkey`/`login`/`snmp` relevant. **[Muss]*
 - **WENN** ein Admin die Kategorie „Proxmox VE (API-Token)“ wählt
 - **DANN** fragt die UI Token-ID, Token-Secret und Adresse ab
 
-Quelle: `frontend/src/pages/zugaenge/AccountFormCalm.tsx`
+Quelle: `frontend/src/pages/zugaenge/AccountFormPage.tsx`
 
 ### Requirement: Zugangsliste ohne Secrets
 Das System MUSS Admins alle Zugänge sortiert nach Bezeichnung (case-insensitiv) liefern, je Eintrag
@@ -233,11 +233,11 @@ Zugänge und `system`-Zuordnungen auf das verbleibende Gerät umgehängt. **[Mus
 
 Quelle: `backend/app/db.py:692`, `backend/app/db.py:885`, Test: `backend/tests/test_db_account_assignments.py::test_delete_system_removes_assignments_targeting_it_and_owned_by_its_accounts`
 
-### Requirement: Zugänge in der neuen Oberfläche
-Bei eingeschalteter neuer Oberfläche MUSS `/zugaenge` (nur ADMIN) eine ruhige Liste mit Suche in `?q=`
+### Requirement: Zugänge: Liste und Formular
+`/zugaenge` (nur ADMIN) MUSS eine ruhige Liste mit Suche in `?q=`
 zeigen (dieselben Felder wie bisher: Bezeichnung, Benutzername, Adresse, Notiz, Gerätename).
 „Neuer Zugang“ und Bearbeiten MÜSSEN eigene Routen sein (`/zugaenge/neu`, `/zugaenge/:id`, beide nur
-ADMIN; bei ausgeschalteter neuer Oberfläche führen sie auf `/zugaenge`). Das Formular MUSS einen
+ADMIN). Das Formular MUSS einen
 Entwurf im `sessionStorage` halten (Schlüssel `homeatlas.draft.account.form.<id|neu>`) und vor dem
 Verlassen mit ungespeicherten Änderungen fragen; die Secret-Felder (Passwort/Token/privater Schlüssel,
 Passphrase) DÜRFEN NIE in einen Speicher oder die URL geschrieben werden, gespeichert wird nur, *dass*
@@ -258,7 +258,7 @@ erreichbar. **[Muss]** (Texte und Aufteilung **[Impl]**)
 - **WENN** ein ADMIN „Löschen …“ wählt und im Prüfdialog „Abbrechen“ klickt
 - **DANN** bleibt der Zugang unverändert
 
-Quelle: `frontend/src/pages/zugaenge/AccountsCalm.tsx`, `frontend/src/pages/zugaenge/AccountFormCalm.tsx`,
+Quelle: `frontend/src/pages/zugaenge/AccountsPage.tsx`, `frontend/src/pages/zugaenge/AccountFormPage.tsx`,
 `frontend/src/pages/zugaenge/accountDraft.ts`, `frontend/src/pages/zugaenge/DeleteAccountDialog.tsx`,
 `frontend/src/lib/useRevealedSecrets.ts`
 
@@ -310,7 +310,7 @@ Berührte fremde Routen: `GET /api/systems/{id}` liefert Zugänge des Geräts oh
 ([inventar](../inventar/spec.md)); `PATCH /api/settings` für den Standard-Zugang
 ([einstellungen-und-llm-provider](../einstellungen-und-llm-provider/spec.md)).
 
-UI-Seite(n): `frontend/src/pages/zugaenge/AccountsCalm.tsx`, `frontend/src/pages/zugaenge/AccountFormCalm.tsx` (Routen `/zugaenge`, `/zugaenge/neu`,
+UI-Seite(n): `frontend/src/pages/zugaenge/AccountsPage.tsx`, `frontend/src/pages/zugaenge/AccountFormPage.tsx` (Routen `/zugaenge`, `/zugaenge/neu`,
 `/zugaenge/:id`, nur Admin).
 
 ## Nicht-Ziele und Grenzen
