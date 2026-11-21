@@ -8,7 +8,7 @@ import asyncio
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 
-from .. import crypto, db, discovery, docs, pipeline, probe_auth, unifi_probe
+from .. import classify, crypto, db, discovery, docs, llm_providers, pipeline, probe_auth, unifi_probe
 from .. import monitor as monitor_module
 from ..deps import _public_account, current_user, require_admin
 
@@ -206,3 +206,39 @@ async def list_system_errors(system_id: str, _: dict = Depends(current_user)) ->
     if db.get_system(system_id) is None:
         raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
     return {"events": db.list_device_error_events(system_id)}
+
+
+@router.post("/api/systems/{system_id}/classify")
+async def classify_system(system_id: str, _: dict = Depends(require_admin)) -> dict:
+    """Manual LLM classification of one device (the scan only classifies newly found devices).
+
+    Same rules as the scan (low confidence discarded, source/self-reported names kept); confirmed
+    rows only get their empty fields filled. Written via `db.update_system`, not the PATCH handler,
+    so `confirmed` is untouched. Deliberately not a tool in `tools.py` (ADR-0004/0011)."""
+    system = db.get_system(system_id)
+    if system is None:
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
+    finding = classify.finding_from_system(system)
+    if classify.is_container(finding):
+        raise HTTPException(status_code=400, detail="Docker-Container werden nicht einzeln eingeordnet.")
+    if not finding.get("ip"):
+        raise HTTPException(status_code=400, detail="Das Gerät hat keine IP-Adresse.")
+    if not classify.has_evidence(finding):
+        raise HTTPException(status_code=400, detail=(
+            "Für dieses Gerät liegen keine Hinweise vor (Ports, Hersteller, Hostname, mDNS/UPnP, "
+            "Web-Banner); eine Einordnung wäre geraten."))
+    settings = db.get_settings()
+    if not llm_providers.is_configured(settings.get("llmProvider", ""), settings):
+        raise HTTPException(status_code=400, detail=(
+            "Für den gewählten KI-Anbieter ist kein Zugang eingerichtet (Einstellungen -> KI-Assistent)."))
+    by_ip, warnings = await classify.classify([finding], settings, force=True)
+    classification = by_ip.get(finding["ip"])
+    if classification is None:
+        failed = [w for w in warnings if "fehlgeschlagen" in w]
+        if failed:
+            raise HTTPException(status_code=502, detail=failed[0])
+        return {"system": system, "changed": False, "warnings": warnings}
+    patch = classify.apply_to_system(system, classification)
+    if not patch:
+        return {"system": system, "changed": False, "warnings": warnings}
+    return {"system": db.update_system(system_id, patch), "changed": True, "warnings": warnings}

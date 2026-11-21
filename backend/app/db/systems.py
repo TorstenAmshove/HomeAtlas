@@ -523,6 +523,31 @@ def link_containers_to_host(host_ip: str) -> int:
         return cursor.rowcount
 
 
+def find_existing_for_discovery(found: dict) -> tuple[dict | None, str]:
+    """Read-only half of `upsert_discovered_system`: the row a finding would merge into, or None
+    if the upsert would create a new one. Returns (row, via_alias) where `via_alias` is the alias
+    key that matched ("" otherwise). Order: exact key, legacy keys, alias, `find_system_for_merge`.
+    The pipeline uses it to tell new findings (worth an LLM call) from known ones.
+    """
+    found_key = found.get("discoveryKey", "")
+    existing = find_system_by_key(found_key)
+    if existing is None:
+        for legacy_key in found.get("legacyDiscoveryKeys") or ():
+            existing = find_system_by_key(legacy_key)
+            if existing is not None:
+                break
+    if existing is None:
+        found_mac = (found.get("mac") or "").strip().lower()
+        for candidate in (found_key, *(found.get("legacyDiscoveryKeys") or ()),
+                          f"mac:{found_mac}" if found_mac else ""):
+            existing = find_system_by_alias(candidate)
+            if existing is not None:
+                return existing, candidate
+    if existing is None:
+        existing = find_system_for_merge(found)
+    return existing, ""
+
+
 def upsert_discovered_system(found: dict) -> tuple[dict, bool]:
     """Merges one discovery result into the inventory, keyed on `discoveryKey`. Returns
     (system, created).
@@ -557,24 +582,7 @@ def upsert_discovered_system(found: dict) -> tuple[dict, bool]:
     replacing the other interfaces' (see `_record_interface`). A finding with no `openPorts` at all
     (a controller or Proxmox source) never touches the stored ports.
     """
-    found_key = found.get("discoveryKey", "")
-    existing = find_system_by_key(found_key)
-    if existing is None:
-        for legacy_key in found.get("legacyDiscoveryKeys") or ():
-            existing = find_system_by_key(legacy_key)
-            if existing is not None:
-                break
-    via_alias = ""
-    if existing is None:
-        found_mac = (found.get("mac") or "").strip().lower()
-        for candidate in (found_key, *(found.get("legacyDiscoveryKeys") or ()),
-                          f"mac:{found_mac}" if found_mac else ""):
-            existing = find_system_by_alias(candidate)
-            if existing is not None:
-                via_alias = candidate
-                break
-    if existing is None:
-        existing = find_system_for_merge(found)
+    existing, via_alias = find_existing_for_discovery(found)
     now = _now()
     seen_ip = (found.get("ip") or "").strip()
     seen_mac = found.get("mac") or ""
@@ -615,10 +623,22 @@ def upsert_discovered_system(found: dict) -> tuple[dict, bool]:
         # between scan and controller on every run.
         volatile["discoveryKey"] = existing["discoveryKey"]
     if not existing["confirmed"]:
+        # The LLM classification runs once, when a device first appears (classify.apply sets
+        # `extra.aiConfidence`). Rule-based values of a later scan must not wipe that result;
+        # only names/kinds a source supplies (or a device reports itself) still win.
+        ai_protected: set[str] = set()
+        if existing_extra.get("aiConfidence"):
+            ai_protected = {"vendor", "model", "purpose", "descriptionMd", "docUrl", "importance"}
+            tokens = set((found.get("discoverySource") or "").split("+"))
+            names = {"docker", "proxmox", "unifi", "omada"}
+            if not (tokens & names or any(key in found_extra for key in names)):
+                ai_protected.add("kind")
+                if found_extra.get("nameSource") not in ("upnp", "mdns", "shelly"):
+                    ai_protected.add("name")
         for field in ("kind", "name", "hostname", "mac", "vendor", "model", "os", "location",
                       "purpose", "descriptionMd", "url", "docUrl", "docLink", "importance"):
             value = found.get(field)
-            if value:
+            if value and field not in ai_protected:
                 volatile[field] = value
         if unifi_name:
             volatile["name"] = unifi_name

@@ -3727,6 +3727,64 @@
         "summary": "System Aliases"
       }
     },
+    "/api/systems/{system_id}/classify": {
+      "post": {
+        "description": "Manual LLM classification of one device (the scan only classifies newly found devices).\n\nSame rules as the scan (low confidence discarded, source/self-reported names kept); confirmed\nrows only get their empty fields filled. Written via `db.update_system`, not the PATCH handler,\nso `confirmed` is untouched. Deliberately not a tool in `tools.py` (ADR-0004/0011).",
+        "operationId": "classify_system_api_systems__system_id__classify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "system_id",
+            "required": true,
+            "schema": {
+              "title": "System Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "homeatlas_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Homeatlas Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Classify System Api Systems  System Id  Classify Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Classify System"
+      }
+    },
     "/api/systems/{system_id}/config-versions": {
       "get": {
         "description": "Admin-only, like the content below: an export can carry SNMP communities, RADIUS secrets and\nWiFi keys, the same class of data as accounts.secretEnc.",

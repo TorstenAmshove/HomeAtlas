@@ -590,7 +590,8 @@ export default function DeviceCalm() {
           </nav>
 
           {tab === "ueberblick" && (
-            <UeberblickTab system={system} derived={derived} accounts={accounts} isAdmin={isAdmin} history={history} />
+            <UeberblickTab system={system} derived={derived} accounts={accounts} isAdmin={isAdmin} history={history}
+                          onSystemChange={(updated) => setData((current) => (current ? { ...current, system: updated } : current))} />
           )}
           {tab === "technik" && (
             <TechnikTab system={system} monitorPorts={monitorPorts} aliases={aliases} isAdmin={isAdmin}
