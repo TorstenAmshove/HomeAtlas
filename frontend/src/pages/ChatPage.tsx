@@ -9,19 +9,17 @@ import OverflowMenu from "../components/OverflowMenu";
 import { Skeleton } from "../components/Skeleton";
 import { draftKeys, readDraft, writeDraft } from "../lib/drafts";
 import { useUndoToast } from "../lib/useUndoToast";
-import { useUi } from "../shell/ui";
 
 /**
  * The troubleshooting assistant (Hilfe → Assistent).
  *
- * The unsent input is kept per conversation in sessionStorage (lib/drafts.ts), in both UIs: typing a
- * question, looking something up on another page and coming back must not lose it.
+ * The unsent input is kept per conversation in sessionStorage (lib/drafts.ts): typing a question,
+ * looking something up on another page and coming back must not lose it.
  *
- * New UI (`useUi().calm`): the open conversation is in the URL (`/assistent/:chatId`), so Back and
- * reload land in the same one; `/assistent` opens the latest. `/assistent/neu` is the local empty
- * state behind "Neue Unterhaltung": nothing is created on the server until the first question is sent
- * (`ensureChat`). The open conversation can be deleted via "⋯" after a confirmation. Old UI: selection stays in component
- * state as before (a `/assistent/:chatId` link still opens that conversation there).
+ * The open conversation is in the URL (`/assistent/:chatId`), so Back and reload land in the same
+ * one; `/assistent` opens the latest. `/assistent/neu` is the local empty state behind "Neue
+ * Unterhaltung": nothing is created on the server until the first question is sent (`ensureChat`).
+ * The open conversation can be deleted via "⋯" after a confirmation.
  */
 
 const SUGGESTIONS = [
@@ -61,10 +59,10 @@ function formatMessageMeta(m: ChatMessage): string {
 /** Phone keyboards overlay the page (the layout viewport keeps its height), so the pinned composer
  *  would sit behind them. `visualViewport` says how much is covered; shell.css shrinks the chat by
  *  that much (`--keyboard-inset`) and hides the bottom bar while the keyboard is up. */
-function useKeyboardInset(enabled: boolean) {
+function useKeyboardInset() {
   useEffect(() => {
     const viewport = window.visualViewport;
-    if (!enabled || !viewport) return;
+    if (!viewport) return;
     const root = document.documentElement;
     const update = () => {
       const inset = Math.max(0, Math.round(window.innerHeight - viewport.height - viewport.offsetTop));
@@ -80,11 +78,10 @@ function useKeyboardInset(enabled: boolean) {
       root.style.removeProperty("--keyboard-inset");
       root.classList.remove("keyboard-open");
     };
-  }, [enabled]);
+  }, []);
 }
 
 export default function ChatPage() {
-  const { calm } = useUi();
   const { isAdmin, user: me } = useAuth();
   const navigate = useNavigate();
   const { chatId: routeChatId } = useParams();
@@ -92,10 +89,8 @@ export default function ChatPage() {
   const [chatsLoaded, setChatsLoaded] = useState(false);
   // `/assistent/neu` is the empty state, not a conversation id (ids are UUIDs).
   const routeIsNew = routeChatId === "neu";
-  const urlChatId = routeIsNew ? "" : routeChatId ?? "";
-  const [localChatId, setLocalChatId] = useState<string>(urlChatId);
-  // New UI: the URL is the source of truth for the open conversation.
-  const chatId = calm ? urlChatId : localChatId;
+  // The URL is the source of truth for the open conversation.
+  const chatId = routeIsNew ? "" : routeChatId ?? "";
   // The conversation open right now, for async callbacks: an answer that arrives after the user
   // switched to another conversation must not overwrite that one's messages.
   const openChatRef = useRef(chatId);
@@ -123,7 +118,7 @@ export default function ChatPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [toast, showToast] = useUndoToast();
 
-  useKeyboardInset(calm);
+  useKeyboardInset();
 
   // Stop an in-flight recording rather than leaving the microphone open when the user navigates
   // away mid-dictation.
@@ -132,32 +127,30 @@ export default function ChatPage() {
   useEffect(() => {
     api.listChats().then((r) => {
       setChats(r.chats);
-      if (!calm && !urlChatId && r.chats.length > 0) setLocalChatId(r.chats[0].id);
     }).catch((e) => setError(e.message)).finally(() => setChatsLoaded(true));
-    // Loaded once per visit; `calm`/`routeChatId` only pick the initial selection.
+    // Loaded once per visit.
   }, []);
 
-  // New UI: `/assistent` opens the latest conversation; an unknown id falls back to it too.
+  // `/assistent` opens the latest conversation; an unknown id falls back to it too.
   useEffect(() => {
-    if (!calm || !chatsLoaded || routeIsNew) return;
+    if (!chatsLoaded || routeIsNew) return;
     if (routeChatId && chats.some((c) => c.id === routeChatId)) return;
     if (chats.length > 0) {
       if (!routeChatId && inputRef.current) carryOver.current = { id: chats[0].id, text: inputRef.current };
       navigate(`/assistent/${chats[0].id}`, { replace: true });
     } else if (routeChatId) navigate("/assistent", { replace: true });
-  }, [calm, chatsLoaded, chats, routeChatId, routeIsNew, navigate]);
+  }, [chatsLoaded, chats, routeChatId, routeIsNew, navigate]);
 
   // ADMIN sees everyone's conversations: the delete dialog names the owner of a foreign one.
   useEffect(() => {
-    if (!calm || !isAdmin) return;
+    if (!isAdmin) return;
     api.listUsers().then((r) => setUsers(r.users)).catch(() => setUsers([]));
-  }, [calm, isAdmin]);
+  }, [isAdmin]);
 
   // Whether a model is configured: shown up front instead of only after the first failed send.
   useEffect(() => {
-    if (!calm) return;
     api.dashboard().then((d) => setLlmConfigured(d.llmConfigured)).catch(() => setLlmConfigured(null));
-  }, [calm]);
+  }, []);
 
   // Each conversation has its own unsent draft.
   useEffect(() => {
@@ -173,7 +166,7 @@ export default function ChatPage() {
     setInputState(stored);
   }, [chatId]);
 
-  const known = !calm || chats.some((c) => c.id === chatId);
+  const known = chats.some((c) => c.id === chatId);
   useEffect(() => {
     if (!chatId || !chatsLoaded || !known) {
       setMessages([]);
@@ -201,8 +194,7 @@ export default function ChatPage() {
   }
 
   function openChat(id: string, replace = false) {
-    if (calm) navigate(`/assistent/${id}`, { replace });
-    else setLocalChatId(id);
+    navigate(`/assistent/${id}`, { replace });
   }
 
   async function ensureChat(): Promise<string> {
@@ -281,26 +273,12 @@ export default function ChatPage() {
     }
   }
 
-  async function newChat() {
-    if (calm) {
-      // Nothing is created on the server: the conversation appears with the first question.
-      setMessages([]);
-      setToolsUsed([]);
-      setError("");
-      navigate("/assistent/neu");
-      return;
-    }
-    try {
-      const { chat } = await api.createChat();
-      justCreated.current = chat.id;
-      setChats((c) => [chat, ...c]);
-      setMessages([]);
-      setToolsUsed([]);
-      setError("");
-      openChat(chat.id);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    }
+  function newChat() {
+    // Nothing is created on the server: the conversation appears with the first question.
+    setMessages([]);
+    setToolsUsed([]);
+    setError("");
+    navigate("/assistent/neu");
   }
 
   async function deleteCurrent() {
@@ -326,93 +304,6 @@ export default function ChatPage() {
       setDeleting(false);
     }
   }
-
-  // ----------------------------------------------------------------------------------- old UI
-
-  if (!calm) {
-    return (
-      <>
-        <div className="page-header">
-          <div>
-            <h1>KI-Assistent</h1>
-            <p>
-              Beschreibe in eigenen Worten, was nicht funktioniert. Der Assistent kennt deine Geräte und
-              kann selbst nachmessen — pingen, Ports prüfen, Internetverbindung testen.
-            </p>
-          </div>
-          <div className="row">
-            {chats.length > 0 && (
-              <select style={{ width: "auto" }} value={chatId} disabled={busy} onChange={(e) => setLocalChatId(e.target.value)}>
-                {chats.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-              </select>
-            )}
-            <button className="secondary" onClick={() => void newChat()}>Neue Unterhaltung</button>
-          </div>
-        </div>
-
-        {error && <div className="notice error">{error}</div>}
-
-        <div className="chat-layout">
-          <div className="chat-scroll" ref={scrollRef}>
-            {messages.length === 0 && !busy && (
-              <div className="card">
-                <h2>Womit kann ich helfen?</h2>
-                <p className="muted">Zum Beispiel:</p>
-                <div className="row">
-                  {SUGGESTIONS.map((s) => (
-                    <button key={s} className="secondary small" onClick={() => void send(s)}>{s}</button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {messages.map((m) => (
-              <div key={m.id} className={`bubble ${m.role}`}>
-                {m.role === "assistant" ? <Markdown>{m.content}</Markdown> : m.content}
-                <div className="bubble-meta">{formatMessageMeta(m)}</div>
-              </div>
-            ))}
-
-            {busy && (
-              <div className="bubble assistant">
-                <span className="spinner" /> <span className="muted">Ich schaue nach…</span>
-              </div>
-            )}
-
-            {!busy && toolsUsed.length > 0 && (
-              <div className="tools-used">
-                Dafür geprüft: {Array.from(new Set(toolsUsed)).join(", ")}
-              </div>
-            )}
-          </div>
-
-          <div className="chat-input">
-            <textarea
-              placeholder="Was funktioniert gerade nicht? (Enter zum Senden, Shift+Enter für eine neue Zeile)"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={onKeyDown}
-              disabled={busy}
-            />
-            {SpeechRecognitionImpl && (
-              <button
-                type="button"
-                className={`secondary ${recording ? "recording" : ""}`}
-                onClick={toggleVoiceInput}
-                disabled={busy}
-                title={recording ? "Aufnahme stoppen" : "Spracheingabe starten"}
-              >
-                {recording ? "⏹" : "🎤"}
-              </button>
-            )}
-            <button onClick={() => void send(input)} disabled={busy || !input.trim()}>Senden</button>
-          </div>
-        </div>
-      </>
-    );
-  }
-
-  // ----------------------------------------------------------------------------------- new UI
 
   const current = chats.find((c) => c.id === chatId);
   const foreignOwner = isAdmin && current?.userId && me && current.userId !== me.id
