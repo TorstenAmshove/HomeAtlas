@@ -12,7 +12,7 @@ import "./geraete.css";
 
 /**
  * Device list of the redesigned UI (docs/redesign/5-information-architecture.md, area "Geräte",
- * tab "Liste"), shown instead of the classic InventoryPage while `uiCalm` is on.
+ * tab "Liste").
  *
  * Everything that decides what the list shows is in the URL (`q`, `sort`, `status`, `importance`,
  * `kind`, `project`, `parentId`, plus `duplikate=1` for the review panel), so opening a device and

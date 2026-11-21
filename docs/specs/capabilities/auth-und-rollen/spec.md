@@ -198,15 +198,14 @@ Quelle: `frontend/src/App.tsx`, `frontend/src/lib/drafts.ts` (`hasDrafts`), `fro
 ### Requirement: Anmelde- und MFA-Oberfläche (UI)
 Login und MFA-Einrichtung MÜSSEN in beiden Oberflächen dieselben Requests in derselben Reihenfolge
 nutzen (Login → ggf. Codefeld nach `X-HomeAtlas-MFA: required`; `mfa/setup` → `mfa/confirm`); die
-neue Oberfläche (`frontend/src/gates/`) ändert nur die Darstellung. Eingabefelder tragen passende
+Gates (`frontend/src/gates/`) sind nur die Darstellung. Eingabefelder tragen passende
 `autocomplete`-Angaben (`username`, `current-password`, Code: `one-time-code`, `inputmode="numeric"`),
 Fehler erscheinen als Text, „Abmelden“ ist während der MFA-Einrichtung immer erreichbar. Passwort,
 Code und TOTP-Geheimnis DÜRFEN NICHT in `localStorage`/`sessionStorage` abgelegt oder in die Konsole
-geschrieben werden. Vor dem Login wählt die Oberfläche anhand von `uiCalm` aus `GET /api/health` (bzw.
-der Browser-Übersteuerung `?ui=`) zwischen klassischer und neuer Darstellung. **[Muss]**
+geschrieben werden. **[Muss]**
 (Darstellung, Texte: **[Impl]**)
 
-#### Szenario: Falsches Passwort in der neuen Oberfläche
+#### Szenario: Falsches Passwort
 - **WENN** jemand ein falsches Passwort eingibt und mit Enter absendet
 - **DANN** erscheint „Benutzername oder Passwort stimmt nicht.“, das Passwortfeld wird geleert
 
@@ -214,7 +213,7 @@ der Browser-Übersteuerung `?ui=`) zwischen klassischer und neuer Darstellung. *
 - **WENN** ein Benutzer ohne aktiven Faktor „Abmelden“ wählt
 - **DANN** landet er wieder auf dem Login; der Faktor bleibt inaktiv
 
-Quelle: `frontend/src/gates/LoginCalm.tsx`, `frontend/src/gates/MfaEnrollCalm.tsx`, `frontend/src/pages/LoginPage.tsx`, `frontend/src/pages/MfaEnrollPage.tsx`, `frontend/src/App.tsx`, Test: `frontend/e2e/gates-calm.spec.ts::calm gates: login, MFA enrollment and setup with their ways out`
+Quelle: `frontend/src/gates/LoginCalm.tsx`, `frontend/src/gates/MfaEnrollCalm.tsx`, `frontend/src/App.tsx`, Test: `frontend/e2e/smoke.spec.ts::login, MFA enrollment, setup and main routes render without errors`
 
 ### Requirement: Zweiter Faktor ist Pflicht für jede Route
 Jede Route außer der Allowlist MUSS für eine Session, deren Konto keinen aktiven zweiten Faktor hat,
@@ -488,7 +487,7 @@ Aus [data-model](../../contracts/data-model.md):
   `totpEnabled` (0/1), `createdAt`. Öffentlich nur `id, username, role, displayName, totpEnabled, createdAt`.
 - `sessions`: `token`, `userId`, `expiresAt` (geschrieben/gelöscht).
 - `accessLog`: alle Felder (geschrieben, gelesen).
-- `settings`: keine eigenen Keys; `GET /api/health` liest `setupCompleted` und `uiCalm` (siehe
+- `settings`: keine eigenen Keys; `GET /api/health` liest `setupCompleted` (siehe
   [setup-wizard](../setup-wizard/spec.md)).
 
 ## Schnittstellen
@@ -513,9 +512,8 @@ Aus [data-model](../../contracts/data-model.md):
 „Nicht angemeldet.“; fehlende Admin-Rolle → 403. WebSocket-Regel: siehe Requirement oben; die
 Konsolen-Routen selbst gehören zu [remote-admin](../remote-admin/spec.md).
 
-UI-Seite(n): `frontend/src/pages/LoginPage.tsx` (ohne Session, jede Route),
-`frontend/src/pages/MfaEnrollPage.tsx` (solange `totpEnabled` false, jede Route), in der neuen
-Oberfläche stattdessen `frontend/src/gates/LoginCalm.tsx` und `frontend/src/gates/MfaEnrollCalm.tsx`,
+UI-Seite(n): `frontend/src/gates/LoginCalm.tsx` (ohne Session, jede Route),
+`frontend/src/gates/MfaEnrollCalm.tsx` (solange `totpEnabled` false, jede Route),
 `frontend/src/pages/mehr/UsersCalm.tsx` (Route `/benutzer`, ADMIN), `frontend/src/pages/mehr/AccessLogCalm.tsx`
 (Route `/protokoll`, ADMIN), Passwortwechsel + MFA-Status in `frontend/src/pages/SettingsPage.tsx`
 (Route `/einstellungen`, Reiter „Konto“), Gating in `frontend/src/App.tsx`.
@@ -536,7 +534,7 @@ Oberfläche stattdessen `frontend/src/gates/LoginCalm.tsx` und `frontend/src/gat
   `require_admin` (+ Rolle). `backend/app/main.py:77`–`106`.
 - Session-Tokens liegen im Klartext in der DB (Begründung in `db.py`-Schemakommentar zu `apiTokens`).
 - Login-Fehlerunterscheidung über Exception `MfaRequired(wrong_code)`; Frontend erkennt den Fall nur am
-  Header `X-HomeAtlas-MFA: required` (`frontend/src/pages/LoginPage.tsx:22`).
+  Header `X-HomeAtlas-MFA: required` (`frontend/src/gates/LoginCalm.tsx`).
 - Die Richtlinie prüft den NFKC-normalisierten Text, gehasht wird der unnormalisierte.
 - Regel 7 (ein wiederholtes Zeichen) ist praktisch unerreichbar, weil Regel 6 vorher greift; die
   zweite Hälfte der `_OBVIOUS`-Bedingung (`security.py:64`) ist redundant.

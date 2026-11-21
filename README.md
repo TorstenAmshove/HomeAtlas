@@ -374,7 +374,6 @@ Inventar über die Auswahl mehrerer Geräte. Konten, Verlauf und Monitoring wand
 | `HOMEATLAS_KEY_PATH` | `/data/secret.key` | Verschlüsselungsschlüssel (wird automatisch erzeugt) |
 | `HOMEATLAS_OUI_PATH` | `/data/oui.json` | Zwischenspeicher der IEEE-Herstellerdatenbank |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | — | Erstes Konto vorgeben statt generieren lassen |
-| `HOMEATLAS_UI_CALM_DEFAULT` | — | `1` schaltet die neue Oberfläche (Vorschau) ein, solange sie unter *Einstellungen → Allgemein* nie umgeschaltet wurde — gedacht für Test-Instanzen. Ein einzelner Browser wechselt mit `?ui=calm` bzw. `?ui=classic`; nach dem Login gibt es nur noch die neue Oberfläche, der Schalter wirkt nur auf Login, 2FA und Einrichtung |
 | `TZ` | `Europe/Berlin` | Zeitzone für Anzeigen und Protokolle |
 
 Scan-Verhalten (Bereiche, Ausnahmen, Timeouts, welche Quellen aktiv sind, ob die KI mitarbeitet)

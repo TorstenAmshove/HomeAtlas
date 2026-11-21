@@ -6,8 +6,7 @@ import { Skeleton } from "../../components/Skeleton";
 import "./geraete.css";
 
 /**
- * "Netze & WLAN" in the redesigned UI (area "Geräte"), shown instead of the classic NetworksPage
- * while `uiCalm` is on: a calm list per kind, no page title (the tab says it), and an empty state
+ * "Netze & WLAN" in the redesigned UI (area "Geräte"): a calm list per kind, no page title (the tab says it), and an empty state
  * that says what is missing -- these entries only come from a controller account (today UniFi,
  * see pipeline.py → db.sync_network_resources), so an empty page is usually a missing Zugang.
  */

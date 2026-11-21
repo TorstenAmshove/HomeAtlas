@@ -3,9 +3,6 @@ import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import { ApiError, api, type User } from "./lib/api";
 import { clearAllDrafts, hasDrafts } from "./lib/drafts";
 import ConfirmDialog from "./components/ConfirmDialog";
-import LoginPage from "./pages/LoginPage";
-import MfaEnrollPage from "./pages/MfaEnrollPage";
-import SetupPage from "./pages/SetupPage";
 import LoginCalm from "./gates/LoginCalm";
 import MfaEnrollCalm from "./gates/MfaEnrollCalm";
 import SetupCalm from "./gates/SetupCalm";
@@ -24,10 +21,10 @@ import ChatPage from "./pages/ChatPage";
 import SettingsPage from "./pages/SettingsPage";
 import AppShell, { ShellSkeleton } from "./shell/AppShell";
 import { UiContext, type UiState } from "./shell/ui";
-import {
-  consumeUiQueryParam, getLastServerCalm, getThemeMode, getUiOverride, resolveCalm, setLastServerCalm,
-  setThemeModePref, setUiOverride, type ThemeMode, type UiOverride,
-} from "./shell/prefs";
+import { getThemeMode, removeLegacyUiKeys, setThemeModePref, type ThemeMode } from "./shell/prefs";
+
+// Once per page load, not per render. Drops the keys of the removed old-UI switch.
+removeLegacyUiKeys();
 
 interface AuthState {
   user: User | null;
@@ -57,36 +54,18 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [setupCompleted, setSetupCompleted] = useState(true);
 
-  // Which shell to render (docs/redesign/5-information-architecture.md, "Schalter"). With the flag
-  // off and no ?ui=calm override, everything below renders exactly the pre-redesign UI.
-  const [override, setOverrideState] = useState<UiOverride>(() => {
-    consumeUiQueryParam();
-    return getUiOverride();
-  });
-  const [serverCalm, setServerCalm] = useState(getLastServerCalm);
   const [themeMode, setThemeModeState] = useState<ThemeMode>(getThemeMode);
-  const calm = resolveCalm(serverCalm, override);
   const ui: UiState = {
-    calm,
-    serverCalm,
-    setServerCalm: (value) => { setServerCalm(value); setLastServerCalm(value); },
-    override,
-    setOverride: (value) => { setUiOverride(value); setOverrideState(value); },
     themeMode,
     setThemeMode: (value) => { setThemeModePref(value); setThemeModeState(value); },
   };
 
   const refresh = useCallback(async () => {
-    // /api/health is public: its answer (uiCalm included) is applied even when /me says "not logged
-    // in", so the login gate already follows the instance-wide switch, not only the last known value.
-    // Both requests are awaited before `loading` ends: if the login form rendered on the 401 from /me
-    // while health was still open, a late health answer could swap classic and calm login under the
-    // user's fingers (remount, typed input gone).
+    // Both requests are awaited before `loading` ends, so the gates below decide on complete
+    // information (setupCompleted) and never re-render under the user's fingers.
     const [me, health] = await Promise.allSettled([api.me(), api.health()]);
     if (health.status === "fulfilled") {
       setSetupCompleted(health.value.setupCompleted);
-      setServerCalm(Boolean(health.value.uiCalm));
-      setLastServerCalm(Boolean(health.value.uiCalm));
     } else {
       console.error(health.reason);
     }
@@ -113,7 +92,7 @@ export default function App() {
     setUser(null);
   }, []);
 
-  // The logout buttons of both shells ask first when this tab still holds unsaved drafts (doc text,
+  // The logout buttons ask first when this tab still holds unsaved drafts (doc text,
   // notes, chat input): logout clears them (see clearAllDrafts), so leaving must be a choice.
   const [logoutAsk, setLogoutAsk] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -165,32 +144,21 @@ export default function App() {
   );
 
   if (loading) {
-    if (calm) {
-      return (
-        <UiContext.Provider value={ui}>
-          <ShellSkeleton />
-        </UiContext.Provider>
-      );
-    }
     return (
-      <div className="centered">
-        <span className="spinner" />
-      </div>
+      <UiContext.Provider value={ui}>
+        <ShellSkeleton />
+      </UiContext.Provider>
     );
   }
 
-  // The gates (login -> MFA -> setup) render before the app. With the switch on they use the
-  // redesigned versions in gates/; the order and the conditions are the same for both, and the
-  // backend enforces them independently (deps.current_user, POST /api/setup).
+  // The gates (login -> MFA -> setup) render before the app. The backend enforces the same order
+  // independently (deps.current_user, POST /api/setup).
   if (!user) {
-    if (calm) {
-      return (
-        <UiContext.Provider value={ui}>
-          <LoginCalm onLoggedIn={() => void refresh()} />
-        </UiContext.Provider>
-      );
-    }
-    return <LoginPage onLoggedIn={() => void refresh()} />;
+    return (
+      <UiContext.Provider value={ui}>
+        <LoginCalm onLoggedIn={() => void refresh()} />
+      </UiContext.Provider>
+    );
   }
 
   const isAdmin = user.role === "ADMIN";
@@ -202,7 +170,7 @@ export default function App() {
     return (
       <AuthContext.Provider value={{ user, isAdmin, setUser, logout }}>
         <UiContext.Provider value={ui}>
-          {calm ? <MfaEnrollCalm onDone={() => void refresh()} /> : <MfaEnrollPage onDone={() => void refresh()} />}
+          <MfaEnrollCalm onDone={() => void refresh()} />
         </UiContext.Provider>
       </AuthContext.Provider>
     );
@@ -214,7 +182,7 @@ export default function App() {
     return (
       <AuthContext.Provider value={{ user, isAdmin, setUser, logout }}>
         <UiContext.Provider value={ui}>
-          {calm ? <SetupCalm onDone={() => void refresh()} /> : <SetupPage onDone={() => void refresh()} />}
+          <SetupCalm onDone={() => void refresh()} />
         </UiContext.Provider>
       </AuthContext.Provider>
     );

@@ -13,7 +13,7 @@ import "./shell.css";
 import "./hilfe.css";
 
 /**
- * The redesigned app frame (docs/redesign/5-information-architecture.md), shown when `uiCalm` is on.
+ * The redesigned app frame (docs/redesign/5-information-architecture.md).
  * Everything in the menu comes from nav/config.ts: the sidebar (desktop) and the bottom bar (phone)
  * list the areas, the active area's tabs sit in the top bar. It renders the same page components
  * as the old frame; it only changes what is around them.

@@ -1,8 +1,8 @@
 /* The redesigned gates (login, MFA enrollment, setup wizard), direction B.
  *
  * The gates render before the app, outside `.app-shell`, so they carry their own root class and every
- * rule here is scoped to `body:has(.gate-shell)` / `.gate-shell`: the classic gates (no .gate-shell in
- * the page) look exactly as before. The token values are the shell's (shell/shell.css, table in
+ * rule here is scoped to `body:has(.gate-shell)` / `.gate-shell`: nothing else in the
+ * page is touched. The token values are the shell's (shell/shell.css, table in
  * docs/redesign/5-information-architecture.md); the old variable names are re-pointed the same way,
  * so shared building blocks such as ConfirmDialog look right here too. */
 

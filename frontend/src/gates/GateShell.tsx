@@ -7,7 +7,7 @@ import "./gates.css";
  * Frame of the redesigned gates (login, MFA enrollment, setup wizard; PR 7 of
  * docs/redesign/5-information-architecture.md). They run before the app, so they are not inside
  * `.app-shell`: their tokens live in gates.css under `body:has(.gate-shell)`, with the same values
- * as the shell, and the classic gates (no `.gate-shell` in the page) look exactly as before.
+ * as the shell.
  *
  * Light/dark follows the same per-browser preference as the shell (`shell/prefs.ts`, "System"
  * unless chosen otherwise). Only the logo and "HomeAtlas" are shown: the household name is not

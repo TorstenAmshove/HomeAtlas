@@ -4,7 +4,7 @@ import { ArrowLeft, ChevronRight } from "lucide-react";
 import { api, type ApiToken, type ModelOption, type NetworkResource, type PasswordPolicy, type SettingsResponse } from "../lib/api";
 import { useAuth } from "../App";
 import { useUi } from "../shell/ui";
-import type { ThemeMode, UiOverride } from "../shell/prefs";
+import type { ThemeMode } from "../shell/prefs";
 import ConfirmDialog from "../components/ConfirmDialog";
 import OverflowMenu from "../components/OverflowMenu";
 import { Skeleton, SkeletonText } from "../components/Skeleton";
@@ -29,18 +29,18 @@ const validCidr = (value: unknown): value is string =>
 
 type Tab = "general" | "llm" | "scan" | "monitor" | "mcp" | "account" | "display" | "about";
 
-/** Form keys that are not "unsaved changes": the switch saves itself, the model cache is server data. */
-const NOT_DIRTY = new Set(["uiCalm", "providerModelCache"]);
+/** Form keys that are not "unsaved changes": the model cache is server data. */
+const NOT_DIRTY = new Set(["providerModelCache"]);
 
 /** One line per tab for the phone's list (new UI). */
 const TAB_HINT: Record<Tab, string> = {
-  general: "Name des Zuhauses, neue Oberfläche",
+  general: "Name des Zuhauses",
   llm: "Anbieter, Modell, Verbindung testen",
   scan: "Bereiche, Quellen, Standard-Zugang",
   monitor: "Dauerüberwachung, DNS-Test",
   mcp: "Zugang für externe Programme",
   account: "Passwort, Zwei-Faktor-Anmeldung",
-  display: "Hell/Dunkel, Oberfläche in diesem Browser",
+  display: "Hell/Dunkel in diesem Browser",
   about: "Version und Build",
 };
 
@@ -48,12 +48,11 @@ const TAB_HINT: Record<Tab, string> = {
  * Tabs: the open tab is in `?tab=` in both UIs, so Back and reload land on it (forensics
  * "Einstellungen" 1). In the new UI the page has its own layout: a tab list on the left (desktop),
  * a list -> sub-page on the phone, a warning before switching tabs or leaving with unsaved changes,
- * and "Token widerrufen" under "⋯" with a review step. Classic rendering is otherwise unchanged.
+ * and "Token widerrufen" under "⋯" with a review step.
  */
 
 export default function SettingsPage() {
   const { isAdmin, user } = useAuth();
-  const ui = useUi();
   const navigate = useNavigate();
   const location = useLocation();
   const [tabParam, setTabParam] = useUrlState("tab");
@@ -136,33 +135,11 @@ export default function SettingsPage() {
   async function save(patch: Record<string, any>) {
     setBusy("save");
     try {
-      // The new-UI switch has its own save (saveUiCalm). A whole-form save must not send the value
-      // read at page load: it could overwrite a change another admin made in the meantime.
-      const body = { ...patch };
-      delete body.uiCalm;
-      const { settings } = await api.updateSettings(body);
+      const { settings } = await api.updateSettings(patch);
       setForm(settings);
       setSaved(settings);
       setEditedTab(null);
       setNotice({ kind: "ok", text: "Gespeichert." });
-    } catch (e) {
-      setNotice({ kind: "error", text: e instanceof Error ? e.message : String(e) });
-    } finally {
-      setBusy("");
-    }
-  }
-
-  // The instance-wide switch for the redesigned shell. Applied right away (no separate save), and
-  // switching back is the same one click.
-  async function saveUiCalm(value: boolean) {
-    setBusy("ui");
-    setNotice(null);
-    try {
-      const { settings } = await api.updateSettings({ uiCalm: value });
-      // Only the switch itself: replacing the whole form would drop unsaved edits (e.g. homeName).
-      setForm((current) => ({ ...current, uiCalm: settings.uiCalm }));
-      setSaved((current) => ({ ...current, uiCalm: settings.uiCalm }));
-      ui.setServerCalm(Boolean(settings.uiCalm));
     } catch (e) {
       setNotice({ kind: "error", text: e instanceof Error ? e.message : String(e) });
     } finally {
@@ -232,25 +209,6 @@ export default function SettingsPage() {
           <button onClick={() => void save({ homeName: form.homeName })} disabled={busy !== ""}>
             Speichern
           </button>
-
-          <h3 style={{ marginTop: 26 }}>Neue Oberfläche (Vorschau)</h3>
-          <label className="row" style={{ cursor: "pointer", fontWeight: 400, color: "var(--text)" }}>
-            <input type="checkbox" style={{ width: "auto" }} checked={Boolean(form.uiCalm)}
-                   disabled={busy !== ""} onChange={(e) => void saveUiCalm(e.target.checked)} />
-            Neue Oberfläche für alle einschalten
-          </label>
-          <div className="field-hint">
-            Ruhigeres Menü mit Suche (Strg+K), Handy-Leiste unten und Dunkelmodus. Die Seiten selbst
-            bleiben vorerst gleich. Gilt sofort für alle; Zurückschalten ist derselbe Klick. Nur in
-            diesem Browser ausprobieren: Adresse mit <span className="mono">?ui=calm</span> öffnen
-            (zurück mit <span className="mono">?ui=classic</span>).
-          </div>
-          {ui.override && (
-            <div className="field-hint">
-              Dieser Browser zeigt unabhängig davon immer die {ui.override === "calm" ? "neue" : "bisherige"} Oberfläche.{" "}
-              <a href="#" onClick={(e) => { e.preventDefault(); ui.setOverride(null); }}>Wieder der Einstellung folgen</a>
-            </div>
-          )}
         </div>
       )}
 
@@ -911,7 +869,7 @@ function AccountTab({ username, totpEnabled, onDirtyChange }: {
   );
 }
 
-/** Zwei-Faktor-Anmeldung ist inzwischen Pflicht (siehe MfaEnrollPage) -- die Einrichtung passiert
+/** Zwei-Faktor-Anmeldung ist inzwischen Pflicht (siehe MfaEnrollCalm) -- die Einrichtung passiert
  *  dort direkt nach dem Login, nicht mehr hier. Diese Karte zeigt nur noch den Status; es gibt
  *  bewusst keine Selbstabschaltung mehr, nur ein Administrator kann sie zurücksetzen
  *  (Benutzerverwaltung), damit ein gestohlenes Passwort allein sie nicht aushebeln kann. */
@@ -941,32 +899,17 @@ const THEME_OPTIONS: [ThemeMode, string, string][] = [
 /** Per-browser display choices (localStorage, see shell/prefs.ts); visible to every role. */
 function DisplayTab() {
   const ui = useUi();
-  const overrideOptions: [UiOverride, string][] = [
-    [null, ui.serverCalm ? "Wie für alle eingestellt (neu)" : "Wie für alle eingestellt (bisherige)"],
-    ["calm", "Immer die neue Oberfläche"],
-    ["classic", "Immer die bisherige Oberfläche"],
-  ];
   return (
     <div className="card">
       <h2>Darstellung</h2>
       <p className="muted" style={{ marginTop: 0 }}>Gilt nur für diesen Browser.</p>
-      <fieldset style={{ border: 0, padding: 0, margin: "0 0 18px" }}>
+      <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
         <legend style={{ fontWeight: 600, marginBottom: 8 }}>Farbmodus</legend>
         {THEME_OPTIONS.map(([value, label, hint]) => (
           <label key={value} className="row" style={{ cursor: "pointer", fontWeight: 400, color: "var(--text)", alignItems: "flex-start", flexWrap: "nowrap", marginBottom: 10 }}>
             <input type="radio" name="theme-mode" style={{ width: "auto", marginTop: 5 }}
                    checked={ui.themeMode === value} onChange={() => ui.setThemeMode(value)} />
             <span>{label}<span className="field-hint" style={{ display: "block", marginTop: 0 }}>{hint}</span></span>
-          </label>
-        ))}
-      </fieldset>
-      <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
-        <legend style={{ fontWeight: 600, marginBottom: 8 }}>Oberfläche</legend>
-        {overrideOptions.map(([value, label]) => (
-          <label key={value ?? "server"} className="row" style={{ cursor: "pointer", fontWeight: 400, color: "var(--text)", marginBottom: 10 }}>
-            <input type="radio" name="ui-override" style={{ width: "auto" }}
-                   checked={ui.override === value} onChange={() => ui.setOverride(value)} />
-            {label}
           </label>
         ))}
       </fieldset>

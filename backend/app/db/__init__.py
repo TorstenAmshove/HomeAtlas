@@ -39,14 +39,11 @@ from ._core import (  # noqa: E402
 )
 from .settings import (  # noqa: E402
     DEFAULT_SETTINGS,
-    UI_CALM_DEFAULT_ENV,
-    UI_CALM_KEY,
     _SETTINGS_KEY,
     get_settings,
     redact_tool_messages,
     rewrite_doc_bodies,
     strip_probe_facts,
-    ui_calm,
     update_settings,
 )
 from .users import (  # noqa: E402
@@ -190,8 +187,6 @@ __all__ = [
     "DB_PATH",
     "_ERROR_EVENT_KEEP",
     "DEFAULT_SETTINGS",
-    "UI_CALM_DEFAULT_ENV",
-    "UI_CALM_KEY",
     "_ACCESS_LOG_KEEP",
     "_ADDED_COLUMNS",
     "_ASSIGNMENT_TARGET_TYPES",
@@ -317,7 +312,6 @@ __all__ = [
     "update_account",
     "update_network_resource_manual",
     "update_scan",
-    "ui_calm",
     "update_settings",
     "update_system",
     "update_user",

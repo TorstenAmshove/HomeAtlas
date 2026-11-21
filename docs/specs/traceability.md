@@ -43,7 +43,7 @@ Lücken: **0**
 | `GET /api/docs/{slug}/versions` | [dokumentation](capabilities/dokumentation/spec.md) |
 | `GET /api/docs/{slug}/versions/{version_id}` | [dokumentation](capabilities/dokumentation/spec.md) |
 | `POST /api/docs/{slug}/versions/{version_id}/restore` | [dokumentation](capabilities/dokumentation/spec.md) |
-| `GET /api/health` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md) |
+| `GET /api/health` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md) |
 | `MOUNT /api/mcp` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `GET /api/monitor` | [inventar](capabilities/inventar/spec.md), [monitoring](capabilities/monitoring/spec.md) |
 | `POST /api/monitor/run` | [inventar](capabilities/inventar/spec.md), [monitoring](capabilities/monitoring/spec.md) |
@@ -141,16 +141,13 @@ Lücken: **0**
 | `http_check` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [diagnose](capabilities/diagnose/spec.md) |
 | `traceroute` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [diagnose](capabilities/diagnose/spec.md) |
 
-## Seiten (6)
+## Seiten (3)
 
 | Eintrag | Spec |
 |---|---|
 | `ChatPage` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `DocsPage` | [dokumentation](capabilities/dokumentation/spec.md) |
-| `LoginPage` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
-| `MfaEnrollPage` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
 | `SettingsPage` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [diagnose](capabilities/diagnose/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md), [monitoring](capabilities/monitoring/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) |
-| `SetupPage` | [setup-wizard](capabilities/setup-wizard/spec.md) |
 
 ## ADRs in der Constitution (11)
 

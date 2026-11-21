@@ -1,17 +1,23 @@
 import { expect, test, type ConsoleMessage, type Page } from "@playwright/test";
-import { CALM_PASSWORD, CALM_USERNAME, PASSWORD, USERNAME, totp } from "./helpers";
+import { PASSWORD, USERNAME, freshTotp, totp } from "./helpers";
 
 // Browser smoke test for the built images (issue #32). It exists so that a dependency update that
 // still type-checks and builds, but breaks rendering at runtime (white page), fails CI before
-// Renovate auto-merges it. Walks a fresh backend through the same gating sequence a real first
-// run takes (login -> MFA enrollment -> setup wizard -> app) and then renders a few routes,
-// including a Markdown doc page (react-markdown + remark-gfm).
+// Renovate auto-merges it. Walks a fresh backend through the gating sequence a real first run takes
+// (login -> MFA enrollment -> setup wizard -> app), then renders a few routes, including a Markdown
+// doc page (react-markdown + remark-gfm), and logs out.
 //
-// Any console error or uncaught page error fails the test. The single expected one is the 401
-// from /api/auth/me before anyone is logged in -- App.tsx treats that as "show the login page".
+// Besides the happy path it checks the ways out and the error texts of the gates: a wrong password
+// and a wrong code show an error, "Abmelden" works in MFA and in setup, a reload keeps the wizard's
+// entries -- and neither a password nor the TOTP secret ever lands in browser storage.
+//
+// Any console error or uncaught page error fails the test, except the expected 400/401 answers of
+// this walk-through (/api/auth/me before login, a wrong password or code).
 
-function isExpected401(msg: ConsoleMessage): boolean {
-  return /status of 401/.test(msg.text()) && /\/api\/auth\/me$/.test(msg.location().url);
+function isExpected(msg: ConsoleMessage): boolean {
+  const url = msg.location().url;
+  if (!/status of (400|401)/.test(msg.text())) return false;
+  return /\/api\/auth\/me$/.test(url) || /\/api\/auth\/login$/.test(url) || /\/api\/auth\/mfa\/confirm$/.test(url);
 }
 
 // Module-level so the afterEach hook can report them: a render crash usually surfaces first as a
@@ -20,11 +26,19 @@ const errors: string[] = [];
 
 function collectErrors(page: Page): void {
   page.on("console", (msg) => {
-    if (msg.type() === "error" && !isExpected401(msg)) {
+    if (msg.type() === "error" && !isExpected(msg)) {
       errors.push(`console: ${msg.text()} (${msg.location().url})`);
     }
   });
   page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
+}
+
+/** Everything this origin keeps in browser storage, as one string to search in. */
+async function storageDump(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const dump = (s: Storage) => Array.from({ length: s.length }, (_, i) => `${s.key(i)}=${s.getItem(s.key(i)!)}`).join("\n");
+    return `${dump(window.sessionStorage)}\n${dump(window.localStorage)}`;
+  });
 }
 
 test.afterEach(async ({}, testInfo) => {
@@ -38,27 +52,153 @@ test("login, MFA enrollment, setup and main routes render without errors", async
   expect(PASSWORD, "SMOKE_ADMIN_PASSWORD must be set").not.toBe("");
   collectErrors(page);
 
-  await test.step("login page", async () => {
+  const gate = page.locator(".gate-shell");
+  const alert = gate.getByRole("alert");
+  const username = gate.getByLabel("Benutzername");
+  const password = gate.getByLabel("Passwort", { exact: true });
+  let secret = "";
+  let enrolledAt = 0; // when the enrollment code was computed: its 30 s window is used up
+  let setupPosts = 0;
+  page.on("request", (req) => {
+    if (req.method() === "POST" && /\/api\/setup$/.test(req.url())) setupPosts += 1;
+  });
+
+  async function login() {
+    await username.fill(USERNAME);
+    await password.fill(PASSWORD);
+    await password.press("Enter");
+  }
+
+  await test.step("login: wrong password, show/hide, Enter submits", async () => {
     await page.goto("/");
-    await page.getByLabel("Benutzername").fill(USERNAME);
-    await page.getByLabel("Passwort").fill(PASSWORD);
-    await page.getByRole("button", { name: "Anmelden" }).click();
+    await expect(gate).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Anmelden" })).toBeVisible();
+    await expect(username).toHaveAttribute("autocomplete", "username");
+    await expect(password).toHaveAttribute("autocomplete", "current-password");
+
+    await username.fill(USERNAME);
+    await password.fill("ganz-falsches-Passwort-1");
+    await gate.getByRole("button", { name: "Passwort anzeigen" }).click();
+    await expect(password).toHaveAttribute("type", "text");
+    await gate.getByRole("button", { name: "Passwort verbergen" }).click();
+    await expect(password).toHaveAttribute("type", "password");
+    await password.press("Enter");
+    await expect(alert).toContainText("stimmt nicht");
+    await expect(password).toHaveValue("");
+
+    await password.fill(PASSWORD);
+    await password.press("Enter");
+    await expect(page.getByRole("heading", { name: "Zwei-Faktor-Anmeldung einrichten" })).toBeVisible();
   });
 
-  await test.step("MFA enrollment", async () => {
-    await page.getByRole("button", { name: "Einrichtung starten" }).click();
-    const secret = (await page.locator("code.mono").first().innerText()).trim();
+  await test.step("MFA: Abmelden is a way out", async () => {
+    await gate.getByRole("button", { name: "Abmelden" }).click();
+    await expect(page.getByRole("heading", { name: "Anmelden" })).toBeVisible();
+    await login();
+    await expect(page.getByRole("heading", { name: "Zwei-Faktor-Anmeldung einrichten" })).toBeVisible();
+  });
+
+  await test.step("MFA: wrong code, then enrollment", async () => {
+    await gate.getByRole("button", { name: "Einrichtung starten" }).click();
+    await expect(gate.locator(".gate-qr svg")).toBeVisible();
+    secret = (await gate.locator(".gate-secret").innerText()).replace(/\s/g, "");
     expect(secret).toMatch(/^[A-Z2-7]+=*$/);
-    await page.getByPlaceholder("6-stellig").fill(totp(secret));
-    await page.getByRole("button", { name: "Aktivieren" }).click();
+    expect(await storageDump(page)).not.toContain(secret);
+
+    const code = gate.getByLabel("Code aus der Authenticator-App");
+    await expect(code).toHaveAttribute("inputmode", "numeric");
+    await expect(code).toHaveAttribute("autocomplete", "one-time-code");
+    const valid = [-30_000, 0, 30_000].map((d) => totp(secret, Date.now() + d));
+    const wrong = ["000000", "111111", "222222", "333333"].find((c) => !valid.includes(c))!;
+    await code.fill(wrong);
+    await code.press("Enter");
+    await expect(alert).toContainText("stimmt nicht");
+
+    enrolledAt = Date.now();
+    await code.fill(totp(secret, enrolledAt));
+    await gate.getByRole("button", { name: "Aktivieren" }).click();
+    await expect(page.getByRole("heading", { name: "Willkommen bei HomeAtlas" })).toBeVisible();
   });
 
-  await test.step("setup wizard", async () => {
-    await expect(page.getByRole("heading", { name: /Willkommen bei HomeAtlas/ })).toBeVisible();
-    await page.getByLabel("Wie soll dein Zuhause heißen?").fill("Smoke-Test-Zuhause");
-    await page.getByRole("button", { name: "Weiter", exact: true }).click();
-    await page.getByRole("button", { name: "Weiter", exact: true }).click();
-    await page.getByRole("button", { name: /Fertig/ }).click();
+  await test.step("setup: Abmelden asks, can be cancelled, and logs out", async () => {
+    await gate.getByLabel("Wie soll dein Zuhause heißen?").fill("Smoke-Test-Zuhause");
+    await gate.getByRole("button", { name: "Abmelden" }).click();
+    await expect(page.getByRole("alertdialog", { name: "Abmelden?" })).toBeVisible();
+    await page.getByRole("button", { name: "Angemeldet bleiben" }).click();
+    await expect(gate.getByLabel("Wie soll dein Zuhause heißen?")).toHaveValue("Smoke-Test-Zuhause");
+
+    await gate.getByRole("button", { name: "Abmelden" }).click();
+    await page.getByRole("button", { name: "Trotzdem abmelden" }).click();
+    await expect(page.getByRole("heading", { name: "Anmelden" })).toBeVisible();
+    expect(await storageDump(page)).not.toContain("Smoke-Test-Zuhause");
+
+    // Back in: the factor is active now, so the code field appears. The enrollment code's time step
+    // is used up (codes are single-use), so wait for the next window and use its current code.
+    await login();
+    const code = gate.getByLabel("Code aus der Authenticator-App");
+    await code.fill(await freshTotp(secret, enrolledAt));
+    await code.press("Enter");
+    await expect(page.getByRole("heading", { name: "Willkommen bei HomeAtlas" })).toBeVisible();
+    await expect(gate.getByLabel("Wie soll dein Zuhause heißen?")).toHaveValue("Mein Zuhause");
+  });
+
+  await test.step("setup: entries survive a reload, passwords are never stored", async () => {
+    await expect(gate.locator('.gate-steps [aria-current="step"]')).toContainText("Zuhause");
+    await gate.getByLabel("Wie soll dein Zuhause heißen?").fill("Smoke-Test-Zuhause");
+    await gate.getByLabel("Wie soll dein Zuhause heißen?").press("Enter");
+    await expect(page.getByRole("heading", { name: "Die wichtigsten Geräte" })).toBeVisible();
+    await gate.getByLabel("Name", { exact: true }).fill("Setup-Router");
+    await gate.getByLabel("Passwort (optional)").fill("Router-Geheim-42");
+
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Die wichtigsten Geräte" })).toBeVisible();
+    await expect(gate.getByLabel("Name", { exact: true })).toHaveValue("Setup-Router");
+    await expect(gate.getByLabel("Passwort (optional)")).toHaveValue("");
+    await expect(gate.getByText("Passwörter und Notizen werden aus Sicherheitsgründen nicht zwischengespeichert")).toBeVisible();
+    const stored = await storageDump(page);
+    expect(stored).toContain("Setup-Router");
+    expect(stored).not.toContain("Router-Geheim-42");
+    expect(stored).not.toContain(secret);
+    expect(stored).not.toContain(PASSWORD);
+
+    await gate.getByRole("button", { name: "Zurück" }).click();
+    await expect(gate.getByLabel("Wie soll dein Zuhause heißen?")).toHaveValue("Smoke-Test-Zuhause");
+    await gate.getByRole("button", { name: "Weiter", exact: true }).click();
+    await gate.getByRole("button", { name: "Weiter", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Wichtige Konten" })).toBeVisible();
+    await gate.getByLabel("Passwort", { exact: true }).fill("Konto-Geheim-7");
+    await gate.getByLabel("Benutzername / Kundennummer").fill("Kunde-4711");
+    await gate.getByLabel("Notiz (optional)").fill("Hotline 0800 123");
+    const typed = await storageDump(page);
+    expect(typed).not.toContain("Konto-Geheim-7");
+    expect(typed).not.toContain("Hotline 0800 123");
+
+    // Notes are dropped on reload like passwords (people put access hints there); the user name stays.
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Wichtige Konten" })).toBeVisible();
+    await expect(gate.getByLabel("Notiz (optional)")).toHaveValue("");
+    await expect(gate.getByLabel("Passwort", { exact: true })).toHaveValue("");
+    await expect(gate.getByLabel("Benutzername / Kundennummer")).toHaveValue("Kunde-4711");
+    await expect(gate.getByText("Passwörter und Notizen werden aus Sicherheitsgründen nicht zwischengespeichert")).toBeVisible();
+    expect(await storageDump(page)).not.toContain("Hotline 0800 123");
+  });
+
+  await test.step("setup: a double click on Weiter does not finish the setup", async () => {
+    await gate.getByRole("button", { name: "Zurück" }).click();
+    await expect(page.getByRole("heading", { name: "Die wichtigsten Geräte" })).toBeVisible();
+    await gate.getByRole("button", { name: "Weiter", exact: true }).dblclick();
+    await expect(page.getByRole("heading", { name: "Wichtige Konten" })).toBeVisible();
+    await expect(gate.getByRole("button", { name: /Fertig/ })).toBeVisible();
+    expect(setupPosts).toBe(0);
+  });
+
+  await test.step("setup done: the Start page", async () => {
+    // A double click on "Fertig" sends POST /api/setup once (busy/disabled guard).
+    await gate.getByRole("button", { name: /Fertig/ }).dblclick();
+    await expect(page.locator(".app-shell")).toBeVisible();
+    expect(setupPosts).toBe(1);
+    await expect(page.locator("#start-hero-title")).toBeVisible();
+    expect(await storageDump(page)).not.toContain("Setup-Router");
   });
 
   await test.step("dashboard", async () => {
@@ -83,13 +223,13 @@ test("login, MFA enrollment, setup and main routes render without errors", async
       await page.goto(path);
       await expect(page).toHaveURL(new RegExp(`${path}$`));
       await expect(page.locator(".app-shell")).toBeVisible();
-      await expect(page.locator("main h1, main h2").first()).toBeVisible();
+      await expect(page.locator("main h1, main h2, main .inv-list").first()).toBeVisible();
     }
     await page.locator(".app-shell").getByRole("link", { name: "Geräte", exact: true }).first().click();
     await expect(page).toHaveURL(/\/geraete$/);
   });
 
-  await test.step("new UI: Hilfe opens the assistant first", async () => {
+  await test.step("Hilfe opens the assistant first", async () => {
     await page.goto("/");
     await page.locator(".shell-side").getByRole("link", { name: "Hilfe", exact: true }).click();
     await expect(page).toHaveURL(/\/assistent$/);
@@ -109,7 +249,7 @@ test("login, MFA enrollment, setup and main routes render without errors", async
     await page.setViewportSize({ width: 1280, height: 720 });
   });
 
-  await test.step("new UI: assistant creates no empty conversation and deletes with confirmation", async () => {
+  await test.step("assistant creates no empty conversation and deletes with confirmation", async () => {
     const count = async () => ((await (await page.request.get("/api/chats")).json()) as { chats: unknown[] }).chats.length;
     const before = await count();
     const created = await page.request.post("/api/chats", { data: {} });
@@ -141,7 +281,7 @@ test("login, MFA enrollment, setup and main routes render without errors", async
     await expect(page).not.toHaveURL(new RegExp(chatId));
   });
 
-  await test.step("new UI: device search survives opening a device and Back", async () => {
+  await test.step("device search survives opening a device and Back", async () => {
     // A fresh backend has no devices; one created through the API is enough for the list.
     const created = await page.request.post("/api/systems", { data: { name: "Smoke-NAS", kind: "nas", ip: "192.0.2.10" } });
     expect(created.ok()).toBe(true);
@@ -197,7 +337,7 @@ test("login, MFA enrollment, setup and main routes render without errors", async
     await expect(page).not.toHaveURL(/subnet=/);
   });
 
-  await test.step("new UI: the device selection follows the visible list", async () => {
+  await test.step("the device selection follows the visible list", async () => {
     // Two selected, search hides one: the count drops to 1 and "Löschen …" names only the visible one.
     const created = await page.request.post("/api/systems", { data: { name: "Smoke-Drucker", kind: "printer", ip: "192.0.2.11" } });
     expect(created.ok()).toBe(true);
@@ -221,7 +361,7 @@ test("login, MFA enrollment, setup and main routes render without errors", async
     }
   });
 
-  await test.step("new UI: chat text typed while the conversations load is kept", async () => {
+  await test.step("chat text typed while the conversations load is kept", async () => {
     const created = await page.request.post("/api/chats", { data: {} });
     expect(created.ok()).toBe(true);
     const chatId = ((await created.json()) as { chat: { id: string } }).chat.id;
@@ -252,7 +392,7 @@ test("login, MFA enrollment, setup and main routes render without errors", async
     }
   });
 
-  await test.step("new UI: a doc draft survives switching chapters", async () => {
+  await test.step("a doc draft survives switching chapters", async () => {
     await page.goto("/dokumentation");
     const chapters = page.locator("a.docs-toc-link");
     await expect(chapters.nth(1)).toBeVisible();
@@ -277,7 +417,7 @@ test("login, MFA enrollment, setup and main routes render without errors", async
     await page.locator(".docs-actions").getByRole("button", { name: "Abbrechen" }).click();
   });
 
-  await test.step("new UI: device tab and edit draft survive reload and Back", async () => {
+  await test.step("device tab and edit draft survive reload and Back", async () => {
     const list = await page.request.get("/api/systems");
     const device = ((await list.json()).systems as { id: string; name: string }[]).find((s) => s.name === "Smoke-NAS");
     expect(device, "Smoke-NAS from the device-search step").toBeTruthy();
@@ -301,21 +441,34 @@ test("login, MFA enrollment, setup and main routes render without errors", async
     await expect(page.locator("#device-name")).toHaveCount(0);
   });
 
-  await test.step("?ui=classic after login still shows the new shell", async () => {
+  await test.step("keys of the removed UI switch are cleaned up and ?ui=classic changes nothing", async () => {
+    await page.evaluate(() => {
+      window.localStorage.setItem("homeatlas.ui", "classic");
+      window.localStorage.setItem("homeatlas.uiServer", "0");
+    });
     await page.goto("/?ui=classic");
     await expect(page.locator(".app-shell")).toBeVisible();
+    const stored = await storageDump(page);
+    expect(stored).not.toContain("homeatlas.ui=");
+    expect(stored).not.toContain("homeatlas.uiServer");
   });
 
-  await test.step("hand-over to gates-calm.spec.ts", async () => {
-    // The calm gates test runs after this one (playwright.config.ts, project dependency) against the
-    // same backend. It needs an admin that has not enrolled MFA yet and an open setup, so both are
-    // prepared here through the regular admin API.
-    const created = await page.request.post("/api/users", {
-      data: { username: CALM_USERNAME, password: CALM_PASSWORD, role: "ADMIN", displayName: "Calm-Test" },
-    });
-    expect(created.ok(), await created.text()).toBe(true);
-    const reopened = await page.request.patch("/api/settings", { data: { setupCompleted: false } });
-    expect(reopened.ok()).toBe(true);
+  await test.step("settings: Darstellung is there without the UI switch", async () => {
+    await page.goto("/einstellungen?tab=display");
+    await expect(page.getByText("Farbmodus")).toBeVisible();
+    await expect(page.getByText("Immer die bisherige Oberfläche")).toHaveCount(0);
+    await page.goto("/einstellungen?tab=general");
+    await expect(page.getByText("Neue Oberfläche")).toHaveCount(0);
+  });
+
+  await test.step("logout", async () => {
+    await page.goto("/");
+    await page.locator(".shell-side").getByRole("button", { name: "Abmelden" }).click();
+    // Logout asks first while this tab still holds drafts (e.g. the wizard's); confirm if it does.
+    const confirm = page.getByRole("button", { name: "Trotzdem abmelden" });
+    if (await confirm.isVisible().catch(() => false)) await confirm.click();
+    await expect(page.getByRole("heading", { name: "Anmelden" })).toBeVisible();
+    expect(await storageDump(page)).not.toContain(PASSWORD);
   });
 
   expect(errors).toEqual([]);

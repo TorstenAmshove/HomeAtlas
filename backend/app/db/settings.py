@@ -4,7 +4,6 @@ chatMessages, systems); they stay here with the settings they migrate for."""
 from __future__ import annotations
 
 import json
-import os
 from typing import Any
 from ._core import _conn, _dump
 
@@ -66,13 +65,6 @@ DEFAULT_SETTINGS: dict[str, Any] = {
 
 _SETTINGS_KEY = "app"
 
-# The redesigned shell (docs/redesign/5-information-architecture.md, "Schalter"). Deliberately NOT
-# in DEFAULT_SETTINGS: update_settings writes the merged document back, so a default there would be
-# stored by the first unrelated save (the setup wizard, say) and the env fallback below would stop
-# applying. Absent from the stored document = "never set", and only then does the env var count.
-UI_CALM_KEY = "uiCalm"
-UI_CALM_DEFAULT_ENV = "HOMEATLAS_UI_CALM_DEFAULT"
-
 
 def get_settings() -> dict:
     with _conn() as conn:
@@ -84,15 +76,6 @@ def get_settings() -> dict:
         except json.JSONDecodeError:
             stored = {}
     return {**DEFAULT_SETTINGS, **stored}
-
-
-def ui_calm(settings: dict | None = None) -> bool:
-    """Whether the new UI shell is on for this instance. A stored `uiCalm` wins; while it was never
-    set, `HOMEATLAS_UI_CALM_DEFAULT=1` (or true/yes/on) turns it on, e.g. for a test instance."""
-    current = get_settings() if settings is None else settings
-    if UI_CALM_KEY in current:
-        return bool(current[UI_CALM_KEY])
-    return os.environ.get(UI_CALM_DEFAULT_ENV, "").strip().lower() in ("1", "true", "yes", "on")
 
 
 # --------------------------------------------------------------------------------------------

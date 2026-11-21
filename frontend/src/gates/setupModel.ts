@@ -1,8 +1,7 @@
 import { readDraft, writeDraft } from "../lib/drafts";
 
 /**
- * What the first-run wizard asks for, shared by the classic `pages/SetupPage.tsx` and the
- * redesigned `gates/SetupCalm.tsx` so both send the same body to `POST /api/setup`.
+ * What the first-run wizard asks for, used by `gates/SetupCalm.tsx`, which sends it to `POST /api/setup`.
  */
 
 export interface SystemDraft {
