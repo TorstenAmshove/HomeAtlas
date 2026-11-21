@@ -69,11 +69,11 @@ Quelle: `backend/app/main.py:1501`, `backend/app/db.py:1992`
 Die Oberfläche MUSS die unversandte Eingabe je Unterhaltung im `sessionStorage` des Browser-Tabs
 halten, damit sie einen Seitenwechsel und Neuladen übersteht; Senden leert sie, ein gescheitertes
 Senden legt den Text in den Entwurf der Unterhaltung zurück, an die er ging, und ins Eingabefeld nur,
-wenn diese Unterhaltung noch offen ist. Gilt in alter und neuer Oberfläche. In der neuen Oberfläche (`uiCalm`)
+wenn diese Unterhaltung noch offen ist. Dazu
 MUSS die geöffnete Unterhaltung in der URL stehen (`/assistent/:chatId`): Wählen oder Anlegen einer
 Unterhaltung navigiert dorthin, Zurück und Neuladen landen in derselben. `/assistent` öffnet die
 neueste Unterhaltung; eine unbekannte oder fremde ID fällt ohne Fehlermeldung auf die neueste (bzw.
-den leeren Zustand) zurück. „Neue Unterhaltung“ öffnet in der neuen Oberfläche `/assistent/neu`, einen
+den leeren Zustand) zurück. „Neue Unterhaltung“ öffnet `/assistent/neu`, einen
 lokalen leeren Zustand: Das System legt erst mit der ersten gesendeten Frage eine Unterhaltung an (die URL
 wechselt dann per `replace` auf deren ID), ohne Frage bleibt auf dem Server nichts zurück. Ist kein KI-Anbieter eingerichtet (`llmConfigured` aus `/api/dashboard`),
 sagt die Seite das vor der ersten Frage. **[Muss]**

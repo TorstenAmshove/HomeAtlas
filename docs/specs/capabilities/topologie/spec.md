@@ -37,7 +37,7 @@ Wahl). **[Impl]**
 - **WENN** ein Scan ein neues Gerät mit Bedeutung „kritisch“ angelegt hat und der Plan neu geladen wird
 - **DANN** enthält der physische Plan dieses Gerät ohne weitere Aktion
 
-Quelle: `backend/app/main.py:1583`, `backend/app/main.py:1589`, `frontend/src/pages/PlanPage.tsx:46`
+Quelle: `backend/app/main.py:1583`, `backend/app/main.py:1589`, `frontend/src/pages/geraete/PlanCalm.tsx`
 
 ### Requirement: Feste Ebenenfolge im physischen Plan
 Das System MUSS den physischen Plan von oben nach unten in fester Reihenfolge aufbauen, jede Ebene
@@ -139,7 +139,7 @@ statt der Geräteseite. **[Muss]**
   gefilterten Liste
 
 Quelle: `backend/app/topology.py:430`, `backend/app/topology.py:240`,
-`frontend/src/pages/PlanPage.tsx:110`, Test:
+`frontend/src/pages/geraete/PlanCalm.tsx`, Test:
 `backend/tests/test_topology_critical_vm.py::test_non_critical_vm_still_folds_into_host_summary`
 
 ### Requirement: Klickbare Kästen, statisches Bild
@@ -150,7 +150,7 @@ Das System MUSS jeden Kasten, der ein Inventargerät darstellt, mit dessen Gerä
 - **WENN** ein Nutzer im physischen Plan auf „FritzBox“ klickt
 - **DANN** öffnet sich die Geräteseite der FritzBox
 
-Quelle: `backend/app/topology.py:233`, `frontend/src/pages/PlanPage.tsx:110`,
+Quelle: `backend/app/topology.py:233`, `frontend/src/pages/geraete/PlanCalm.tsx`,
 `docs/adr/0008-topologie-als-server-svg.md`
 
 ### Requirement: Status sichtbar und erklärt
@@ -178,11 +178,11 @@ entfallen. **[Muss]**
 - **WENN** sechs normale Geräte der Art `iot` existieren, zwei online
 - **DANN** steht unter dem Plan zugeklappt „6 Smart Home — 2 erreichbar“
 
-Quelle: `frontend/src/pages/PlanPage.tsx:10`, `frontend/src/pages/PlanPage.tsx:62`
+Quelle: `frontend/src/pages/geraete/PlanCalm.tsx`, `frontend/src/pages/geraete/PlanCalm.tsx`
 
-### Requirement: Netzplan in der neuen Oberfläche
-Mit Schalter `uiCalm` MUSS `/plan` die Seite `PlanCalm` zeigen; das SVG selbst bleibt unverändert
-(statisches Bild, ADR-0008/0009). Abweichend von der alten Seite gilt: **[Muss]**
+### Requirement: Netzplan-Seite
+Die Route `/plan` MUSS die Seite `PlanCalm` zeigen; das SVG selbst ist ein
+statisches Bild (ADR-0008/0009). **[Muss]**
 - Die Ansicht steht in der URL (`?view=layer3`; ohne Parameter physisch), Zurück und Neuladen behalten sie.
 - Kein Seitentitel; der Erklärtext zur Ansicht steht hinter „ⓘ Wie lese ich den Plan?“.
 - Genau eine Statuszeile statt Ausfall-Meldung plus Liste: Grundmenge sind die überwachten Geräte
@@ -328,7 +328,7 @@ werden und das Bild in die Seite eingebettet wird. **[Muss]**
 - **WENN** ein Gerät den Namen `<script>alert(1)</script>` meldet und kritisch ist
 - **DANN** erscheint der Text maskiert und es wird kein Skript ausgeführt
 
-Quelle: `backend/app/topology.py:45`, `frontend/src/pages/PlanPage.tsx:202`
+Quelle: `backend/app/topology.py:45`, `frontend/src/pages/geraete/PlanCalm.tsx`
 
 ### Requirement: Lesbarkeit
 Das System MUSS lange Namen kürzen statt sie überlaufen zu lassen. **[Muss]** Maße: Breite 1000,
@@ -363,8 +363,7 @@ Berührte fremde Routen: `POST /api/scans` ([discovery-und-scan](../discovery-un
 `GET /api/systems` ([inventar](../inventar/spec.md)); Überwachung, DNS-Test und Speedtest auf
 derselben Seite gehören zu [monitoring](../monitoring/spec.md) und [diagnose](../diagnose/spec.md).
 
-UI-Seite(n): `frontend/src/pages/PlanPage.tsx` (Route `/plan`, Navigation „Netzplan“, alle Rollen; neue
-Oberfläche `frontend/src/pages/geraete/PlanCalm.tsx`).
+UI-Seite(n): `frontend/src/pages/geraete/PlanCalm.tsx` (Route `/plan`, Navigation „Netzplan“, alle Rollen).
 
 ## Nicht-Ziele und Grenzen
 
@@ -378,7 +377,7 @@ Oberfläche `frontend/src/pages/geraete/PlanCalm.tsx`).
 
 - Serverseitiges SVG mit fester Farbpalette (dunkler Hintergrund), eingebettet per `fetch` +
   `dangerouslySetInnerHTML`, damit kein zweiter authentifizierter Bildabruf nötig ist
-  (`frontend/src/pages/PlanPage.tsx:44`).
+  (`frontend/src/pages/geraete/PlanCalm.tsx`).
 - Klickziele als `data-system-id`/`data-expand="1"` auf `<g>`-Elementen
   (`backend/app/topology.py:240`).
 - Router-Schnittstellen aus Probe-Fakten `ip_addresses`/`ip` per Regex über alle Formate; VLAN-IDs

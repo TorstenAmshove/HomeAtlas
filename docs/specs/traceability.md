@@ -141,25 +141,16 @@ Lücken: **0**
 | `http_check` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [diagnose](capabilities/diagnose/spec.md) |
 | `traceroute` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [diagnose](capabilities/diagnose/spec.md) |
 
-## Seiten (15)
+## Seiten (6)
 
 | Eintrag | Spec |
 |---|---|
-| `AccessLogPage` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
-| `AccountsPage` | [remote-admin](capabilities/remote-admin/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `ChatPage` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
-| `DashboardPage` | [dashboard](capabilities/dashboard/spec.md), [diagnose](capabilities/diagnose/spec.md) |
 | `DocsPage` | [dokumentation](capabilities/dokumentation/spec.md) |
-| `InventoryPage` | [inventar](capabilities/inventar/spec.md) |
 | `LoginPage` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
 | `MfaEnrollPage` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
-| `NetworksPage` | [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) |
-| `PlanPage` | [diagnose](capabilities/diagnose/spec.md), [monitoring](capabilities/monitoring/spec.md), [topologie](capabilities/topologie/spec.md) |
-| `ScanPage` | [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [klassifikation-llm](capabilities/klassifikation-llm/spec.md) |
 | `SettingsPage` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [diagnose](capabilities/diagnose/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md), [monitoring](capabilities/monitoring/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) |
 | `SetupPage` | [setup-wizard](capabilities/setup-wizard/spec.md) |
-| `SystemDetailPage` | [credentialed-probing](capabilities/credentialed-probing/spec.md), [inventar](capabilities/inventar/spec.md), [klassifikation-llm](capabilities/klassifikation-llm/spec.md), [monitoring](capabilities/monitoring/spec.md), [remote-admin](capabilities/remote-admin/spec.md) |
-| `UsersPage` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
 
 ## ADRs in der Constitution (11)
 

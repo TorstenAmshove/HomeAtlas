@@ -19,15 +19,14 @@ mit einem Knopf für den Internet-Schnelltest – und weist den Admin auf fehlen
 | Hinweise „KI-Assistent nicht eingerichtet" / „Überwachung aus" sehen | ja | nein |
 
 Rollenprüfung: `backend/app/main.py:1608` (`Depends(current_user)`); UI-Gating
-`frontend/src/pages/DashboardPage.tsx:77`, `:87`, `:159`.
+`frontend/src/pages/start/StartCalm.tsx`.
 
 ## Anforderungen
 
 ### Requirement: Kennzahlen
 Das System MUSS folgende Zähler über das gesamte Inventar liefern: `total` (alle Geräte), `online`
 (`status = online`), `critical` (`importance = critical`) und
-`accounts` (alle gespeicherten Zugänge); `counts` hat genau diese vier Schlüssel. Die Oberfläche zeigt vier Kacheln: Geräte insgesamt, gerade
-erreichbar (grün), kritisch fürs Haus (gelb, wenn > 0), hinterlegte Zugänge. **[Muss]**
+`accounts` (alle gespeicherten Zugänge); `counts` hat genau diese vier Schlüssel. Die Oberfläche zeigt sie als Zahlenzeile (siehe „Startseite“). **[Muss]**
 
 #### Szenario: Zählung
 - **WENN** 5 Geräte existieren, davon 3 `online`, 1 `offline`, 1 `unknown`, 2 `critical`
@@ -35,10 +34,9 @@ erreichbar (grün), kritisch fürs Haus (gelb, wenn > 0), hinterlegte Zugänge. 
 
 #### Szenario: Leeres Inventar
 - **WENN** noch kein Gerät existiert
-- **DANN** zeigt die Kopfzeile „Noch nichts dokumentiert. Ein Netzwerk-Scan findet die Geräte im Haus automatisch."
-- **SONST** „<total> Geräte dokumentiert, davon <online> gerade erreichbar."
+- **DANN** weist die Startseite auf das leere Inventar hin (Status-Hero, siehe „Startseite“)
 
-Quelle: `backend/app/main.py:1616`, `frontend/src/pages/DashboardPage.tsx:68`, `:97`
+Quelle: `backend/app/main.py:1616`, `frontend/src/pages/start/StartCalm.tsx`
 
 ### Requirement: Geräte nach Art
 Das System MUSS je vorkommender Art (`kind`) die Anzahl Geräte liefern (`byKind`, nur Arten mit
@@ -50,7 +48,7 @@ Geräteliste `/geraete?kind=<art>`. **[Muss]**
 - **WENN** der Nutzer auf „Router (2)" klickt
 - **DANN** öffnet sich die Geräteliste, gefiltert auf Art `router`
 
-Quelle: `backend/app/main.py:1624`, `backend/app/docs.py:21`, `frontend/src/pages/DashboardPage.tsx:175`
+Quelle: `backend/app/main.py:1624`, `backend/app/docs.py:21`, `frontend/src/pages/start/StartCalm.tsx`
 
 ### Requirement: Wichtigste Geräte live
 Das System MUSS die als kritisch markierten Geräte (höchstens 10, in Inventar-Standardreihenfolge,
@@ -65,7 +63,7 @@ kritisch markiert. **[Muss]**
 - **DANN** erscheint es in der Liste und wird bereits überwacht (nicht dauerhaft „wird geprüft…")
 
 Quelle: `backend/app/main.py:1626`, `backend/app/main.py:1629`, `backend/app/db.py:632`, `backend/app/db.py:1890`,
-`backend/app/monitor.py:40`, `frontend/src/pages/DashboardPage.tsx:128`
+`backend/app/monitor.py:40`, `frontend/src/pages/start/StartCalm.tsx`
 
 ### Requirement: Überwachungsstatus und automatische Aktualisierung
 Das System MUSS `monitorEnabled` (Default `true`) und `monitorIntervalSeconds` (Default 10) aus den
@@ -78,17 +76,17 @@ für ADMIN ein Hinweis mit Link auf Einstellungen → Überwachung. **[Muss]** (
 - **WENN** der Browser-Tab in den Hintergrund wechselt
 - **DANN** stoppt das periodische Neuladen und startet beim Zurückkehren wieder
 
-Quelle: `backend/app/main.py:1630`, `backend/app/db.py:443`, `backend/app/db.py:444`, `frontend/src/pages/DashboardPage.tsx:30`
+Quelle: `backend/app/main.py:1630`, `backend/app/db.py:443`, `backend/app/db.py:444`, `frontend/src/pages/start/StartCalm.tsx`
 
 ### Requirement: Letzter Scan
 Das System MUSS den zuletzt gestarteten Scan (nach Startzeit) liefern oder `null`, wenn es keinen
-gibt. Die Oberfläche zeigt „Letzter Scan: <Datum/Uhrzeit de-DE> (<status>)". **[Muss]**
+gibt. Die Oberfläche zeigt ihn in der Zahlenzeile (siehe „Startseite“). **[Muss]**
 
 #### Szenario: Noch nie gescannt
 - **WENN** kein Scan existiert
 - **DANN** ist `lastScan = null` und die Zeile entfällt
 
-Quelle: `backend/app/main.py:1633`, `backend/app/db.py:1817`, `frontend/src/pages/DashboardPage.tsx:192`
+Quelle: `backend/app/main.py:1633`, `backend/app/db.py:1817`, `frontend/src/pages/start/StartCalm.tsx`
 
 ### Requirement: Einrichtungsstand
 Das System MUSS `homeName` (Default „Mein Zuhause", Seitentitel) und `llmConfigured` liefern. `llmConfigured` ist wahr, wenn der gewählte Anbieter Ollama
@@ -101,7 +99,7 @@ ausgeliefert. **[Muss]**
 - **DANN** ist `llmConfigured = true`
 
 Quelle: `backend/app/main.py:1614`, `backend/app/main.py:1634`, `backend/app/llm_providers.py:88`,
-`frontend/src/pages/DashboardPage.tsx:87`, `backend/app/db.py:409`
+`frontend/src/pages/start/StartCalm.tsx`, `backend/app/db.py:409`
 
 ### Requirement: Internet-Schnelltest
 Die Oberfläche MUSS jedem angemeldeten Nutzer einen Knopf „Internet prüfen" bieten, der den
@@ -112,15 +110,13 @@ Internet erreichbar, DNS funktioniert und Webseiten laden; sonst rot), mit der E
 - **WENN** der Test meldet, dass DNS nicht funktioniert
 - **DANN** erscheint die Erklärung als roter Hinweis
 
-Quelle: `frontend/src/pages/DashboardPage.tsx:45`, `:82`, `backend/app/main.py:1471`;
+Quelle: `frontend/src/pages/start/StartCalm.tsx`, `backend/app/main.py:1471`;
 Details: [diagnose](../diagnose/spec.md)
 
-### Requirement: Neue Oberfläche (Schalter `uiCalm`)
-Ist die neue Oberfläche aktiv (`uiCalm` bzw. `?ui=calm`), MUSS `/` statt der Kacheln die Startseite
-`StartCalm` zeigen; bei ausgeschaltetem Schalter bleibt alles oben Beschriebene unverändert. Sie
-ruft dieselben Endpunkte (`/api/dashboard`, zusätzlich `/api/monitor`; `/api/docs` nur, solange ein
-Gerät ausgefallen ist) im selben Takt und mit derselben Pause bei verstecktem Tab auf. Abweichend
-von oben gilt mit Schalter: **[Muss]**
+### Requirement: Startseite
+Die Route `/` MUSS die Startseite `StartCalm` zeigen. Sie ruft `/api/dashboard`, zusätzlich
+`/api/monitor` (und `/api/docs` nur, solange ein Gerät ausgefallen ist) im Takt der Überwachung und
+mit Pause bei verstecktem Tab auf. Zusätzlich zu den oben beschriebenen Daten gilt: **[Muss]**
 - Kein Seitentitel `<h1>` und kein Untertitel; der Name des Zuhauses steht in der Shell.
 - Ein Status-Hero oben: Sind überwachte Geräte (`/api/monitor` → `systems`, `status = offline`;
   dieselbe Menge wie der Netzplan, nicht alle Geräte mit Status `offline`) nicht erreichbar, nennt er bei einem
@@ -186,8 +182,7 @@ Berührte fremde Routen: `POST /api/diagnostics` ([diagnose](../diagnose/spec.md
 ([einstellungen-und-llm-provider](../einstellungen-und-llm-provider/spec.md)), `/geraete`
 ([inventar](../inventar/spec.md)).
 
-UI-Seite(n): `frontend/src/pages/DashboardPage.tsx` (Route `/`); mit Schalter `uiCalm`
-`frontend/src/pages/start/StartCalm.tsx`.
+UI-Seite(n): `frontend/src/pages/start/StartCalm.tsx` (Route `/`).
 
 ## Nicht-Ziele und Grenzen
 

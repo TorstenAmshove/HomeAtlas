@@ -93,7 +93,7 @@ Defaults: `kind=other`, `name="Unbenannt"`, `importance=normal`, `status=unknown
 - **DANN** wird ein Gerät mit diesem Namen und `kind=other` angelegt und oben in der Liste gezeigt
 
 Quelle: `backend/app/main.py:559`, `backend/app/db.py:642`, `backend/app/db.py:655`,
-`frontend/src/pages/InventoryPage.tsx:232`
+`frontend/src/pages/geraete/InventoryCalm.tsx`
 
 ### Requirement: Gerät bearbeiten
 Das System MUSS ADMIN erlauben, per Teil-Update genau diese Felder zu ändern: `kind, name,
@@ -118,7 +118,7 @@ Editierbar in der UI (Formular „Gerät bearbeiten"): Name, Adresse, Hostname, 
 Standort, Weboberfläche-URL, Hersteller-Doku-URL, eigene Doku-URL, Zweck, Art (17 Arten, siehe
 [data-model](../../contracts/data-model.md)), Bedeutung (`critical`/`normal`/`low`), Beschreibung
 (Markdown), interne Notiz, Schlagworte (kommagetrennt), „Dauerhaft überwachen", Prüfports (max. 3,
-1–65535). `frontend/src/pages/SystemDetailPage.tsx:389`.
+1–65535). `frontend/src/pages/device/DeviceCalm.tsx`.
 
 ### Requirement: Gepflegte Angaben überstehen Scans
 Das System MUSS bei einem bestätigten Gerät (`confirmed=1`) durch Scans nur flüchtige Fakten
@@ -302,7 +302,7 @@ Erzeuger: `backend/app/pipeline.py:92`, `backend/app/monitor.py:172`
 ### Requirement: Geräteliste in der Oberfläche
 Die Geräteliste MUSS Freitextsuche (Name, Hostname, IP, MAC, Hersteller, Modell, Standort, Zweck),
 Filter nach Art, nach Host (`parentId`) und nach Compose-Projekt (URL-Parameter `kind`, `parentId`,
-`project`; in der neuen Oberfläche zusätzlich nach Netz, `subnet`) sowie Sortierung nach Name/Adresse (IPv4 numerisch)/Art/Standort/Zustand bieten.
+`project`; zusätzlich nach Netz, `subnet`) sowie Sortierung nach Name/Adresse (IPv4 numerisch)/Art/Standort/Zustand bieten.
 Container mit Compose-Projekt (`extra.docker.composeProject`) werden je Projekt in einer
 einklappbaren Gruppe („Compose: <projekt> (n Container)", alphabetisch) nach den übrigen Geräten
 gezeigt; Suche/Sortierung wirken innerhalb der Gruppen. Badges: kritisch, Fehleranzahl, PoE
@@ -314,16 +314,16 @@ Zusammenführen mit Wahl des Behaltenen, Duplikat-Hinweise mit „Behalte X"/„
 - **WENN** drei Container des Projekts „immich" und zwei Geräte ohne Projekt vorhanden sind
 - **DANN** stehen die zwei Geräte oben, darunter eine Gruppe „Compose: immich (3 Container)"
 
-Quelle: `frontend/src/pages/InventoryPage.tsx`, `frontend/src/pages/geraete/inventoryModel.ts`
+Quelle: `frontend/src/pages/geraete/InventoryCalm.tsx`, `frontend/src/pages/geraete/inventoryModel.ts`
 
-### Requirement: Listenzustand in der URL (beide Oberflächen)
+### Requirement: Listenzustand in der URL
 Suchtext und Sortierung der Geräteliste MÜSSEN in der URL stehen (`q`, `sort` = `name`/`ip`/`kind`/
 `location`/`status`, absteigend mit `-` davor, ohne `sort` die Reihenfolge der API mit kritischen
 Geräten zuerst), damit Zurück nach dem Öffnen eines Geräts, Neuladen und ein geteilter Link dieselbe
 Liste zeigen. Zusätzlich zu `kind`, `parentId`, `project` MÜSSEN `status` (`online`/`offline`/
 `unknown`), `importance` (`critical`/`normal`/`low`) und `subnet` (CIDR, `none` = Geräte ohne gültige
-IPv4-Adresse) filtern; `subnet` kennt nur die neue Oberfläche, die alte ignoriert es. Die alte Oberfläche hat für
-`status`/`importance` keine Bedienelemente; sie nennt den aktiven Filter und bietet „Filter aufheben“.
+IPv4-Adresse) filtern; Aktive Filter ohne eigenes Bedienelement
+stehen als Chips mit × und „Filter aufheben“.
 **[Muss]**
 
 #### Szenario: Suche überlebt Zurück
@@ -343,11 +343,11 @@ IPv4-Adresse) filtern; `subnet` kennt nur die neue Oberfläche, die alte ignorie
 - **WENN** die Startseite „+2 weitere“ anzeigt und ein Benutzer darauf tippt
 - **DANN** öffnet `/geraete?importance=critical` mit genau den kritischen Geräten
 
-Quelle: `frontend/src/pages/geraete/inventoryModel.ts`, `frontend/src/pages/InventoryPage.tsx`,
+Quelle: `frontend/src/pages/geraete/inventoryModel.ts`, `frontend/src/pages/geraete/InventoryCalm.tsx`,
 `frontend/src/pages/start/StartCalm.tsx`, `frontend/e2e/smoke.spec.ts`
 
-### Requirement: Geräteliste in der neuen Oberfläche
-Mit Schalter `uiCalm` MUSS `/geraete` die ruhige Liste `InventoryCalm` zeigen (ohne Seitentitel und
+### Requirement: Geräteliste (Ansicht `InventoryCalm`)
+Die Route `/geraete` MUSS die ruhige Liste `InventoryCalm` zeigen (ohne Seitentitel und
 Erklärabsatz; Skeleton beim Laden). Sie rechnet nur aus derselben `GET /api/systems`-Liste:
 **[Muss]**
 - Filterzeile „Alle N · Nicht erreichbar N · Wichtig N · Art ▾ · Netz ▾ · Compose ▾“; N zählt über das ganze
@@ -400,12 +400,10 @@ Zugänge und keine Schreibaktionen)
 - **WENN** ein MEMBER die Detailseite öffnet
 - **DANN** sieht er keine Buttons zum Bearbeiten/Löschen/Zusammenführen und keinen Bereich „Zugänge"
 
-Quelle: `frontend/src/pages/SystemDetailPage.tsx:59`, `:317`, `:359`, `:377`, `:786`,
-`frontend/src/components/MergePanel.tsx:4`
+Quelle: `frontend/src/pages/device/DeviceCalm.tsx`
 
-### Requirement: Detailseite in der neuen Oberfläche
-Bei eingeschalteter neuer Oberfläche (`uiCalm` bzw. `?ui=calm`) MUSS `/geraete/:id` dieselben Inhalte
-und Aktionen wie die klassische Detailseite zeigen, aufgeteilt auf Tabs in `?tab=` (`ueberblick`
+### Requirement: Detailseite in Tabs
+`/geraete/:id` MUSS alle Inhalte und Aktionen der Detailseite zeigen, aufgeteilt auf Tabs in `?tab=` (`ueberblick`
 Standard · `technik` · `verlauf` · `zugaenge` · `steuern`); für jede Rolle entfällt nichts, was sie
 vorher erreichen konnte. Nur „Überblick“ trägt die
 Zusammenfassung (Status, seit wann, Adresse, Quelle, Wichtigkeit/Überwachung) und genau eine
@@ -435,7 +433,7 @@ Quelle: `frontend/src/pages/device/DeviceCalm.tsx`, `frontend/src/pages/device/Z
 `frontend/src/pages/device/SteuernTab.tsx`, `frontend/src/App.tsx`
 
 ### Requirement: Bearbeiten verliert keinen Entwurf
-Beide Oberflächen MÜSSEN ungespeicherte Änderungen im Formular „Gerät bearbeiten“ im
+Die Oberfläche MUSS ungespeicherte Änderungen im Formular „Gerät bearbeiten“ im
 `sessionStorage` des Tabs halten (Schlüssel `homeatlas.draft.device.form.<id>`, nur die Formularfelder)
 und beim Verlassen per Link nachfragen; Zurück und Wiederkommen oder Neuladen stellt den Entwurf
 wieder her. Speichern und Abbrechen entfernen ihn, Abmelden ebenfalls. Nach dem Zusammenführen
@@ -446,7 +444,7 @@ bleibt die Seite auf dem behaltenen Gerät und lädt es neu, ohne die ganze Seit
 - **DANN** steht der geänderte Standort wieder im Formular
 
 Quelle: `frontend/src/lib/deviceDraft.ts`, `frontend/src/components/DeviceEditForm.tsx`,
-`frontend/src/pages/SystemDetailPage.tsx`, `frontend/src/pages/device/DeviceCalm.tsx`
+`frontend/src/pages/device/DeviceCalm.tsx`
 
 ## Daten
 
@@ -479,10 +477,8 @@ Berührte fremde Routen (nur verlinkt): Auslesen `POST /api/systems/{id}/probe`,
 ([remote-admin](../remote-admin/spec.md)), Zugänge ([zugangsdaten](../zugangsdaten/spec.md)).
 LLM-Lesezugriff aufs Inventar: [llm-tools](../../contracts/llm-tools.md).
 
-UI-Seite(n): `frontend/src/pages/InventoryPage.tsx` (Route `/geraete`; neue Oberfläche
-`frontend/src/pages/geraete/InventoryCalm.tsx`),
-`frontend/src/pages/SystemDetailPage.tsx` (Route `/geraete/:id`), `frontend/src/components/MergePanel.tsx`,
-neue Oberfläche `frontend/src/pages/device/DeviceCalm.tsx` (Route `/geraete/:id`, wenn `uiCalm`).
+UI-Seite(n): `frontend/src/pages/geraete/InventoryCalm.tsx` (Route `/geraete`),
+`frontend/src/pages/device/DeviceCalm.tsx` (Route `/geraete/:id`).
 
 ## Nicht-Ziele und Grenzen
 

@@ -51,7 +51,7 @@ Netzplan-Ebenen, `set_switch`), ADR-0009 für die Netzplan-Ebenen. Offen bleiben
 
 ### [auth-und-rollen](capabilities/auth-und-rollen/spec.md) (16)
 
-1. `DELETE /api/users/{id}` schreibt keinen Protokolleintrag, obwohl die AccessLogPage ein Label `user.delete` kennt und README „Benutzeränderungen“ als protokolliert nennt (wirkt wie Bug).
+1. `DELETE /api/users/{id}` schreibt keinen Protokolleintrag, obwohl die AccessLogCalm ein Label `user.delete` kennt und README „Benutzeränderungen“ als protokolliert nennt (wirkt wie Bug).
 2. `DELETE /api/users/{id}` antwortet für unbekannte IDs mit `{ok: true}` statt 404 (PATCH/mfa-reset liefern 404).
 3. PATCH `/api/users/{id}` ist nicht atomar: Anzeigename/Rolle werden gespeichert, bevor ein zu schwaches `newPassword` mit 400 abgelehnt wird.
 4. POST `/api/users` mappt unbekannte Rollen still auf MEMBER, PATCH antwortet 400 – uneinheitlich.
@@ -59,8 +59,8 @@ Netzplan-Ebenen, `set_switch`), ADR-0009 für die Netzplan-Ebenen. Offen bleiben
 6. Admin-MFA-Reset beendet keine Sessions, die CLI-Variante schon; eine offene Session des Ziels kann den Faktor danach selbst neu einrichten (nur Passwort-Besitz war nötig für die Session, ist aber u. U. ein Angreifer).
 7. Ein Konto ohne aktiven Faktor (neu angelegt oder nach Reset) kann von jedem mit dem Passwort eingerichtet werden – bewusste Abwägung laut `reset_password.py`-Docstring, aber ohne Ablaufzeit.
 8. Initial-Admin via `ADMIN_PASSWORD` und CLI-Passwortreset umgehen die Richtlinie (CLI prüft nur ≥ 8 Zeichen; README-Beispiel `devpass123` erfüllt sie nicht).
-9. UsersPage zeigt „Mindestens 8 Zeichen“ und aktiviert „Anlegen“ ab 8 Zeichen, Richtlinie verlangt 10.
-10. AccessLogPage kennt Label `mfa.disable` (nie geschrieben). (`mfa.reset` hat seit PR 6 ein Label und gilt als sicherheitsrelevant.)
+9. UsersCalm zeigt „Mindestens 8 Zeichen“ und aktiviert „Anlegen“ ab 8 Zeichen, Richtlinie verlangt 10.
+10. AccessLogCalm kennt Label `mfa.disable` (nie geschrieben). (`mfa.reset` hat seit PR 6 ein Label und gilt als sicherheitsrelevant.)
 11. Session-Cookie ohne `Secure`-Flag, auch hinter TLS-Proxy.
 12. `X-Real-IP` wird ungeprüft übernommen; sicher nur, solange das Backend ausschließlich über nginx erreichbar ist (ADR-0003).
 13. Benutzernamen sind case-sensitiv und werden weder getrimmt noch validiert (außer ≥ 1 Zeichen).
@@ -167,7 +167,7 @@ Netzplan-Ebenen, `set_switch`), ADR-0009 für die Netzplan-Ebenen. Offen bleiben
 
 ### [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) (6)
 
-1. Seite „Netze & WLAN“ zeigt bei WLAN `facts.networkName` und bei WAN `facts.type`/`facts.ip`; der Abgleich liefert diese Felder nie (WLAN hat nur `networkExternalId`, WAN `{}`). WAN-Details sind daher immer „-“, das zugehörige Netz eines WLANs wird nie angezeigt (`frontend/src/pages/NetworksPage.tsx:13`). Dasselbe gilt für die WAN-Tabelle der Dokumentation (`backend/app/docs.py:380`).
+1. Seite „Netze & WLAN“ zeigt bei WLAN `facts.networkName` und bei WAN `facts.type`/`facts.ip`; der Abgleich liefert diese Felder nie (WLAN hat nur `networkExternalId`, WAN `{}`). WAN-Details sind daher immer „-“, das zugehörige Netz eines WLANs wird nie angezeigt (`frontend/src/pages/geraete/NetworksCalm.tsx`). Dasselbe gilt für die WAN-Tabelle der Dokumentation (`backend/app/docs.py:380`).
 2. Fähigkeitsbeschreibung nennt Omada und Discovery-Subnetze als Quelle; im Code liefert nur UniFi Netzwerkressourcen. Soll eine Alternative Omada-Netze übernehmen?
 3. Feld heißt `manualMd`, wird aber weder auf der Seite noch sonst als Markdown gerendert; Eingabe ist einzeilig.
 4. Inaktive Ressourcen sind in der UI nirgends sichtbar (nur über die API), ihre Notizen also faktisch versteckt; gewollt?
@@ -180,7 +180,7 @@ Netzplan-Ebenen, `set_switch`), ADR-0009 für die Netzplan-Ebenen. Offen bleiben
 2. Assistent schaltet bei Shelly immer Kanal 0; REST-Route akzeptiert beliebige `channel`-Ganzzahl ohne Bereichsprüfung.
 3. Proxmox-Steuerung fällt bei *jedem* API-Fehler auf SSH zurück – auch bei fachlichen Fehlern der API (z. B. Gast bereits gestoppt); mögliche Doppelausführung/irreführende Meldung. (`backend/app/main.py:1061`)
 4. Reboot meldet evtl. Fehler, obwohl der Neustart ausgelöst wurde (SSH-Verbindung bricht beim Reboot ab, bevor ein Exit-Status kommt). Nicht durch Tests abgedeckt.
-5. Kategorie `router` wird im Reboot-Pfad akzeptiert, existiert aber in der UI-Kategorieliste nicht (`frontend/src/pages/AccountsPage.tsx:5`) – toter Zweig oder Altbestand?
+5. Kategorie `router` wird im Reboot-Pfad akzeptiert, existiert aber in der UI-Kategorieliste nicht (`frontend/src/pages/zugaenge/AccountFormCalm.tsx`) – toter Zweig oder Altbestand?
 6. SSH-Befehle (`connection.run`) haben kein Gesamt-Timeout; ein hängender Befehl blockiert die Anfrage unbegrenzt.
 7. Nicht-numerische `cols`/`rows` in einer Resize-Nachricht lösen eine Ausnahme aus und beenden die Sitzung statt ignoriert zu werden. (`backend/app/main.py:864`)
 8. `Terminal.tsx` erwartet laut Kommentar eine Server-Nachricht `{"type":"exit"}`, die das Backend nie sendet.

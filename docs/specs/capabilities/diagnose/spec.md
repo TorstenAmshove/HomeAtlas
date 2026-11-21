@@ -148,7 +148,7 @@ Das System MUSS die Internetverbindung in drei unabhängigen Schichten prüfen �
 - **WENN** `1.1.1.1` antwortet, `www.google.com` aber nicht auflösbar ist
 - **DANN** `dnsWorks: false`, `internetReachable: true`, Erklärung verweist auf eine Router-Einstellung
 
-Quelle: `backend/app/diagnostics.py:248`–`backend/app/diagnostics.py:283`, UI: `frontend/src/pages/DashboardPage.tsx:49`
+Quelle: `backend/app/diagnostics.py:248`–`backend/app/diagnostics.py:283`, UI: `frontend/src/pages/start/StartCalm.tsx`
 
 ### Requirement: DNS-Gesamtprüfung
 Das System MUSS mehrere externe Namen nacheinander auflösen und je Name Ergebnis und Dauer (`elapsedMs`) liefern, dazu die konfigurierten DNS-Server des Servers (`servers`), `resolvedCount`, `totalCount`, ein Verdikt und `serversExplanation`. Namen: aus dem Request (`names`), sonst Einstellung `dnsTestNames`, sonst `www.google.com`, `heise.de`, `github.com`; max. 8. Verdikt: keiner auflösbar ⇒ Namensauflösung gestört (Router/Pi-hole); einige nicht ⇒ Filter/Sperre einzelner Adressen; alle, aber ≥ 1 langsamer als 1500 ms ⇒ „auffällig langsam“; sonst „funktioniert einwandfrei“. Kein DNS-Server eingetragen ⇒ `serversExplanation` nennt das als Ursache. **[Muss]**
@@ -187,7 +187,7 @@ Settings (nur lesend; geschrieben über [einstellungen-und-llm-provider](../eins
 
 Berührt: dieselben Funktionen als LLM-Werkzeuge `internet_check`, `ping_host`, `check_port`, `dns_lookup`, `reverse_dns`, `http_check`, `traceroute` ([llm-tools](../../contracts/llm-tools.md), [assistent-chat-und-mcp](../assistent-chat-und-mcp/spec.md)); Port-/Ping-Prüfung des [monitoring](../monitoring/spec.md).
 
-UI-Seite(n): `frontend/src/pages/DashboardPage.tsx` (Route `/`, Internet-Check), `frontend/src/pages/PlanPage.tsx` (Route `/plan`, DNS-Prüfung und Speedtest), `frontend/src/pages/SettingsPage.tsx` (Route `/einstellungen`, `dnsTestNames`).
+UI-Seite(n): `frontend/src/pages/start/StartCalm.tsx` (Route `/`, Internet-Check), `frontend/src/pages/geraete/PlanCalm.tsx` (Route `/plan`, DNS-Prüfung und Speedtest), `frontend/src/pages/SettingsPage.tsx` (Route `/einstellungen`, `dnsTestNames`).
 
 ## Nicht-Ziele und Grenzen
 

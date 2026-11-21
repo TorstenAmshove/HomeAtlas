@@ -475,7 +475,7 @@ Fehlerereignisse `GET /api/systems/{id}/errors` ([inventar](../inventar/spec.md)
 ([discovery-und-scan](../discovery-und-scan/spec.md)); Freigabe/Zuordnung
 ([zugangsdaten](../zugangsdaten/spec.md)); Standard-Zugang ([einstellungen-und-llm-provider](../einstellungen-und-llm-provider/spec.md)).
 
-UI-Seite(n): `frontend/src/pages/SystemDetailPage.tsx` (Route `/geraete/:id`, Knopf „Gerät
+UI-Seite(n): `frontend/src/pages/device/DeviceCalm.tsx` (Route `/geraete/:id`, Knopf „Gerät
 auslesen“, nur Admin und nur wenn ein Zugang `allowProbe` hat).
 
 ## Nicht-Ziele und Grenzen
