@@ -112,7 +112,9 @@
   all: unset; box-sizing: border-box; cursor: pointer; font: inherit; color: inherit; max-width: 100%;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: 4px; padding: 2px 4px; margin: 0 -4px;
 }
-.app-shell .geraete-page .inv-head-btn:hover { color: var(--c-text); }
+/* Beat the global `.app-shell button:not(.sbtn):hover:not(:disabled)` rule in shell.css, which would
+   otherwise paint the hovered header with --c-text, the same colour as the text. */
+.app-shell .geraete-page .inv-head-btn:hover:not(:disabled) { background: transparent; opacity: 1; color: var(--c-text); }
 .app-shell .geraete-page .inv-head-btn:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 1px; }
 
 .app-shell .geraete-page .inv-main { min-width: 0; display: flex; flex-direction: column; }
