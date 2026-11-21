@@ -9,8 +9,8 @@ import {
 } from "./setupModel";
 
 /**
- * First-run wizard in the redesigned UI (instead of pages/SetupPage.tsx while `uiCalm` resolves to
- * on). Same three steps and the same `POST /api/setup` body as the classic page (gates/setupModel.ts).
+ * First-run wizard (shown to an admin until the household basics are recorded).
+ * Three steps, one `POST /api/setup` body (gates/setupModel.ts).
  *
  * Onboarding rules (docs/redesign, IN-APP): until it is finished only the wizard shows, and nobody
  * gets stuck in it -- "Abmelden" is on every step (forensics: "Einrichtung hat keinen Ausweg").

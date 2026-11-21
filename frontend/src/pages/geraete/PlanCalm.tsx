@@ -9,8 +9,7 @@ import { STATUS_LABEL } from "./inventoryModel";
 import "./geraete.css";
 
 /**
- * Netzplan of the redesigned UI (area "Geräte", tab "Netzplan"), shown instead of the classic
- * PlanPage while `uiCalm` is on.
+ * Netzplan of the redesigned UI (area "Geräte", tab "Netzplan").
  *
  * - `?view=layer3` keeps the chosen picture across Back and reload.
  * - One status line, not a banner plus a list naming the same devices (forensics "Netzplan" 3).

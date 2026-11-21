@@ -13,8 +13,8 @@ import DeleteAccountDialog from "./DeleteAccountDialog";
 import "../mehr/mehr.css";
 
 /**
- * "Zugänge" in the redesigned UI (docs/redesign/5-information-architecture.md), shown instead of the
- * classic list while `uiCalm` is on. A calm list with the search in `?q=`; "Neuer Zugang" and
+ * "Zugänge" in the redesigned UI (docs/redesign/5-information-architecture.md).
+ * A calm list with the search in `?q=`; "Neuer Zugang" and
  * editing are their own routes (`/zugaenge/neu`, `/zugaenge/:id`, AccountFormCalm.tsx), so Back
  * no longer throws a half-filled form away. Every call is one the classic page already makes.
  *

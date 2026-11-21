@@ -4,8 +4,7 @@ import { useAuth } from "../App";
 import GateShell, { GateBrand } from "./GateShell";
 
 /**
- * Mandatory second-factor enrollment in the redesigned UI (instead of pages/MfaEnrollPage.tsx while
- * `uiCalm` resolves to on). Same two requests as the classic page: `mfaSetup` creates a not yet
+ * Mandatory second-factor enrollment. Two requests: `mfaSetup` creates a not yet
  * active secret, `mfaConfirm` activates it with a working code -- the backend enforces that nothing
  * else is reachable until then (`deps.current_user`).
  *
@@ -122,7 +121,7 @@ export default function MfaEnrollCalm({ onDone }: { onDone: () => void }) {
             {setup && (
               <div className="gate-qr-block">
                 {setup.qrSvg ? (
-                  // Server-rendered SVG (backend `security.qr_svg`), shown as-is like on the classic page.
+                  // Server-rendered SVG (backend `security.qr_svg`), shown as-is.
                   <div className="gate-qr" role="img" aria-label="QR-Code für die Authenticator-App"
                        dangerouslySetInnerHTML={{ __html: setup.qrSvg }} />
                 ) : (

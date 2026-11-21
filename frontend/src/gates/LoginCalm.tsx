@@ -3,8 +3,7 @@ import { ApiError, api } from "../lib/api";
 import GateShell, { GateBrand } from "./GateShell";
 
 /**
- * Login in the redesigned UI (shown instead of pages/LoginPage.tsx while `uiCalm` resolves to on).
- * Same request and the same two-step flow as the classic page: the backend answers 401 with
+ * Login. Two-step flow: the backend answers 401 with
  * `X-HomeAtlas-MFA: required` when the password was right and the second factor is still missing,
  * and only then does the code field appear. No new features (no "forgot password").
  *

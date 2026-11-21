@@ -7,8 +7,8 @@ import { clock, downSince, when } from "../../lib/time";
 import "./start.css";
 
 /**
- * Start page of the redesigned UI (direction B, docs/redesign/5-information-architecture.md), shown
- * instead of DashboardPage while `uiCalm` is on. Summary first: a status hero answers "is anything
+ * Start page of the redesigned UI (direction B, docs/redesign/5-information-architecture.md).
+ * Summary first: a status hero answers "is anything
  * down?", one quiet line carries every count exactly once, then the lists.
  *
  * Numbers come from the same queries as before (docs/redesign/3-numbers-audit.md):

@@ -25,7 +25,7 @@ import "./device.css";
 
 /**
  * Device page of the redesigned UI (docs/redesign/5-information-architecture.md, "Gerät"), shown
- * for `/geraete/:id` while `useUi().calm` is on; otherwise SystemDetailPage renders unchanged.
+ * for `/geraete/:id`.
  *
  * Summary first, on the overview tab only: one strip (status · since · address · source ·
  * importance), then exactly one primary next action that depends on the state, quiet secondary
