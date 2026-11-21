@@ -20,10 +20,8 @@ q = lambda sql: c.execute(sql).fetchone()[0]
 checks = {
   "total": q("SELECT COUNT(*) FROM systems"),
   "online": q("SELECT COUNT(*) FROM systems WHERE status='online'"),
-  "offline": q("SELECT COUNT(*) FROM systems WHERE status='offline'"),
   "critical": q("SELECT COUNT(*) FROM systems WHERE importance='critical'"),
   "accounts": q("SELECT COUNT(*) FROM accounts"),
-  "documented": q("SELECT COUNT(*) FROM systems WHERE descriptionMd != ''"),
 }
 ok = True
 for k, v in checks.items():

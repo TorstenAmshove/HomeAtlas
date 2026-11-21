@@ -362,19 +362,15 @@ export interface Chat {
 
 export interface Dashboard {
   homeName: string;
-  setupCompleted: boolean;
   counts: {
     total: number;
     online: number;
-    offline: number;
     critical: number;
     accounts: number;
-    documented: number;
   };
   byKind: Record<string, number>;
   kindLabels: Record<string, string>;
   criticalSystems: (System & { monitorPortsEffective?: number[] })[];
-  recentlyChanged: System[];
   lastScan: Scan | null;
   llmConfigured: boolean;
   monitorEnabled: boolean;

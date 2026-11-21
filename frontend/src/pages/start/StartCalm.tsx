@@ -13,11 +13,10 @@ import "./start.css";
  *
  * Numbers come from the same queries as before (docs/redesign/3-numbers-audit.md):
  * - the alarm set is `/api/monitor` → systems with status 'offline', the same set the Netzplan
- *   page reports (B3), not `counts.offline` (which includes sleeping phones);
+ *   page reports (B3), not every device with status offline (which includes sleeping phones; the former `counts.offline`, removed in #85);
  * - "+N weitere" is `counts.critical - criticalSystems.length`, pure presentation (B1);
  * - a critical device that the monitor does not poll (no IP/hostname, monitoring off, or not
  *   flagged) shows "Stand letzter Scan" instead of a live chip (B2).
- * `recentlyChanged` is still delivered but deliberately not shown (see the PR for this page).
  */
 
 const STATUS_WORD: Record<string, string> = { online: "erreichbar", offline: "nicht erreichbar" };

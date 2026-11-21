@@ -21,7 +21,7 @@ import "./geraete.css";
  * Numbers (docs/redesign/3-numbers-audit.md): every count is computed from the one
  * `GET /api/systems` list over the whole inventory, the same way the classic filter works --
  * "Alle" = all rows (= dashboard `counts.total`), "Nicht erreichbar" = status 'offline'
- * (= `counts.offline`, every device, not only the monitored ones the Start alarm uses, B3),
+ * (computed locally, every device, not only the monitored ones the Start alarm uses, B3),
  * "Wichtig" = importance 'critical' (= `counts.critical`). Duplicates = length of
  * `GET /api/systems/duplicates`.
  */
