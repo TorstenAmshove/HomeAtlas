@@ -25,14 +25,13 @@ Rollenprüfung: `backend/app/main.py:1608` (`Depends(current_user)`); UI-Gating
 
 ### Requirement: Kennzahlen
 Das System MUSS folgende Zähler über das gesamte Inventar liefern: `total` (alle Geräte), `online`
-(`status = online`), `offline` (`status = offline`), `critical` (`importance = critical`),
-`accounts` (alle gespeicherten Zugänge), `documented` (Geräte mit nicht-leerer eigener
-Beschreibung `descriptionMd`). Die Oberfläche zeigt vier Kacheln: Geräte insgesamt, gerade
+(`status = online`), `critical` (`importance = critical`) und
+`accounts` (alle gespeicherten Zugänge); `counts` hat genau diese vier Schlüssel. Die Oberfläche zeigt vier Kacheln: Geräte insgesamt, gerade
 erreichbar (grün), kritisch fürs Haus (gelb, wenn > 0), hinterlegte Zugänge. **[Muss]**
 
 #### Szenario: Zählung
 - **WENN** 5 Geräte existieren, davon 3 `online`, 1 `offline`, 1 `unknown`, 2 `critical`
-- **DANN** ist `counts = {total: 5, online: 3, offline: 1, critical: 2, …}`
+- **DANN** ist `counts = {total: 5, online: 3, critical: 2, accounts: …}`
 
 #### Szenario: Leeres Inventar
 - **WENN** noch kein Gerät existiert
@@ -92,8 +91,7 @@ gibt. Die Oberfläche zeigt „Letzter Scan: <Datum/Uhrzeit de-DE> (<status>)". 
 Quelle: `backend/app/main.py:1633`, `backend/app/db.py:1817`, `frontend/src/pages/DashboardPage.tsx:192`
 
 ### Requirement: Einrichtungsstand
-Das System MUSS `homeName` (Default „Mein Zuhause", Seitentitel), `setupCompleted` (Default
-`false`) und `llmConfigured` liefern. `llmConfigured` ist wahr, wenn der gewählte Anbieter Ollama
+Das System MUSS `homeName` (Default „Mein Zuhause", Seitentitel) und `llmConfigured` liefern. `llmConfigured` ist wahr, wenn der gewählte Anbieter Ollama
 ist oder für den gewählten Anbieter ein API-Schlüssel hinterlegt ist. Ist er falsch, sieht ADMIN
 einen Hinweis mit Link auf Einstellungen → KI-Assistent. Der API-Schlüssel selbst wird nicht
 ausgeliefert. **[Muss]**
@@ -104,16 +102,6 @@ ausgeliefert. **[Muss]**
 
 Quelle: `backend/app/main.py:1614`, `backend/app/main.py:1634`, `backend/app/llm_providers.py:88`,
 `frontend/src/pages/DashboardPage.tsx:87`, `backend/app/db.py:409`
-
-### Requirement: Zuletzt geänderte Geräte
-Das System liefert die 8 zuletzt geänderten Geräte (`recentlyChanged`, absteigend nach
-`updatedAt`). Die heutige Oberfläche zeigt sie nicht an. **[Impl]**
-
-#### Szenario: Reihenfolge
-- **WENN** 10 Geräte existieren
-- **DANN** enthält `recentlyChanged` die 8 mit dem jüngsten `updatedAt`, jüngstes zuerst
-
-Quelle: `backend/app/main.py:1632`
 
 ### Requirement: Internet-Schnelltest
 Die Oberfläche MUSS jedem angemeldeten Nutzer einen Knopf „Internet prüfen" bieten, der den
@@ -135,7 +123,7 @@ Gerät ausgefallen ist) im selben Takt und mit derselben Pause bei verstecktem T
 von oben gilt mit Schalter: **[Muss]**
 - Kein Seitentitel `<h1>` und kein Untertitel; der Name des Zuhauses steht in der Shell.
 - Ein Status-Hero oben: Sind überwachte Geräte (`/api/monitor` → `systems`, `status = offline`;
-  dieselbe Menge wie der Netzplan, nicht `counts.offline`) nicht erreichbar, nennt er bei einem
+  dieselbe Menge wie der Netzplan, nicht alle Geräte mit Status `offline`) nicht erreichbar, nennt er bei einem
   Gerät dessen Namen mit „seit <Zeit>" (jüngster `offline`-Eintrag in `events`), sonst die Anzahl;
   Aktionen „Ansehen" (Geräteseite, bei mehreren `/plan`), „Assistent fragen" (`/assistent`) und
   „Notfall-Checkliste" (`/dokumentation/notfall`, nur wenn das Kapitel existiert). Sonst „Alles
@@ -181,7 +169,7 @@ Quelle: `frontend/src/pages/start/StartCalm.tsx`, `frontend/src/App.tsx` (Route 
 ## Daten
 
 Aus [data-model](../../contracts/data-model.md), nur lesend:
-- `systems`: alle Felder (Zähler, Arten, kritische Geräte, zuletzt geändert).
+- `systems`: alle Felder (Zähler, Arten, kritische Geräte).
 - `accounts`: nur Anzahl.
 - `scans`: jüngste Zeile komplett (`id, startedAt, finishedAt, status, subnets, progress, phase, summary, log`).
 - `settings`: `homeName`, `setupCompleted`, `llmProvider`, API-Schlüssel des gewählten Anbieters
@@ -191,7 +179,7 @@ Aus [data-model](../../contracts/data-model.md), nur lesend:
 
 | Methode | Pfad | Rolle | Zweck |
 |---|---|---|---|
-| GET | /api/dashboard | MEMBER | `{homeName, setupCompleted, counts, byKind, kindLabels, criticalSystems, monitorIntervalSeconds, monitorEnabled, recentlyChanged, lastScan, llmConfigured}` |
+| GET | /api/dashboard | MEMBER | `{homeName, counts, byKind, kindLabels, criticalSystems, monitorIntervalSeconds, monitorEnabled, lastScan, llmConfigured}` |
 
 Berührte fremde Routen: `POST /api/diagnostics` ([diagnose](../diagnose/spec.md)); Links auf
 `/scan` ([discovery-und-scan](../discovery-und-scan/spec.md)), `/einstellungen`
@@ -211,7 +199,6 @@ UI-Seite(n): `frontend/src/pages/DashboardPage.tsx` (Route `/`); mit Schalter `u
 ## Ist-Implementierung (nur Referenz, [Impl])
 
 - Alle Zähler werden bei jedem Aufruf aus der vollständigen Geräteliste im Speicher berechnet.
-- `counts.offline`, `counts.documented` und `recentlyChanged` werden geliefert, aber nicht angezeigt.
 - Reihenfolge von `byKind` im JSON: alphabetisch nach Art; sortiert wird erst im Client.
 
 ## OFFEN
@@ -220,4 +207,3 @@ UI-Seite(n): `frontend/src/pages/DashboardPage.tsx` (Route `/`); mit Schalter `u
 - > OFFEN: Kritische Geräte ohne IP und Hostname werden nie überwacht (`backend/app/db.py:1900`) und stehen dauerhaft als „wird geprüft…" auf dem Dashboard – irreführend.
 - > OFFEN: Bei mehr als 10 kritischen Geräten werden still nur die ersten 10 (alphabetisch) gezeigt; die Kachel nennt die volle Zahl, ein Hinweis auf weitere fehlt.
 - > OFFEN: Status `unknown` und jeder andere Wert erscheinen gleichermaßen als „wird geprüft…", auch wenn die Überwachung abgeschaltet ist (dann wird nichts geprüft).
-- > OFFEN: `counts.offline`, `counts.documented`, `recentlyChanged` ohne Abnehmer – entfernen oder anzeigen?

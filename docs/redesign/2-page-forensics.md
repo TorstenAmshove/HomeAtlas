@@ -28,14 +28,14 @@ Querschnitt (alle Seiten):
 1. **Zahl doppelt:** Untertitel „N Geräte dokumentiert, davon M gerade erreichbar“ *und* Kacheln
    „Geräte insgesamt“ / „gerade erreichbar“ zeigen dieselben zwei Zahlen. Fix: eine ruhige Zeile.
 2. Vier gleich laute Stat-Kacheln; die wichtige Frage („ist etwas ausgefallen?“) hat keine
-   Hervorhebung. `counts.offline` wird geliefert, aber **nirgends angezeigt**. Fix: Status-Hero
+   Hervorhebung. `counts.offline` (inzwischen entfernt, #85) wird geliefert, aber **nirgends angezeigt**. Fix: Status-Hero
    „Alles erreichbar“ / „2 wichtige Geräte nicht erreichbar → ansehen“.
 3. „Wichtigste Geräte“ ist auf 10 gekappt (`routes/overview.py` `[:10]`), die Kachel zählt alle
    kritischen. Bei 12 kritischen fehlen 2 ohne Hinweis. Fix: „+2 weitere“ verlinkt auf
    `/geraete?importance=critical`.
 4. Ergebnis von „Internet prüfen“ verschwindet beim Verlassen der Seite. Fix: letzte Prüfung mit
    Zeitstempel anzeigen (oder im URL-State halten).
-5. `recentlyChanged` wird geliefert, aber nicht angezeigt (versteckte Daten). Fix: „Zuletzt
+5. `recentlyChanged` (inzwischen entfernt, #85) wird geliefert, aber nicht angezeigt (versteckte Daten). Fix: „Zuletzt
    geändert“ als einklappbare Liste oder bewusst aus der API nehmen.
 6. LLM-Hinweis ist ein Absatz. Fix: Status-Chip „Assistent nicht eingerichtet · Einrichten“.
 

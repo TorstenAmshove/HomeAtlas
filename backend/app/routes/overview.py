@@ -90,14 +90,11 @@ async def dashboard(_: dict = Depends(current_user)) -> dict:
     provider = settings.get("llmProvider", "")
     return {
         "homeName": settings.get("homeName"),
-        "setupCompleted": settings.get("setupCompleted", False),
         "counts": {
             "total": len(systems),
             "online": sum(1 for s in systems if s["status"] == "online"),
-            "offline": sum(1 for s in systems if s["status"] == "offline"),
             "critical": sum(1 for s in systems if s["importance"] == "critical"),
             "accounts": len(db.list_accounts()),
-            "documented": sum(1 for s in systems if s["descriptionMd"]),
         },
         "byKind": {k: sum(1 for s in systems if s["kind"] == k) for k in sorted({s["kind"] for s in systems})},
         "kindLabels": docs.KIND_LABELS,
@@ -107,7 +104,6 @@ async def dashboard(_: dict = Depends(current_user)) -> dict:
         ][:10],
         "monitorIntervalSeconds": settings.get("monitorIntervalSeconds", 10),
         "monitorEnabled": settings.get("monitorEnabled", True),
-        "recentlyChanged": sorted(systems, key=lambda s: s["updatedAt"], reverse=True)[:8],
         "lastScan": scan,
         "llmConfigured": llm_providers.is_configured(provider, settings),
     }

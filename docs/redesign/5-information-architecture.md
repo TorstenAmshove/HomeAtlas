@@ -121,7 +121,7 @@ neuen Shell vorerst noch ihren eigenen Seitenkopf; den nimmt jeweils der PR ihre
   der Netzplan, B3), eine ruhige Zahlenzeile statt Untertitel + Kacheln, „+N weitere“ bei mehr als 10
   kritischen Geräten (B1, verlinkt auf `/geraete?importance=critical`),
   „Stand letzter Scan“ für nicht überwachte kritische Geräte (B2), Ergebnis von „Internet prüfen“ mit
-  Uhrzeit, Status-Chip statt KI-Absatz, Skeleton, kein Seitentitel. `recentlyChanged` bleibt bewusst
+  Uhrzeit, Status-Chip statt KI-Absatz, Skeleton, kein Seitentitel. `recentlyChanged` (inzwischen entfernt, #85) bleibt bewusst
   ungenutzt. Bei ausgeschaltetem Schalter rendert `/` unverändert `DashboardPage.tsx`.
 - **Zugänge + Mehr** (PR 6, `pages/zugaenge/`, `pages/mehr/`, ein gemeinsames `mehr.css`): Zugänge als ruhige
   Liste mit Suche in `?q=`; „Neuer Zugang“ und Bearbeiten als eigene Routen `/zugaenge/neu` und `/zugaenge/:id`
@@ -146,7 +146,7 @@ neuen Shell vorerst noch ihren eigenen Seitenkopf; den nimmt jeweils der PR ihre
   Änderungen fragt nach (`lib/useLeaveGuard.tsx`, ohne Data-Router kein `useBlocker`).
 - **Geräte** (PR 3, `pages/geraete/`): Liste ohne Seitenkopf mit Suche, sichtbarem Sortier-Menü und
   Filterzeile „Alle · Nicht erreichbar · Wichtig · Art ▾ · Compose ▾“ (Zahlen clientseitig aus
-  `GET /api/systems` über das ganze Inventar; „Nicht erreichbar“ ist `counts.offline`, also alle
+  `GET /api/systems` über das ganze Inventar; „Nicht erreichbar“ war `counts.offline` (inzwischen entfernt, #85), also alle
   Geräte, nicht nur die überwachten), alles in der URL (`q` und `sort` auch in der alten
   Oberfläche, dazu `status`, `importance`, `duplikate=1`). Duplikate als Chip mit Prüfansicht,
   Mehrfachauswahl erst nach „Auswählen“, Löschen mit Prüfdialog (Namen, mitgelöschte Zugänge,
