@@ -309,6 +309,20 @@ test("login, MFA enrollment, setup and main routes render without errors", async
     await page.goto("/geraete");
     for (const [label, key] of [["Gerät", "name"], ["Adresse", "ip"], ["Art", "kind"], ["Standort", "location"], ["Zustand", "status"]]) {
       const head = page.getByRole("columnheader", { name: label, exact: true });
+      if (key === "name") {
+        // Hovering a header must keep it readable: transparent background, text colour != background.
+        await head.getByRole("button").hover();
+        await expect(head.getByRole("button")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+        const textColor = await page.locator(".app-shell").evaluate((el) => {
+          const probe = document.createElement("span");
+          probe.style.color = getComputedStyle(el).getPropertyValue("--c-text");
+          el.appendChild(probe);
+          const c = getComputedStyle(probe).color;
+          probe.remove();
+          return c;
+        });
+        await expect(head.getByRole("button")).toHaveCSS("color", textColor);
+      }
       await head.getByRole("button").click();
       await expect(page).toHaveURL(new RegExp(`[?&]sort=${key}$`));
       await expect(head).toHaveAttribute("aria-sort", "ascending");
