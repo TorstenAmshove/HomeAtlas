@@ -39,10 +39,10 @@ was unter „Mehr“ wandert und welche Seiten tiefe Arbeit bekommen.
 | 12 | Protokoll | `/protokoll` | admin | selten, sicherheitsrelevant | niedrig | *Mehr / Verwaltung* |
 | – | Login / MFA / Einrichtung | (Gate, keine Route) | – | einmalig bzw. je Sitzung | hoch | außerhalb der Navigation |
 
-## Empfehlung: Daten erheben, ohne das Datenschutzversprechen zu brechen
+## Verworfener Vorschlag: Daten erheben, ohne das Datenschutzversprechen zu brechen
 
 Ein Drittanbieter-Tracker passt nicht zu einem selbst gehosteten Heimnetz-Tool (README
-„Sicherheit“). Vorschlag für eine eigene, kleine Messung, **nur nach deiner Freigabe**:
+„Sicherheit“). Der Vorschlag für eine eigene, kleine Messung lautete (**verworfen**, siehe Entscheidung unten):
 
 1. Tabelle `pageViews(day, route, device[phone|desktop], role, count)` – nur Tageszähler pro
    Route-Muster (`/geraete/:id`, nicht die ID), kein User, keine IP, 90 Tage Aufbewahrung.
@@ -51,5 +51,5 @@ Ein Drittanbieter-Tracker passt nicht zu einem selbst gehosteten Heimnetz-Tool (
 3. „Dead clicks“ grob: Klicks auf Elemente mit `cursor:pointer` ohne Handler zählen
    (nur Zähler, kein Inhalt).
 
-Mit zwei bis vier Wochen Daten wird diese Tabelle neu gerankt; bis dahin gilt die Annahme oben.
-Der Punkt „Data-driven“ der CALM-Checkliste ist damit **vorläufig nur teilweise erfüllt**.
+**Entscheidung (21.11.2026): keine Nutzungsmessung. Die Rangfolge bleibt eine begründete Annahme.**
+Der Punkt „Data-driven“ der CALM-Checkliste ist damit **dauerhaft nicht anwendbar**.

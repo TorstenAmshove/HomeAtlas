@@ -18,8 +18,16 @@ export function useRevealedSecrets(): {
   const [secrets, setSecrets] = useState<Record<string, string>>({});
   const timers = useRef<Record<string, number>>({});
 
-  useEffect(() => () => {
-    Object.values(timers.current).forEach((t) => window.clearTimeout(t));
+  const mounted = useRef(false);
+
+  useEffect(() => {
+    // Set in the effect body (not only initialised) so StrictMode's setup -> cleanup -> setup works.
+    mounted.current = true;
+    const pending = timers.current;
+    return () => {
+      mounted.current = false;
+      Object.values(pending).forEach((t) => window.clearTimeout(t));
+    };
   }, []);
 
   const hide = useCallback((accountId: string) => {
@@ -35,6 +43,7 @@ export function useRevealedSecrets(): {
 
   const reveal = useCallback(async (accountId: string) => {
     const { secret } = await api.revealSecret(accountId);
+    if (!mounted.current) return; // unmounted while waiting: no state, no timer
     setSecrets((current) => ({ ...current, [accountId]: secret }));
     window.clearTimeout(timers.current[accountId]);
     timers.current[accountId] = window.setTimeout(() => hide(accountId), SECRET_VISIBLE_MS);

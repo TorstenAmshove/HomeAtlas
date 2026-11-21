@@ -194,7 +194,8 @@ Mit Schalter `uiCalm` MUSS `/plan` die Seite `PlanCalm` zeigen; das SVG selbst b
 - Darunter „Überwachte Geräte“ als Liste mit Status-Chip (Adresse · Port bzw. Ping); auf dem Handy
   (unter 760 px) steht diese Liste vor dem Bild, das Bild dort in doppelter Bildschirmbreite in einem
   seitlich verschiebbaren Rahmen (die Seite selbst scrollt nicht seitlich). Kein Zoom- oder Ziehen-
-  Bedienelement.
+  Bedienelement: bewusst keine Zoom-/Ziehen-Bedienelemente (ADR-0008, Constitution D5); auf dem Handy
+  seitlich verschiebbar, Pinch-Zoom des Browsers. Eine Änderung bräuchte eine neue ADR.
 - „Nicht im Plan gezeichnet“ (die Gruppen von oben) und „Letzte Zustandswechsel“ sind einklappbar.
 - „Diagnose“: „Jetzt prüfen“ (ADMIN), „DNS testen“, „Speedtest“; Ergebnisse mit Uhrzeit.
 

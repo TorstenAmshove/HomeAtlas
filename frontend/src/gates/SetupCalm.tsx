@@ -120,8 +120,8 @@ export default function SetupCalm({ onDone }: { onDone: () => void }) {
         {error && <div className="gate-error" role="alert" tabIndex={-1} ref={errorRef}>{error}</div>}
         {secretsMissing && (
           <div className="gate-note">
-            Passwörter werden aus Sicherheitsgründen nicht zwischengespeichert. Nach dem Neuladen bitte
-            die Passwort-Felder erneut ausfüllen (oder später unter Zugänge nachtragen).
+            Passwörter und Notizen werden aus Sicherheitsgründen nicht zwischengespeichert. Nach dem
+            Neuladen bitte die Passwort- und Notiz-Felder erneut ausfüllen (oder später unter Zugänge nachtragen).
           </div>
         )}
 

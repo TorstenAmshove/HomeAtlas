@@ -169,14 +169,24 @@ serverseitig löschen (falls vorhanden) und das Cookie entfernen; Antwort immer 
 
 Quelle: `backend/app/main.py:193`
 
-### Requirement: Abmelden fragt bei ungespeicherten Entwürfen (UI)
+### Requirement: Abmelden löscht Entwürfe erst nach erfolgreichem Server-Logout (UI)
 Abmelden löscht alle Entwürfe des Browser-Tabs (`homeatlas.draft.*` im `sessionStorage`, siehe
 [dokumentation](../dokumentation/spec.md)), aber erst nachdem der Server die Sitzung beendet hat.
 Schlägt das Abmelden fehl, MUSS die Oberfläche den Fehler zeigen; die Person bleibt angemeldet, und
-die Entwürfe bleiben erhalten (gilt für alle Abmelden-Tasten, auch in MFA-Einrichtung und Wizard). Liegt mindestens ein solcher Entwurf vor, MUSS die
-Oberfläche vor dem Abmelden einen Prüfdialog zeigen („Ungespeicherte Entwürfe gehen verloren“,
-„Trotzdem abmelden“ / „Angemeldet bleiben“); ohne Entwurf meldet die Taste sofort ab. Gilt für die
-Abmelden-Tasten beider Oberflächen (alte Seitenleiste, neue Shell). **[Muss]**
+die Entwürfe bleiben erhalten (gilt für alle Abmelden-Tasten, auch in MFA-Einrichtung und Wizard).
+**[Muss]**
+
+#### Szenario: Abmelden schlägt fehl
+- **WENN** der Server das Abmelden mit einem Fehler beantwortet
+- **DANN** zeigt die Oberfläche den Fehler, die Person bleibt angemeldet, und die Entwürfe bleiben
+
+Quelle: `frontend/src/App.tsx`, `frontend/src/lib/drafts.ts`, `frontend/src/gates/SetupCalm.tsx`
+
+### Requirement: Abmelden fragt bei ungespeicherten Entwürfen (UI)
+Liegt mindestens ein Entwurf des Tabs vor, MUSS die Oberfläche vor dem Abmelden einen Prüfdialog
+zeigen („Ungespeicherte Entwürfe gehen verloren“, „Trotzdem abmelden“ / „Angemeldet bleiben“); ohne
+Entwurf meldet die Taste sofort ab. Gilt für die Abmelden-Tasten beider Oberflächen (alte
+Seitenleiste, neue Shell). **[Muss]**
 
 #### Szenario: Entwurf offen
 - **WENN** ein Admin einen Kapiteltext bearbeitet, nicht speichert und „Abmelden“ wählt
