@@ -43,8 +43,10 @@ Quelle: `backend/app/routes/chat.py` (`_visible_chat`), `backend/app/db.py` (`ch
 `backend/tests/test_chat_owner_and_switch.py::test_member_sees_only_own_chats`, `::test_admin_sees_all_including_ownerless`
 
 #### Szenario: Neue Unterhaltung
-- **WENN** ein Benutzer „Neue Unterhaltung“ anlegt
+- **WENN** ein Benutzer „Neue Unterhaltung“ anlegt (API)
 - **DANN** erscheint sie mit Titel „Neue Unterhaltung“ oben in der Liste
+
+Die neue Oberfläche legt nichts an, solange keine Frage gestellt wird (siehe „Unterhaltung in der URL …“).
 
 #### Szenario: Automatischer Titel
 - **WENN** die erste Nachricht in einer Unterhaltung mit Titel „Neue Unterhaltung“ gesendet wird
@@ -71,18 +73,44 @@ wenn diese Unterhaltung noch offen ist. Gilt in alter und neuer Oberfläche. In 
 MUSS die geöffnete Unterhaltung in der URL stehen (`/assistent/:chatId`): Wählen oder Anlegen einer
 Unterhaltung navigiert dorthin, Zurück und Neuladen landen in derselben. `/assistent` öffnet die
 neueste Unterhaltung; eine unbekannte oder fremde ID fällt ohne Fehlermeldung auf die neueste (bzw.
-den leeren Zustand) zurück. Ist kein KI-Anbieter eingerichtet (`llmConfigured` aus `/api/dashboard`),
+den leeren Zustand) zurück. „Neue Unterhaltung“ öffnet in der neuen Oberfläche `/assistent/neu`, einen
+lokalen leeren Zustand: Das System legt erst mit der ersten gesendeten Frage eine Unterhaltung an (die URL
+wechselt dann per `replace` auf deren ID), ohne Frage bleibt auf dem Server nichts zurück. Ist kein KI-Anbieter eingerichtet (`llmConfigured` aus `/api/dashboard`),
 sagt die Seite das vor der ersten Frage. **[Muss]**
 
 #### Szenario: Neuladen
 - **WENN** ein Benutzer in der neuen Oberfläche eine ältere Unterhaltung wählt und die Seite neu lädt
 - **DANN** ist dieselbe Unterhaltung geöffnet
 
+#### Szenario: Neu ohne Frage
+- **WENN** jemand in der neuen Oberfläche „Neue Unterhaltung“ wählt und keine Frage sendet
+- **DANN** enthält `GET /api/chats` keine zusätzliche Unterhaltung
+
 #### Szenario: Seitenwechsel mit halber Frage
 - **WENN** jemand eine Frage tippt, zur Dokumentation wechselt und zurückkommt
 - **DANN** steht der getippte Text noch im Eingabefeld
 
 Quelle: `frontend/src/pages/ChatPage.tsx`, `frontend/src/lib/drafts.ts`
+
+### Requirement: Unterhaltung löschen (UI)
+Die neue Oberfläche MUSS die geöffnete Unterhaltung über „⋯ → Unterhaltung löschen …“ löschen lassen, erst
+nach einem Prüfdialog, der Titel und das Löschen aller Nachrichten nennt und sagt, dass es sich nicht
+rückgängig machen lässt. Während eine Antwort läuft, ist Löschen gesperrt. Die Rechte erzwingt das Backend
+(Mitglied nur eigene, ADMIN alle); sie ist keine Fähigkeit des Assistenten (kein LLM-Werkzeug). **[Muss]**
+
+#### Szenario: Löschen mit Prüfdialog
+- **WENN** jemand „Unterhaltung löschen …“ wählt und „Abbrechen“ klickt
+- **DANN** bleibt die Unterhaltung bestehen; bei Bestätigung ist sie weg
+
+#### Szenario: Nach dem Löschen
+- **WENN** eine Unterhaltung gelöscht wurde
+- **DANN** öffnet die Seite die neueste verbleibende (sonst den leeren Zustand), entfernt deren Eingabe-Entwurf und zeigt „Unterhaltung gelöscht“; Zurück/Neuladen auf die gelöschte ID fällt ohne Fehler zurück
+
+#### Szenario: Fremde Unterhaltung als ADMIN
+- **WENN** ADMIN eine Unterhaltung eines anderen Benutzers löscht
+- **DANN** nennt der Dialog zusätzlich „Sie gehört <Benutzer>.“
+
+Quelle: `frontend/src/pages/ChatPage.tsx`
 
 ### Requirement: Nachricht senden — Vorbedingungen und Fehler
 Das System MUSS eine nicht-leere Nachricht verlangen (sonst Validierungsfehler 422), bei unbekannter
