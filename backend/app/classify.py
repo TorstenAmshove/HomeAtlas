@@ -56,6 +56,14 @@ def has_self_reported_name(finding: dict) -> bool:
     return (finding.get("extra") or {}).get("nameSource") in _SELF_REPORTED
 
 
+def has_evidence(finding: dict) -> bool:
+    extra = finding.get("extra") or {}
+    return bool(
+        finding.get("openPorts") or finding.get("vendor") or finding.get("hostname")
+        or extra.get("mdns") or extra.get("ssdp") or extra.get("httpBanner")
+    )
+
+
 def needs_classification(finding: dict) -> bool:
     """Which devices are worth an LLM call.
 
@@ -70,11 +78,7 @@ def needs_classification(finding: dict) -> bool:
     if is_container(finding):
         return False
     evidence = finding.get("extra") or {}
-    has_evidence = bool(
-        finding.get("openPorts") or finding.get("vendor") or finding.get("hostname")
-        or evidence.get("mdns") or evidence.get("ssdp") or evidence.get("httpBanner")
-    )
-    if not has_evidence:
+    if not has_evidence(finding):
         return False
     if finding.get("kind") in ("other", ""):
         return True
@@ -122,10 +126,17 @@ def _extract_json_array(text: str) -> list:
     return value
 
 
-async def classify(findings: list[dict], settings: dict, log=None) -> tuple[dict[str, dict], list[str]]:
-    """Returns (by_ip, warnings). `by_ip` holds only entries worth applying."""
+async def classify(findings: list[dict], settings: dict, log=None,
+                   force: bool = False) -> tuple[dict[str, dict], list[str]]:
+    """Returns (by_ip, warnings). `by_ip` holds only entries worth applying.
+
+    `force` (manual per-device request) skips only the "is the guess unsure / purpose missing"
+    test; containers and findings without any evidence stay excluded."""
     warnings: list[str] = []
-    candidates = [f for f in findings if needs_classification(f)]
+    if force:
+        candidates = [f for f in findings if not is_container(f) and has_evidence(f)]
+    else:
+        candidates = [f for f in findings if needs_classification(f)]
     if not candidates:
         return {}, warnings
     if not llm_providers.is_configured(settings.get("llmProvider", ""), settings):
@@ -231,3 +242,45 @@ def apply(finding: dict, classification: dict) -> dict:
     merged["extra"] = {**(finding.get("extra") or {}),
                        "aiConfidence": classification.get("confidence", "medium")}
     return merged
+
+
+_AI_FILL_FIELDS = ("vendor", "model", "purpose", "descriptionMd", "docUrl")
+
+
+def finding_from_system(system: dict) -> dict:
+    """Builds the finding-shaped dict `classify`/`apply` work on from a stored inventory row."""
+    return {key: system.get(key) for key in (
+        "ip", "hostname", "vendor", "kind", "purpose", "docUrl", "openPorts", "services",
+        "discoverySource", "name",
+    )} | {"extra": system.get("extra") or {}}
+
+
+def apply_to_system(system: dict, classification: dict) -> dict:
+    """Patch (for `db.update_system`) that applies one classification to a stored row.
+
+    Unconfirmed rows get exactly what `apply` would give a finding (source/self-reported name
+    protection included). Confirmed rows only get still-empty vendor/model/purpose/description/link
+    fields -- never kind, name or importance. A link the row already has (`docUrl`/`docLink`)
+    beats the suggested one. Returns {} if there is nothing to change."""
+    finding = finding_from_system(system)
+    if is_container(finding):
+        return {}
+    if system.get("docLink") and not finding.get("docUrl"):
+        finding["docUrl"] = system["docLink"]
+    merged = apply(finding, classification)
+    if system.get("confirmed"):
+        fields = [f for f in _AI_FILL_FIELDS if not system.get(f) and merged.get(f)
+                  and not (f == "docUrl" and system.get("docLink"))]
+    else:
+        fields = [f for f in ("kind", "name", "vendor", "model", "purpose", "descriptionMd",
+                              "importance", "docUrl")
+                  if merged.get(f) and merged.get(f) != system.get(f)
+                  and not (f == "docUrl" and system.get("docLink") and not system.get("docUrl"))]
+    if not fields:
+        return {}
+    patch = {f: merged[f] for f in fields}
+    source = system.get("discoverySource") or ""
+    patch["discoverySource"] = source if "ki" in source.split("+") else merged["discoverySource"]
+    patch["extra"] = {**(system.get("extra") or {}),
+                      "aiConfidence": classification.get("confidence", "medium")}
+    return patch

@@ -5,7 +5,7 @@
 
 Lücken: **0**
 
-## Routen (85)
+## Routen (86)
 
 | Eintrag | Spec |
 |---|---|
@@ -68,6 +68,7 @@ Lücken: **0**
 | `GET /api/systems/{system_id}` | [inventar](capabilities/inventar/spec.md) |
 | `PATCH /api/systems/{system_id}` | [inventar](capabilities/inventar/spec.md) |
 | `GET /api/systems/{system_id}/aliases` | [inventar](capabilities/inventar/spec.md) |
+| `POST /api/systems/{system_id}/classify` | [inventar](capabilities/inventar/spec.md), [klassifikation-llm](capabilities/klassifikation-llm/spec.md) |
 | `GET /api/systems/{system_id}/config-versions` | [inventar](capabilities/inventar/spec.md) |
 | `GET /api/systems/{system_id}/config-versions/{version_id}` | [inventar](capabilities/inventar/spec.md) |
 | `GET /api/systems/{system_id}/container/logs` | [remote-admin](capabilities/remote-admin/spec.md) |

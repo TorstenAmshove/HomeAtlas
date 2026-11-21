@@ -15,7 +15,8 @@ konfiguriertes Modell funktioniert der Scan weiter, nur ohne diese Ergänzungen.
 
 | Aktion | ADMIN | MEMBER |
 |---|---|---|
-| Einordnung auslösen (indirekt per Scan) | ja | nein |
+| Einordnung auslösen (indirekt per Scan, nur neue Geräte) | ja | nein |
+| Einzelnes Gerät neu einordnen (`POST /api/systems/{system_id}/classify`) | ja | nein (403) |
 | Einordnung ein-/ausschalten (`scanUseLlm`) | ja | nein |
 | Ergebnisse im Inventar lesen | ja | ja, siehe [inventar](../inventar/spec.md) |
 
@@ -42,7 +43,14 @@ Quelle: `backend/app/pipeline.py:469`, `backend/app/discovery.py:653`
 Das System MUSS nur Funde einordnen lassen, die (a) kein Docker-Container sind, (b) mindestens einen
 Beleg haben (offene Ports, MAC-Hersteller, Hostname, mDNS, SSDP oder HTTP-Banner) und (c) entweder
 Art `other`/leer haben, nur eine Platzhalter-Einordnung (`extra.guessConfident=false`) tragen, oder
-noch keinen Zweck oder keinen Doku-Link besitzen. **[Muss]**
+noch keinen Zweck oder keinen Doku-Link besitzen. Der Scan ordnet zusätzlich nur Funde ein, die das
+Inventar noch nicht kennt (kein Treffer über Schlüssel, Legacy-Schlüssel, Alias, MAC, Proxmox,
+IP+Hostname oder Controller-IP; alle Quellen). Bekannte Geräte werden nie erneut gefragt, auch nicht
+nach verworfener Antwort; das Protokoll nennt neue, eingeordnete und übersprungene Funde. **[Muss]**
+
+#### Szenario: Zweiter Scan ohne neue Geräte
+- **WENN** alle Funde bereits im Inventar stehen
+- **DANN** findet kein LLM-Aufruf statt (Test: `backend/tests/test_pipeline_classify_new_only.py::test_second_scan_sends_nothing`)
 
 #### Szenario: Stiller Host
 - **WENN** ein Fund weder Ports noch Hersteller, Hostname, mDNS, SSDP oder Banner hat
@@ -53,6 +61,25 @@ noch keinen Zweck oder keinen Doku-Link besitzen. **[Muss]**
 - **DANN** ist nur der Host Kandidat
 
 Quelle: `backend/app/classify.py:50`, Test: `backend/tests/test_classify_source_names.py::test_containers_with_same_ip_untouched`
+
+### Requirement: KI-Ergebnis bleibt bei Folge-Scans erhalten
+Das System MUSS bei unbestätigten Zeilen mit `extra.aiConfidence` Art, Name, Hersteller, Modell,
+Zweck, Beschreibung, Doku-Link und Wichtigkeit nicht mit Regelwerten späterer Scans überschreiben;
+von Quellen (Docker, Proxmox, UniFi, Omada) oder vom Gerät selbst gemeldete Namen/Arten wirken weiter.
+**[Muss]**
+
+Quelle: `backend/app/db/systems.py` (`upsert_discovered_system`), Test: `backend/tests/test_discovery_lookup.py::test_ai_result_survives_next_scan`
+
+### Requirement: Manuelle Einordnung am Gerät
+Das System MUSS Admins `POST /api/systems/{system_id}/classify` bieten (MEMBER: 403), unabhängig von
+`scanUseLlm`. Es gelten die Scan-Regeln (niedrige Konfidenz verworfen, Quell- und selbstgemeldete
+Namen bleiben); Kandidatenkriterien zu Art/Zweck entfallen (`force`), Container, Geräte ohne IP und
+ohne Beleg werden abgelehnt (400), ebenso fehlender KI-Zugang (400). Providerfehler → 502, Gerät
+unverändert. Bestätigte Zeilen erhalten nur leere Felder (Hersteller, Modell, Zweck, Beschreibung,
+Link), nie Art, Name oder Wichtigkeit; `confirmed` bleibt. Antwort: `{system, changed, warnings}`.
+**[Muss]** Die Funktion steht nicht in `tools.py`.
+
+Quelle: `backend/app/routes/systems.py` (`classify_system`), `backend/app/classify.py` (`apply_to_system`), Test: `backend/tests/test_systems_classify_route.py`
 
 ### Requirement: Container nie einordnen
 Das System MUSS Docker-Container (Fund mit `extra.docker`) vollständig von der Einordnung ausnehmen –

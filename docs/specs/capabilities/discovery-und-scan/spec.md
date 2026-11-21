@@ -451,7 +451,7 @@ Quelle: `backend/app/pipeline.py:307`, Tests: `backend/tests/test_pipeline_uniqu
 ### Requirement: Scan-Ablauf und Fehlertoleranz
 Das System MUSS die Phasen in dieser Reihenfolge ausführen: OUI laden (falls fehlend) → Netzwerk-
 Discovery → Docker → Controller-Quellen (UniFi, Omada, Proxmox, AdGuard; je abschaltbar) →
-KI-Einordnung (`scanUseLlm`) → eindeutige Namen → Inventar zusammenführen → nicht gesehene
+KI-Einordnung (`scanUseLlm`, nur neue Funde) → eindeutige Namen → Inventar zusammenführen → nicht gesehene
 entdeckte Geräte `offline` → Container dem Host zuordnen → Uplinks verknüpfen → Netze
 synchronisieren → kritische Geräte überwachen → Abfrage mit Zugangsdaten (`scanUseCredentials`) →
 Dokumentation neu schreiben. Nur ein Fehler in der Netzwerk-Discovery selbst (oder ein unerwarteter

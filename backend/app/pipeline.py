@@ -341,6 +341,29 @@ def _make_names_unique(findings: list[dict]) -> None:
             f["name"] = f"{f['name']} ({suffix}{f'-{occurrence}' if occurrence > 1 else ''})"
 
 
+async def _classify_new_findings(findings: list[dict], settings: dict, log) -> tuple[list[dict], list[str]]:
+    """LLM classification only for findings the inventory doesn't know yet (the upsert would
+    create them). Known devices are skipped -- repeating the question every scan costs tokens and
+    the first answer is kept by the upsert (see `upsert_discovered_system`). A device that could
+    not be classified on its first scan is not retried automatically; the admin button does that."""
+    new = [f for f in findings if db.find_existing_for_discovery(f)[0] is None]
+    known = len(findings) - len(new)
+    if not new:
+        log(f"KI-Einordnung: 0 neue Funde, {known} bekannte übersprungen")
+        return findings, []
+    classifications, warnings = await classify.classify(new, settings, log)
+    new_ids = {id(f) for f in new}
+    applied = 0
+    result = []
+    for f in findings:
+        if id(f) in new_ids and f.get("ip") in classifications:
+            f = classify.apply(f, classifications[f["ip"]])
+            applied += 1
+        result.append(f)
+    log(f"KI-Einordnung: {len(new)} neue Funde, {applied} eingeordnet, {known} bekannte übersprungen")
+    return result, warnings
+
+
 async def run_full_scan(scan_id: str) -> None:
     settings = db.get_settings()
     warnings: list[str] = []
@@ -474,12 +497,8 @@ async def run_full_scan(scan_id: str) -> None:
 
         if settings.get("scanUseLlm", True):
             progress("Geräte einordnen (KI)", 89, "KI-Einordnung unbekannter Geräte")
-            classifications, classify_warnings = await classify.classify(findings, settings, log)
+            findings, classify_warnings = await _classify_new_findings(findings, settings, log)
             warnings += classify_warnings
-            findings = [
-                classify.apply(f, classifications[f["ip"]]) if f.get("ip") in classifications else f
-                for f in findings
-            ]
 
         _make_names_unique(findings)
 

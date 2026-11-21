@@ -100,3 +100,57 @@ def test_container_with_name_source_untouched():
 def test_empty_ai_name_never_overwrites():
     out = classify.apply(_self_reported("hostname"), {**CLS, "name": ""})
     assert out["name"] == "Wohnzimmer"
+
+
+def test_force_only_skips_need_test():
+    confident = {"ip": "192.168.1.5", "kind": "router", "purpose": "x", "docUrl": "u",
+                 "openPorts": [80], "extra": {}}
+    assert not classify.needs_classification(confident)
+    calls = []
+
+    async def fake_chat(*a, **k):
+        calls.append(1)
+        raise classify.llm_providers.ProviderError("nope")
+
+    orig, orig_cfg = classify.llm_providers.chat, classify.llm_providers.is_configured
+    classify.llm_providers.chat = fake_chat
+    classify.llm_providers.is_configured = lambda *a: True
+    try:
+        asyncio.run(classify.classify([confident], {}))
+        assert calls == []
+        asyncio.run(classify.classify([confident], {}, force=True))
+        assert calls == [1]
+        asyncio.run(classify.classify([_container("c", "p"), {"ip": "1.1.1.1", "extra": {}}], {}, force=True))
+        assert calls == [1]
+    finally:
+        classify.llm_providers.chat, classify.llm_providers.is_configured = orig, orig_cfg
+
+
+def _system(**kw):
+    return {"ip": "192.168.1.5", "name": "Alt", "kind": "other", "confirmed": 0, "purpose": "",
+            "docUrl": "", "docLink": "", "vendor": "", "model": "", "descriptionMd": "",
+            "importance": "normal", "discoverySource": "arp", "openPorts": [80], "extra": {}, **kw}
+
+
+def test_apply_to_system_unconfirmed_and_source_name():
+    patch = classify.apply_to_system(_system(), CLS)
+    assert patch["kind"] == "vm" and patch["purpose"] == "Zweck"
+    assert patch["extra"]["aiConfidence"] == "high" and patch["discoverySource"] == "arp+ki"
+    patch = classify.apply_to_system(_system(discoverySource="unifi", extra={"unifi": {}}), CLS)
+    assert "kind" not in patch and "name" not in patch and patch["purpose"] == "Zweck"
+    patch = classify.apply_to_system(_system(extra={"nameSource": "mdns"}), CLS)
+    assert "name" not in patch and patch["kind"] == "vm"
+
+
+def test_apply_to_system_confirmed_fills_only_empty():
+    patch = classify.apply_to_system(_system(confirmed=1, purpose="Mein Zweck"),
+                                     {**CLS, "vendor": "V", "docUrl": "https://d.example"})
+    assert patch["vendor"] == "V" and patch["docUrl"] == "https://d.example"
+    assert not {"kind", "name", "importance", "purpose", "confirmed"} & set(patch)
+    patch = classify.apply_to_system(_system(confirmed=1, docLink="https://m.example"),
+                                     {**CLS, "docUrl": "https://d.example"})
+    assert "docUrl" not in patch
+
+
+def test_apply_to_system_container_empty():
+    assert classify.apply_to_system(_system(extra={"docker": {}}), CLS) == {}

@@ -472,6 +472,8 @@ export const api = {
   getSystemAliases: (id: string) => get<{ aliases: SystemAlias[] }>(`/systems/${id}/aliases`),
   markNotDuplicate: (id: string, otherId: string) =>
     post<{ ok: boolean }>(`/systems/${id}/not-duplicate`, { otherId }),
+  classifySystem: (id: string) =>
+    post<{ system: System; changed: boolean; warnings: string[] }>(`/systems/${id}/classify`),
   probeSystem: (id: string) => post<{ outcome: ProbeOutcome; system: System }>(`/systems/${id}/probe`),
   listConfigVersions: (systemId: string) =>
     get<{ versions: ConfigVersion[] }>(`/systems/${systemId}/config-versions`),

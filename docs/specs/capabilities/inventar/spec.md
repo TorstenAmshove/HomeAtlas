@@ -474,7 +474,7 @@ Aus [data-model](../../contracts/data-model.md):
 | GET | /api/systems/{system_id}/config-versions/{version_id} | ADMIN | Version mit Klartext → `{version}` |
 | GET | /api/systems/{system_id}/errors | MEMBER | Fehlerereignisse → `{events}` |
 
-Berührte fremde Routen (nur verlinkt): Auslesen `POST /api/systems/{id}/probe`
+Berührte fremde Routen (nur verlinkt): Auslesen `POST /api/systems/{id}/probe`, KI-Einordnung `POST /api/systems/{system_id}/classify` ([klassifikation-llm](../klassifikation-llm/spec.md))
 ([credentialed-probing](../credentialed-probing/spec.md)), Container/Neustart/Schalten/Konsolen
 ([remote-admin](../remote-admin/spec.md)), Zugänge ([zugangsdaten](../zugangsdaten/spec.md)).
 LLM-Lesezugriff aufs Inventar: [llm-tools](../../contracts/llm-tools.md).
