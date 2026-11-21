@@ -93,6 +93,9 @@ export default function DevicePage() {
   const [checking, setChecking] = useState(false);
   const [checkNotice, setCheckNotice] = useState<Notice>(null);
   const [notice, setNotice] = useState<Notice>(null);
+  const idRef = useRef(id);
+  idRef.current = id;
+  const [classifying, setClassifying] = useState(false);
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -196,6 +199,24 @@ export default function DevicePage() {
   function updateDraft(next: Partial<System>) {
     setDraft(next);
     if (system) storeDeviceDraft(id, next, system);
+  }
+
+  async function classifyAgain() {
+    setClassifying(true);
+    setNotice(null);
+    try {
+      const res = await api.classifySystem(id);
+      // Ignore the answer if the user navigated to another device meanwhile.
+      if (idRef.current !== id) return;
+      if (res.changed) setData((current) => (current ? { ...current, system: res.system } : current));
+      setNotice(res.changed
+        ? { kind: "ok", text: "Aktualisiert." }
+        : { kind: "info", text: "Keine Änderung (die KI war sich nicht sicher genug)." });
+    } catch (e) {
+      if (idRef.current === id) setNotice({ kind: "error", text: errorText(e) });
+    } finally {
+      setClassifying(false);
+    }
   }
 
   async function save() {
@@ -428,6 +449,7 @@ export default function DevicePage() {
     ...(system.docUrl ? [{ label: "Hersteller-Doku ↗", onSelect: () => openExternal(system.docUrl) }] : []),
     ...(system.docLink ? [{ label: "Eigene Doku ↗", onSelect: () => openExternal(system.docLink) }] : []),
     ...(isAdmin ? [
+      { label: classifying ? "KI ordnet ein …" : "KI-Einordnung wiederholen", onSelect: () => void classifyAgain(), disabled: classifying },
       { label: "Zusammenführen …", onSelect: () => void openMerge() },
       { label: "Löschen …", onSelect: () => setDeleteOpen(true), danger: true },
     ] : []),
@@ -590,8 +612,7 @@ export default function DevicePage() {
           </nav>
 
           {tab === "ueberblick" && (
-            <UeberblickTab system={system} derived={derived} accounts={accounts} isAdmin={isAdmin} history={history}
-                          onSystemChange={(updated) => setData((current) => (current ? { ...current, system: updated } : current))} />
+            <UeberblickTab system={system} derived={derived} accounts={accounts} isAdmin={isAdmin} history={history} />
           )}
           {tab === "technik" && (
             <TechnikTab system={system} monitorPorts={monitorPorts} aliases={aliases} isAdmin={isAdmin}

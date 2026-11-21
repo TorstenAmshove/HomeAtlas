@@ -1,6 +1,4 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../../lib/api";
 import type { Account, DeviceErrorEvent, MonitorEvent, System } from "../../lib/api";
 import Markdown from "../../components/Markdown";
 import { SkeletonText } from "../../components/Skeleton";
@@ -25,31 +23,13 @@ export function recentHistory(monitorEvents: MonitorEvent[], errorEvents: Device
 }
 
 /** Tab "Überblick": what the device is for, a short Steckbrief and the latest history. */
-export default function UeberblickTab({ system, derived, accounts, isAdmin, history, onSystemChange }: {
+export default function UeberblickTab({ system, derived, accounts, isAdmin, history }: {
   system: System;
-  onSystemChange?: (system: System) => void;
   derived: string;
   accounts: Account[];
   isAdmin: boolean;
   history: HistoryItem[] | null;
 }) {
-  const [classifying, setClassifying] = useState(false);
-  const [classifyNotice, setClassifyNotice] = useState<{ error: boolean; text: string } | null>(null);
-
-  async function classifyAgain() {
-    setClassifying(true);
-    setClassifyNotice(null);
-    try {
-      const res = await api.classifySystem(system.id);
-      if (res.changed) onSystemChange?.(res.system);
-      setClassifyNotice({ error: false, text: res.changed ? "Aktualisiert." : "Keine Änderung (die KI war sich nicht sicher genug)." });
-    } catch (e) {
-      setClassifyNotice({ error: true, text: e instanceof Error ? e.message : String(e) });
-    } finally {
-      setClassifying(false);
-    }
-  }
-
   const needsPoe = (system.tags ?? []).some((t) => t.toLowerCase().includes("poe"));
   const latest = history?.slice(0, 3) ?? [];
   // The derived text often is just the purpose sentence again; print it once.
@@ -58,13 +38,7 @@ export default function UeberblickTab({ system, derived, accounts, isAdmin, hist
   return (
     <div className="dv-overview">
       <div>
-        <Section title="Wofür" id="dv-purpose"
-                 aside={isAdmin ? (
-                   <button type="button" className="dv-link" disabled={classifying} onClick={() => void classifyAgain()}>
-                     {classifying ? "KI ordnet ein …" : "KI-Einordnung wiederholen"}
-                   </button>
-                 ) : undefined}>
-          {classifyNotice && <p className={classifyNotice.error ? "dv-empty" : "dv-hint"} role="status">{classifyNotice.text}</p>}
+        <Section title="Wofür" id="dv-purpose">
           {system.purpose && <p className="dv-purpose">{system.purpose}</p>}
           {system.descriptionMd ? (
             <Markdown>{system.descriptionMd}</Markdown>
