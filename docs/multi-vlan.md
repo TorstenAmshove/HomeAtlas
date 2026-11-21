@@ -22,7 +22,7 @@ nicht an einer echten UCG Ultra geprüft.
 | mDNS (Name, Modell) | ja | **nein**, außer das Gateway leitet mDNS weiter |
 | SSDP/UPnP | ja | **nein** (nicht verifiziert: UniFi leitet SSDP nach bisherigem Kenntnisstand nicht weiter) |
 | `discoveryKey` | `mac:<mac>` | nur IP; schwächere Wiedererkennung |
-| UniFi-/Omada-Daten (Clients, Netze) | ja | **ja** – kommen vom Controller, unabhängig vom VLAN |
+| UniFi-/Omada-Daten (Clients, Netze) | ja | **ja** – kommen vom Controller, unabhängig vom VLAN (Clients nur aus den gescannten Netzen) |
 
 Weitere Grenzen: höchstens 1024 Adressen pro Netz; Firewall-Regeln zwischen den VLANs können Ports
 blockieren, dann erscheint ein Gerät fälschlich als „nicht erreichbar".
@@ -30,7 +30,8 @@ blockieren, dann erscheint ein Gerät fälschlich als „nicht erreichbar".
 ## Was die UniFi-Anbindung für alle Netze liefert
 
 Ist ein UniFi-Konto mit „Probe erlaubt" hinterlegt, liefert der Controller Clients **mit MAC**
-über alle Netze sowie die Netze selbst (`vlanId`, CIDR). Damit fehlt die MAC geroutet gefundener
+aus den gescannten Netzen (Scan-Einstellungen; ohne Auswahl die Host-Interface-Netze; Clients ohne
+IP entfallen) sowie die Netze selbst (`vlanId`, CIDR). Damit fehlt die MAC geroutet gefundener
 Geräte großenteils nicht mehr.
 
 **Zusammenführen:** Der Netzwerkscan sieht ein geroutetes Gerät nur per IP, der Controller kennt

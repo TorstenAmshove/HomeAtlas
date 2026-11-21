@@ -3,6 +3,11 @@
 The UCG's documented local API lives below ``/proxy/network/integration/v1`` and authenticates
 with a dedicated API key. Every request in this module is a fixed GET endpoint; no generic request
 helper or user-supplied path exists, so the scan pipeline cannot become a controller admin API.
+
+Clients can be limited to the networks the scan covers (``client_subnets``): the integration API
+reports only ``ipAddress`` per client, no network id, so the filter is an IP-in-CIDR check. Clients
+without a usable IPv4 address are skipped while filtering; UniFi devices are never filtered.
+This module takes the CIDR list as a parameter and imports nothing from ``discovery``.
 """
 from __future__ import annotations
 
@@ -125,6 +130,27 @@ def _client_system(site: dict, client: dict) -> dict | None:
     }
 
 
+def _parse_networks(cidrs: list[str] | None) -> list:
+    """Valid IPv4 networks from ``cidrs``; invalid entries are ignored. Empty result = no filter."""
+    networks = []
+    for cidr in cidrs or []:
+        try:
+            network = ipaddress.ip_network(str(cidr).strip(), strict=False)
+        except ValueError:
+            continue
+        if network.version == 4:
+            networks.append(network)
+    return networks
+
+
+def _client_in_networks(client: dict, networks: list) -> bool:
+    try:
+        address = ipaddress.ip_address(str(client.get("ipAddress") or "").strip())
+    except ValueError:
+        return False
+    return address.version == 4 and any(address in network for network in networks)
+
+
 def _network_resource(site: dict, network: dict, owner_system_id: str | None) -> dict:
     ipv4 = network.get("ipv4Configuration") or {}
     host, prefix = ipv4.get("hostIpAddress") or "", ipv4.get("prefixLength")
@@ -166,8 +192,13 @@ def _wan_resource(site: dict, wan: dict, owner_system_id: str | None) -> dict:
     }
 
 
-async def probe(base_url: str, api_key: str, account_id: str, controller_system_id: str | None) -> dict:
-    """Return discovered systems and documentation resources from every local UniFi site."""
+async def probe(base_url: str, api_key: str, account_id: str, controller_system_id: str | None,
+                client_subnets: list[str] | None = None) -> dict:
+    """Return discovered systems and documentation resources from every local UniFi site.
+
+    With ``client_subnets`` (non-empty, at least one valid CIDR) only clients whose IP lies in one
+    of them are returned; ``skippedClients`` counts the rest.
+    """
     if not base_url:
         return {"ok": False, "error": "Keine Adresse fuer den UniFi Controller hinterlegt.", "warnings": [],
                 "systems": [], "resources": [], "completeScopes": []}
@@ -176,6 +207,8 @@ async def probe(base_url: str, api_key: str, account_id: str, controller_system_
                 "completeScopes": []}
 
     systems, resources, warnings, complete_scopes = [], [], [], []
+    client_networks = _parse_networks(client_subnets)
+    skipped_clients = 0
     api_base = _api_base(base_url)
     headers = {"X-API-Key": api_key}
     try:
@@ -209,7 +242,12 @@ async def probe(base_url: str, api_key: str, account_id: str, controller_system_
 
                 try:
                     clients = await _all_pages(client, api_base, f"/sites/{site_id}/clients")
-                    systems += [finding for client_entry in clients if (finding := _client_system(site, client_entry)) is not None]
+                    for client_entry in clients:
+                        if client_networks and not _client_in_networks(client_entry, client_networks):
+                            skipped_clients += 1
+                            continue
+                        if (finding := _client_system(site, client_entry)) is not None:
+                            systems.append(finding)
                 except (httpx.HTTPError, _ApiError) as exc:
                     warnings.append(f"UniFi-Site {site.get('name') or site_id}: Clients konnten nicht gelesen werden ({exc}).")
 
@@ -242,4 +280,4 @@ async def probe(base_url: str, api_key: str, account_id: str, controller_system_
         return {"ok": False, "error": f"UniFi Controller nicht erreichbar: {exc}", "warnings": [], "systems": [],
                 "resources": [], "completeScopes": []}
     return {"ok": True, "error": "", "warnings": warnings, "systems": systems, "resources": resources,
-            "completeScopes": complete_scopes}
+            "completeScopes": complete_scopes, "skippedClients": skipped_clients}

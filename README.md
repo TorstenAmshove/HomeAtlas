@@ -217,6 +217,13 @@ Ein in UniFi vergebener Geräte- oder Clientname ist in HomeAtlas der führende 
 Name. Er hat Vorrang vor DNS, mDNS, KI und anderen Datenquellen; ein manuell in HomeAtlas bearbeiteter
 Name bleibt davon unberührt.
 
+Clients (z. B. aus dem Gäste-WLAN) übernimmt HomeAtlas nur, wenn ihre IP in den gescannten Netzen
+liegt (in den Scan-Einstellungen gewählte Netze plus Freitext-Netze, ohne Auswahl die Netze der
+Host-Interfaces); Clients ohne IP werden übersprungen. UniFi-Geräte (Gateway, Switches, APs) werden
+immer übernommen. Bereits importierte Einträge löscht der Filter nicht, das geschieht manuell. Beim
+allerersten Sync kennt HomeAtlas die UniFi-Netze noch nicht und filtert nach Freitext bzw.
+Host-Interfaces.
+
 Unter **Netze & WLAN** stehen die übernommenen VLANs, SSIDs und WANs. Technische Controllerdaten
 werden bei jedem Scan aktualisiert; eigene Notizen bleiben dabei erhalten.
 

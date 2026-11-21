@@ -396,11 +396,14 @@ async def run_full_scan(scan_id: str) -> None:
                 api_key = crypto.decrypt(account.get("secretEnc") or "")
                 unifi_result = await unifi_probe.probe(
                     account.get("url") or "", api_key, account["id"], account.get("systemId"),
+                    client_subnets=configured_subnets,
                 )
                 if unifi_result["ok"]:
                     findings += unifi_result["systems"]
                     unifi_results.append((account, unifi_result))
-                    log(f"UniFi ({account['label']}): {len(unifi_result['systems'])} Geräte/Clients gefunden")
+                    log(f"UniFi ({account['label']}): {len(unifi_result['systems'])} Geräte/Clients gefunden"
+                        + (f", {unifi_result['skippedClients']} Clients außerhalb der Scan-Netze übersprungen"
+                           if unifi_result.get("skippedClients") else ""))
                     for warning in unifi_result["warnings"]:
                         warnings.append(warning)
                         if account.get("systemId"):

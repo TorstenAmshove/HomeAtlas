@@ -110,3 +110,59 @@ def test_probe_reports_authentication_failure_without_echoing_api_key(monkeypatc
     assert "API-Key" in result["error"]
     assert "api-secret" not in result["error"]
     assert result["systems"] == []
+
+
+def _mock_clients(monkeypatch, clients):
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path.endswith("/v1/info"):
+            return httpx.Response(200, json={})
+        if path.endswith("/v1/sites"):
+            return httpx.Response(200, json=_page([{"id": "s", "name": "Z"}]))
+        if path.endswith("/devices"):
+            return httpx.Response(200, json=_page([
+                {"id": "ap", "name": "AP", "ipAddress": "10.99.0.2", "macAddress": "AA-BB-CC-DD-EE-03",
+                 "model": "U6", "state": "ONLINE", "features": ["accessPoint"]}]))
+        if "/devices/" in path:
+            return httpx.Response(200, json={})
+        if path.endswith("/clients"):
+            return httpx.Response(200, json=_page(clients))
+        return httpx.Response(200, json=_page([]))
+
+    client_type = httpx.AsyncClient
+    transport = httpx.MockTransport(handler)
+    monkeypatch.setattr(unifi_probe.httpx, "AsyncClient", lambda **kw: client_type(transport=transport, **kw))
+
+
+def _c(i, ip, type_="WIRED"):
+    c = {"id": f"c{i}", "name": f"c{i}", "type": type_, "macAddress": f"AA:BB:CC:DD:00:{i:02d}"}
+    if ip is not None:
+        c["ipAddress"] = ip
+    return c
+
+
+_CLIENTS = [_c(1, "192.168.1.0"), _c(2, "192.168.1.255"), _c(3, "192.168.50.7"), _c(4, None),
+            _c(5, "fe80::1"), _c(6, "192.168.1.9", "TELEPORT")]
+
+
+def test_probe_filters_clients_by_subnets(monkeypatch):
+    _mock_clients(monkeypatch, _CLIENTS)
+    result = asyncio.run(unifi_probe.probe("https://x", "k", "a", None, client_subnets=["192.168.1.0/24"]))
+    assert {s["name"] for s in result["systems"]} == {"AP", "c1", "c2"}
+    assert result["skippedClients"] == 3
+
+
+def test_probe_without_client_subnets_keeps_all_clients(monkeypatch):
+    _mock_clients(monkeypatch, _CLIENTS)
+    for value in (None, []):
+        result = asyncio.run(unifi_probe.probe("https://x", "k", "a", None, client_subnets=value))
+        assert {s["name"] for s in result["systems"]} == {"AP", "c1", "c2", "c3", "c4", "c5"}
+        assert result["skippedClients"] == 0
+
+
+def test_probe_ignores_invalid_subnet_entries(monkeypatch):
+    _mock_clients(monkeypatch, [_c(1, "10.0.0.7"), _c(2, "192.168.50.7")])
+    result = asyncio.run(unifi_probe.probe("https://x", "k", "a", None, client_subnets=["müll", "10.0.0.5/24"]))
+    assert {s["name"] for s in result["systems"]} == {"AP", "c1"}
+    result = asyncio.run(unifi_probe.probe("https://x", "k", "a", None, client_subnets=["müll"]))
+    assert {s["name"] for s in result["systems"]} == {"AP", "c1", "c2"}

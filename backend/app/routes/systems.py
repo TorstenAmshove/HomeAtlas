@@ -4,9 +4,11 @@ read-only credentialed probe of a single device (see probe_auth).
 Moved out of main.py unchanged; see main.py for the cross-cutting rules."""
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import APIRouter, Body, Depends, HTTPException
 
-from .. import crypto, db, docs, pipeline, probe_auth, unifi_probe
+from .. import crypto, db, discovery, docs, pipeline, probe_auth, unifi_probe
 from .. import monitor as monitor_module
 from ..deps import _public_account, current_user, require_admin
 
@@ -136,10 +138,15 @@ async def probe_system(system_id: str, _: dict = Depends(require_admin)) -> dict
     unifi_errors: list[str] = []
     unifi_succeeded = False
 
+    scan_subnets = await asyncio.to_thread(
+        discovery.effective_subnets, db.get_settings(),
+        db.list_network_resources(kind="network", active_only=True),
+    ) if unifi_accounts else []
+
     for account in unifi_accounts:
         result = await unifi_probe.probe(
             account.get("url") or "", crypto.decrypt(account.get("secretEnc") or ""),
-            account["id"], account.get("systemId"),
+            account["id"], account.get("systemId"), client_subnets=scan_subnets,
         )
         key = f"unifi:{account['label']}"
         if not result["ok"]:
