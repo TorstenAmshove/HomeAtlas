@@ -7,7 +7,7 @@ import { useUi } from "../shell/ui";
 import { useUrlState } from "../lib/useUrlState";
 import InventoryCalm from "./geraete/InventoryCalm";
 import {
-  IMPORTANCE_LABEL, STATUS_LABEL, formatSort, groupByProject, matchesFilter, parseSort, projectOf, readFilter,
+  IMPORTANCE_LABEL, STATUS_LABEL, formatSort, groupByProject, matchesFilter, nextSort, parseSort, projectOf, readFilter,
   sortSystems, type SortKey,
 } from "./geraete/inventoryModel";
 
@@ -35,9 +35,7 @@ function InventoryClassic() {
   const sort = parseSort(sortParam);
 
   function toggleSort(key: SortKey) {
-    if (!sort || sort.key !== key) setSortParam(formatSort({ key, dir: "asc" }));
-    else if (sort.dir === "asc") setSortParam(formatSort({ key, dir: "desc" }));
-    else setSortParam("");
+    setSortParam(formatSort(nextSort(sort, key)));
   }
 
   function sortIndicator(key: SortKey) {
@@ -98,7 +96,7 @@ function InventoryClassic() {
   }, []);
 
   const visible = useMemo(() => sortSystems(
-    systems.filter((s) => matchesFilter(s, { q: query, kind, parentId, project, status, importance })),
+    systems.filter((s) => matchesFilter(s, { q: query, kind, parentId, project, status, importance, subnet: "" })),
     parseSort(sortParam),
     kindLabels,
   ), [systems, kind, parentId, project, status, importance, query, sortParam, kindLabels]);

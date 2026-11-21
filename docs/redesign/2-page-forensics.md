@@ -53,7 +53,9 @@ Querschnitt (alle Seiten):
 5. Tabelle mit 5–6 Spalten auf dem Handy nur horizontal scrollbar. Fix: Zeilen als Listeneinträge
    (Name, IP · Art, Status-Chip) unter 640 px.
 6. Spaltenköpfe sind klickbar (Sortierung), sehen aber nicht so aus; dritter Klick setzt die
-   Sortierung unsichtbar zurück. Fix: sichtbares Sortier-Menü.
+   Sortierung unsichtbar zurück. Fix: sichtbares Sortier-Menü. Später korrigiert (Issue #75): Das
+   Menü bleibt, die Köpfe sind aber wieder klickbar und zeigen ▲/▼ und `aria-sort`, womit der
+   Kritikpunkt „unsichtbares Zurücksetzen“ entfällt.
 7. „+ Gerät anlegen“ fragt den Namen per `window.prompt` ab (auf Handys hässlich, teils blockiert)
    und bleibt danach in der Liste statt das neue Gerät zu öffnen. Fix: Sheet mit Name + Art, danach
    direkt auf `/geraete/:id?edit=1`.

@@ -108,6 +108,13 @@
 .app-shell .geraete-calm .inv-link:hover .inv-name-text { color: var(--c-accent); }
 .app-shell .geraete-calm .inv-head-cols { padding: 6px 0; font-size: 12.5px; font-weight: 600; color: var(--c-muted); }
 
+.app-shell .geraete-calm .inv-head-btn {
+  all: unset; box-sizing: border-box; cursor: pointer; font: inherit; color: inherit; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: 4px; padding: 2px 4px; margin: 0 -4px;
+}
+.app-shell .geraete-calm .inv-head-btn:hover { color: var(--c-text); }
+.app-shell .geraete-calm .inv-head-btn:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 1px; }
+
 .app-shell .geraete-calm .inv-main { min-width: 0; display: flex; flex-direction: column; }
 .app-shell .geraete-calm .inv-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .app-shell .geraete-calm .inv-name-text { font-weight: 600; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
