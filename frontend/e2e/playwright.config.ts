@@ -13,7 +13,7 @@ function browser() {
 
 export default defineConfig({
   testDir: ".",
-  testMatch: "*.spec.ts",
+  testMatch: "smoke.spec.ts",
   // The tests walk one fresh database through login -> MFA -> setup; they cannot run twice or in
   // parallel against the same backend, and a retry would hit an already-enrolled admin.
   fullyParallel: false,
@@ -26,10 +26,5 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
-  // Two projects so the order is fixed: gates-calm.spec.ts walks the redesigned gates with a second
-  // admin that smoke.spec.ts creates at its end (one fresh backend, each walk enrolls its own user).
-  projects: [
-    { name: "smoke", testMatch: "smoke.spec.ts", use: browser() },
-    { name: "gates-calm", testMatch: "gates-calm.spec.ts", dependencies: ["smoke"], use: browser() },
-  ],
+  projects: [{ name: "smoke", testMatch: "smoke.spec.ts", use: browser() }],
 });

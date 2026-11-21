@@ -1,15 +1,9 @@
 import { createHmac } from "node:crypto";
 
-// Shared by smoke.spec.ts and gates-calm.spec.ts.
+// Shared by the smoke test.
 
 export const USERNAME = process.env.SMOKE_ADMIN_USERNAME || "admin";
 export const PASSWORD = process.env.SMOKE_ADMIN_PASSWORD || "";
-
-// Second admin, created by smoke.spec.ts at its end for gates-calm.spec.ts: every walk through the
-// gates enrolls its user, and the first admin is already enrolled by then. The suffix keeps the
-// password policy satisfied (upper case, symbol) whatever SMOKE_ADMIN_PASSWORD is.
-export const CALM_USERNAME = "calm-admin";
-export const CALM_PASSWORD = `${PASSWORD}-Calm9`;
 
 function base32Decode(input: string): Buffer {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
