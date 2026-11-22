@@ -407,6 +407,7 @@ export default function SettingsPage() {
             ["scanEnableProxmox", "VMs und LXC-Container über Proxmox erfassen"],
             ["scanEnableAdguard", "DNS-Status und Clients über AdGuard Home erfassen"],
             ["scanEnableTraefik", "Intern erreichbare Dienste über die Traefik-API erfassen"],
+            ["scanEnableExposureFiles", "cloudflared-, Caddy- und ddclient-Konfiguration per SSH-Forced-Command lesen"],
             ["scanUseLlm", "KI zur Einordnung unbekannter Geräte und für die Doku-Texte nutzen"],
             ["scanUseCredentials", "Freigegebene Zugänge zum Auslesen der Geräte verwenden (nur lesend)"],
           ] as const).map(([key, label]) => (

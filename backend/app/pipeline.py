@@ -17,7 +17,8 @@ import ipaddress
 from datetime import datetime, timedelta, timezone
 
 from . import (
-    adguard_probe, classify, crypto, db, discovery, docker_probe, docs, omada_probe, oui, probe_auth,
+    adguard_probe, classify, crypto, db, discovery, docker_probe, docs, exposure_files, omada_probe, oui,
+    probe_auth,
     proxmox_probe, traefik_probe, unifi_probe,
 )
 
@@ -519,6 +520,35 @@ async def run_full_scan(scan_id: str) -> None:
             db.prune_exposure_facts("traefik", [a["id"] for a in traefik_accounts])
         else:
             db.delete_exposure_facts(source="traefik")
+
+        if settings.get("scanEnableExposureFiles", True):
+            file_accounts = [a for a in db.list_accounts()
+                             if a.get("category") in exposure_files.CATEGORIES and a.get("allowProbe")]
+            if file_accounts:
+                progress("Konfigurationen erfassen", 88, "Lese cloudflared-, Caddy- und ddclient-Konfiguration")
+            for account in file_accounts:
+                source = exposure_files.CATEGORIES[account["category"]]
+                target = db.get_system(account["systemId"]) if account.get("systemId") else None
+                host = ((target or {}).get("ip") or "").strip()
+                try:
+                    file_result = await asyncio.wait_for(
+                        exposure_files.probe(source, host, account, via=host), timeout=60)
+                except Exception as exc:  # one failing source must never stop the scan
+                    file_result = {"ok": False, "facts": [], "error": f"{source}: {type(exc).__name__}"}
+                if file_result["ok"]:
+                    db.replace_exposure_facts(source, account["id"], file_result["facts"])
+                    log(f"{source} ({account['label']}): {len(file_result['facts'])} Eintrag/Einträge gelesen")
+                else:
+                    db.mark_exposure_facts_stale(source, account["id"])
+                    warnings.append(f"{source} ({account['label']}): {file_result['error']}")
+                    if account.get("systemId"):
+                        db.add_device_error_event(account["systemId"], "error", file_result["error"])
+            for source in exposure_files.CATEGORIES.values():
+                db.prune_exposure_facts(source, [a["id"] for a in file_accounts
+                                                 if exposure_files.CATEGORIES[a["category"]] == source])
+        else:
+            for source in exposure_files.CATEGORIES.values():
+                db.delete_exposure_facts(source=source)
 
         if settings.get("scanUseLlm", True):
             progress("Geräte einordnen (KI)", 89, "KI-Einordnung unbekannter Geräte")

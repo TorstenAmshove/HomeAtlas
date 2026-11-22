@@ -461,7 +461,7 @@ Siehe [data-model](../../contracts/data-model.md).
   Controller-/Docker-/ARP-Funden, `networkResources` (UniFi), `deviceConfigVersions`
   (`content` verschlüsselt), `deviceErrorEvents` (Level `error`/`warning`).
 - Settings: `scanUseCredentials`, `scanEnableDocker`, `scanEnableUnifi`, `scanEnableOmada`,
-  `scanEnableProxmox`, `scanEnableAdguard`, `scanEnableTraefik`, `configVersionKeep`, `defaultCredentialEnabled`,
+  `scanEnableProxmox`, `scanEnableAdguard`, `scanEnableTraefik`, `scanEnableExposureFiles`, `configVersionKeep`, `defaultCredentialEnabled`,
   `defaultCredentialUsername`, `defaultCredentialIsKey`, `defaultCredentialSecretEnc`,
   `defaultCredentialPassphraseEnc`, `defaultCredentialPort` (alle nur gelesen).
 

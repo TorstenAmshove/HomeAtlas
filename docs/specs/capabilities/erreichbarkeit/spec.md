@@ -1,6 +1,6 @@
 # Erreichbarkeit von außen
 
-> Status: neu (Issue #102, Teil 2 von 6: Datenmodell, Kettenlogik, Kapitel, Traefik). Die weiteren Quellen
+> Status: neu (Issue #102, Teil 3 von 6: Datenmodell, Kettenlogik, Kapitel, Traefik, Datei-Quellen). Die weiteren Quellen
 > (Caddy/cloudflared/ddclient, UniFi, Cloudflare, öffentliches DNS) folgen in den nächsten Teilen.
 
 ## Zweck
@@ -60,3 +60,23 @@ Antwortkörper). Router ohne `Host(...)` werden ohne Host aufgeführt. **[Muss]*
 - **DANN** werden die Traefik-Fakten beim nächsten Scan gelöscht
 
 Quelle: `backend/app/traefik_probe.py`, `backend/app/pipeline.py`, Test: `backend/tests/test_traefik_probe.py`, `backend/tests/test_exposure_boundaries.py`
+
+### Requirement: Datei-Quellen per Forced-Command
+Das System MUSS die Konfiguration von cloudflared (Ingress), Caddy (Site-Blöcke, Client-Zertifikat ja/nein)
+und ddclient (Protokoll, Server, Hostnamen, IPv4/IPv6) per SSH lesen, nur mit einem Zugang der Kategorie
+`exposure_cloudflared`, `exposure_caddy` bzw. `exposure_ddclient` mit `allowProbe` und solange
+`scanEnableExposureFiles` (Default an) gesetzt ist. Je Quelltyp gibt es genau einen festen Befehl
+(`_FILE_COMMANDS`, ohne Pfad, Interpolation oder Parameter); die Datei bestimmt allein das Zielsystem über
+`authorized_keys` (`command=`). Die Parser behalten nur Hostnamen, Ziele, Anbieter und Schalter; Passwörter,
+Tokens, Tunnel-Zugangsdaten und Rohdateien werden verworfen, Fehlertexte enthalten nie Dateiinhalt. Die
+Ausgabe ist auf 256 KB begrenzt, ein `import` anderer Dateien wird nicht verfolgt. **[Muss]**
+
+#### Szenario: Eine Quelle fällt aus
+- **WENN** eine Datei-Quelle nicht lesbar ist
+- **DANN** bleiben ihre alten Fakten als veraltet erhalten, am Zielsystem entsteht ein Geräte-Fehler-Event und die übrigen Quellen laufen weiter
+
+#### Szenario: Opt-in entfällt
+- **WENN** `allowProbe` oder `scanEnableExposureFiles` abgeschaltet wird
+- **DANN** werden die Fakten dieser Quellen beim nächsten Scan gelöscht
+
+Quelle: `backend/app/exposure_files.py`, `backend/app/pipeline.py`, Test: `backend/tests/test_exposure_files.py`, `backend/tests/test_exposure_boundaries.py`
