@@ -247,8 +247,9 @@ Kontextfenster. Der Assistent kann sagen, *wo* ein Zugang hinterlegt ist; ansehe
 Mensch in der App.
 
 **Home Assistant live lesen.** Der Assistent kann Zustände, Verlauf, Logbuch und Fehlerlog von
-Home Assistant live abfragen (nur lesende GET-Aufrufe, höchstens 7 Tage und eine feste Zahl an
-Einträgen). Texte werden vor der Ausgabe von Tokens, Passwörtern und Zugangs-URLs bereinigt; das
+Home Assistant live abfragen, dazu Automations-Traces (Auslöser und Ablauf; per WebSocket, nur die
+Befehle `trace/list` und `trace/get`). Sonst nur lesende GET-Aufrufe, höchstens 7 Tage und eine
+feste Zahl an Einträgen. Texte werden vor der Ausgabe von Tokens, Passwörtern und Zugangs-URLs bereinigt; das
 Zugriffstoken bleibt auf dem Server. Das Opt-in „Zum Auslesen verwenden“ gilt für diese
 Abfragen nicht (wie bei `list_switches`), und sie stehen allen Rollen und MCP-Clients offen.
 

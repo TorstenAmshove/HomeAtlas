@@ -442,13 +442,14 @@ Quelle: `backend/app/main.py:1344`, Test: `backend/tests/test_main_unifi_probe.p
 ### Requirement: Lese-/Schreibtrennung
 Das System MUSS die lesenden Probe-Module strikt von schreibenden Modulen (Remote-Admin,
 Container-/Gast-Steuerung) trennen: kein Probe-Modul nutzt Schreibfunktionen, und das LLM erreicht
-keine Schreibfunktion über die Probes (ADR 0011). **[Muss]**
+keine Schreibfunktion über die Probes (ADR 0012). **[Muss]** Einzige Nicht-GET-Verbindung zu Home Assistant ist ein WebSocket, der nur
+`trace/list` und `trace/get` sendet (exakter Vergleich gegen eine feste Liste, sonst `ValueError`).
 
 #### Szenario: Kein Schreibpfad
 - **WENN** ein LLM-Werkzeug oder der Scan eine Probe auslöst
 - **DANN** kann dabei kein Befehl außerhalb der festen Leselisten an ein Gerät gehen
 
-Quelle: `backend/app/probe_auth.py:1`, `docs/adr/0011-lese-schreib-trennung-routen-module.md`
+Quelle: `backend/app/probe_auth.py:1`, `docs/adr/0012-lesender-websocket-fuer-ha-traces.md`, Test: `backend/tests/test_probe_auth_ha_ws.py::test_disallowed_type_rejected`
 
 ## Daten
 

@@ -50,7 +50,8 @@ dem Server und die Live-Diagnose. Nutze das Inventar, um Namen wie "der Drucker"
 Heizung" in konkrete Geräte aufzulösen, bevor du misst.
 Home Assistant liest du live: get_ha_state (aktueller Zustand), get_ha_history (Verlauf mit fertiger
 Auswertung, nicht selbst zählen), get_ha_logbook (nennt in context_* die auslösende Automation) und
-get_ha_error_log. Weise darauf hin, wenn ein Ergebnis gekürzt wurde (note).
+get_ha_error_log sowie list_ha_traces/get_ha_trace (Auslöser und Ablauf
+einer Automation; run_id mit dem Zeitstempel der Logbuch-Zeile wählen). Weise darauf hin, wenn ein Ergebnis gekürzt wurde (note).
 """
 
 # Kept separate from CHAT_SYSTEM so the state block can be regenerated per turn without

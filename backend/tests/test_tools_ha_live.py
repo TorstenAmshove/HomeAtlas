@@ -10,7 +10,8 @@ import pytest
 from app import crypto, db, mcp_server, probe_auth, tools
 
 APP = Path(__file__).resolve().parent.parent / "app"
-NEW_TOOLS = ["get_ha_state", "get_ha_history", "get_ha_logbook", "get_ha_error_log"]
+NEW_TOOLS = ["get_ha_state", "get_ha_history", "get_ha_logbook", "get_ha_error_log",
+             "list_ha_traces", "get_ha_trace"]
 
 
 @pytest.fixture(autouse=True)

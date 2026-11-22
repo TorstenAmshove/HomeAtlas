@@ -201,7 +201,7 @@ Werkzeuggruppen (Details, Schemas und Grenzen: [llm-tools](../../contracts/llm-t
 - Dokumentation: `list_documentation`, `get_documentation`
 - Zugänge: `list_accounts` (ohne Passwörter)
 - Schalten: `list_switches`, `set_switch`
-- Home Assistant live (nur lesend): `get_ha_state`, `get_ha_history`, `get_ha_logbook`, `get_ha_error_log`
+- Home Assistant live (nur lesend): `get_ha_state`, `get_ha_history`, `get_ha_logbook`, `get_ha_error_log`, `list_ha_traces`, `get_ha_trace`
 - Diagnose: `internet_check`, `ping_host` (1–10 Versuche, Standard 3), `check_port`, `dns_lookup`, `reverse_dns`, `http_check`, `traceroute` (1–30 Hops, Standard 15); Ausführung siehe [diagnose](../diagnose/spec.md)
 
 #### Szenario: Kein Schreibwerkzeug
@@ -283,15 +283,17 @@ Das System MUSS dem Assistenten (jede Rolle, jeder MCP-Client) lesende Live-Abfr
 Assistant anbieten: `get_ha_state` (Zustand, höchstens 50 Entities, Filter `entityIds`/`domain`/`query`),
 `get_ha_history` (Verlauf einer Entity mit Auswertung: Anzahl Wechsel, Anzahl `on`, Sekunden je
 Zustand), `get_ha_logbook` (inkl. `context_entity_id`/`context_domain`/`context_service` als
-Ursache) und `get_ha_error_log` (letzte 200 Zeilen, höchstens 20 000 Zeichen). Es DÜRFEN nur
-GET-Aufrufe gesendet werden. Zeiträume MÜSSEN auf 1–7 Tage (Standard 7) und Eintragszahlen auf
+Ursache), `get_ha_error_log` (letzte 200 Zeilen, höchstens 20 000 Zeichen) sowie `list_ha_traces`
+(letzte 10 Läufe einer `automation.*`/`script.*`) und `get_ha_trace` (Trigger, Bedingungen, Ablauf,
+Fehler eines Laufs, höchstens 16 000 Zeichen). Es DÜRFEN nur GET-Aufrufe und die WebSocket-Befehle
+`trace/list`/`trace/get` gesendet werden ([ADR-0012](../../../adr/0012-lesender-websocket-fuer-ha-traces.md)). Zeiträume MÜSSEN auf 1–7 Tage (Standard 7) und Eintragszahlen auf
 200 (Verlauf) bzw. 100 (Logbuch) begrenzt werden; Kürzung MUSS im Ergebnis als `truncated` und
 `note` stehen. Texte aus Fehlerlog, Logbuch, Zuständen und Fehlermeldungen MÜSSEN vor dem Kürzen
 geschwärzt werden (Bearer-Tokens, JWTs, `token`/`password`/`secret`/`api_key`-Werte,
 `user:pass@`-URLs). Das Zugriffstoken verlässt den Server nie. Gibt es mehrere Zugänge der Kategorie
 `homeassistant`, MUSS `accountId` angegeben werden; ohne Zugang oder bei Fehlern kommt ein
 `{"error": …}` statt einer Ausnahme. **[Muss]** (Das Opt-in „Zum Auslesen verwenden“ wird wie bei
-`list_switches` nicht geprüft; Automations-Traces und Rollos folgen in späteren PRs, #99.)
+`list_switches` nicht geprüft; Rollos folgen in einem späteren PR, #99. YAML-Automationen ohne `id` haben keine Traces.)
 
 #### Szenario: Wie oft war das Licht an
 - **WENN** das LLM `get_ha_history` mit `entityId=light.x` und `days=30` aufruft
@@ -301,7 +303,7 @@ geschwärzt werden (Bearer-Tokens, JWTs, `token`/`password`/`secret`/`api_key`-W
 - **WENN** zwei Home-Assistant-Zugänge existieren und `accountId` fehlt
 - **DANN** lautet das Ergebnis ein Fehler mit der Liste aus ID und Bezeichnung
 
-Quelle: `backend/app/tools.py` (`_dispatch_ha_read`), `backend/app/probe_auth.py` (`ha_get_states`, `ha_history`, `ha_logbook`, `ha_error_log`, `ha_redact`), Tests: `backend/tests/test_probe_auth_ha_live.py`, `backend/tests/test_tools_ha_live.py`
+Quelle: `backend/app/tools.py` (`_dispatch_ha_read`), `backend/app/probe_auth.py` (`ha_get_states`, `ha_history`, `ha_logbook`, `ha_error_log`, `ha_traces`, `_ha_ws_call`, `ha_redact`), Tests: `backend/tests/test_probe_auth_ha_live.py`, `backend/tests/test_tools_ha_live.py`, `backend/tests/test_probe_auth_ha_ws.py`
 
 ### Requirement: Externer MCP-Endpunkt
 Das System MUSS unter `/api/mcp` einen MCP-Server (Streamable HTTP, zustandslos, JSON-Antworten)

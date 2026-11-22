@@ -51,7 +51,8 @@ def _log_switch(detail: str, ok: bool) -> None:
 _MAX_RESULT_CHARS = 6000
 # Live Home Assistant reads (read-only, redacted, already bounded by probe_auth) legitimately carry
 # more text than an inventory lookup; the error log alone may be 20 000 characters.
-_HA_READ_TOOLS = ("get_ha_state", "get_ha_history", "get_ha_logbook", "get_ha_error_log")
+_HA_READ_TOOLS = ("get_ha_state", "get_ha_history", "get_ha_logbook", "get_ha_error_log",
+                  "list_ha_traces", "get_ha_trace")
 _HA_READ_MAX_RESULT_CHARS = 24000
 _MAX_ITERATIONS = 8
 
@@ -203,6 +204,35 @@ TOOL_DEFINITIONS: list[dict] = [
             "type": "object",
             "properties": {"accountId": {"type": "string",
                                          "description": "Nur bei mehreren Home-Assistant-Zugängen."}},
+        },
+    },
+    {
+        "name": "list_ha_traces",
+        "description": ("Letzte Läufe (max. 10, neueste zuerst) einer Home-Assistant-Automation oder eines Skripts "
+                        "mit Zeitstempel, Ergebnis und Auslöser. Für 'warum ist X zugegangen': die in "
+                        "get_ha_logbook als context_entity_id genannte automation.* verwenden und den Lauf mit "
+                        "dem nächstliegenden Zeitstempel wählen; Details dann mit get_ha_trace."),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "entityId": {"type": "string", "description": "automation.* oder script.*"},
+                "accountId": {"type": "string", "description": "Nur bei mehreren Home-Assistant-Zugängen."},
+            },
+            "required": ["entityId"],
+        },
+    },
+    {
+        "name": "get_ha_trace",
+        "description": ("Detail eines Automations-Laufs: Auslöser (Trigger), Bedingungen, durchlaufene Aktionen, "
+                        "Fehler. run_id stammt aus list_ha_traces. Geschwärzt und gekürzt (siehe 'note')."),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "entityId": {"type": "string", "description": "automation.* oder script.*"},
+                "runId": {"type": "string", "description": "run_id aus list_ha_traces."},
+                "accountId": {"type": "string", "description": "Nur bei mehreren Home-Assistant-Zugängen."},
+            },
+            "required": ["entityId", "runId"],
         },
     },
     {
@@ -368,6 +398,13 @@ async def _dispatch_ha_read(name: str, args: dict) -> object:
     elif name == "get_ha_logbook":
         result = await probe_auth.ha_logbook(url, account, str(args.get("entityId") or ""),
                                              args.get("days"), args.get("limit"))
+    elif name == "list_ha_traces":
+        result = await probe_auth.ha_traces(url, account, str(args.get("entityId") or ""))
+    elif name == "get_ha_trace":
+        if not str(args.get("runId") or "").strip():
+            return {"error": "runId fehlt (aus list_ha_traces)."}
+        result = await probe_auth.ha_traces(url, account, str(args.get("entityId") or ""),
+                                            str(args.get("runId")))
     else:
         result = await probe_auth.ha_error_log(url, account)
     if not result.get("ok"):

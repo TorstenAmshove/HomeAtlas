@@ -229,6 +229,51 @@
     "name": "get_ha_error_log"
   },
   {
+    "description": "Letzte Läufe (max. 10, neueste zuerst) einer Home-Assistant-Automation oder eines Skripts mit Zeitstempel, Ergebnis und Auslöser. Für 'warum ist X zugegangen': die in get_ha_logbook als context_entity_id genannte automation.* verwenden und den Lauf mit dem nächstliegenden Zeitstempel wählen; Details dann mit get_ha_trace.",
+    "inputSchema": {
+      "properties": {
+        "accountId": {
+          "description": "Nur bei mehreren Home-Assistant-Zugängen.",
+          "type": "string"
+        },
+        "entityId": {
+          "description": "automation.* oder script.*",
+          "type": "string"
+        }
+      },
+      "required": [
+        "entityId"
+      ],
+      "type": "object"
+    },
+    "name": "list_ha_traces"
+  },
+  {
+    "description": "Detail eines Automations-Laufs: Auslöser (Trigger), Bedingungen, durchlaufene Aktionen, Fehler. run_id stammt aus list_ha_traces. Geschwärzt und gekürzt (siehe 'note').",
+    "inputSchema": {
+      "properties": {
+        "accountId": {
+          "description": "Nur bei mehreren Home-Assistant-Zugängen.",
+          "type": "string"
+        },
+        "entityId": {
+          "description": "automation.* oder script.*",
+          "type": "string"
+        },
+        "runId": {
+          "description": "run_id aus list_ha_traces.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "entityId",
+        "runId"
+      ],
+      "type": "object"
+    },
+    "name": "get_ha_trace"
+  },
+  {
     "description": "Prüft die Internetverbindung in drei Schichten (Erreichbarkeit, Namensauflösung, Webseiten) und sagt, auf welcher Ebene es klemmt. Erster Griff bei 'Internet geht nicht'.",
     "inputSchema": {
       "properties": {},

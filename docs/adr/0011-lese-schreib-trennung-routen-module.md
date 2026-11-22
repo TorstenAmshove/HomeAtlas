@@ -1,6 +1,6 @@
 # ADR-0011: Lese-/Schreib-Trennung mit Routen-Modulen
 
-- **Status:** Akzeptiert, ersetzt ADR-0002
+- **Status:** Ersetzt durch ADR-0012
 - **Datum:** 2026-11-19
 
 ## Kontext
