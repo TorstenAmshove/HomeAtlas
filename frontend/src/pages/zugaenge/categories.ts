@@ -6,6 +6,7 @@ export const CATEGORIES: [string, string][] = [
   ["snmp", "SNMP (Community-Zeichenkette)"],
   ["omada", "Omada Controller (Open API)"],
   ["unifi", "UniFi Network (API-Key)"],
+  ["unifi_classic", "UniFi klassische API (Benutzer View Only)"],
   ["homeassistant", "Home Assistant (Long-Lived Access Token)"],
   ["proxmox", "Proxmox VE (API-Token)"],
   ["adguard", "AdGuard Home (Basic Auth)"],

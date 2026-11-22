@@ -18,7 +18,7 @@ Lücken: **0**
 | `PUT /api/accounts/{account_id}/assignments` | [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `POST /api/accounts/{account_id}/deploy` | [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `GET /api/accounts/{account_id}/secret` | [zugangsdaten](capabilities/zugangsdaten/spec.md) |
-| `POST /api/auth/login` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
+| `POST /api/auth/login` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [erreichbarkeit](capabilities/erreichbarkeit/spec.md) |
 | `POST /api/auth/logout` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
 | `GET /api/auth/me` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
 | `POST /api/auth/mfa/confirm` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
