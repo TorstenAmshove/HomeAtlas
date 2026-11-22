@@ -415,6 +415,9 @@ def _network_resources_section() -> str:
     )
     for kind, title, columns, values in tables:
         items = [resource for resource in resources if resource["kind"] == kind]
+        if kind == "wan" and any((r.get("facts") or {}).get("ip") for r in items):
+            # the integration API lists WANs without address; the classic API adds them with one
+            items = [r for r in items if (r.get("facts") or {}).get("ip")]
         if not items:
             continue
         headers = ("Name", "Standort", *columns, "Notiz")
@@ -485,6 +488,8 @@ def _exposure_section() -> str:
         out += [f"| {_md(p['proto'])} | {_md(p['wanPort'])} | {_md(p['destIp'])}:{_md(p['destPort'])} | "
                 f"{_sys_names(p['systems'])} |" for p in data["portforwards"]]
         out.append("")
+    elif data["portforwardsChecked"]:
+        out += ["### Portweiterleitungen\n", "_Auf dem Router sind keine Portweiterleitungen eingerichtet._", ""]
     if data["hints"]:
         out.append("### Hinweise\n")
         out += [f"- {_md(h, 300)}" for h in data["hints"]]

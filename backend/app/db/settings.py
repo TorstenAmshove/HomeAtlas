@@ -37,6 +37,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "scanEnableProxmox": True,
     "scanEnableAdguard": True,
     "scanEnableTraefik": True,
+    "scanEnableUnifiClassic": True,
     "scanEnableExposureFiles": True,
     "scanEnableHttpBanner": True,
     "scanUseLlm": True,

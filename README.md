@@ -261,6 +261,14 @@ erreichbar macht. Der Zugang (Kategorie „Traefik API“) braucht „Zum Ausles
 ist in den Einstellungen abschaltbar (`scanEnableTraefik`). Gespeichert werden nur Hostname,
 Ziel-URL, Zertifikats-Resolver und Middleware-Namen, nie die Regel im Rohformat oder Zugangsdaten.
 
+**Portweiterleitungen und WAN-Adresse (UniFi, Erreichbarkeit).** Die Integration-API von UniFi kennt
+weder Portweiterleitungen noch die WAN-Adresse, deshalb liest HomeAtlas sie über die klassische API.
+Minimal nötige Rechte: ein eigener lokaler Benutzer mit der Rolle „View Only“ (kein Cloud-Konto). Der
+Login (`POST /api/auth/login`) ist der einzige schreibende Verb-Aufruf und ändert nichts an der
+Konfiguration; danach nur GET. Der Zugang (Kategorie „UniFi klassische API“) braucht „Zum Auslesen
+verwenden“; die Quelle ist in den Einstellungen abschaltbar (`scanEnableUnifiClassic`). Gespeichert
+werden nur Protokoll, Ports, Ziel-IP und die WAN-Adresse, nie Name, Passwort, Cookie oder Token.
+
 **cloudflared, Caddy und ddclient lesen (Erreichbarkeit).** HomeAtlas liest diese Konfigurationsdateien
 per SSH, ohne auf dem Zielsystem etwas ausführen zu können, was nicht vorgesehen ist: Auf dem Zielsystem
 gibt es einen eigenen Nutzer ohne Shell-Rechte, dessen Schlüssel in `authorized_keys` so steht (je

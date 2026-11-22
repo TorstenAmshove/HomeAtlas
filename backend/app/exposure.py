@@ -13,6 +13,7 @@ Fact shapes (`data` of an `exposureFacts` row; hostnames lower-case, no trailing
   traefik_router  {hosts[], service, resolver, middlewares[], tls}
   ddns            {client, provider, hosts[], ipv4, ipv6, via}
   portforward     {proto, wanPort, destIp, destPort, enabled}
+  portforward_scan {count}                      marker: the router was read ("no forwards" vs. unknown)
 
 Path status (per configured path of a public host):
   aktiv    public DNS/Cloudflare leads to this path (tunnel CNAME, or WAN IP plus a port forward)
@@ -241,4 +242,5 @@ def build_chains(facts: list[dict], systems: list[dict], wan: dict | None = None
 
     return {"wan": {"ip": wan_ip, "type": (wan or {}).get("type", "")}, "chains": chains, "external": external,
             "internal": internal, "ddns": ddns, "portforwards": forwards, "hints": list(dict.fromkeys(hints)),
+            "portforwardsChecked": any(not f.get("stale") for f in _by_kind(facts, "portforward_scan")),
             "hasData": bool(facts)}

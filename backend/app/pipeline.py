@@ -19,7 +19,7 @@ from datetime import datetime, timedelta, timezone
 from . import (
     adguard_probe, classify, crypto, db, discovery, docker_probe, docs, exposure_files, omada_probe, oui,
     probe_auth,
-    proxmox_probe, traefik_probe, unifi_probe,
+    proxmox_probe, traefik_probe, unifi_classic_probe, unifi_probe,
 )
 
 
@@ -495,6 +495,32 @@ async def run_full_scan(scan_id: str) -> None:
                     warnings.append(f"AdGuard Home ({account['label']}): {adguard_result['error']}")
                     if account.get("systemId"):
                         db.add_device_error_event(account["systemId"], "error", adguard_result["error"])
+
+        if settings.get("scanEnableUnifiClassic", True):
+            classic_accounts = [a for a in db.list_accounts()
+                                if a.get("category") == "unifi_classic" and a.get("allowProbe")]
+            if classic_accounts:
+                progress("UniFi-Portweiterleitungen erfassen", 88, "Frage klassische UniFi-API ab")
+            for account in classic_accounts:
+                try:
+                    classic = await asyncio.wait_for(unifi_classic_probe.probe(
+                        account.get("url") or "", account.get("username") or "",
+                        crypto.decrypt(account.get("secretEnc") or ""), account["id"], account.get("systemId")),
+                        timeout=60)
+                except Exception as exc:  # one failing source must never stop the scan
+                    classic = {"ok": False, "error": f"UniFi (klassisch): {type(exc).__name__}"}
+                if classic["ok"]:
+                    db.replace_exposure_facts("unifi_classic", account["id"], classic["forwards"])
+                    db.sync_network_resources(account["id"], classic["resources"], classic["completeScopes"])
+                    log(f"UniFi klassisch ({account['label']}): {len(classic['forwards']) - 1} Portweiterleitung(en) gelesen")
+                else:
+                    db.mark_exposure_facts_stale("unifi_classic", account["id"])
+                    warnings.append(f"UniFi klassisch ({account['label']}): {classic['error']}")
+                    if account.get("systemId"):
+                        db.add_device_error_event(account["systemId"], "error", classic["error"])
+            db.prune_exposure_facts("unifi_classic", [a["id"] for a in classic_accounts])
+        else:
+            db.delete_exposure_facts(source="unifi_classic")
 
         if settings.get("scanEnableTraefik", True):
             traefik_accounts = [a for a in db.list_accounts()
