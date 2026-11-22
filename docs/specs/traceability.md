@@ -120,7 +120,7 @@ Lücken: **0**
 | `systems` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [credentialed-probing](capabilities/credentialed-probing/spec.md), [dashboard](capabilities/dashboard/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [dokumentation](capabilities/dokumentation/spec.md), [inventar](capabilities/inventar/spec.md), [klassifikation-llm](capabilities/klassifikation-llm/spec.md), [monitoring](capabilities/monitoring/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md), [remote-admin](capabilities/remote-admin/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md), [topologie](capabilities/topologie/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `users` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md) |
 
-## KI-Werkzeuge (16)
+## KI-Werkzeuge (20)
 
 | Eintrag | Spec |
 |---|---|
@@ -133,6 +133,10 @@ Lücken: **0**
 | `list_containers` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `list_switches` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [remote-admin](capabilities/remote-admin/spec.md) |
 | `set_switch` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [remote-admin](capabilities/remote-admin/spec.md) |
+| `get_ha_state` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
+| `get_ha_history` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
+| `get_ha_logbook` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
+| `get_ha_error_log` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `internet_check` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [dashboard](capabilities/dashboard/spec.md), [diagnose](capabilities/diagnose/spec.md) |
 | `ping_host` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [diagnose](capabilities/diagnose/spec.md) |
 | `check_port` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [diagnose](capabilities/diagnose/spec.md), [monitoring](capabilities/monitoring/spec.md) |

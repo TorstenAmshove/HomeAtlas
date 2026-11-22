@@ -191,7 +191,8 @@ Quelle: `backend/app/tools.py:415`, `backend/app/tools.py:428`, `backend/app/pro
 ### Requirement: Fähigkeitsgrenze des Assistenten
 Das System MUSS die Fähigkeiten des LLM auf eine feste Werkzeugliste begrenzen, die für In-App-Chat
 und MCP identisch ist: lesender Zugriff auf Inventar, Dokumentation, Zugangs-Metadaten und Container,
-begrenzte Live-Diagnosen sowie als einzige verändernde Fähigkeit `set_switch`. Kein Werkzeug DARF
+begrenzte Live-Diagnosen, lesende Live-Abfragen an Home Assistant (siehe unten) sowie als einzige
+verändernde Fähigkeit `set_switch`. Kein Werkzeug DARF
 Inventar, Dokumentation, Zugänge, Einstellungen, Container oder Hosts verändern. Eine neue
 verändernde Fähigkeit erfordert eine neue Architekturentscheidung (ADR 0004). **[Muss]**
 
@@ -200,6 +201,7 @@ Werkzeuggruppen (Details, Schemas und Grenzen: [llm-tools](../../contracts/llm-t
 - Dokumentation: `list_documentation`, `get_documentation`
 - Zugänge: `list_accounts` (ohne Passwörter)
 - Schalten: `list_switches`, `set_switch`
+- Home Assistant live (nur lesend): `get_ha_state`, `get_ha_history`, `get_ha_logbook`, `get_ha_error_log`
 - Diagnose: `internet_check`, `ping_host` (1–10 Versuche, Standard 3), `check_port`, `dns_lookup`, `reverse_dns`, `http_check`, `traceroute` (1–30 Hops, Standard 15); Ausführung siehe [diagnose](../diagnose/spec.md)
 
 #### Szenario: Kein Schreibwerkzeug
@@ -275,6 +277,31 @@ HA-Entities der Domänen switch/light. **[Muss]** (Produktentscheidung, ADR 0011
 
 Quelle: `backend/app/tools.py:335`, `backend/app/tools.py:352`, `backend/app/switch_admin.py:24`, `backend/app/switch_admin.py:27`, `backend/app/switch_admin.py:53`,
 `switch_admin.is_shelly`, `tools.current_actor`, Tests: `backend/tests/test_chat_owner_and_switch.py`
+
+### Requirement: Live-Lesen von Home Assistant
+Das System MUSS dem Assistenten (jede Rolle, jeder MCP-Client) lesende Live-Abfragen an Home
+Assistant anbieten: `get_ha_state` (Zustand, höchstens 50 Entities, Filter `entityIds`/`domain`/`query`),
+`get_ha_history` (Verlauf einer Entity mit Auswertung: Anzahl Wechsel, Anzahl `on`, Sekunden je
+Zustand), `get_ha_logbook` (inkl. `context_entity_id`/`context_domain`/`context_service` als
+Ursache) und `get_ha_error_log` (letzte 200 Zeilen, höchstens 20 000 Zeichen). Es DÜRFEN nur
+GET-Aufrufe gesendet werden. Zeiträume MÜSSEN auf 1–7 Tage (Standard 7) und Eintragszahlen auf
+200 (Verlauf) bzw. 100 (Logbuch) begrenzt werden; Kürzung MUSS im Ergebnis als `truncated` und
+`note` stehen. Texte aus Fehlerlog, Logbuch, Zuständen und Fehlermeldungen MÜSSEN vor dem Kürzen
+geschwärzt werden (Bearer-Tokens, JWTs, `token`/`password`/`secret`/`api_key`-Werte,
+`user:pass@`-URLs). Das Zugriffstoken verlässt den Server nie. Gibt es mehrere Zugänge der Kategorie
+`homeassistant`, MUSS `accountId` angegeben werden; ohne Zugang oder bei Fehlern kommt ein
+`{"error": …}` statt einer Ausnahme. **[Muss]** (Das Opt-in „Zum Auslesen verwenden“ wird wie bei
+`list_switches` nicht geprüft; Automations-Traces und Rollos folgen in späteren PRs, #99.)
+
+#### Szenario: Wie oft war das Licht an
+- **WENN** das LLM `get_ha_history` mit `entityId=light.x` und `days=30` aufruft
+- **DANN** wird auf 7 Tage gekürzt, `note` sagt das, und `summary.onCount` enthält die Anzahl
+
+#### Szenario: Mehrere Zugänge
+- **WENN** zwei Home-Assistant-Zugänge existieren und `accountId` fehlt
+- **DANN** lautet das Ergebnis ein Fehler mit der Liste aus ID und Bezeichnung
+
+Quelle: `backend/app/tools.py` (`_dispatch_ha_read`), `backend/app/probe_auth.py` (`ha_get_states`, `ha_history`, `ha_logbook`, `ha_error_log`, `ha_redact`), Tests: `backend/tests/test_probe_auth_ha_live.py`, `backend/tests/test_tools_ha_live.py`
 
 ### Requirement: Externer MCP-Endpunkt
 Das System MUSS unter `/api/mcp` einen MCP-Server (Streamable HTTP, zustandslos, JSON-Antworten)

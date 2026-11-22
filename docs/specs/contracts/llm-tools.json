@@ -135,6 +135,100 @@
     "name": "set_switch"
   },
   {
+    "description": "Liest den AKTUELLEN Zustand von Home-Assistant-Entities live (nicht aus dem letzten Scan): Temperatur, Fenster offen, Gerät erreichbar usw. Filter über entityIds, domain (z. B. 'sensor') oder query (Suchtext in ID/Name); höchstens 50 Treffer. Tokens in Attributen werden geschwärzt.",
+    "inputSchema": {
+      "properties": {
+        "accountId": {
+          "description": "Nur nötig, wenn mehrere Home-Assistant-Zugänge existieren.",
+          "type": "string"
+        },
+        "domain": {
+          "description": "Nur diese Domäne, z. B. light, sensor, cover.",
+          "type": "string"
+        },
+        "entityIds": {
+          "description": "Genaue Entity-IDs, z. B. ['sensor.wohnzimmer_temperatur'].",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "query": {
+          "description": "Suchtext in Entity-ID oder Name.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "get_ha_state"
+  },
+  {
+    "description": "Zustandsverlauf EINER Home-Assistant-Entity, höchstens 7 Tage (Standard 7), mit fertiger Auswertung: Anzahl Wechsel, wie oft sie auf 'on' ging und Sekunden je Zustand. Für Fragen wie 'wie oft war das Licht diese Woche an'. Nutze die Auswertung ('summary'), zähle nicht selbst. Meldet in 'note', wenn gekürzt wurde.",
+    "inputSchema": {
+      "properties": {
+        "accountId": {
+          "description": "Nur bei mehreren Home-Assistant-Zugängen.",
+          "type": "string"
+        },
+        "days": {
+          "description": "Zeitraum in Tagen, 1 bis 7. Standard 7.",
+          "type": "integer"
+        },
+        "entityId": {
+          "description": "Entity-ID, z. B. light.wohnzimmer.",
+          "type": "string"
+        },
+        "limit": {
+          "description": "Maximal aufgelistete Wechsel, 1 bis 200.",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "entityId"
+      ],
+      "type": "object"
+    },
+    "name": "get_ha_history"
+  },
+  {
+    "description": "Home-Assistant-Logbuch (was wann passiert ist), höchstens 7 Tage, optional für eine Entity. Die Felder context_entity_id/context_domain/context_service nennen die Ursache, z. B. die Automation (automation.*), die etwas geschaltet hat. Für 'warum ist X zugegangen' zuerst hier die auslösende Automation finden. Meldet in 'note', wenn gekürzt wurde.",
+    "inputSchema": {
+      "properties": {
+        "accountId": {
+          "description": "Nur bei mehreren Home-Assistant-Zugängen.",
+          "type": "string"
+        },
+        "days": {
+          "description": "Zeitraum in Tagen, 1 bis 7. Standard 7.",
+          "type": "integer"
+        },
+        "entityId": {
+          "description": "Optional: nur Einträge zu dieser Entity.",
+          "type": "string"
+        },
+        "limit": {
+          "description": "Maximal Einträge (die neuesten), 1 bis 100.",
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "name": "get_ha_logbook"
+  },
+  {
+    "description": "Liest das Ende des Home-Assistant-Fehlerlogs (letzte 200 Zeilen, geschwärzt von Tokens, Passwörtern und Zugangs-URLs). Für Fehleranalysen bei Integrationen und Automationen.",
+    "inputSchema": {
+      "properties": {
+        "accountId": {
+          "description": "Nur bei mehreren Home-Assistant-Zugängen.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "get_ha_error_log"
+  },
+  {
     "description": "Prüft die Internetverbindung in drei Schichten (Erreichbarkeit, Namensauflösung, Webseiten) und sagt, auf welcher Ebene es klemmt. Erster Griff bei 'Internet geht nicht'.",
     "inputSchema": {
       "properties": {},

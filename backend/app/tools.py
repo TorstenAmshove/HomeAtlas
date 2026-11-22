@@ -12,6 +12,8 @@ Two rules shape what is exposed here:
   flipping a light/plug is judged low-risk and easily reversible, unlike anything else this module
   could reach. See `switch_admin.py`'s module docstring for the write side and its own, narrower
   scope (on/off only, `switch`/`light` domains only).
+* **Live Home Assistant reads** (`get_ha_state/history/logbook/error_log`) go through GET-only,
+  bounded and redacted helpers in `probe_auth.py`; the token is decrypted there and never returned.
 * **Stored secrets never reach the model.** `list_accounts` returns labels, usernames and notes so
   the assistant can say *where* a login is filed, and strips the password. That holds even though
   the model is "trusted" -- credentials in a prompt end up in the provider's logs, in the chat
@@ -47,6 +49,10 @@ def _log_switch(detail: str, ok: bool) -> None:
 
 
 _MAX_RESULT_CHARS = 6000
+# Live Home Assistant reads (read-only, redacted, already bounded by probe_auth) legitimately carry
+# more text than an inventory lookup; the error log alone may be 20 000 characters.
+_HA_READ_TOOLS = ("get_ha_state", "get_ha_history", "get_ha_logbook", "get_ha_error_log")
+_HA_READ_MAX_RESULT_CHARS = 24000
 _MAX_ITERATIONS = 8
 
 
@@ -136,6 +142,67 @@ TOOL_DEFINITIONS: list[dict] = [
                 "on": {"type": "boolean", "description": "true = einschalten, false = ausschalten."},
             },
             "required": ["kind", "on"],
+        },
+    },
+    {
+        "name": "get_ha_state",
+        "description": ("Liest den AKTUELLEN Zustand von Home-Assistant-Entities live (nicht aus dem letzten Scan): "
+                        "Temperatur, Fenster offen, Gerät erreichbar usw. Filter über entityIds, domain (z. B. "
+                        "'sensor') oder query (Suchtext in ID/Name); höchstens 50 Treffer. Tokens in Attributen "
+                        "werden geschwärzt."),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "entityIds": {"type": "array", "items": {"type": "string"},
+                              "description": "Genaue Entity-IDs, z. B. ['sensor.wohnzimmer_temperatur']."},
+                "domain": {"type": "string", "description": "Nur diese Domäne, z. B. light, sensor, cover."},
+                "query": {"type": "string", "description": "Suchtext in Entity-ID oder Name."},
+                "accountId": {"type": "string", "description": "Nur nötig, wenn mehrere Home-Assistant-Zugänge "
+                                                               "existieren."},
+            },
+        },
+    },
+    {
+        "name": "get_ha_history",
+        "description": ("Zustandsverlauf EINER Home-Assistant-Entity, höchstens 7 Tage (Standard 7), mit fertiger "
+                        "Auswertung: Anzahl Wechsel, wie oft sie auf 'on' ging und Sekunden je Zustand. Für Fragen "
+                        "wie 'wie oft war das Licht diese Woche an'. Nutze die Auswertung ('summary'), zähle nicht "
+                        "selbst. Meldet in 'note', wenn gekürzt wurde."),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "entityId": {"type": "string", "description": "Entity-ID, z. B. light.wohnzimmer."},
+                "days": {"type": "integer", "description": "Zeitraum in Tagen, 1 bis 7. Standard 7."},
+                "limit": {"type": "integer", "description": "Maximal aufgelistete Wechsel, 1 bis 200."},
+                "accountId": {"type": "string", "description": "Nur bei mehreren Home-Assistant-Zugängen."},
+            },
+            "required": ["entityId"],
+        },
+    },
+    {
+        "name": "get_ha_logbook",
+        "description": ("Home-Assistant-Logbuch (was wann passiert ist), höchstens 7 Tage, optional für eine Entity. "
+                        "Die Felder context_entity_id/context_domain/context_service nennen die Ursache, z. B. die "
+                        "Automation (automation.*), die etwas geschaltet hat. Für 'warum ist X zugegangen' zuerst "
+                        "hier die auslösende Automation finden. Meldet in 'note', wenn gekürzt wurde."),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "entityId": {"type": "string", "description": "Optional: nur Einträge zu dieser Entity."},
+                "days": {"type": "integer", "description": "Zeitraum in Tagen, 1 bis 7. Standard 7."},
+                "limit": {"type": "integer", "description": "Maximal Einträge (die neuesten), 1 bis 100."},
+                "accountId": {"type": "string", "description": "Nur bei mehreren Home-Assistant-Zugängen."},
+            },
+        },
+    },
+    {
+        "name": "get_ha_error_log",
+        "description": ("Liest das Ende des Home-Assistant-Fehlerlogs (letzte 200 Zeilen, geschwärzt von Tokens, "
+                        "Passwörtern und Zugangs-URLs). Für Fehleranalysen bei Integrationen und Automationen."),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"accountId": {"type": "string",
+                                         "description": "Nur bei mehreren Home-Assistant-Zugängen."}},
         },
     },
     {
@@ -256,14 +323,62 @@ async def dispatch(name: str, arguments: dict) -> str:
         result = {"error": f"Das Werkzeug '{name}' ist fehlgeschlagen: {exc}"}
 
     text = json.dumps(result, ensure_ascii=False, default=str)
-    if len(text) > _MAX_RESULT_CHARS:
-        text = text[:_MAX_RESULT_CHARS] + (
+    max_chars = _HA_READ_MAX_RESULT_CHARS if name in _HA_READ_TOOLS else _MAX_RESULT_CHARS
+    if len(text) > max_chars:
+        text = text[:max_chars] + (
             '... ["Ergebnis gekürzt -- bitte gezielter nachfragen, z. B. mit einem Filter."]'
         )
     return text
 
 
+def _pick_ha_account(account_id: str) -> tuple[dict | None, str, str]:
+    """Chooses the Home Assistant account for a live read: the one named by `accountId`, else the
+    only one that exists. Returns (account, url, error). The opt-in "Zum Auslesen verwenden" is not
+    checked, same as `list_switches` (known open point in the spec)."""
+    accounts = [a for a in db.list_accounts(None) if a.get("category") == "homeassistant"]
+    account_id = (account_id or "").strip()
+    if account_id:
+        account = next((a for a in accounts if a["id"] == account_id), None)
+        if account is None:
+            return None, "", ("Kein Home-Assistant-Zugang mit dieser accountId gefunden. Vorhanden: "
+                              + (", ".join(f"{a['id']} ({a['label']})" for a in accounts) or "keiner"))
+    elif not accounts:
+        return None, "", "Es ist kein Home-Assistant-Zugang hinterlegt (Kategorie homeassistant)."
+    elif len(accounts) > 1:
+        return None, "", ("Mehrere Home-Assistant-Zugänge vorhanden, bitte accountId angeben: "
+                          + ", ".join(f"{a['id']} ({a['label']})" for a in accounts))
+    else:
+        account = accounts[0]
+    system = db.get_system(account.get("systemId") or "") or {}
+    return account, account.get("url") or system.get("url") or "", ""
+
+
+async def _dispatch_ha_read(name: str, args: dict) -> object:
+    account, url, error = _pick_ha_account(args.get("accountId") or "")
+    if account is None:
+        return {"error": error}
+    if name == "get_ha_state":
+        entity_ids = args.get("entityIds")
+        result = await probe_auth.ha_get_states(
+            url, account, entity_ids if isinstance(entity_ids, list) else None,
+            str(args.get("domain") or ""), str(args.get("query") or ""))
+    elif name == "get_ha_history":
+        result = await probe_auth.ha_history(url, account, str(args.get("entityId") or ""),
+                                             args.get("days"), args.get("limit"))
+    elif name == "get_ha_logbook":
+        result = await probe_auth.ha_logbook(url, account, str(args.get("entityId") or ""),
+                                             args.get("days"), args.get("limit"))
+    else:
+        result = await probe_auth.ha_error_log(url, account)
+    if not result.get("ok"):
+        return {"error": result.get("error") or "Home Assistant nicht erreichbar."}
+    return {k: v for k, v in result.items() if k not in ("ok", "error")}
+
+
 async def _dispatch(name: str, args: dict) -> object:
+    if name in _HA_READ_TOOLS:
+        return await _dispatch_ha_read(name, args)
+
     if name == "list_systems":
         systems = db.list_systems(args.get("kind") or None)
         query = (args.get("query") or "").strip().lower()

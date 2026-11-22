@@ -45,7 +45,7 @@ import asyncio
 import logging
 import re
 import xml.etree.ElementTree as ElementTree
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import httpx
 
@@ -871,6 +871,260 @@ async def list_ha_switchables(url: str, account: dict) -> dict:
         if isinstance(s, dict) and s.get("entity_id", "").split(".", 1)[0] in ("switch", "light")
     ]
     return {"ok": True, "error": "", "entities": entities}
+
+
+# ---------------------------------------------------------------------------------------------
+# Home Assistant live reads for the assistant (state, history, logbook, error log)
+#
+# GET only, like everything in this module. Results are bounded (time window, entry counts) and
+# run through `ha_redact` BEFORE truncation, because HA's error log and logbook can contain
+# tokens/passwords/credential URLs and secrets must never reach a prompt (ADR-0004).
+# ---------------------------------------------------------------------------------------------
+
+_HA_REDACTED = "[geschwärzt]"
+_HA_SECRET_KEYS = r"(?:access[_-]?token|api[_-]?key|token|password|passwd|secret)"
+_HA_REDACT_PATTERNS: tuple[tuple[re.Pattern, str], ...] = (
+    (re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]+"), f"Bearer {_HA_REDACTED}"),
+    (re.compile(r"\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+"), _HA_REDACTED),
+    # JSON form: "password": "value"
+    (re.compile(rf"(?i)([\"']{_HA_SECRET_KEYS}[\"']\s*:\s*)([\"'])[^\"']*([\"'])"),
+     rf"\1\2{_HA_REDACTED}\3"),
+    # key=value / key: value (also covers ?token=... in URLs)
+    (re.compile(rf"(?i)\b({_HA_SECRET_KEYS}\s*[=:]\s*)[^\s&\"',;]+"), rf"\1{_HA_REDACTED}"),
+    # user:pass@host inside URLs
+    (re.compile(r"(?i)(\b[a-z][a-z0-9+.-]*://)[^/\s:@]+:[^/\s@]+@"), rf"\1{_HA_REDACTED}@"),
+)
+_HA_STATE_DROP_ATTRIBUTES = frozenset({"entity_picture", "access_token", "token"})
+_HA_STATES_LIMIT = 50
+_HA_MAX_DAYS = 7
+_HA_HISTORY_LIMIT = 200
+_HA_LOGBOOK_LIMIT = 100
+_HA_ERROR_LOG_LINES = 200
+_HA_ERROR_LOG_CHARS = 20000
+
+
+def ha_redact(text: str) -> str:
+    """Replaces only the secret *value* with a marker; surrounding text stays readable."""
+    text = str(text)
+    for pattern, replacement in _HA_REDACT_PATTERNS:
+        text = pattern.sub(replacement, text)
+    return text
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _clamp_int(value: object, low: int, high: int, default: int) -> int:
+    try:
+        number = int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return default
+    return max(low, min(high, number))
+
+
+async def _ha_get(url: str, account: dict, path: str, params: dict | None = None, *,
+                  as_text: bool = False) -> dict:
+    """One authenticated GET against HA after the identity self-check. Never raises; failure
+    texts pass through `ha_redact` (httpx messages can embed URLs with credentials)."""
+    token, _ = _decode_secret(account)
+    base_url = (url or "").rstrip("/")
+    if not base_url:
+        return {"ok": False, "error": "Keine Adresse für Home Assistant hinterlegt."}
+    if not token:
+        return {"ok": False, "error": "Kein Zugriffstoken hinterlegt."}
+
+    def _safe(message: str) -> str:
+        return ha_redact(message.replace(token, _HA_REDACTED))
+
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        async with httpx.AsyncClient(timeout=_HA_TIMEOUT, verify=False, headers=headers) as client:
+            self_check_error = await _ha_self_check(client, base_url)
+            if self_check_error:
+                return {"ok": False, "error": _safe(self_check_error)}
+            response = await client.get(f"{base_url}{path}", params=params)
+    except httpx.HTTPError as exc:
+        return {"ok": False, "error": _safe(f"Home Assistant unter {base_url} nicht erreichbar: {exc}")}
+    if response.status_code in (401, 403):
+        return {"ok": False, "error": f"Home Assistant hat das Zugriffstoken abgelehnt "
+                                      f"(HTTP {response.status_code})."}
+    if response.status_code == 404:
+        return {"ok": False, "error": "Home Assistant kennt diese Abfrage nicht (HTTP 404)."}
+    if response.status_code >= 400:
+        return {"ok": False, "error": f"Home Assistant antwortet mit HTTP {response.status_code}."}
+    if as_text:
+        return {"ok": True, "data": response.text}
+    try:
+        return {"ok": True, "data": response.json()}
+    except ValueError:
+        return {"ok": False, "error": "Home Assistant hat keine gültige JSON-Antwort geliefert."}
+
+
+async def ha_get_states(url: str, account: dict, entity_ids: list[str] | None = None,
+                        domain: str = "", query: str = "") -> dict:
+    """Current state of entities, live. Filter by id list, domain or free text; at most
+    `_HA_STATES_LIMIT` entities, attributes redacted, picture/token attributes dropped."""
+    result = await _ha_get(url, account, "/api/states")
+    if not result["ok"]:
+        return {**result, "entities": [], "count": 0}
+    states = result["data"]
+    if not isinstance(states, list):
+        return {"ok": False, "error": "Unerwartete Antwort von Home Assistant (keine Liste).",
+                "entities": [], "count": 0}
+    wanted = {str(e).strip().lower() for e in (entity_ids or []) if str(e).strip()}
+    domain = (domain or "").strip().lower()
+    needle = (query or "").strip().lower()
+    matched = []
+    for state in states:
+        if not isinstance(state, dict) or not isinstance(state.get("entity_id"), str):
+            continue
+        entity_id = state["entity_id"]
+        attrs = state.get("attributes") if isinstance(state.get("attributes"), dict) else {}
+        if wanted and entity_id.lower() not in wanted:
+            continue
+        if domain and entity_id.split(".", 1)[0].lower() != domain:
+            continue
+        if needle and needle not in f"{entity_id} {attrs.get('friendly_name', '')}".lower():
+            continue
+        matched.append((entity_id, state, attrs))
+    entities = [
+        {"entityId": entity_id, "name": attrs.get("friendly_name") or entity_id,
+         "state": ha_redact(state.get("state", "")), "lastChanged": state.get("last_changed", ""),
+         "attributes": {k: (ha_redact(v) if isinstance(v, str) else v) for k, v in attrs.items()
+                        if k not in _HA_STATE_DROP_ATTRIBUTES}}
+        for entity_id, state, attrs in matched[:_HA_STATES_LIMIT]
+    ]
+    out = {"ok": True, "error": "", "count": len(matched), "entities": entities,
+           "truncated": len(matched) > _HA_STATES_LIMIT}
+    if out["truncated"]:
+        out["note"] = f"nur die ersten {_HA_STATES_LIMIT} von {len(matched)} Entities -- bitte filtern"
+    return out
+
+
+def _parse_ts(value: object) -> datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def _window(days: object) -> tuple[int, str, datetime, datetime]:
+    """(days, note, start, end) -- days clamped to 1..7, note set only when cut down from above."""
+    requested = _clamp_int(days, -10**6, 10**6, _HA_MAX_DAYS)
+    effective = max(1, min(_HA_MAX_DAYS, requested))
+    note = f"auf {_HA_MAX_DAYS} Tage gekürzt" if requested > _HA_MAX_DAYS else ""
+    end = _utcnow()
+    return effective, note, end - timedelta(days=effective), end
+
+
+def _history_summary(entries: list[tuple[datetime, str]], start: datetime, end: datetime) -> dict:
+    seconds: dict[str, float] = {}
+    changes = on_count = 0
+    for index, (moment, state) in enumerate(entries):
+        phase_start = max(moment, start)
+        phase_end = entries[index + 1][0] if index + 1 < len(entries) else end
+        seconds[state] = seconds.get(state, 0) + max(0.0, (phase_end - phase_start).total_seconds())
+        if index > 0 and state != entries[index - 1][1]:
+            changes += 1
+            if state == "on":
+                on_count += 1
+    return {"changes": changes, "onCount": on_count,
+            "secondsByState": {k: round(v) for k, v in seconds.items()},
+            "currentState": entries[-1][1] if entries else ""}
+
+
+async def ha_history(url: str, account: dict, entity_id: str, days: object = _HA_MAX_DAYS,
+                     limit: object = _HA_HISTORY_LIMIT) -> dict:
+    """State history of one entity over at most 7 days, plus a computed summary (number of
+    changes, how often it went `on`, seconds per state) so the model never has to count rows."""
+    days_n, note, start, end = _window(days)
+    limit_n = _clamp_int(limit, 1, _HA_HISTORY_LIMIT, _HA_HISTORY_LIMIT)
+    entity_id = (entity_id or "").strip()
+    if not entity_id:
+        return {"ok": False, "error": "Keine entityId angegeben."}
+    result = await _ha_get(url, account, f"/api/history/period/{start.isoformat()}", {
+        "filter_entity_id": entity_id, "end_time": end.isoformat()})
+    if not result["ok"]:
+        return result
+    data = result["data"]
+    rows = data[0] if isinstance(data, list) and data and isinstance(data[0], list) else []
+    entries: list[tuple[datetime, str]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        moment = _parse_ts(row.get("last_changed")) or _parse_ts(row.get("last_updated"))
+        if moment is not None:
+            entries.append((moment, str(row.get("state", ""))))
+    entries.sort(key=lambda e: e[0])
+    # Only genuine state changes are listed; attribute-only updates repeat the same state.
+    changes = [(m, s) for i, (m, s) in enumerate(entries) if i == 0 or s != entries[i - 1][1]]
+    listed = changes[-limit_n:]
+    truncated = bool(note) or len(changes) > limit_n
+    notes = [note] if note else []
+    if len(changes) > limit_n:
+        notes.append(f"nur die letzten {limit_n} von {len(changes)} Einträgen aufgelistet "
+                     "(die Zusammenfassung zählt alle)")
+    return {"ok": True, "error": "", "entityId": entity_id, "days": days_n,
+            "from": start.isoformat(), "to": end.isoformat(),
+            "summary": _history_summary(entries, start, end) if entries else None,
+            "changes": [{"at": m.isoformat(), "state": ha_redact(s)} for m, s in listed],
+            "truncated": truncated, "note": "; ".join(notes)}
+
+
+async def ha_logbook(url: str, account: dict, entity_id: str = "", days: object = _HA_MAX_DAYS,
+                     limit: object = _HA_LOGBOOK_LIMIT) -> dict:
+    """Logbook entries (what changed, and which automation/script/user's context caused it) for
+    at most 7 days. The `context_*` fields name the automation behind a change."""
+    days_n, note, start, end = _window(days)
+    limit_n = _clamp_int(limit, 1, _HA_LOGBOOK_LIMIT, _HA_LOGBOOK_LIMIT)
+    params = {"end_time": end.isoformat()}
+    if (entity_id or "").strip():
+        params["entity"] = entity_id.strip()
+    result = await _ha_get(url, account, f"/api/logbook/{start.isoformat()}", params)
+    if not result["ok"]:
+        return result
+    data = result["data"]
+    if not isinstance(data, list):
+        return {"ok": False, "error": "Unerwartete Antwort von Home Assistant (keine Liste)."}
+    rows = [r for r in data if isinstance(r, dict)]
+    listed = rows[-limit_n:]
+    entries = [{"when": r.get("when", ""), "name": ha_redact(r.get("name", "")),
+                "entity_id": r.get("entity_id", ""), "state": ha_redact(r.get("state", "")),
+                "message": ha_redact(r.get("message", "")),
+                "context_entity_id": r.get("context_entity_id", ""),
+                "context_domain": r.get("context_domain", ""),
+                "context_service": r.get("context_service", "")}
+               for r in listed]
+    notes = [note] if note else []
+    if len(rows) > limit_n:
+        notes.append(f"nur die letzten {limit_n} von {len(rows)} Einträgen")
+    return {"ok": True, "error": "", "days": days_n, "entries": entries,
+            "truncated": bool(notes), "note": "; ".join(notes)}
+
+
+async def ha_error_log(url: str, account: dict) -> dict:
+    """Tail of HA's error log: redacted first, then cut to the last 200 lines / 20 000 characters."""
+    result = await _ha_get(url, account, "/api/error_log", as_text=True)
+    if not result["ok"]:
+        if "404" in result["error"]:
+            return {"ok": False, "error": "Das Fehlerlog ist bei dieser Home-Assistant-Installation "
+                                          "nicht über die API verfügbar (HTTP 404)."}
+        return result
+    text = ha_redact(result["data"])
+    lines = text.splitlines()
+    notes = []
+    if len(lines) > _HA_ERROR_LOG_LINES:
+        notes.append(f"nur die letzten {_HA_ERROR_LOG_LINES} von {len(lines)} Zeilen")
+        lines = lines[-_HA_ERROR_LOG_LINES:]
+    text = "\n".join(lines)
+    if len(text) > _HA_ERROR_LOG_CHARS:
+        notes.append(f"auf die letzten {_HA_ERROR_LOG_CHARS} Zeichen gekürzt")
+        text = text[-_HA_ERROR_LOG_CHARS:]
+    return {"ok": True, "error": "", "text": text, "truncated": bool(notes), "note": "; ".join(notes)}
 
 
 # ---------------------------------------------------------------------------------------------

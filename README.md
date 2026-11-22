@@ -246,6 +246,12 @@ Passwort im Prompt landet im Protokoll des Anbieters, im Chatverlauf und in jede
 Kontextfenster. Der Assistent kann sagen, *wo* ein Zugang hinterlegt ist; ansehen muss ihn der
 Mensch in der App.
 
+**Home Assistant live lesen.** Der Assistent kann Zustände, Verlauf, Logbuch und Fehlerlog von
+Home Assistant live abfragen (nur lesende GET-Aufrufe, höchstens 7 Tage und eine feste Zahl an
+Einträgen). Texte werden vor der Ausgabe von Tokens, Passwörtern und Zugangs-URLs bereinigt; das
+Zugriffstoken bleibt auf dem Server. Das Opt-in „Zum Auslesen verwenden“ gilt für diese
+Abfragen nicht (wie bei `list_switches`), und sie stehen allen Rollen und MCP-Clients offen.
+
 **Passwörter verlassen den Server einzeln.** API-Schlüssel kommen maskiert zurück, ein
 gespeichertes Passwort nur über `GET /api/accounts/{id}/secret` — genau eines, nur für
 Administratoren. Es gibt keine Route, die den Zugangsspeicher im Klartext ausgibt.
