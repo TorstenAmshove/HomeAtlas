@@ -1,7 +1,7 @@
 # Firewall-Regeln
 
-> Status: Teile A und B umgesetzt (UniFi und nftables lesen und speichern, #106). Pfadbewertung, Assistenten-Werkzeuge
-> und das Doku-Kapitel folgen in weiteren Teilen; sie stehen unten unter OFFEN.
+> Status: Teile A bis C umgesetzt (UniFi und nftables lesen und speichern, Pfadbewertung, Assistenten-Werkzeuge, #106). Das
+> Doku-Kapitel und die Verknüpfung mit den Erreichbarkeits-Ketten folgen (Teil D, siehe OFFEN).
 
 ## Zweck
 
@@ -76,6 +76,35 @@ Verbindungsstatus, negierte Zuordnung, unbekannte Formate), wird als `unsupporte
 
 Quelle: `backend/app/firewall_unifi.py`, Test: `backend/tests/test_firewall_unifi.py::test_drops_unknown_and_secret_fields`, `::test_max_500_policies_is_unreadable_not_a_subset`
 
+### Requirement: Pfadbewertung durch HomeAtlas
+Das System MUSS für einen Weg `von -> nach : port/protokoll` aus den gespeicherten Fakten je Station (UniFi-Gateway zwischen
+den Zonen, Host-Firewall des Ziels eingehend, des Quell-Hosts ausgehend, sofern angebunden) „erlaubt“, „blockiert“ oder
+„unklar“ bestimmen, mit Name, Quelle und Position der auslösenden Regel; die Auswertung steckt im reinen Modul
+`firewall_eval.py` (kein Netz, keine DB), das LLM erklärt nur
+([ADR-0017](../../../adr/0017-firewall-quellen-und-pfadbewertung.md)). Gesamturteil: „blockiert“, sobald eine Station sicher
+blockiert; sonst „unklar“, wenn eine Station unklar ist; nur „erlaubt“, wenn jede Station bekannt ist und erlaubt. **[Muss]**
+
+#### Szenario: Gesperrter Port
+- **WENN** die Policies des Zonenpaars den Port nicht freigeben und die Standardregel blockiert
+- **DANN** ist die Station „blockiert“ mit der auslösenden Regel (UniFi: Index, nftables: Kette und Regelnummer)
+
+#### Szenario: Nicht auswertbar
+- **WENN** die Quelle fehlt oder veraltet ist, die Zone nicht zuordenbar ist, eine Regel als `unsupported` vermerkt ist, eine Gruppe fehlt, ICMP/IPv6 gefragt ist, Schnittstellen-Treffer ohne Schnittstellenkenntnis oder gleiche Priorität/gleicher Index vorliegen
+- **DANN** ist die Station „unklar“ mit Grund, nie „erlaubt“
+
+Fest ausgewiesen und nicht ausgewertet: Proxmox-Firewall, nftables-`forward`, NAT/Portweiterleitung, IPv6.
+
+Quelle: `backend/app/firewall_eval.py`, Test: `backend/tests/test_firewall_eval.py`, `backend/tests/test_firewall_boundaries.py::test_firewall_eval_is_pure`
+
+### Requirement: Firewall-Werkzeuge des Assistenten
+Das System MUSS dem Assistenten die lesenden Werkzeuge `check_firewall_path(von, nach, port, protokoll)` und
+`list_firewall_rules(von, nach, system)` bereitstellen (auch über MCP): nur gespeicherte Fakten, kein Live-Zugriff, höchstens
+15 Regeln bzw. 8 Stationen, Regelnamen von Steuerzeichen befreit und auf 80 Zeichen gekürzt, kein Roh- oder Kommentartext,
+keine Zugangs-IDs. Ungültiger Port (nicht 1–65535), unbekanntes Protokoll, unbekannte Systeme oder `von == nach` ergeben eine
+Fehlermeldung. Der Systemprompt weist an, die Bewertung mit `check_port`/`http_check` zu kombinieren. **[Muss]**
+
+Quelle: `backend/app/tools.py`, `backend/app/prompts.py`, Test: `backend/tests/test_tools_firewall.py`
+
 ### Requirement: Fakten-Speicher
 Das System MUSS Firewall-Fakten in `firewallFacts` ablegen; ein Lesefehler markiert sie als veraltet statt sie
 zu löschen, `firstSeen` bleibt erhalten, beim Löschen eines Zugangs werden seine Fakten entfernt. **[Muss]**
@@ -98,6 +127,6 @@ Keine Änderung von Firewall-Regeln; keine Proxmox-Firewall in v1; keine Docker-
 
 ## OFFEN
 
-- > OFFEN: Pfadbewertung (`firewall_eval.py`),
-  > Werkzeuge `check_firewall_path`/`list_firewall_rules`, Kapitel „Wer darf mit wem sprechen“ und die
-  > Verknüpfung mit den Erreichbarkeits-Ketten (Issue #106, Teile C–D).
+- > OFFEN: Kapitel „Wer darf mit wem sprechen“ und die Verknüpfung mit den Erreichbarkeits-Ketten (Issue #106, Teil D).
+- > OFFEN: Die Zuordnung Netz -> Zone setzt voraus, dass `networkResources.externalId` der UniFi-Netz-ID in `zone.network_ids`
+  > entspricht; am echten Gateway noch nicht bestätigt (sonst „unklar: Zone nicht zuordenbar“).

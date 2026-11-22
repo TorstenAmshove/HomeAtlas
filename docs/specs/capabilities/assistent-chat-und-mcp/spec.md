@@ -201,6 +201,7 @@ Werkzeuggruppen (Details, Schemas und Grenzen: [llm-tools](../../contracts/llm-t
 - Dokumentation: `list_documentation`, `get_documentation`
 - Zugänge: `list_accounts` (ohne Passwörter)
 - Erreichbarkeit: `list_exposure` (nur aus der Datenbank, begrenzt auf 15 Zeilen je Liste mit Kürzungshinweis, Filter `host`, ohne Geheimnisse und ohne Quell-Zugangs-IDs, kein Live-DNS)
+- Firewall: `check_firewall_path` (Pfadbewertung je Station aus gespeicherten Fakten, von HomeAtlas ausgewertet) und `list_firewall_rules` (höchstens 15 Regeln, Regelnamen bereinigt, kein Live-Zugriff), siehe [firewall](../firewall/spec.md)
 - Schalten: `list_switches`, `set_switch`
 - Home Assistant live (nur lesend): `get_ha_state`, `get_ha_history`, `get_ha_logbook`, `get_ha_error_log`, `list_ha_traces`, `get_ha_trace`
 - UniFi live (nur lesend): `get_unifi_client`, `get_unifi_device`, `get_unifi_network`, `get_unifi_events`

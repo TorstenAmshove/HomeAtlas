@@ -115,7 +115,7 @@ Lücken: **0**
 | `exposureFacts` | [erreichbarkeit](capabilities/erreichbarkeit/spec.md) |
 | `firewallFacts` | [firewall](capabilities/firewall/spec.md) |
 | `monitorEvents` | [inventar](capabilities/inventar/spec.md), [monitoring](capabilities/monitoring/spec.md) |
-| `networkResources` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [credentialed-probing](capabilities/credentialed-probing/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [dokumentation](capabilities/dokumentation/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md), [topologie](capabilities/topologie/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
+| `networkResources` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [credentialed-probing](capabilities/credentialed-probing/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [dokumentation](capabilities/dokumentation/spec.md), [firewall](capabilities/firewall/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md), [topologie](capabilities/topologie/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `scans` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [dashboard](capabilities/dashboard/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [dokumentation](capabilities/dokumentation/spec.md), [klassifikation-llm](capabilities/klassifikation-llm/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md), [topologie](capabilities/topologie/spec.md) |
 | `sessions` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
 | `settings` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [dashboard](capabilities/dashboard/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [dokumentation](capabilities/dokumentation/spec.md), [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md), [inventar](capabilities/inventar/spec.md), [klassifikation-llm](capabilities/klassifikation-llm/spec.md), [monitoring](capabilities/monitoring/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md), [topologie](capabilities/topologie/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
@@ -123,7 +123,7 @@ Lücken: **0**
 | `systems` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [credentialed-probing](capabilities/credentialed-probing/spec.md), [dashboard](capabilities/dashboard/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [dokumentation](capabilities/dokumentation/spec.md), [erreichbarkeit](capabilities/erreichbarkeit/spec.md), [inventar](capabilities/inventar/spec.md), [klassifikation-llm](capabilities/klassifikation-llm/spec.md), [monitoring](capabilities/monitoring/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md), [remote-admin](capabilities/remote-admin/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md), [topologie](capabilities/topologie/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `users` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md) |
 
-## KI-Werkzeuge (27)
+## KI-Werkzeuge (29)
 
 | Eintrag | Spec |
 |---|---|
@@ -135,6 +135,8 @@ Lücken: **0**
 | `list_accounts` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `list_containers` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `list_exposure` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [erreichbarkeit](capabilities/erreichbarkeit/spec.md) |
+| `check_firewall_path` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [firewall](capabilities/firewall/spec.md) |
+| `list_firewall_rules` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [firewall](capabilities/firewall/spec.md) |
 | `list_switches` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [remote-admin](capabilities/remote-admin/spec.md) |
 | `set_switch` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [remote-admin](capabilities/remote-admin/spec.md) |
 | `get_ha_state` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
@@ -149,10 +151,10 @@ Lücken: **0**
 | `get_ha_trace` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `internet_check` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [dashboard](capabilities/dashboard/spec.md), [diagnose](capabilities/diagnose/spec.md) |
 | `ping_host` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [diagnose](capabilities/diagnose/spec.md) |
-| `check_port` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [diagnose](capabilities/diagnose/spec.md), [monitoring](capabilities/monitoring/spec.md) |
+| `check_port` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [diagnose](capabilities/diagnose/spec.md), [firewall](capabilities/firewall/spec.md), [monitoring](capabilities/monitoring/spec.md) |
 | `dns_lookup` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [diagnose](capabilities/diagnose/spec.md) |
 | `reverse_dns` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [diagnose](capabilities/diagnose/spec.md) |
-| `http_check` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [diagnose](capabilities/diagnose/spec.md) |
+| `http_check` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [diagnose](capabilities/diagnose/spec.md), [firewall](capabilities/firewall/spec.md) |
 | `traceroute` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [diagnose](capabilities/diagnose/spec.md) |
 
 ## Seiten (3)
