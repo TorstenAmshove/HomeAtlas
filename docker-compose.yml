@@ -35,11 +35,6 @@ services:
   frontend:
     build:
       context: ./frontend
-      # CI passes the commit stamp as build args; a local `docker compose build` shows "dev"
-      # unless VITE_BUILD_SHA/VITE_BUILD_TIME are set in the environment.
-      args:
-        VITE_BUILD_SHA: ${VITE_BUILD_SHA:-dev}
-        VITE_BUILD_TIME: ${VITE_BUILD_TIME:-}
     restart: unless-stopped
     network_mode: host
     environment:

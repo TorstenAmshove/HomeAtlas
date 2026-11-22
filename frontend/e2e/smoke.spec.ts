@@ -505,6 +505,13 @@ test("login, MFA enrollment, setup and main routes render without errors", async
     await expect(page.getByText("Neue Oberfläche")).toHaveCount(0);
   });
 
+  await test.step("settings: Über shows the version, no mismatch notice (built without version args)", async () => {
+    await page.goto("/einstellungen?tab=about");
+    await expect(page.getByRole("cell", { name: "dev", exact: true })).toBeVisible();
+    await expect(page.getByText("unterschiedlichen Versionen")).toHaveCount(0);
+    await expect(page.getByText("Erstellt am")).toHaveCount(0);
+  });
+
   await test.step("logout", async () => {
     await page.goto("/");
     await page.locator(".shell-side").getByRole("button", { name: "Abmelden" }).click();

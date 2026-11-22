@@ -254,6 +254,23 @@ festen Texten); nur Chat und KI-Texte fallen weg. **[Muss]**
 
 Quelle: `backend/app/docs.py:477`, `backend/app/main.py:1523`
 
+### Requirement: Versionsanzeige
+Der Reiter „Über“ MUSS die tatsächlich laufende Release-Version des Servers zeigen (`GET /api/version`,
+aus dem Build-Arg `HOMEATLAS_VERSION`; ohne Build-Arg `dev`) und sonst weder Build-Kennung noch
+Zeitstempel. Weicht die Version der Oberfläche (Build-Arg `VITE_APP_VERSION`, sonst `dev`) von der
+des Servers ab, MUSS ein Hinweis erscheinen; schlägt der Abruf fehl, MUSS die Oberflächen-Version
+ohne Hinweis erscheinen. **[Muss]**
+
+#### Szenario: Gleiche Versionen
+- **WENN** Oberfläche und Server mit derselben Version laufen
+- **DANN** zeigt „Über“ nur diese Version, ohne Hinweis
+
+#### Szenario: Abweichende Versionen
+- **WENN** der Server `1.2.3` meldet, die Oberfläche aber `dev` ist
+- **DANN** erscheint ein Hinweis auf die unterschiedlichen Versionen
+
+Quelle: `backend/app/version.py`, `backend/app/routes/settings.py`, `frontend/src/pages/SettingsPage.tsx`
+
 ## Daten
 
 Siehe [data-model](../../contracts/data-model.md).
@@ -267,6 +284,7 @@ Siehe [data-model](../../contracts/data-model.md).
 | Methode | Pfad | Rolle | Zweck |
 |---|---|---|---|
 | GET | /api/settings | MEMBER | Einstellungen (rollenabhängig gefiltert, maskiert) + `providers`, `catalog`, `ouiLoaded`, `ouiEntries`, `dockerAvailable` |
+| GET | /api/version | MEMBER | `{version}` des laufenden Servers (Reiter „Über“) |
 | PATCH | /api/settings | ADMIN | Teil-Update (beliebige Schlüssel) → `{settings}` maskiert |
 | POST | /api/settings/llm/models | ADMIN | `{provider, settings}` → `{ok, message, models}`; speichert Cache |
 | POST | /api/settings/llm/test | ADMIN | `{provider, settings}` → `{ok, message, model}` |
