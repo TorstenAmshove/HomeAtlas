@@ -34,4 +34,5 @@ Menschen und für KI-Agenten, die sonst bewusste Entscheidungen „wegrefaktorie
 | [0012](0012-lesender-websocket-fuer-ha-traces.md) | Lesender WebSocket für Home-Assistant-Traces | Ersetzt durch ADR-0013 |
 | [0013](0013-rollos-per-set-switch.md) | Rollos per `set_switch`, Tore bleiben gesperrt | Ersetzt durch ADR-0014 |
 | [0014](0014-erreichbarkeits-quellen-lesend.md) | Lesende Erreichbarkeits-Quellen (Forced-Command, Cloudflare, öffentliches DNS) | Ersetzt durch ADR-0015 |
-| [0015](0015-lesender-zugriff-klassische-unifi-api.md) | Lesender Live-Zugriff auf die klassische UniFi-API | Akzeptiert |
+| [0015](0015-lesender-zugriff-klassische-unifi-api.md) | Lesender Live-Zugriff auf die klassische UniFi-API | Ersetzt durch ADR-0016 |
+| [0016](0016-unifi-scan-nur-mit-api-key.md) | Scan der klassischen UniFi-API nur mit API-Key | Akzeptiert |

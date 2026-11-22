@@ -264,7 +264,7 @@ Nur ausdrücklich freigegebene Felder werden weitergegeben, der Key bleibt auf d
 gespeichert. Der Controller wird wie beim Scan ohne Zertifikatsprüfung angesprochen (selbstsigniertes
 Zertifikat im LAN; der Key geht im Header an den Controller im LAN). Das Opt-in „Zum Auslesen
 verwenden“ gilt für diese Abfrage nicht, und sie steht allen Rollen und MCP-Clients offen.
-Geprüft gegen UniFi Network 11.0.103. Hintergrund: ADR-0015.
+Geprüft gegen UniFi Network 11.0.103. Hintergrund: ADR-0015, ADR-0016.
 
 **Erreichbarkeit im Assistenten und auf der Geräteseite.** Das Werkzeug `list_exposure` beantwortet
 Fragen wie „warum ist app2.example.net nicht erreichbar?“. Es liest nur die beim letzten Scan
@@ -282,11 +282,13 @@ Ziel-URL, Zertifikats-Resolver und Middleware-Namen, nie die Regel im Rohformat 
 
 **Portweiterleitungen und WAN-Adresse (UniFi, Erreichbarkeit).** Die Integration-API von UniFi kennt
 weder Portweiterleitungen noch die WAN-Adresse, deshalb liest HomeAtlas sie über die klassische API.
-Minimal nötige Rechte: ein eigener lokaler Benutzer mit der Rolle „View Only“ (kein Cloud-Konto). Der
-Login (`POST /api/auth/login`) ist der einzige schreibende Verb-Aufruf und ändert nichts an der
-Konfiguration; danach nur GET. Der Zugang (Kategorie „UniFi klassische API“) braucht „Zum Auslesen
-verwenden“; die Quelle ist in den Einstellungen abschaltbar (`scanEnableUnifiClassic`). Gespeichert
-werden nur Protokoll, Ports, Ziel-IP und die WAN-Adresse, nie Name, Passwort, Cookie oder Token.
+Dafür genügt der API-Key des Zugangs „UniFi Network (API-Key)“, kein Benutzer und kein Login: nur GET
+mit `X-API-Key`, ohne Cookie und ohne Weiterleitungen. Minimal nötige Rechte: Der Key hat die Rechte
+seines Erstellers (mehr als „View Only“); lege ihn deshalb mit einem möglichst eingeschränkten lokalen
+Konto an. Der Zugang braucht „Zum Auslesen verwenden“; die Quelle ist in den Einstellungen
+abschaltbar (`scanEnableUnifiClassic`). Gespeichert werden nur Protokoll, Ports, Ziel-IP und die
+WAN-Adresse, nie Name, Quellfilter oder Key. Ein früherer Zugang „UniFi klassische API“ wird beim
+Start gelöscht; nötig ist stattdessen ein `unifi`-Zugang mit „Zum Auslesen verwenden“ (ADR-0016).
 
 **Cloudflare und öffentliches DNS (Erreichbarkeit, Kontakt nach außen).** Beides ist standardmäßig
 **aus** (`scanEnableCloudflare`, `scanEnablePublicDns`), weil es das einzige ist, was HomeAtlas außerhalb

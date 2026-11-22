@@ -1,6 +1,8 @@
 """Persistence for network resources (see db/__init__ for the package rules)."""
 from __future__ import annotations
 
+import json
+
 from ._core import _conn, _dump, _new_id, _now, _row, _rows
 
 
@@ -96,3 +98,29 @@ def sync_network_resources(source_account_id: str, resources: list[dict],
                     (now, source_account_id, site_id, kind),
                 )
     return [resource for resource_id in refreshed_ids if (resource := get_network_resource(resource_id)) is not None]
+
+
+def set_wan_ips(source_account_id: str, ips: list[str]) -> int:
+    """Attaches WAN addresses (from the classic API) to the WAN rows the account already has.
+
+    The match is by position, so it is only done when the counts agree; with a different number of
+    addresses and connections nothing is guessed. Returns the number of rows updated.
+    """
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT id, facts FROM networkResources WHERE kind = 'wan' AND active = 1 AND sourceAccountId = ? "
+            "ORDER BY siteExternalId, externalId", (source_account_id,)).fetchall()
+        if not rows or len(rows) != len(ips):
+            return 0
+        updated = 0
+        for row, ip in zip(rows, ips):
+            if not ip:
+                continue
+            try:
+                facts = json.loads(row["facts"] or "{}")
+            except (json.JSONDecodeError, TypeError):
+                facts = {}
+            conn.execute("UPDATE networkResources SET facts = ?, updatedAt = ? WHERE id = ?",
+                         (_dump({**facts, "ip": ip}), _now(), row["id"]))
+            updated += 1
+        return updated

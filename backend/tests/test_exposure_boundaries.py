@@ -42,11 +42,12 @@ def test_exposure_files_runs_only_the_fixed_command_table():
         assert verb not in src
 
 
-def test_unifi_classic_probe_has_login_as_only_post():
+def test_unifi_classic_probe_is_get_only_with_key():
     src = (APP / "unifi_classic_probe.py").read_text()
-    for verb in ("client.put", "client.delete", "client.patch", "client.request"):
+    for verb in ("client.post", "client.put", "client.delete", "client.patch", "client.request"):
         assert verb not in src
-    assert src.count("client.post(") == 1 and '/api/auth/login' in src
+    assert "/api/auth/login" not in src.replace("no login", "") .split('"""', 2)[2]
+    assert "follow_redirects=False" in src and "unifi_live" not in src.split('"""', 2)[2]
 
 
 def test_outside_sources_only_use_get():

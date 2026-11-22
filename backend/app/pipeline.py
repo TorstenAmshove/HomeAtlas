@@ -514,22 +514,23 @@ async def run_full_scan(scan_id: str) -> None:
                     if account.get("systemId"):
                         db.add_device_error_event(account["systemId"], "error", adguard_result["error"])
 
+        classic_wan_ips: list[tuple[str, list[str]]] = []
         if settings.get("scanEnableUnifiClassic", True):
+            # Same accounts as the integration-API scan above: one UniFi API key serves both (ADR-0016).
             classic_accounts = [a for a in db.list_accounts()
-                                if a.get("category") == "unifi_classic" and a.get("allowProbe")]
+                                if a.get("category") == "unifi" and a.get("allowProbe")]
             if classic_accounts:
                 progress("UniFi-Portweiterleitungen erfassen", 88, "Frage klassische UniFi-API ab")
             for account in classic_accounts:
                 try:
                     classic = await asyncio.wait_for(unifi_classic_probe.probe(
-                        account.get("url") or "", account.get("username") or "",
-                        crypto.decrypt(account.get("secretEnc") or ""), account["id"], account.get("systemId")),
-                        timeout=60)
+                        account.get("url") or "", crypto.decrypt(account.get("secretEnc") or ""),
+                        account["id"], account.get("systemId")), timeout=60)
                 except Exception as exc:  # one failing source must never stop the scan
                     classic = {"ok": False, "error": f"UniFi (klassisch): {type(exc).__name__}"}
                 if classic["ok"]:
                     db.replace_exposure_facts("unifi_classic", account["id"], classic["forwards"])
-                    db.sync_network_resources(account["id"], classic["resources"], classic["completeScopes"])
+                    classic_wan_ips.append((account["id"], classic["wanIps"]))
                     log(f"UniFi klassisch ({account['label']}): {len(classic['forwards']) - 1} Portweiterleitung(en) gelesen")
                 else:
                     db.mark_exposure_facts_stale("unifi_classic", account["id"])
@@ -675,6 +676,10 @@ async def run_full_scan(scan_id: str) -> None:
                 account["id"], unifi_result["resources"], unifi_result["completeScopes"],
             )
             log(f"UniFi ({account['label']}): {len(synced)} Netze, WLANs und WANs aktualisiert")
+        # WAN addresses come from the classic API but belong on the WAN rows of the integration API
+        # (same account), so they are attached only after those rows are synced.
+        for account_id, ips in classic_wan_ips:
+            db.set_wan_ips(account_id, ips)
 
         # Anything critical is worth watching continuously -- that is what "critical" means. Done
         # here rather than in the UI so it also covers devices a scan just promoted.

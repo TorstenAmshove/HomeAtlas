@@ -389,7 +389,7 @@ export default function AccountFormPage({ mode }: { mode: "new" | "edit" }) {
 
           <div className="field">
             <label htmlFor="zg-url">
-              Adresse{["omada", "homeassistant", "proxmox", "adguard", "traefik", "unifi_classic"].includes(form.category) ? "" : " (optional)"}
+              Adresse{["omada", "homeassistant", "proxmox", "adguard", "traefik"].includes(form.category) ? "" : " (optional)"}
             </label>
             <input id="zg-url" placeholder="https://…" value={form.url} onChange={(e) => update({ url: e.target.value })} />
             {form.category === "omada" && (
@@ -414,11 +414,10 @@ export default function AccountFormPage({ mode }: { mode: "new" | "edit" }) {
                 eines eigenen BasicAuth-Nutzers nur für die API (lesend, nur GET).
               </div>
             )}
-            {form.category === "unifi_classic" && (
+            {form.category === "unifi" && (
               <div className="field-hint">
-                Adresse der UniFi-Konsole, z. B. https://192.168.1.1. Benutzername und Passwort eines eigenen
-                lokalen Benutzers mit der Rolle „View Only“. Dient nur zum Lesen von Portweiterleitungen und
-                WAN-Adresse (der Login ist der einzige POST, sonst nur GET).
+                „Zum Auslesen verwenden“ liest auch Portweiterleitungen und die WAN-Adresse (nur GET). Der Key
+                hat die Rechte seines Erstellers.
               </div>
             )}
             {form.category === "adguard" && (

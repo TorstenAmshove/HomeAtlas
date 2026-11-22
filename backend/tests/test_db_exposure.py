@@ -41,3 +41,17 @@ def test_migration_on_existing_db_is_idempotent(tmp_path, monkeypatch):
     db.init_db()
     db.init_db()
     assert db.list_exposure_facts() == []
+
+
+def test_migration_removes_unifi_classic_accounts(temp_db):
+    old = temp_db.create_account({"label": "alt", "category": "unifi_classic"})
+    keep = temp_db.create_account({"label": "neu", "category": "unifi"})
+    temp_db.replace_exposure_facts("unifi_classic", old["id"], [_fact("scan")])
+    temp_db.sync_network_resources(old["id"], [{"kind": "wan", "source": "unifi", "siteExternalId": "s",
+                                                "externalId": "w", "name": "w"}], [])
+    temp_db.init_db()
+    assert [a["id"] for a in temp_db.list_accounts()] == [keep["id"]]
+    assert temp_db.list_exposure_facts() == []
+    assert all(not r["active"] for r in temp_db.list_network_resources("wan"))
+    temp_db.init_db()  # idempotent
+    assert [a["id"] for a in temp_db.list_accounts()] == [keep["id"]]

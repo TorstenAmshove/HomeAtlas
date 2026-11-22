@@ -1,4 +1,4 @@
-"""Live, read-only access to the classic UniFi Network API for the assistant (ADR-0015).
+"""Live, read-only access to the classic UniFi Network API for the assistant (ADR-0015, ADR-0016).
 
 Why a separate module: `unifi_probe.py` / `unifi_classic_probe.py` belong to the scan pipeline and
 store what they find; this module answers one question at a time ("why does client X drop?") and

@@ -1,6 +1,6 @@
 # ADR-0015: Lesender Live-Zugriff auf die klassische UniFi-API
 
-- **Status:** Akzeptiert, ersetzt ADR-0014
+- **Status:** Ersetzt durch ADR-0016; ersetzte ADR-0014
 - **Datum:** 2026-11-22
 
 ## Kontext
