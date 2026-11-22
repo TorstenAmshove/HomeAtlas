@@ -501,23 +501,23 @@ auslesen“, nur Admin und nur wenn ein Zugang `allowProbe` hat).
 
 - > OFFEN: In `probe_system` ist `elif "ssh" not in results` (analog `snmp`, `ha`) immer wahr, weil
   Schlüssel `ssh:<label>` heißen – fehlgeschlagene Ergebnisse werden stets gespeichert, auch wenn
-  ein anderer Zugang derselben Art erfolgreich war (`backend/app/probe_auth.py:1397`). Absicht unklar.
+  ein anderer Zugang derselben Art erfolgreich war (`backend/app/probe_auth.py:1397`). Absicht unklar. → #133
 - > OFFEN: HTTP- und TR-064-Fehlschläge werden nicht als Ergebnis gespeichert, nur Erfolge –
-  daher kein Fehlerereignis für abgelehnte Web-Logins.
+  daher kein Fehlerereignis für abgelehnte Web-Logins. → #133
 - > OFFEN: `login`-Zugänge mit Port ≠ 0/22 werden nie per SSH versucht (`sshkey` mit beliebigem
-  Port schon) (`backend/app/probe_auth.py:1389`).
+  Port schon) (`backend/app/probe_auth.py:1389`). → #133
 - > OFFEN: TR-064 wählt den ersten Zugang der Kategorie `login` oder `router`; `router` existiert
   in der UI nicht. Bei einem Nicht-FRITZ-Router mit `kind = router` wird dessen Login-Passwort per
-  Digest an Port 49000 geschickt.
+  Digest an Port 49000 geschickt. → #134
 - > OFFEN: TP-Link-Pager-Abschaltung nutzt `configure` / `no clipaging` – ein
   Konfigurationsmodus-Befehl, entgegen „kein Config-Mode“. Ob die Einstellung persistent in der
   Running-Config landet, ist ungeprüft.
 - > OFFEN: Manuelles Auslesen behandelt `omada`/`proxmox`/`adguard`-Zugänge nicht (sie gehen an
   `probe_auth.probe_system`, das sie ignoriert) → bei solchen Geräten `ran = false` ohne Grund.
   Ebenso ignoriert es `scanUseCredentials`/`scanEnable*`, den Standard-Zugang, ARP-Lernen,
-  Druckerzuordnung, `os`/`model`-Füllung und Fehlerereignisse.
+  Druckerzuordnung, `os`/`model`-Füllung und Fehlerereignisse. → #135
 - > OFFEN: Im Vollscan nutzen Controller-Probes alle freigegebenen Zugänge der Kategorie,
-  beim manuellen Auslesen nur die dem Gerät (direkt/per Zuordnung) zugeordneten – uneinheitlich.
+  beim manuellen Auslesen nur die dem Gerät (direkt/per Zuordnung) zugeordneten – uneinheitlich. → #135
 - > OFFEN: `omada_backup` läuft auf jedem Linux-Host und wird Base64-kodiert als Fakt gespeichert;
   ein Restore ist bewusst nicht vorgesehen, Nutzen der Speicherung ist unklar.
 - > OFFEN: Omada liest nur Seite 1 (Geräte 100, Clients 500); größere Sites werden still abgeschnitten.
@@ -525,6 +525,6 @@ auslesen“, nur Admin und nur wenn ein Zugang `allowProbe` hat).
 - > OFFEN: README „Sicherheit“ sagt, das Verfahren lasse sich unter *Einstellungen → Netzwerk-Scan*
   „komplett abschalten“. Trifft nur teilweise zu: `scanUseCredentials = false` stoppt nur das
   Auslesen je Gerät; UniFi/Omada/Proxmox/AdGuard melden sich weiter mit Zugangsdaten an, solange
-  ihr `scanEnable*` an ist (`backend/app/pipeline.py:387`–`:455` vs. `:521`). Doku oder Verhalten anpassen?
+  ihr `scanEnable*` an ist (`backend/app/pipeline.py:387`–`:455` vs. `:521`). Doku oder Verhalten anpassen? → #136
 - > OFFEN: Klassisches Aruba braucht ein Konto, das direkt mit Manager-Rechten anmeldet; die UI
-  weist darauf nicht hin.
+  weist darauf nicht hin. → #134

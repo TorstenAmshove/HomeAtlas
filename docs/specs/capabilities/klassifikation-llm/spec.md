@@ -281,13 +281,13 @@ Warnungen in `frontend/src/pages/mehr/ScanPage.tsx` (Route `/scan`).
 - > OFFEN: Weil `importance` nach Normalisierung nie leer ist, überschreibt die KI-Wichtigkeit immer
   die regelbasierte – auch beim Gateway (`critical`), sobald es Kandidat ist (z. B. kein kuratierter
   Doku-Link bei Nicht-AVM-Routern). Ebenso überschreibt eine ungültige KI-`kind` (→ `other`) eine
-  korrekte Regel-Art wie `router`.
-- > OFFEN: Ein sicher erkanntes Gerät wird schon Kandidat, wenn nur der Doku-Link fehlt.
-- > OFFEN: Nur exakt `"low"` wird verworfen; „LOW“, „niedrig“ o. Ä. gelten als akzeptiert.
+  korrekte Regel-Art wie `router`. → #142
+- > OFFEN: Ein sicher erkanntes Gerät wird schon Kandidat, wenn nur der Doku-Link fehlt. → #142
+- > OFFEN: Nur exakt `"low"` wird verworfen; „LOW“, „niedrig“ o. Ä. gelten als akzeptiert. → #142
 - > OFFEN: Die Link-Prüfung führt GET auf beliebige vom Modell gelieferte URLs vom Server aus,
-  auch auf LAN-Adressen (SSRF-artig); kein Ausschluss privater Ziele.
+  auch auf LAN-Adressen (SSRF-artig); kein Ausschluss privater Ziele. → #114
 - > OFFEN: Gleiche IP in mehreren Funden (Netzwerk-Fund plus UniFi/Omada/Proxmox/AdGuard) –
   mehrere Belegsätze pro IP im selben Stapel möglich, der letzte gewinnt, und das Ergebnis wird auf
-  alle Funde dieser IP angewandt.
+  alle Funde dieser IP angewandt. → #142
 - > OFFEN: Der Prompt verlangt dieselbe Reihenfolge wie die Eingabe; der Code ordnet ausschließlich
-  per IP zu (Reihenfolge irrelevant) – unschädlich, aber Anforderung an Modell überflüssig.
+  per IP zu (Reihenfolge irrelevant) – unschädlich, aber Anforderung an Modell überflüssig. → #142

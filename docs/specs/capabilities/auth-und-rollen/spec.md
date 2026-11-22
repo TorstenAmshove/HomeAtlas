@@ -545,19 +545,19 @@ UI-Seite(n): `frontend/src/gates/Login.tsx` (ohne Session, jede Route),
 
 ## OFFEN
 
-- > OFFEN: `DELETE /api/users/{id}` schreibt keinen Protokolleintrag, obwohl die AccessLogPage ein Label `user.delete` kennt und README „Benutzeränderungen“ als protokolliert nennt (wirkt wie Bug).
-- > OFFEN: `DELETE /api/users/{id}` antwortet für unbekannte IDs mit `{ok: true}` statt 404 (PATCH/mfa-reset liefern 404).
-- > OFFEN: PATCH `/api/users/{id}` ist nicht atomar: Anzeigename/Rolle werden gespeichert, bevor ein zu schwaches `newPassword` mit 400 abgelehnt wird.
-- > OFFEN: POST `/api/users` mappt unbekannte Rollen still auf MEMBER, PATCH antwortet 400 – uneinheitlich.
-- > OFFEN: Eigener Passwortwechsel beendet keine anderen Sessions (Admin-Reset schon) – gewollt?
-- > OFFEN: Admin-MFA-Reset beendet keine Sessions, die CLI-Variante schon; eine offene Session des Ziels kann den Faktor danach selbst neu einrichten (nur Passwort-Besitz war nötig für die Session, ist aber u. U. ein Angreifer).
-- > OFFEN: Ein Konto ohne aktiven Faktor (neu angelegt oder nach Reset) kann von jedem mit dem Passwort eingerichtet werden – bewusste Abwägung laut `reset_password.py`-Docstring, aber ohne Ablaufzeit.
-- > OFFEN: Initial-Admin via `ADMIN_PASSWORD` und CLI-Passwortreset umgehen die Richtlinie (CLI prüft nur ≥ 8 Zeichen; README-Beispiel `devpass123` erfüllt sie nicht).
-- > OFFEN: UsersPage zeigt „Mindestens 8 Zeichen“ und aktiviert „Anlegen“ ab 8 Zeichen, Richtlinie verlangt 10.
-- > OFFEN: AccessLogPage kennt Label `mfa.disable` (nie geschrieben). (`mfa.reset` hat seit PR 6 ein Label und gilt als sicherheitsrelevant.)
-- > OFFEN: Session-Cookie ohne `Secure`-Flag, auch hinter TLS-Proxy.
-- > OFFEN: `X-Real-IP` wird ungeprüft übernommen; sicher nur, solange das Backend ausschließlich über nginx erreichbar ist (ADR-0003).
-- > OFFEN: Benutzernamen sind case-sensitiv und werden weder getrimmt noch validiert (außer ≥ 1 Zeichen).
-- > OFFEN: Selbst-Herabstufung eines ADMIN ist erlaubt, solange ein weiterer ADMIN existiert; die eigene UI-Ansicht bleibt bis zum Reload Admin.
-- > OFFEN: WebSocket-Check akzeptiert fehlenden `Origin`-Header; Docstring nennt die Bedingung „same bar as current_user“, prüft aber zusätzlich ADMIN.
-- > OFFEN: `GET /api/health` ist unauthentifiziert und verrät `userCount`; das Frontend nutzt das Feld nicht.
+- > OFFEN: `DELETE /api/users/{id}` schreibt keinen Protokolleintrag, obwohl die AccessLogPage ein Label `user.delete` kennt und README „Benutzeränderungen“ als protokolliert nennt (wirkt wie Bug). → #122
+- > OFFEN: `DELETE /api/users/{id}` antwortet für unbekannte IDs mit `{ok: true}` statt 404 (PATCH/mfa-reset liefern 404). → #123
+- > OFFEN: PATCH `/api/users/{id}` ist nicht atomar: Anzeigename/Rolle werden gespeichert, bevor ein zu schwaches `newPassword` mit 400 abgelehnt wird. → #123
+- > OFFEN: POST `/api/users` mappt unbekannte Rollen still auf MEMBER, PATCH antwortet 400 – uneinheitlich. → #123
+- > OFFEN: Eigener Passwortwechsel beendet keine anderen Sessions (Admin-Reset schon) – gewollt? → #116
+- > OFFEN: Admin-MFA-Reset beendet keine Sessions, die CLI-Variante schon; eine offene Session des Ziels kann den Faktor danach selbst neu einrichten (nur Passwort-Besitz war nötig für die Session, ist aber u. U. ein Angreifer). → #116
+- > OFFEN: Ein Konto ohne aktiven Faktor (neu angelegt oder nach Reset) kann von jedem mit dem Passwort eingerichtet werden – bewusste Abwägung laut `reset_password.py`-Docstring, aber ohne Ablaufzeit. → #116
+- > OFFEN: Initial-Admin via `ADMIN_PASSWORD` und CLI-Passwortreset umgehen die Richtlinie (CLI prüft nur ≥ 8 Zeichen; README-Beispiel `devpass123` erfüllt sie nicht). → #117
+- > OFFEN: UsersPage zeigt „Mindestens 8 Zeichen“ und aktiviert „Anlegen“ ab 8 Zeichen, Richtlinie verlangt 10. → #117
+- > OFFEN: AccessLogPage kennt Label `mfa.disable` (nie geschrieben). (`mfa.reset` hat seit PR 6 ein Label und gilt als sicherheitsrelevant.) → #122
+- > OFFEN: Session-Cookie ohne `Secure`-Flag, auch hinter TLS-Proxy. → #115
+- > OFFEN: `X-Real-IP` wird ungeprüft übernommen; sicher nur, solange das Backend ausschließlich über nginx erreichbar ist (ADR-0003). → #115
+- > OFFEN: Benutzernamen sind case-sensitiv und werden weder getrimmt noch validiert (außer ≥ 1 Zeichen). → #123
+- > OFFEN: Selbst-Herabstufung eines ADMIN ist erlaubt, solange ein weiterer ADMIN existiert; die eigene UI-Ansicht bleibt bis zum Reload Admin. → #123
+- > OFFEN: WebSocket-Check akzeptiert fehlenden `Origin`-Header; Docstring nennt die Bedingung „same bar as current_user“, prüft aber zusätzlich ADMIN. → #115
+- > OFFEN: `GET /api/health` ist unauthentifiziert und verrät `userCount`; das Frontend nutzt das Feld nicht. → #115

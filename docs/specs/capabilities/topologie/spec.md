@@ -388,15 +388,15 @@ UI-Seite(n): `frontend/src/pages/geraete/PlanPage.tsx` (Route `/plan`, Navigatio
 
 ## OFFEN
 
-- > OFFEN: ADR-0008 und CLAUDE.md beschreiben die Ebenen „Server → Endgeräte“ und „Container innerhalb ihres Hosts“; das Bild zeichnet aber nur „Wichtige Geräte“, Server/Endgeräte stehen als HTML-Listen darunter, Container nur als Zähler bei kritischen Hosts. Spec folgt dem Code; ADR-0009 hält diesen Stand fest.
-- > OFFEN: Farbe ist im Kasten das einzige Statussignal (kein Wort wie „nicht erreichbar“), entgegen ADR-0008 und Modul-Docstring; der Layer-3-Plan hat zudem keine Legende.
-- > OFFEN: Router über 6, Verteiler über 10 und kritische Geräte über 10 verschwinden ersatzlos – die Listen unter dem Plan enthalten weder Router/Verteiler noch kritische Geräte.
-- > OFFEN: Ein kritischer Router oder Verteiler erscheint doppelt (Backbone-Ebene und „Wichtige Geräte“).
-- > OFFEN: Layer-3-Subnetzkästen tragen `data-system-id="subnet:<cidr>"`; ein Klick navigiert zu `/geraete/subnet:<cidr>` (enthält „/“), also zu keiner gültigen Geräteseite (`backend/app/topology.py:741`).
-- > OFFEN: Reihenfolge der Subnetzkästen kommt aus einer Mengen-Iteration (hash-abhängig, kann zwischen Prozessstarts wechseln); `_subnet_sort_key` ist definiert, aber unbenutzt (`backend/app/topology.py:481`, `backend/app/topology.py:725`).
-- > OFFEN: Router-Geräte ohne IP-Endung .1/.254 fehlen im Layer-3-Plan komplett (weder als Router noch im Gerätezähler).
-- > OFFEN: Layer-3-Gerätezahlen enthalten Container (gleiche IP wie Host) und lange offline Geräte.
-- > OFFEN: Omada-/UniFi-Verknüpfung überschreibt ein vorhandenes Elterngerät, auch ein manuell per API gesetztes; Docker-Verknüpfung dagegen nie. Proxmox-Elterngerät wird nur bei Neuanlage gesetzt, eine migrierte VM wandert nicht mit.
-- > OFFEN: Erweiterbar-Markierung nur für Hosts der Art server/nas; ein Docker-Host der Art `pc` bekommt Container zugeordnet, aber keinen Zähler.
-- > OFFEN: Kommentar an `_MAX_CRITICAL_BOXES` nennt eine „readability floor“ der Kastenbreite; `_row` hat keine Untergrenze, bei vielen Layer-3-Knoten werden Kästen beliebig schmal.
-- > OFFEN: Mischt ein Router /24-Näherungen aus Probe-Fakten mit exakten Controller-CIDRs (z. B. /26), können beide als getrennte Subnetze in die Ketteninferenz eingehen.
+- > OFFEN: ADR-0008 und CLAUDE.md beschreiben die Ebenen „Server → Endgeräte“ und „Container innerhalb ihres Hosts“; das Bild zeichnet aber nur „Wichtige Geräte“, Server/Endgeräte stehen als HTML-Listen darunter, Container nur als Zähler bei kritischen Hosts. Spec folgt dem Code; ADR-0009 hält diesen Stand fest. → kein Issue, ADR-0009 hält den Stand fest
+- > OFFEN: Farbe ist im Kasten das einzige Statussignal (kein Wort wie „nicht erreichbar“), entgegen ADR-0008 und Modul-Docstring; der Layer-3-Plan hat zudem keine Legende. → #143
+- > OFFEN: Router über 6, Verteiler über 10 und kritische Geräte über 10 verschwinden ersatzlos – die Listen unter dem Plan enthalten weder Router/Verteiler noch kritische Geräte. → #143
+- > OFFEN: Ein kritischer Router oder Verteiler erscheint doppelt (Backbone-Ebene und „Wichtige Geräte“). → #143
+- > OFFEN: Layer-3-Subnetzkästen tragen `data-system-id="subnet:<cidr>"`; ein Klick navigiert zu `/geraete/subnet:<cidr>` (enthält „/“), also zu keiner gültigen Geräteseite (`backend/app/topology.py:741`). → #143
+- > OFFEN: Reihenfolge der Subnetzkästen kommt aus einer Mengen-Iteration (hash-abhängig, kann zwischen Prozessstarts wechseln); `_subnet_sort_key` ist definiert, aber unbenutzt (`backend/app/topology.py:481`, `backend/app/topology.py:725`). → #143
+- > OFFEN: Router-Geräte ohne IP-Endung .1/.254 fehlen im Layer-3-Plan komplett (weder als Router noch im Gerätezähler). → #144
+- > OFFEN: Layer-3-Gerätezahlen enthalten Container (gleiche IP wie Host) und lange offline Geräte. → #144
+- > OFFEN: Omada-/UniFi-Verknüpfung überschreibt ein vorhandenes Elterngerät, auch ein manuell per API gesetztes; Docker-Verknüpfung dagegen nie. Proxmox-Elterngerät wird nur bei Neuanlage gesetzt, eine migrierte VM wandert nicht mit. → #144
+- > OFFEN: Erweiterbar-Markierung nur für Hosts der Art server/nas; ein Docker-Host der Art `pc` bekommt Container zugeordnet, aber keinen Zähler. → #144
+- > OFFEN: Kommentar an `_MAX_CRITICAL_BOXES` nennt eine „readability floor“ der Kastenbreite; `_row` hat keine Untergrenze, bei vielen Layer-3-Knoten werden Kästen beliebig schmal. → #143
+- > OFFEN: Mischt ein Router /24-Näherungen aus Probe-Fakten mit exakten Controller-CIDRs (z. B. /26), können beide als getrennte Subnetze in die Ketteninferenz eingehen. → #144

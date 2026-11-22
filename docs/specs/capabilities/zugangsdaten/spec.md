@@ -331,15 +331,15 @@ UI-Seite(n): `frontend/src/pages/zugaenge/AccountsPage.tsx`, `frontend/src/pages
 
 ## OFFEN
 
-- > OFFEN: Ein nicht entschlüsselbares Secret wird als leerer String ausgeliefert und als erfolgreicher Abruf (`ok=1`) protokolliert; Admin und Protokoll sehen nicht, dass der Schlüssel fehlt (`backend/app/crypto.py:49`).
-- > OFFEN: Kategorie wird serverseitig nicht validiert; beliebige Werte werden gespeichert.
-- > OFFEN: Secret und Passphrase lassen sich über die API nicht mehr leeren (leer = unverändert).
+- > OFFEN: Ein nicht entschlüsselbares Secret wird als leerer String ausgeliefert und als erfolgreicher Abruf (`ok=1`) protokolliert; Admin und Protokoll sehen nicht, dass der Schlüssel fehlt (`backend/app/crypto.py:49`). → #118
+- > OFFEN: Kategorie wird serverseitig nicht validiert; beliebige Werte werden gespeichert. → #128
+- > OFFEN: Secret und Passphrase lassen sich über die API nicht mehr leeren (leer = unverändert). → #128
 - > OFFEN: Ausrollen akzeptiert jede Kategorie als Login-Zugang (z. B. `snmp`, `wifi`); das Secret
-  wird dann als SSH-Passwort benutzt.
-- > OFFEN: `systemId` wird beim Anlegen/Ändern nicht auf Existenz geprüft.
-- > OFFEN: Löschen eines unbekannten Zugangs liefert `{ok: true}` statt 404.
+  wird dann als SSH-Passwort benutzt. → #128
+- > OFFEN: `systemId` wird beim Anlegen/Ändern nicht auf Existenz geprüft. → #128
+- > OFFEN: Löschen eines unbekannten Zugangs liefert `{ok: true}` statt 404. → #128
 - > OFFEN: Anlegen, Ändern und Löschen von Zugängen werden nicht im Zugriffsprotokoll erfasst,
-  nur Abruf, Erzeugung und Ausrollen.
+  nur Abruf, Erzeugung und Ausrollen. → #122
 - > OFFEN: MEMBER sehen über Geräteansicht und Doku Benutzernamen, URLs und Notizen aller Zugänge;
-  ob Notizen sensibel sein dürfen, ist nicht geregelt.
-- > OFFEN: Löschen eines Geräts löscht dessen Zugänge unwiderruflich mit, ohne Rückfrage auf API-Ebene.
+  ob Notizen sensibel sein dürfen, ist nicht geregelt. → entschieden in #48: in Ordnung, solange keine Secrets
+- > OFFEN: Löschen eines Geräts löscht dessen Zugänge unwiderruflich mit, ohne Rückfrage auf API-Ebene. → #127

@@ -599,23 +599,23 @@ solange der Scan läuft und der Tab sichtbar ist). Scan-Einstellungen in `fronte
 ## OFFEN
 
 - > OFFEN: Fortschritt springt rückwärts (94 % „Inventar aktualisieren“, dann 93 % Zugangs-Abfrage,
-  `pipeline.py:480`/`:522`).
+  `pipeline.py:480`/`:522`). → #138
 - > OFFEN: Einzelziele umfassen IPs *aller* Inventar-Geräte außerhalb der Bereiche (auch entdeckte
   Controller-Clients/Proxmox-Gäste), nicht nur „von Hand eingetragene“ wie der Docstring sagt
-  (`pipeline.py:42`). Kann viele geroutete Ziele erzeugen.
+  (`pipeline.py:42`). Kann viele geroutete Ziele erzeugen. → #138
 - > OFFEN: Ungültiger Freitext-Bereich (z. B. „bad“) plus ein mDNS/SSDP-Fund außerhalb von
   `alive` führt in `discovery.py:859` zu `ValueError` aus `ip_network` und lässt den ganzen Scan
-  scheitern.
+  scheitern. → #137
 - > OFFEN: README behauptet, IPv6-Geräte erscheinen per mDNS/SSDP; der Code nimmt nur IPs in
-  IPv4-Scan-Bereichen auf (`discovery.py:859`), IPv6-Funde werden verworfen.
+  IPv4-Scan-Bereichen auf (`discovery.py:859`), IPv6-Funde werden verworfen. → #136
 - > OFFEN: Port 81 steht in der Banner-Portliste, aber nicht im Port-Katalog, wird also nie als
-  offen erkannt (`discovery.py:341`, `ports.py:12`).
+  offen erkannt (`discovery.py:341`, `ports.py:12`). → #138
 - > OFFEN: Ohne geladenes OUI-Register versucht jeder Scan erneut den Download (bis 120 s), auch
-  offline.
+  offline. → #138
 - > OFFEN: MEMBER darf `GET /api/scans*` inkl. Protokoll lesen (Gerätenamen, Fehlertexte der
-  Zugangs-Abfrage), obwohl die Scan-Seite admin-only ist. Absicht?
+  Zugangs-Abfrage), obwohl die Scan-Seite admin-only ist. Absicht? → #119
 - > OFFEN: Start-Prüfung „läuft schon ein Scan“ und Anlegen sind nicht atomar (Rennen
-  Zeitplan/manuell theoretisch möglich).
-- > OFFEN: Namensvergabe für Nicht-Container ohne IP bei Duplikaten: kein Suffix, Duplikat bleibt.
+  Zeitplan/manuell theoretisch möglich). → #129
+- > OFFEN: Namensvergabe für Nicht-Container ohne IP bei Duplikaten: kein Suffix, Duplikat bleibt. → #138
 - > OFFEN: Abgeschaltete Quelle (`scanEnableDocker=false`, Controller aus) setzt alle bisher aus
-  dieser Quelle entdeckten Geräte beim nächsten Scan auf `offline`.
+  dieser Quelle entdeckten Geräte beim nächsten Scan auf `offline`. → #139

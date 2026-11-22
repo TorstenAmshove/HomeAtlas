@@ -206,6 +206,6 @@ UI-Seite(n): `frontend/src/pages/start/StartPage.tsx` (Route `/`, Internet-Check
 
 ## OFFEN
 
-- > OFFEN: Keine Ratenbegrenzung/Parallelitätssperre: jeder MEMBER kann Speedtests (35 MB Verkehr) und lange Traceroutes beliebig oft parallel auslösen.
-- > OFFEN: Die Latenz des Speedtests ist die erste Anfrage auf einer neuen Verbindung und enthält TCP- und TLS-Aufbau – systematisch zu hoch.
-- > OFFEN: REST-Tool-Namen weichen von den LLM-Werkzeugnamen ab (`ping` vs. `ping_host`); Alternative vereinheitlichen?
+- > OFFEN: Keine Ratenbegrenzung/Parallelitätssperre: jeder MEMBER kann Speedtests (35 MB Verkehr) und lange Traceroutes beliebig oft parallel auslösen. → #120
+- > OFFEN: Die Latenz des Speedtests ist die erste Anfrage auf einer neuen Verbindung und enthält TCP- und TLS-Aufbau – systematisch zu hoch. → #151
+- > OFFEN: REST-Tool-Namen weichen von den LLM-Werkzeugnamen ab (`ping` vs. `ping_host`); Alternative vereinheitlichen? → #151
