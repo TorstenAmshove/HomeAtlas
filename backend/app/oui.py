@@ -53,6 +53,13 @@ def normalize_mac(mac: str) -> str:
     return mac if _MAC_RE.match(mac) else ""
 
 
+def real_name(name: str | None) -> str:
+    """`name` stripped, or "" if it is only a MAC address. Controllers report the MAC as the name
+    of a client nobody named; that identifies the device but says nothing a real name would."""
+    name = (name or "").strip()
+    return "" if normalize_mac(name) else name
+
+
 def _prefix(mac: str) -> str:
     return mac.upper()[:8]
 

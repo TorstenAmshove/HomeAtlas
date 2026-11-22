@@ -1,6 +1,7 @@
 """Persistence for systems (see db/__init__ for the package rules)."""
 from __future__ import annotations
 
+from .. import oui
 from ._core import _JSON_COLUMNS, _conn, _dump, _new_id, _now, _row, _rows
 
 
@@ -600,7 +601,7 @@ def upsert_discovered_system(found: dict) -> tuple[dict, bool]:
     # The UniFi controller is the source of truth for its assigned device and client names. A
     # non-UniFi finding must not replace one, but a later UniFi scan may update it.
     unifi = found_extra["unifi"] if "unifi" in found_extra else existing_extra.get("unifi") or {}
-    unifi_name = (unifi.get("name") or "").strip()
+    unifi_name = oui.real_name(unifi.get("name"))
     volatile = {
         "ip": found.get("ip") or existing["ip"],
         "status": found.get("status") or "online",
@@ -635,6 +636,13 @@ def upsert_discovered_system(found: dict) -> tuple[dict, bool]:
                 ai_protected.add("kind")
                 if found_extra.get("nameSource") not in ("upnp", "mdns", "shelly"):
                     ai_protected.add("name")
+        # A MAC or a UniFi fallback is only a stand-in: it fills a row that has no real name yet
+        # (or replaces a stored MAC), but never displaces a name another source supplied.
+        found_unifi = found_extra.get("unifi") or {}
+        found_is_stand_in = not oui.real_name(found.get("name")) or (
+            "name" in found_unifi and not oui.real_name(found_unifi["name"]))
+        if found_is_stand_in and oui.real_name(existing.get("name")):
+            ai_protected.add("name")
         for field in ("kind", "name", "hostname", "mac", "vendor", "model", "os", "location",
                       "purpose", "descriptionMd", "url", "docUrl", "docLink", "importance"):
             value = found.get(field)

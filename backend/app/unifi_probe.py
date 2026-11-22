@@ -81,7 +81,7 @@ def _device_system(site: dict, device: dict, detail: dict) -> dict | None:
         return None
     features = device.get("features") or []
     uplink = detail.get("uplink") or {}
-    unifi_name = (device.get("name") or "").strip()
+    unifi_name = oui.real_name(device.get("name"))
     return {
         "discoveryKey": f"mac:{mac}",
         "kind": _kind(features),
@@ -110,14 +110,18 @@ def _client_system(site: dict, client: dict) -> dict | None:
     mac = oui.normalize_mac(client.get("macAddress") or "")
     if not mac:
         return None
-    unifi_name = (client.get("name") or "").strip()
+    # UniFi reports the MAC as `name` for a client without an alias: not an assigned name.
+    unifi_name = oui.real_name(client.get("name"))
+    ip = client.get("ipAddress") or ""
+    vendor = oui.lookup(mac)
+    fallback = f"{vendor.split()[0]} ({ip.rsplit('.', 1)[-1]})" if vendor and ip else "UniFi-Client"
     return {
         "discoveryKey": f"mac:{mac}",
-        "name": unifi_name or "UniFi-Client",
-        "ip": client.get("ipAddress") or "",
+        "name": unifi_name or fallback,
+        "ip": ip,
         "mac": mac,
         "location": site.get("name") or "",
-        "vendor": oui.lookup(mac),
+        "vendor": vendor,
         "status": "online",
         "discovered": 1,
         "discoverySource": "unifi",

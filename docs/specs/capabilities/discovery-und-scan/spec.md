@@ -355,7 +355,10 @@ widersprechen. Ohne Treffer entsteht ein neues Gerät. Für das gefundene Gerät
   Eintrag dieser Adresse unter `extra.interfaces`;
 - unbestätigtes Gerät: jedes nicht leere Feld aus `kind, name, hostname, mac, vendor, model, os,
   location, purpose, descriptionMd, url, docUrl, docLink, importance` wird übernommen; ist ein
-  UniFi-Name bekannt (Fund oder gespeichertes `extra.unifi`), gewinnt er als `name`;
+  UniFi-Name bekannt (Fund oder gespeichertes `extra.unifi`), gewinnt er als `name`. Eine
+  MAC-Adresse als Name gilt nicht als vergebener Name: Sie und der Ersatzname eines UniFi-Funds
+  ohne Alias verdrängen nie einen echten Namen einer anderen Quelle, ein gespeicherter MAC-Name
+  wird dagegen vom nächsten Fund ersetzt;
 - bestätigtes Gerät: nur bisher leere Felder aus `hostname, mac, vendor, model, os, docUrl,
   docLink, purpose, location` werden gefüllt; `name`, `kind`, `descriptionMd`, `url`,
   `importance` bleiben unberührt.

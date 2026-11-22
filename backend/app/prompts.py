@@ -84,6 +84,9 @@ was für ein Gerät das vermutlich ist.
 Regeln:
 - Selbst genannte Angaben (UPnP-Hersteller/Modell, mDNS-Name) sind verlässlicher als Vermutungen
   aus Portnummern. Widersprechen sie sich, folge der Selbstauskunft.
+- Hersteller "Proxmox" laut MAC-Adresse bedeutet eine virtuelle Netzwerkkarte: Das Gerät ist fast
+  immer eine VM oder ein Container AUF Proxmox, nicht der Proxmox-Server selbst. Als Server gilt es
+  nur mit eigenem Beleg wie Port 8006 oder der Proxmox-Weboberfläche.
 - Rate nicht ins Blaue. Wenn die Spuren nicht reichen, nutze kind "other" und eine niedrige
   Konfidenz. Ein ehrliches "unbekannt" ist brauchbar, eine erfundene Modellnummer nicht.
 - Die Beschreibung ist für Laien: ein bis zwei Sätze, die erklären, WOZU das Gerät im Haushalt da
