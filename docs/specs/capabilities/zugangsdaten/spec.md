@@ -247,7 +247,17 @@ Löschen MUSS über einen Prüfdialog laufen, der den Verlust des gespeicherten 
 alle Zuordnungen nennt, die den Zugang verlieren, und sagt, dass es kein Rückgängig gibt. Der Hinweis
 „kein Passwort-Manager“ erscheint einmal und danach hinter „ⓘ“ (gemerkt im `localStorage`).
 SSH-Schlüssel erzeugen, Schlüssel auf Gerät einspielen (mit Prüfdialog) und Zuordnungen bleiben
-erreichbar. **[Muss]** (Texte und Aufteilung **[Impl]**)
+erreichbar. „Art“ MUSS das erste Feld des Formulars sein; Beschriftungen, Platzhalter, Hinweise und
+Sichtbarkeit der Felder (Benutzername, Adresse, Port, „zum Auslesen verwenden“) MÜSSEN je Art aus einer
+zentralen Definition kommen (`categoryFields.ts`, ein `Record` über alle Arten, sodass der Build bei
+einer fehlenden Art scheitert). Ausgeblendete Felder DÜRFEN beim Bearbeiten gespeicherte Werte nicht
+überschreiben (sie werden nicht gesendet). Bei Cloudflare (Zone-ID in `url`, Account-ID in `username`)
+MUSS das Formular vor dem Speichern 32 Zeichen `0-9a-f` prüfen (Account-ID optional).
+Datenmodell und API bleiben unverändert. **[Muss]** (Texte und Aufteilung **[Impl]**)
+
+#### Szenario: Cloudflare-Zone-ID ungültig
+- **WENN** ein ADMIN bei „Art“ Cloudflare wählt und eine Zone-ID ohne 32 Hex-Zeichen einträgt
+- **DANN** zeigt das Formular eine Fehlermeldung und sendet nichts an die API
 
 #### Szenario: Entwurf ohne Passwort
 - **WENN** ein ADMIN in „Neuer Zugang“ Bezeichnung und Passwort eintippt und Zurück drückt
@@ -258,7 +268,7 @@ erreichbar. **[Muss]** (Texte und Aufteilung **[Impl]**)
 - **WENN** ein ADMIN „Löschen …“ wählt und im Prüfdialog „Abbrechen“ klickt
 - **DANN** bleibt der Zugang unverändert
 
-Quelle: `frontend/src/pages/zugaenge/AccountsPage.tsx`, `frontend/src/pages/zugaenge/AccountFormPage.tsx`,
+Quelle: `frontend/src/pages/zugaenge/AccountsPage.tsx`, `frontend/src/pages/zugaenge/AccountFormPage.tsx`, `frontend/src/pages/zugaenge/categoryFields.ts`,
 `frontend/src/pages/zugaenge/accountDraft.ts`, `frontend/src/pages/zugaenge/DeleteAccountDialog.tsx`,
 `frontend/src/lib/useRevealedSecrets.ts`
 
