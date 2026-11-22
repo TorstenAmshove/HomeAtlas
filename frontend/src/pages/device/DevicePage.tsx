@@ -10,7 +10,7 @@ import DeviceEditForm from "../../components/DeviceEditForm";
 import OverflowMenu, { type OverflowItem } from "../../components/OverflowMenu";
 import { Skeleton, SkeletonText } from "../../components/Skeleton";
 import { hasConfigHistory } from "../../lib/device";
-import { clearDeviceDraft, formOf, readDeviceDraft, sameForm, storeDeviceDraft } from "../../lib/deviceDraft";
+import { changedFields, clearDeviceDraft, readDeviceDraft, sameForm, storeDeviceDraft } from "../../lib/deviceDraft";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import { useUndoToast } from "../../lib/useUndoToast";
 import { useUrlState } from "../../lib/useUrlState";
@@ -223,8 +223,15 @@ export default function DevicePage() {
     if (!system || !draft) return;
     setSaving(true);
     try {
-      // the device with the form's fields laid over it.
-      const { system: updated } = await api.updateSystem(id, { ...system, ...formOf(draft) });
+      // Only the fields the user changed: a full-device PATCH would write stale scan data back.
+      const changes = changedFields(draft, system);
+      if (Object.keys(changes).length === 0) {
+        clearDeviceDraft(id);
+        setDraft(null);
+        closeEdit();
+        return;
+      }
+      const { system: updated } = await api.updateSystem(id, changes);
       clearDeviceDraft(id);
       setData((current) => (current ? { ...current, system: updated } : current));
       setDraft(null);
