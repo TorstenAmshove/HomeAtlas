@@ -576,7 +576,7 @@ solange der Scan läuft und der Tab sichtbar ist). Scan-Einstellungen in `fronte
 
 ## Nicht-Ziele und Grenzen
 
-- Nur IPv4 aktiv; kein IPv6-Scan.
+- Nur IPv4 aktiv; kein IPv6-Scan. IPv6-Funde aus mDNS/SSDP werden verworfen.
 - Keine Authentifizierung, kein Schreiben, keine Exploits; nur Connect-Scans, Multicast-Anfragen,
   HTTP-GETs.
 - Geroutete Netze: keine MAC/Hersteller, kein mDNS/SSDP, stille Geräte unsichtbar
@@ -609,8 +609,6 @@ solange der Scan läuft und der Tab sichtbar ist). Scan-Einstellungen in `fronte
 - > OFFEN: Ungültiger Freitext-Bereich (z. B. „bad“) plus ein mDNS/SSDP-Fund außerhalb von
   `alive` führt in `discovery.py:859` zu `ValueError` aus `ip_network` und lässt den ganzen Scan
   scheitern. → #137
-- > OFFEN: README behauptet, IPv6-Geräte erscheinen per mDNS/SSDP; der Code nimmt nur IPs in
-  IPv4-Scan-Bereichen auf (`discovery.py:859`), IPv6-Funde werden verworfen. → #136
 - > OFFEN: Port 81 steht in der Banner-Portliste, aber nicht im Port-Katalog, wird also nie als
   offen erkannt (`discovery.py:341`, `ports.py:12`). → #138
 - > OFFEN: Ohne geladenes OUI-Register versucht jeder Scan erneut den Download (bis 120 s), auch
