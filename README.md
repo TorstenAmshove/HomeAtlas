@@ -253,6 +253,15 @@ feste Zahl an Einträgen. Texte werden vor der Ausgabe von Tokens, Passwörtern 
 Zugriffstoken bleibt auf dem Server. Das Opt-in „Zum Auslesen verwenden“ gilt für diese
 Abfragen nicht (wie bei `list_switches`), und sie stehen allen Rollen und MCP-Clients offen.
 
+**UniFi live lesen.** Der Assistent kann die Live-Werte eines verbundenen Clients (Signal, Retries,
+Roaming, Access Point) vom UniFi-Controller abfragen (`get_unifi_client`), ausschließlich per GET auf
+einen festen Pfad der klassischen API und mit dem API-Key des Zugangs „UniFi“ (kein Login, kein Cookie).
+Nur ausdrücklich freigegebene Felder werden weitergegeben, der Key bleibt auf dem Server, nichts wird
+gespeichert. Der Controller wird wie beim Scan ohne Zertifikatsprüfung angesprochen (selbstsigniertes
+Zertifikat im LAN; der Key geht im Header an den Controller im LAN). Das Opt-in „Zum Auslesen
+verwenden“ gilt für diese Abfrage nicht, und sie steht allen Rollen und MCP-Clients offen.
+Geprüft gegen UniFi Network 11.0.103. Hintergrund: ADR-0015.
+
 **Erreichbarkeit im Assistenten und auf der Geräteseite.** Das Werkzeug `list_exposure` beantwortet
 Fragen wie „warum ist app2.example.net nicht erreichbar?“. Es liest nur die beim letzten Scan
 gespeicherten Fakten (kein Live-DNS, keine Geheimnisse, höchstens 15 Zeilen je Liste mit Hinweis auf
