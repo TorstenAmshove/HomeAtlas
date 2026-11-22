@@ -22,7 +22,13 @@ def _handler(requests, forwards, health, sites=None):
             return httpx.Response(200, json={"data": sites or [{"name": "default"}, {"name": "../x"}]})
         if path.endswith("/rest/portforward"):
             return httpx.Response(200, json={"data": forwards})
-        if path.endswith("/stat/health"):
+        if path.endswith("/rest/networkconf"):
+            return httpx.Response(200, json={"data": [
+                {"name": "DSL", "purpose": "wan", "wan_networkgroup": "WAN", "wan_type": "dhcp",
+                 "x_password": "PPPOESECRET"},
+                {"name": "Reserve", "purpose": "wan", "wan_networkgroup": "WAN2", "wan_type": "dhcp"},
+                {"name": "LAN", "purpose": "corporate"}]})
+        if path.endswith("/stat/device"):
             return httpx.Response(200, json={"data": health})
         raise AssertionError(path)
     return handler
@@ -33,14 +39,21 @@ def test_probe_uses_api_key_only(monkeypatch):
     fw = [{"name": "Geheim", "enabled": True, "proto": "tcp", "dst_port": "443", "fwd": "192.0.2.20",
            "fwd_port": "8443", "destination_ips": ["1.2.3.4"], "_id": "x"},
           {"enabled": False, "proto": "tcp_udp", "dst_port": "1-5", "fwd": "nonsense", "fwd_port": "1"}]
-    result = _run(_handler(requests, fw, [{"subsystem": "wan", "wan_ip": "203.0.113.7", "x_passphrase": "no"},
-                                          {"subsystem": "lan"}]), monkeypatch)
+    gateway = {"type": "udm", "uplink": {"comment": "WAN"}, "x_passphrase": "no",
+               "last_wan_interfaces": {"WAN": {"ip": "192.168.178.20", "alive": True}},
+               "last_wan_status": {"WAN": "online"}, "geo_info": {"WAN": {"address": "8.8.4.4"}}}
+    result = _run(_handler(requests, fw, [{"type": "usw"}, gateway]), monkeypatch)
     assert result["ok"]
     forwards = [f for f in result["forwards"] if f["kind"] == "portforward"]
     assert [f["data"] for f in forwards] == [
         {"proto": "TCP", "wanPort": "443", "destIp": "192.0.2.20", "destPort": "8443", "enabled": True}]
     assert result["forwards"][-1] == {"kind": "portforward_scan", "key": "scan", "data": {"count": 1}}
-    assert result["wanIps"] == ["203.0.113.7"]
+    assert result["wans"][0] == {"name": "DSL", "group": "WAN", "type": "dhcp", "active": True, "ip": "8.8.4.4",
+                                 "interfaceIp": "192.168.178.20", "publicIp": "8.8.4.4", "publicOrigin": "geo"}
+    assert result["wans"][1]["name"] == "Reserve" and not result["wans"][1]["active"] and not result["wans"][1]["ip"]
+    assert result["wanFacts"] == [{"kind": "wan_address", "key": "unifi:default:WAN",
+                                   "data": {"ip": "8.8.4.4", "source": "UniFi", "origin": "geo"}}]
+    assert "PPPOESECRET" not in str(result)
     assert {r.method for r in requests} == {"GET"}
     assert all(r.headers["X-API-Key"] == KEY for r in requests)
     assert all(not {"cookie", "x-csrf-token", "authorization"} & set(r.headers) for r in requests)
@@ -75,12 +88,24 @@ def test_bad_bodies_and_timeout_are_fixed_messages(monkeypatch):
 
 def test_partial_failure_discards_what_was_read(monkeypatch):
     def handler(request):
-        if request.url.path.endswith("/stat/health"):
+        if request.url.path == "/proxy/network/api/s/b2/rest/portforward":
             return httpx.Response(403)
-        return _handler([], [{"proto": "tcp", "dst_port": "1", "fwd": "192.0.2.1", "fwd_port": "1"}], [])(request)
+        return _handler([], [{"proto": "tcp", "dst_port": "1", "fwd": "192.0.2.1", "fwd_port": "1"}], [],
+                        sites=[{"name": "default"}, {"name": "b2"}])(request)
 
     result = _run(handler, monkeypatch)
     assert not result["ok"] and result["forwards"] == []
+
+
+def test_unreadable_wan_status_keeps_forwards_and_warns(monkeypatch):
+    def handler(request):
+        if request.url.path.endswith("/rest/networkconf"):
+            return httpx.Response(403, text=KEY)
+        return _handler([], [{"proto": "tcp", "dst_port": "1", "fwd": "192.0.2.1", "fwd_port": "1"}], [])(request)
+
+    result = _run(handler, monkeypatch)
+    assert result["ok"] and result["wans"] == [] and len(result["forwards"]) == 2
+    assert any("WAN-Status" in w for w in result["warnings"]) and KEY not in str(result)
 
 
 def test_multiple_sites(monkeypatch):

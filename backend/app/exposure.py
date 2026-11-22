@@ -15,6 +15,7 @@ Fact shapes (`data` of an `exposureFacts` row; hostnames lower-case, no trailing
   ddns            {client, provider, hosts[], ipv4, ipv6, via}
   portforward     {proto, wanPort, destIp, destPort, enabled}
   portforward_scan {count}                      marker: the router was read ("no forwards" vs. unknown)
+  wan_address     {ip, source, origin?}                 public address from UniFi or the FRITZ!Box
 
 Path status (per configured path of a public host):
   aktiv    public DNS/Cloudflare leads to this path (tunnel CNAME, or WAN IP plus a port forward)
@@ -106,14 +107,38 @@ def resolve_target(target: str, systems: list[dict], via: str = "") -> dict:
     return result
 
 
+def _is_global(value: str) -> bool:
+    try:
+        return ipaddress.ip_address(value).is_global
+    except ValueError:
+        return False
+
+
+def _wan_rank(data: dict) -> int:
+    """A public interface address is first-hand, then the FRITZ!Box; UniFi's geo data can be stale."""
+    if data.get("source") == "FRITZ!Box":
+        return 1
+    return 0 if data.get("origin") == "interface" else 2
+
+
 def _by_kind(facts: list[dict], kind: str) -> list[dict]:
     return [f for f in facts if f.get("kind") == kind]
 
 
 def build_chains(facts: list[dict], systems: list[dict], wan: dict | None = None) -> dict:
     """`facts` are stored rows (`kind`, `data`, `stale`, `lastSeen`); `wan` is `{ip, type}` or None."""
-    wan_ip = ((wan or {}).get("ip") or "").strip()
+    row_ip = ((wan or {}).get("ip") or "").strip()
+    reported = sorted((f["data"] for f in _by_kind(facts, "wan_address")
+                       if not f.get("stale") and _is_global(str(f["data"].get("ip") or ""))), key=_wan_rank)
+    public = list(dict.fromkeys(str(d["ip"]) for d in reported))
+    wan_ip = public[0] if public else row_ip
+    wan_ips = [wan_ip] if wan_ip else []
     hints: list[str] = []
+    if len(public) > 1:
+        hints.append("UniFi und FRITZ!Box melden unterschiedliche öffentliche Adressen; "
+                     f"verwendet wird die von {reported[0].get('source', 'UniFi')}.")
+    elif reported and _wan_rank(reported[0]) == 2:
+        hints.append("Die öffentliche Adresse stammt aus den Standortdaten von UniFi und kann veraltet sein.")
     stale_sources = sorted({f.get("source", "") for f in facts if f.get("stale")} - {""})
     for source in stale_sources:
         newest = max((f.get("lastSeen", "") for f in facts if f.get("source") == source), default="")
@@ -138,6 +163,9 @@ def build_chains(facts: list[dict], systems: list[dict], wan: dict | None = None
             {"source": "tunnel", "targets": [d.get("origin", "")], "via": d.get("via", ""),
              "mtls": False, "stale": bool(f.get("stale"))})
 
+    def is_wan(address: str) -> bool:
+        return any(_ip_eq(address, w) for w in wan_ips)
+
     def points_to_wan(host: str) -> bool | None:
         addrs = list((dns.get(host) or {}).get("addrs") or [])
         cf = cf_dns.get(host)
@@ -145,7 +173,7 @@ def build_chains(facts: list[dict], systems: list[dict], wan: dict | None = None
             addrs.append(cf.get("target", ""))
         if not wan_ip or not (addrs or host in dns or cf):
             return None
-        return any(_ip_eq(a, wan_ip) for a in addrs)
+        return any(is_wan(a) for a in addrs)
 
     def has_forward(via: str) -> bool | None:
         if not portforwards:
@@ -217,6 +245,7 @@ def build_chains(facts: list[dict], systems: list[dict], wan: dict | None = None
             hints.append(f"Cloudflare-Tunnel „{tunnel.get('name', '')}“ ist nicht verbunden.")
 
     external = []
+    direct_hosts: dict[str, dict] = {}
     for host, cf in sorted(cf_dns.items()):
         if "*" in host or host in paths_by_host or str(cf.get("target", "")).endswith(_TUNNEL_SUFFIX):
             continue
@@ -228,8 +257,14 @@ def build_chains(facts: list[dict], systems: list[dict], wan: dict | None = None
             addrs = list((dns.get(host) or {}).get("addrs") or [])
             if not addrs:
                 continue
-        if not any(_ip_eq(a, wan_ip) for a in addrs):
+        if any(is_wan(a) for a in addrs):
+            direct_hosts[host] = {"target": cf.get("target", ""), "cloudflare": bool(cf.get("proxied"))}
+        else:
             external.append({"host": host, "target": cf.get("target", ""), "provider": cf.get("provider", "")})
+    for host, resolved in sorted(dns.items()):  # DynDNS names usually have no Cloudflare record
+        if host and "*" not in host and host not in cf_dns and host not in paths_by_host \
+                and any(is_wan(a) for a in resolved.get("addrs") or []):
+            direct_hosts[host] = {"target": resolved.get("cname") or "", "cloudflare": False}
 
     internal = []
     for f in _by_kind(facts, "traefik_router"):
@@ -263,9 +298,19 @@ def build_chains(facts: list[dict], systems: list[dict], wan: dict | None = None
         if not target["inInventory"]:
             hints.append(f"Portweiterleitung auf {p.get('destIp', '')} hat kein Ziel im Inventar.")
 
-    return {"wan": {"ip": wan_ip, "type": (wan or {}).get("type", "")}, "chains": chains, "external": external,
+    forwards_read = any(not f.get("stale") for f in _by_kind(facts, "portforward_scan"))
+    open_forwards = [p for p in forwards if p.get("enabled", True)]
+    direct = [{"host": host, **row, "mtls": host in waf,
+               "status": "aktiv" if open_forwards else "verwaist" if forwards_read else "unklar",
+               "forwards": open_forwards} for host, row in sorted(direct_hosts.items())]
+    if direct and open_forwards and not _by_kind(facts, "caddy_site"):
+        hints.append("Welcher Dienst hinter der Portweiterleitung antwortet, ist ohne ausgelesenen "
+                     "Reverse Proxy (Caddy) unbekannt.")
+
+    return {"wan": {"ip": wan_ip, "type": (wan or {}).get("type", "")}, "chains": chains, "direct": direct,
+            "external": external,
             "internal": internal, "ddns": ddns, "portforwards": forwards, "hints": list(dict.fromkeys(hints)),
-            "portforwardsChecked": any(not f.get("stale") for f in _by_kind(facts, "portforward_scan")),
+            "portforwardsChecked": forwards_read,
             "hasData": bool(facts)}
 
 
@@ -277,6 +322,10 @@ def for_system(data: dict, system_id: str) -> list[dict]:
             if any(s["id"] == system_id for step in path["steps"] for s in step["systems"]):
                 rows.append({"host": chain["host"], "scope": "extern", "via": path["sourceLabel"],
                              "status": path["status"], "mtls": path["mtls"]})
+    for row in data.get("direct", []):
+        if any(s["id"] == system_id for p in row["forwards"] for s in p["systems"]):
+            rows.append({"host": row["host"], "scope": "extern", "via": "DNS und Portweiterleitung",
+                         "status": row["status"], "mtls": row["mtls"]})
     for r in data["internal"]:
         if any(s["id"] == system_id for s in r["systems"]):
             rows.append({"host": r["host"], "scope": "intern", "via": "Traefik (TLS)", "status": "",

@@ -14,7 +14,7 @@ is documented at the point of exposure in `tools.py`, not a loophole.
 Scope is deliberately narrow: on/off only for the `switch` and `light` domains
 (`_HA_ALLOWED_DOMAINS`), plus open/close/stop (never a position) for shutter-like `cover` entities
 (`ha_set_cover`, ADR-0013). A cover qualifies only if its `device_class` is on the allowlist
-`_COVER_ALLOWED_CLASSES`; garage doors, gates, doors and covers without a device_class stay
+`_COVER_ALLOWED_CLASSES`; garage doors, gates, doors, windows and covers without a device_class stay
 blocked (a prompt-injected "open the garage" would be a burglary risk). Never `lock`, `climate`,
 `alarm_control_panel` or anything else HA might expose, even though the REST call shape would
 happily accept them.
@@ -32,7 +32,7 @@ _HA_ALLOWED_DOMAINS = ("switch", "light")
 # device_class values of `cover` entities that may be moved. Allowlist, not blocklist: anything
 # else, including a missing device_class, is refused. Duplicated in `probe_auth` (read side, must
 # not import this module); a test keeps both in sync.
-_COVER_ALLOWED_CLASSES = ("blind", "shade", "shutter", "curtain", "awning", "window")
+_COVER_ALLOWED_CLASSES = ("blind", "shade", "shutter", "curtain", "awning")  # never `window` (ADR-0018)
 _COVER_ACTIONS = {"open": "open_cover", "close": "close_cover", "stop": "stop_cover"}
 _COVER_ENTITY_RE = re.compile(r"^cover\.[a-z0-9_]+$")
 

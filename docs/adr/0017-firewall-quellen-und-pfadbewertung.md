@@ -1,6 +1,6 @@
 # ADR-0017: Firewall-Quellen lesen und Pfade von HomeAtlas bewerten
 
-- **Status:** Akzeptiert, ersetzt ADR-0016
+- **Status:** Ersetzt durch ADR-0018; ersetzte ADR-0016
 - **Datum:** 2026-11-22
 
 ## Kontext

@@ -35,14 +35,14 @@ def _call(monkeypatch, entity_id, action, device_class, **kw):
     return result, calls
 
 
-@pytest.mark.parametrize("dc", ["shutter", "blind", "shade", "curtain", "awning", "window", "Shutter "])
+@pytest.mark.parametrize("dc", ["shutter", "blind", "shade", "curtain", "awning", "Shutter "])
 def test_cover_matrix_allowed(monkeypatch, dc):
     result, calls = _call(monkeypatch, "cover.buero", "close", dc)
     assert result["ok"] is True
     assert ("POST", "/api/services/cover/close_cover") in calls
 
 
-@pytest.mark.parametrize("dc", ["garage", "gate", "door", None, "", "damper"])
+@pytest.mark.parametrize("dc", ["garage", "gate", "door", "window", None, "", "damper"])
 def test_cover_matrix_rejected(monkeypatch, dc):
     result, calls = _call(monkeypatch, "cover.tor", "open", dc)
     assert result["ok"] is False

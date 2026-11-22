@@ -67,12 +67,23 @@ Quelle: `backend/app/traefik_probe.py`, `backend/app/pipeline.py`, Test: `backen
 Das System MUSS Portweiterleitungen und die WAN-IP über die klassische UniFi-API lesen, weil die
 Integration-API weder Portweiterleitungen noch eine WAN-Adresse liefert. Das geschieht nur mit einem
 Zugang der Kategorie `unifi` (API-Key) mit `allowProbe` und solange `scanEnableUnifiClassic`
-(Default an) gesetzt ist ([ADR-0016](../../../adr/0016-unifi-scan-nur-mit-api-key.md)). Es gibt keinen
-Login: nur GET mit `X-API-Key` auf `/self/sites`, `rest/portforward` und `stat/health`, ohne Cookie,
-CSRF-Token und ohne Weiterleitungen. Ein früherer Zugang `unifi_classic` wird bei der Migration gelöscht. Gespeichert werden je
-Weiterleitung nur Protokoll, Ports, Ziel-IP und „aktiv“ (nie Name, Quellfilter, Key),
-und die WAN-IP wird an die WAN-Zeile des Zugangs gehängt (Zuordnung nach Reihenfolge, nur bei gleicher Anzahl). Ein erfolgreicher Lauf ohne Weiterleitungen zeigt
-„keine Portweiterleitungen“; die WAN-Tabelle zeigt vorhandene Adressen statt leerer Zeilen. **[Muss]**
+(Default an) gesetzt ist ([ADR-0018](../../../adr/0018-wan-status-und-lesepfade.md)). Es gibt keinen
+Login: nur GET mit `X-API-Key` auf `/self/sites`, `rest/portforward`, `rest/networkconf` und `stat/device`,
+ohne Cookie, CSRF-Token und ohne Weiterleitungen. Ein früherer Zugang `unifi_classic` wird bei der Migration gelöscht. Gespeichert werden je
+Weiterleitung nur Protokoll, Ports, Ziel-IP und „aktiv“ (nie Name, Quellfilter, Key). Die WAN-Zeilen werden
+über den Namen zugeordnet; nur der aktive Anschluss bekommt eine Adresse. Rangfolge der öffentlichen Adresse:
+WAN-Schnittstelle, FRITZ!Box, zuletzt `geo_info` (mit Hinweis, weil sie veralten kann). Aus `networkconf` bleiben nur Name, Zweck, Gruppe und Typ. Eine FRITZ!Box mit freigegebenem Zugang
+liefert zusätzlich ihre öffentliche Adresse per `GetExternalIPAddress`, ohne Zugangsdaten; ohne FRITZ!Box entfällt
+das. Ein erfolgreicher Lauf ohne Weiterleitungen zeigt „keine Portweiterleitungen“; die WAN-Tabelle zeigt vorhandene
+Adressen statt leerer Zeilen. **[Muss]**
+
+#### Szenario: UCG hinter einem Router
+- **WENN** die WAN-Schnittstelle eine private Adresse hat
+- **DANN** nutzt der DNS-Abgleich die Adresse der FRITZ!Box, ohne FRITZ!Box die Standortadresse von UniFi mit Hinweis
+
+#### Szenario: Hostname zeigt direkt auf den Anschluss
+- **WENN** ein Hostname (Cloudflare-Eintrag oder DynDNS) öffentlich auf die WAN-Adresse auflöst und kein Tunnel- oder Proxy-Pfad dafür bekannt ist
+- **DANN** steht er unter „Direkt über den Internetanschluss erreichbar“ mit den aktiven Portweiterleitungen; ohne Weiterleitung ist er „verwaist“, ohne gelesene Weiterleitungen „unklar“
 
 #### Szenario: Klassische API nicht lesbar
 - **WENN** der Abruf fehlschlägt (Key abgelehnt, Endpunkt nicht verfügbar, Timeout)

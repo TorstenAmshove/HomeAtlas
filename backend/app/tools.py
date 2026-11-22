@@ -683,11 +683,12 @@ async def _dispatch(name: str, args: dict) -> object:
         limit = 15
         if needle:
             data["chains"] = [c for c in data["chains"] if needle in c["host"]]
+            data["direct"] = [r for r in data["direct"] if needle in r["host"]]
             data["internal"] = [r for r in data["internal"] if needle in r["host"]]
             data["external"] = [r for r in data["external"] if needle in r["host"]]
         out = {k: data[k] for k in ("wan", "hints", "portforwardsChecked", "hasData")}
-        for key in ("chains", "internal", "external", "ddns", "portforwards"):
-            rows = data[key] if not needle or key in ("chains", "internal", "external") else []
+        for key in ("chains", "direct", "internal", "external", "ddns", "portforwards"):
+            rows = data[key] if not needle or key in ("chains", "direct", "internal", "external") else []
             out[key] = rows[:limit]
             if len(rows) > limit:
                 out["truncated"] = f"{key}: nur die ersten {limit} von {len(rows)} -- bitte mit `host` eingrenzen."

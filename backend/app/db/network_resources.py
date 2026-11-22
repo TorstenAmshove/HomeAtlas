@@ -100,27 +100,32 @@ def sync_network_resources(source_account_id: str, resources: list[dict],
     return [resource for resource_id in refreshed_ids if (resource := get_network_resource(resource_id)) is not None]
 
 
-def set_wan_ips(source_account_id: str, ips: list[str]) -> int:
-    """Attaches WAN addresses (from the classic API) to the WAN rows the account already has.
+def set_wan_status(source_account_id: str, wans: list[dict]) -> int:
+    """Attaches type, active flag and address (classic API) to the account's WAN rows, by name.
 
-    The match is by position, so it is only done when the counts agree; with a different number of
-    addresses and connections nothing is guessed. Returns the number of rows updated.
+    A connection that is no longer active loses its address. Returns the number of rows updated.
     """
+    by_name = {w.get("name"): w for w in wans if w.get("name")}
     with _conn() as conn:
         rows = conn.execute(
-            "SELECT id, facts FROM networkResources WHERE kind = 'wan' AND active = 1 AND sourceAccountId = ? "
-            "ORDER BY siteExternalId, externalId", (source_account_id,)).fetchall()
-        if not rows or len(rows) != len(ips):
-            return 0
+            "SELECT id, name, facts FROM networkResources WHERE kind = 'wan' AND active = 1 "
+            "AND sourceAccountId = ?", (source_account_id,)).fetchall()
         updated = 0
-        for row, ip in zip(rows, ips):
-            if not ip:
+        for row in rows:
+            wan = by_name.get(row["name"])
+            if wan is None:
                 continue
             try:
                 facts = json.loads(row["facts"] or "{}")
             except (json.JSONDecodeError, TypeError):
                 facts = {}
+            facts = {k: v for k, v in facts.items() if k not in ("ip", "interfaceIp")}
+            facts.update({"type": wan.get("type") or facts.get("type", ""), "active": bool(wan.get("active"))})
+            if wan.get("ip"):
+                facts["ip"] = wan["ip"]
+            if wan.get("interfaceIp"):
+                facts["interfaceIp"] = wan["interfaceIp"]
             conn.execute("UPDATE networkResources SET facts = ?, updatedAt = ? WHERE id = ?",
-                         (_dump({**facts, "ip": ip}), _now(), row["id"]))
+                         (_dump(facts), _now(), row["id"]))
             updated += 1
         return updated

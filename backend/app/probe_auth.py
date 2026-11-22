@@ -836,7 +836,7 @@ async def probe_homeassistant(url: str, account: dict) -> dict:
 
 # Mirror of `switch_admin._COVER_ALLOWED_CLASSES` (this read module must not import the write one;
 # tests keep both in sync).
-_HA_COVER_ALLOWED_CLASSES = ("blind", "shade", "shutter", "curtain", "awning", "window")
+_HA_COVER_ALLOWED_CLASSES = ("blind", "shade", "shutter", "curtain", "awning")
 
 
 async def list_ha_switchables(url: str, account: dict) -> dict:
@@ -1123,17 +1123,44 @@ async def ha_logbook(url: str, account: dict, entity_id: str = "", days: object 
             "truncated": bool(notes), "note": "; ".join(notes)}
 
 
+def _system_log_text(entries: list) -> str:
+    """HA `system_log/list` entries as log lines, oldest first so the newest survive the cut."""
+    def stamp(entry: dict) -> float:
+        value = entry.get("timestamp")
+        return float(value) if isinstance(value, (int, float)) else 0.0
+
+    lines: list[str] = []
+    for entry in sorted((e for e in entries if isinstance(e, dict)), key=stamp):
+        when = datetime.fromtimestamp(stamp(entry), timezone.utc).isoformat(timespec="seconds")
+        message = entry.get("message")
+        text = " | ".join(str(m) for m in message) if isinstance(message, list) else str(message or "")
+        lines.append(f"{when} {entry.get('level', '')} {entry.get('name', '')} "
+                     f"(x{entry.get('count', 1)}): {text}")
+        if entry.get("exception"):
+            lines.extend(str(entry["exception"]).splitlines())
+    return "\n".join(lines)
+
+
 async def ha_error_log(url: str, account: dict) -> dict:
-    """Tail of HA's error log: redacted first, then cut to the last 200 lines / 20 000 characters."""
+    """Tail of HA's error log: redacted first, then cut to the last 200 lines / 20 000 characters.
+
+    Some installations answer 404 on `/api/error_log`; those fall back to HA's own deduplicated
+    system log over the read-only WebSocket (ADR-0018)."""
     result = await _ha_get(url, account, "/api/error_log", as_text=True)
-    if not result["ok"]:
-        if "404" in result["error"]:
+    notes = []
+    if result["ok"]:
+        raw = result["data"]
+    elif "404" in result["error"]:
+        fallback = await _ha_ws_call(url, account, "system_log/list", {})
+        if not fallback["ok"] or not isinstance(fallback.get("data"), list):
             return {"ok": False, "error": "Das Fehlerlog ist bei dieser Home-Assistant-Installation "
                                           "nicht über die API verfügbar (HTTP 404)."}
+        raw = _system_log_text(fallback["data"])
+        notes.append("aus dem Systemprotokoll (Warnungen und Fehler, zusammengefasst)")
+    else:
         return result
-    text = ha_redact(result["data"])
+    text = ha_redact(raw)
     lines = text.splitlines()
-    notes = []
     if len(lines) > _HA_ERROR_LOG_LINES:
         notes.append(f"nur die letzten {_HA_ERROR_LOG_LINES} von {len(lines)} Zeilen")
         lines = lines[-_HA_ERROR_LOG_LINES:]
@@ -1149,7 +1176,7 @@ async def ha_error_log(url: str, account: dict) -> dict:
 # every message type except the two below (exact match), so no setting, parameter or tool can
 # make it send a command that changes anything.
 
-_HA_WS_ALLOWED_TYPES = frozenset({"trace/list", "trace/get"})
+_HA_WS_ALLOWED_TYPES = frozenset({"trace/list", "trace/get", "system_log/list"})
 _HA_WS_TIMEOUT = 10.0
 _HA_WS_MAX_SIZE = 4 * 1024 * 1024
 _HA_TRACE_RUNS = 10
@@ -1166,7 +1193,7 @@ def _ha_ws_url(base_url: str) -> str:
 
 
 async def _ha_ws_call(url: str, account: dict, msg_type: str, payload: dict) -> dict:
-    """One authenticated WebSocket command (`trace/list` or `trace/get` only). Raises ValueError for
+    """One authenticated WebSocket command (`trace/list`, `trace/get`, `system_log/list` only). Raises ValueError for
     any other type (a programming error); every runtime failure comes back as {ok: False, error}."""
     if not isinstance(msg_type, str) or msg_type not in _HA_WS_ALLOWED_TYPES:
         raise ValueError(f"WebSocket-Befehl nicht erlaubt: {msg_type!r}")

@@ -63,12 +63,16 @@ def test_failure_marks_stale_without_key_and_other_account_runs(temp_db, monkeyp
     assert all(KEY not in e["message"] for e in temp_db.list_device_error_events(system["id"]))
 
 
-def test_wan_ips_attach_to_existing_rows_only_when_counts_match(temp_db):
-    def res(ext):
-        return {"kind": "wan", "source": "unifi", "siteExternalId": "s", "externalId": ext, "name": ext, "facts": {}}
+def test_wan_status_attaches_by_name_and_clears_inactive(temp_db):
+    def res(ext, name):
+        return {"kind": "wan", "source": "unifi", "siteExternalId": "s", "externalId": ext, "name": name, "facts": {}}
 
-    temp_db.sync_network_resources("a", [res("w1")], [("s", "wan")])
-    assert temp_db.set_wan_ips("a", ["203.0.113.7", "198.51.100.1"]) == 0
-    assert temp_db.set_wan_ips("a", ["203.0.113.7"]) == 1
-    rows = temp_db.list_network_resources("wan")
-    assert len(rows) == 1 and rows[0]["facts"]["ip"] == "203.0.113.7"
+    temp_db.sync_network_resources("a", [res("w1", "Reserve"), res("w2", "DSL")], [("s", "wan")])
+    wans = [{"name": "DSL", "type": "dhcp", "active": True, "ip": "8.8.4.4", "interfaceIp": "192.168.178.20"},
+            {"name": "Reserve", "type": "dhcp", "active": False, "ip": "", "interfaceIp": ""}]
+    assert temp_db.set_wan_status("a", wans) == 2
+    rows = {r["name"]: r["facts"] for r in temp_db.list_network_resources("wan")}
+    assert rows["DSL"]["ip"] == "8.8.4.4" and rows["DSL"]["active"] is True
+    assert "ip" not in rows["Reserve"] and rows["Reserve"]["active"] is False
+    temp_db.set_wan_status("a", [{"name": "DSL", "type": "dhcp", "active": False, "ip": "", "interfaceIp": ""}])
+    assert "ip" not in {r["name"]: r["facts"] for r in temp_db.list_network_resources("wan")}["DSL"]
