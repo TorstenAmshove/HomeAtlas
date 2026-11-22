@@ -41,7 +41,13 @@ async def lifespan(_app: FastAPI):
     db.init_db()
     _migrate_plaintext_secrets()
     db.abandon_stale_scans()
-    generated = auth.ensure_admin_bootstrapped()
+    bootstrap = auth.ensure_admin_bootstrapped()
+    generated = bootstrap.password
+    if bootstrap.reason:
+        logger.warning(
+            "ADMIN_PASSWORD erfuellt die Passwortrichtlinie nicht (%s) -- es wurde ein Passwort generiert.",
+            bootstrap.reason,
+        )
     if generated:
         logger.warning(
             "=" * 72 + "\nHomeAtlas: Erster Start. Anmeldedaten:\n"

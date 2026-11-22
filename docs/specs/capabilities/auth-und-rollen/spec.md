@@ -29,7 +29,8 @@ rettet ausgesperrte Instanzen.
 
 ### Requirement: Initialer Administrator
 Das System MUSS beim Start, wenn noch kein Benutzer existiert, genau einen ADMIN anlegen: Name aus
-`ADMIN_USERNAME` (Default `admin`), Passwort aus `ADMIN_PASSWORD` oder – falls nicht gesetzt –
+`ADMIN_USERNAME` (Default `admin`), Passwort aus `ADMIN_PASSWORD` (nur wenn es die
+Passwortrichtlinie erfüllt) oder – falls nicht gesetzt oder zu schwach –
 generiert und genau einmal im Server-Log ausgegeben. Existiert mindestens ein Benutzer, MÜSSEN beide
 Variablen wirkungslos sein. **[Muss]**
 
@@ -40,7 +41,13 @@ Variablen wirkungslos sein. **[Muss]**
 
 #### Szenario: Vorgabe per Umgebung
 - **WENN** die Tabelle leer ist und `ADMIN_PASSWORD` gesetzt ist
+- **UND** das Passwort erfüllt die Passwortrichtlinie
 - **DANN** wird der ADMIN mit genau diesem Passwort angelegt und nichts geloggt
+
+#### Szenario: Zu schwaches ADMIN_PASSWORD
+- **WENN** die Tabelle leer ist und `ADMIN_PASSWORD` die Passwortrichtlinie verletzt
+- **DANN** wird ein Passwort generiert (kein Startabbruch), der Grund (ohne das Passwort) als
+  Warnung geloggt und das generierte Passwort wie beim Erststart einmalig ausgegeben
 
 #### Szenario: Neustart mit vorhandenen Benutzern
 - **WENN** mindestens ein Benutzer existiert
@@ -466,7 +473,8 @@ Mit Shell-Zugriff auf den Backend-Container MUSS es möglich sein, ohne laufende
   `mfa.reset` mit Akteur „(Kommandozeile)“;
 - beides kombiniert.
 Ein reiner Passwort-Reset DARF den Faktor nicht entfernen (getrennte Ereignisse) und beendet keine
-Sessions. Unbekannte `--`-Option oder falsche Argumentzahl → Exit 2 mit Aufrufhinweis; `--reset-mfa`
+Sessions. Ein neues Passwort MUSS die Passwortrichtlinie erfüllen, sonst Exit 2 ohne jede Änderung
+(auch nicht von `--reset-mfa`). Unbekannte `--`-Option oder falsche Argumentzahl → Exit 2 mit Aufrufhinweis; `--reset-mfa`
 für unbekannten Benutzer ohne Passwort → Exit 1. **[Muss]** (Aufruf `python -m app.reset_password`: **[Impl]**)
 
 #### Szenario: Erstpasswort verloren
@@ -552,8 +560,6 @@ UI-Seite(n): `frontend/src/gates/Login.tsx` (ohne Session, jede Route),
 - > OFFEN: Eigener Passwortwechsel beendet keine anderen Sessions (Admin-Reset schon) – gewollt? → #116
 - > OFFEN: Admin-MFA-Reset beendet keine Sessions, die CLI-Variante schon; eine offene Session des Ziels kann den Faktor danach selbst neu einrichten (nur Passwort-Besitz war nötig für die Session, ist aber u. U. ein Angreifer). → #116
 - > OFFEN: Ein Konto ohne aktiven Faktor (neu angelegt oder nach Reset) kann von jedem mit dem Passwort eingerichtet werden – bewusste Abwägung laut `reset_password.py`-Docstring, aber ohne Ablaufzeit. → #116
-- > OFFEN: Initial-Admin via `ADMIN_PASSWORD` und CLI-Passwortreset umgehen die Richtlinie (CLI prüft nur ≥ 8 Zeichen; README-Beispiel `devpass123` erfüllt sie nicht). → #117
-- > OFFEN: UsersPage zeigt „Mindestens 8 Zeichen“ und aktiviert „Anlegen“ ab 8 Zeichen, Richtlinie verlangt 10. → #117
 - > OFFEN: AccessLogPage kennt Label `mfa.disable` (nie geschrieben). (`mfa.reset` hat seit PR 6 ein Label und gilt als sicherheitsrelevant.) → #122
 - > OFFEN: Session-Cookie ohne `Secure`-Flag, auch hinter TLS-Proxy. → #115
 - > OFFEN: `X-Real-IP` wird ungeprüft übernommen; sicher nur, solange das Backend ausschließlich über nginx erreichbar ist (ADR-0003). → #115
