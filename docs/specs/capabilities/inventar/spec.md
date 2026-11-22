@@ -83,8 +83,9 @@ Ports; sonst bis zu 3 für die Art typische Ports (nur Vermutung). Leere Liste =
 Quelle: `backend/app/monitor.py:40`, Details: [monitoring](../monitoring/spec.md)
 
 ### Requirement: Gerät von Hand anlegen
-Das System MUSS ADMIN erlauben, ein Gerät mit beliebigen Inventarfeldern anzulegen; es wird als
-„bestätigt" (`confirmed=1`) und „nicht gefunden" (`discovered=0`) gespeichert. Leere Felder erhalten
+Das System MUSS ADMIN erlauben, ein Gerät mit den von Hand pflegbaren Feldern (Liste unter „Gerät
+bearbeiten") anzulegen; es wird als „bestätigt" (`confirmed=1`) und „nicht gefunden" (`discovered=0`)
+gespeichert. Eine mitgeschickte `id` und Systemfelder werden ignoriert; ungültige Werte → 422. Leere Felder erhalten
 Defaults: `kind=other`, `name="Unbenannt"`, `importance=normal`, `status=unknown`, Rest leer.
 `firstSeen`, `lastSeen`, `updatedAt` = jetzt (UTC, `YYYY-MM-DDTHH:MM:SSZ`). **[Muss]**
 
@@ -92,19 +93,33 @@ Defaults: `kind=other`, `name="Unbenannt"`, `importance=normal`, `status=unknown
 - **WENN** ADMIN in der Geräteliste „+ Gerät anlegen" wählt und einen Namen eingibt
 - **DANN** wird ein Gerät mit diesem Namen und `kind=other` angelegt und oben in der Liste gezeigt
 
-Quelle: `backend/app/main.py:559`, `backend/app/db.py:642`, `backend/app/db.py:655`,
+#### Szenario: Mitgeschickte ID und ungültige Werte
+- **WENN** ADMIN eine bereits vergebene `id` oder eine unbekannte `kind` mitschickt
+- **DANN** entsteht ein Gerät mit neuer ID (die `id` wird ignoriert) bzw. die Antwort ist 422
+- Test: `backend/tests/test_main_systems_validation.py::test_post_ignores_client_id_and_system_fields`,
+  `::test_post_invalid_kind_422`
+
+Quelle: `backend/app/routes/systems.py`, `backend/app/db/systems.py`,
 `frontend/src/pages/geraete/InventoryPage.tsx`
 
 ### Requirement: Gerät bearbeiten
 Das System MUSS ADMIN erlauben, per Teil-Update genau diese Felder zu ändern: `kind, name,
 hostname, ip, mac, vendor, model, os, location, purpose, descriptionMd, url, docUrl, docLink, notes,
-importance, parentId, status, discovered, discoverySource, discoveryKey, monitored, monitorPorts,
-openPorts, services, tags, extra` sowie `lastSeen`. Andere Schlüssel werden ignoriert. Jede
-Bearbeitung setzt `confirmed=1`. Leerwerte fallen auf die Defaults (s. o.) zurück. Da die Route
-`confirmed=1` stets mitschreibt, setzt jeder `PATCH` `updatedAt` – auch ein leerer oder einer nur
-mit unbekannten Schlüsseln bzw. nur `lastSeen` (die Regel „nur bei Inventarfeld im Patch“ in
-`db.update_system` greift nur bei internen Aufrufen). Unbekannte ID → 404. **[Muss]**
-(dass auch technische Felder wie `status`/`discoveryKey`/`extra` schreibbar sind: **[Impl]**, siehe OFFEN)
+importance, parentId, monitored, monitorPorts, tags`. Alle anderen Schlüssel (insbesondere die
+Systemfelder `id, status, discovered, confirmed, discoverySource, discoveryKey, extra, openPorts,
+services, lastSeen`) werden still ignoriert und sind nur durch Scan/Überwachung schreibbar. Nur im
+Patch enthaltene Felder werden geschrieben (kein Lost Update); die UI schickt nur geänderte Felder.
+Jede Bearbeitung setzt `confirmed=1` (und damit `updatedAt`, auch bei leerem Patch). Ungültige Werte
+→ 422: `kind` nicht in den 17 Arten, `importance` nicht `critical|normal|low` (auch `null`/`""`),
+`monitorPorts` mit mehr als 3 Einträgen, Nicht-Ganzzahlen, Ports außerhalb 1–65535 oder Duplikaten
+(`null`/`[]` erlaubt), `parentId` unbekannt, das Gerät selbst oder ein Zyklus (`null`/`""` löscht
+den Verweis). Pydantic-Fehler kommen vor dem 404; unbekannte ID mit gültigem Body → 404. **[Muss]**
+
+#### Szenario: Veralteter Body überschreibt keine Scan-Daten
+- **WENN** ein Scan `status`/`openPorts`/`extra` ändert, nachdem ADMIN das Gerät geladen hat, und ADMIN dann speichert
+- **DANN** bleiben die Scan-Daten erhalten
+- Test: `backend/tests/test_main_systems_validation.py::test_patch_stale_body_keeps_scan_data`,
+  `::test_patch_ignores_system_fields`, `::test_patch_monitor_ports_invalid`
 
 #### Szenario: Bearbeiten schützt vor Scans
 - **WENN** ADMIN den Namen eines gefundenen Containers ändert
@@ -505,11 +520,7 @@ UI-Seite(n): `frontend/src/pages/geraete/InventoryPage.tsx` (Route `/geraete`),
 ## OFFEN
 
 - > OFFEN: `GET /api/systems/{id}` liefert MEMBER die Zugangs-Metadaten (Label, Benutzername, URL, Notizen) des Geräts; nur die UI blendet sie aus. Gewollt? → entschieden in #48: in Ordnung, solange keine Secrets
-- > OFFEN: PATCH validiert nichts: `kind`/`importance` beliebig, `status`, `discoveryKey`, `discovered`, `extra`, `openPorts`, `lastSeen` frei schreibbar. Ein `discoveryKey`, den schon ein anderes Gerät hat, verletzt den Unique-Index → vermutlich HTTP 500. → #126
-- > OFFEN: Da die UI das komplette Gerät zurückschickt, überschreibt Speichern zwischenzeitliche Änderungen von Scan/Überwachung (`status`, `extra`, `openPorts`, `lastSeen`) mit dem alten Stand (Lost Update). → #126
-- > OFFEN: POST übernimmt eine vom Client mitgeschickte `id` (`backend/app/db.py:643`); mit vorhandener ID vermutlich 500. → #126
 - > OFFEN: DELETE lässt `deviceConfigVersions`, `deviceErrorEvents` und `monitorEvents` des Geräts verwaist zurück (`backend/app/db.py:692`), obwohl Merge sie bewusst umhängt; antwortet `ok` auch für unbekannte IDs. → #127
 - > OFFEN: Ist das behaltene Gerät Kind des entfernten, setzt Merge `parentId` des behaltenen auf sich selbst (`backend/app/db.py:884`). → #127
 - > OFFEN: Ein kritisches Gerät lässt sich nicht aus der Überwachung nehmen (`monitored=0` wird in der nächsten Runde wieder 1); wird „kritisch" entfernt, bleibt die Überwachung an. Gewollt? → #131
-- > OFFEN: `monitorPorts` wird serverseitig nicht auf 3 Einträge/gültige Ports begrenzt; nur die UI und `effective_ports` kürzen. → #126
 - > OFFEN: Der Fehler-Badge verschwindet nie, weil Fehlerereignisse nicht quittiert oder gelöscht werden können (nur Kappung bei 100). → #132
