@@ -22,6 +22,8 @@ window in which the password alone is enough to enroll a *new* authenticator. A 
 reset therefore leaves an enrolled factor in place; the password argument is optional when only
 the factor needs to go.
 
+The new password must satisfy the same policy as the API (`security.check_password`).
+
 Running this requires shell access to the container, which already implies control of the host,
 so it grants nothing an attacker in that position wouldn't have anyway.
 """
@@ -30,7 +32,7 @@ from __future__ import annotations
 import secrets
 import sys
 
-from . import auth, db
+from . import auth, db, security
 
 _USAGE = "Aufruf: python -m app.reset_password [<benutzer> [<neues-passwort>] [--reset-mfa]]"
 # Shown as the actor in the access log -- there is no logged-in user behind a CLI call.
@@ -70,9 +72,13 @@ def main(argv: list[str]) -> int:
         print(_USAGE, file=sys.stderr)
         return 2
 
-    if password is not None and len(password) < 8:
-        print("Das Passwort muss mindestens 8 Zeichen haben.", file=sys.stderr)
-        return 2
+    # Before any change, also with --reset-mfa: a rejected password must leave nothing half done.
+    if password is not None:
+        try:
+            security.check_password(password, username)
+        except security.PasswordError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
 
     user = db.get_user_by_username_raw(username)
 

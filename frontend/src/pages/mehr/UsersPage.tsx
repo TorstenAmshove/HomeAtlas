@@ -36,6 +36,8 @@ export default function UsersPage() {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>("MEMBER");
   const [busy, setBusy] = useState(false);
+  // Server-side policy is authoritative; this is only the pre-check shown in the UI.
+  const [minLength, setMinLength] = useState(10);
 
   const [editing, setEditing] = useState<User | null>(null);
   const [editName, setEditName] = useState("");
@@ -52,6 +54,10 @@ export default function UsersPage() {
 
   useEffect(() => {
     reload().catch((e) => { setError(errorText(e)); setUsers([]); });
+  }, []);
+
+  useEffect(() => {
+    api.passwordPolicy().then((p) => setMinLength(p.minLength)).catch(() => {});
   }, []);
 
   function resetForm() {
@@ -236,7 +242,7 @@ export default function UsersPage() {
             <div className="field">
               <label htmlFor="us-password">Passwort</label>
               <input id="us-password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-              <div className="field-hint">Mindestens 8 Zeichen.</div>
+              <div className="field-hint">Mindestens {minLength} Zeichen.</div>
             </div>
             <div className="field">
               <label htmlFor="us-role">Rolle</label>
@@ -248,7 +254,7 @@ export default function UsersPage() {
             </div>
           </div>
           <div className="m-actions">
-            <button type="submit" className="m-btn primary" disabled={busy || !username.trim() || password.length < 8}>
+            <button type="submit" className="m-btn primary" disabled={busy || !username.trim() || password.length < minLength}>
               {busy ? "Lege an …" : "Anlegen"}
             </button>
             <button type="button" className="m-btn" onClick={resetForm}>Abbrechen</button>
@@ -307,6 +313,7 @@ export default function UsersPage() {
                       <input id="us-edit-password" type="password" autoComplete="new-password" value={editPassword}
                              placeholder="leer lassen, um es nicht zu ändern" onChange={(e) => setEditPassword(e.target.value)} />
                       <div className="field-hint">
+                        Mindestens {minLength} Zeichen.{" "}
                         Beim Zurücksetzen werden alle offenen Sitzungen dieses Benutzers beendet; er muss sich danach neu anmelden.
                       </div>
                     </div>
