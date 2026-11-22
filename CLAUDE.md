@@ -67,7 +67,7 @@ admin credentials are printed once to `docker compose logs backend`. `ADMIN_USER
 Container releases are automated: a pull request against `master` builds both images without
 pushing. Merging a code-changing pull request to `master` derives a shared Semver release from
 Conventional Commits, creates `vX.Y.Z`, and publishes both GHCR images under `X.Y.Z`, `X.Y`, and
-`latest`. Documentation-only and `.github/**` pull requests do not release automatically.
+`latest`. `release.yml` also passes the computed version as build arg `HOMEATLAS_VERSION` (backend) and `VITE_APP_VERSION` (frontend); Settings → Über shows it, local and PR builds show `dev`. Documentation-only and `.github/**` pull requests do not release automatically.
 
 Dependency updates come from the Mend Renovate App: `renovate.json` (repository root, not `.github/` - HomeAtlas is a fork, and Renovate only checks `forkProcessing` in the root `renovate.json`) on top of the shared presets in [TorstenAmshove/renovate-config](https://github.com/TorstenAmshove/renovate-config). Patch/digest updates and pip and npm minor updates are auto-merged by Renovate once Build (including the browser smoke test) and Test are green (so they release and deploy without a human); all majors are merged by hand. The base images use exact versions plus digest (`python:3.12.16-slim@sha256:…`, `node:26.13.1-alpine@…`, `nginx:1.30.6-alpine@…`), and the Python version of `backend/Dockerfile` and `test.yml` moves together in one "python runtime" PR.
 

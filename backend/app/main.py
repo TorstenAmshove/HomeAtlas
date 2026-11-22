@@ -25,6 +25,7 @@ from fastapi import FastAPI
 from . import (auth, db, mcp_server, monitor as monitor_module, pipeline)
 from . import routes
 from .deps import logger
+from .version import app_version
 from .routes.settings import _migrate_plaintext_secrets
 
 # Re-exported for tests and anything that used to import them from here: these are the very
@@ -62,7 +63,7 @@ async def lifespan(_app: FastAPI):
             await pipeline.scheduler.stop()
 
 
-app = FastAPI(title="HomeAtlas", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="HomeAtlas", version=app_version(), lifespan=lifespan)
 app.mount("/api/mcp", mcp_server.asgi_app)
 
 # One router per capability group (see docs/specs/README.md). Order matters only where two

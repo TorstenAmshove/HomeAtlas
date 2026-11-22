@@ -5,7 +5,7 @@
 
 Lücken: **0**
 
-## Routen (87)
+## Routen (88)
 
 | Eintrag | Spec |
 |---|---|
@@ -93,6 +93,7 @@ Lücken: **0**
 | `DELETE /api/users/{user_id}` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
 | `PATCH /api/users/{user_id}` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
 | `POST /api/users/{user_id}/mfa/reset` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
+| `GET /api/version` | [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md) |
 | `WS /api/ws/systems/{system_id}/docker-console` | [remote-admin](capabilities/remote-admin/spec.md) |
 | `WS /api/ws/systems/{system_id}/remote-docker-console` | [remote-admin](capabilities/remote-admin/spec.md) |
 | `WS /api/ws/systems/{system_id}/ssh-console` | [remote-admin](capabilities/remote-admin/spec.md) |

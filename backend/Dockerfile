@@ -14,6 +14,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 
+# Release version shown in Settings -> Über; release.yml passes it, local builds report "dev".
+ARG HOMEATLAS_VERSION=dev
+ENV HOMEATLAS_VERSION=$HOMEATLAS_VERSION
+
 RUN mkdir -p /data
 VOLUME ["/data"]
 

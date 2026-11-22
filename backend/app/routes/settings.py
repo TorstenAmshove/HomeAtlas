@@ -1,4 +1,4 @@
-"""Settings, LLM provider test/model refresh, OUI refresh, MCP access tokens, and the
+"""Settings, release version (Über tab), LLM provider test/model refresh, OUI refresh, MCP access tokens, and the
 one-time startup migration of secrets older versions stored readably.
 
 Moved out of main.py unchanged; see main.py for the cross-cutting rules."""
@@ -11,8 +11,15 @@ from pydantic import BaseModel, Field
 
 from .. import auth, crypto, db, docker_probe, docs, llm_providers, model_catalog, oui, probe_auth
 from ..deps import current_user, logger, require_admin
+from ..version import app_version
 
 router = APIRouter()
+
+
+@router.get("/api/version")
+def get_version(_user: dict = Depends(current_user)) -> dict:
+    """Release version of the running backend, shown in Settings -> Über (any logged-in user)."""
+    return {"version": app_version()}
 
 
 # ---------------------------------------------------------------------------------------------

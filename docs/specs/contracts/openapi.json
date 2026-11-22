@@ -472,7 +472,7 @@
   },
   "info": {
     "title": "HomeAtlas",
-    "version": "1.0.0"
+    "version": "dev"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -5322,6 +5322,55 @@
           }
         },
         "summary": "Reset User Mfa"
+      }
+    },
+    "/api/version": {
+      "get": {
+        "description": "Release version of the running backend, shown in Settings -> Über (any logged-in user).",
+        "operationId": "get_version_api_version_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "homeatlas_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Homeatlas Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Version Api Version Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Version"
       }
     }
   }

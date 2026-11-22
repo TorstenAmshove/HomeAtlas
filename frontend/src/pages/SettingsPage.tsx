@@ -41,7 +41,7 @@ const TAB_HINT: Record<Tab, string> = {
   mcp: "Zugang für externe Programme",
   account: "Passwort, Zwei-Faktor-Anmeldung",
   display: "Hell/Dunkel in diesem Browser",
-  about: "Version und Build",
+  about: "Version",
 };
 
 /*
@@ -109,6 +109,12 @@ export default function SettingsPage() {
   const [notice, setNotice] = useState<{ kind: "ok" | "error" | "info"; text: string } | null>(null);
   const [busy, setBusy] = useState("");
 
+  // Backend release version for the "Über" tab; a failed request leaves null (frontend version only).
+  const [serverVersion, setServerVersion] = useState<string | null>(null);
+  useEffect(() => {
+    if (tab !== "about") return;
+    api.version().then((r) => setServerVersion(r.version.trim()), () => setServerVersion(null));
+  }, [tab]);
   // UniFi networks selectable for scanning; null = not loaded / unavailable (free text only).
   const [controllerNets, setControllerNets] = useState<NetworkResource[] | null>(null);
 
@@ -613,12 +619,16 @@ export default function SettingsPage() {
           <div className="table-wrap">
             <table>
               <tbody>
-                <tr><th>Version</th><td className="mono">{__APP_VERSION__}</td></tr>
-                <tr><th>Build</th><td className="mono">{__BUILD_SHA__}</td></tr>
-                {__BUILD_TIME__ && <tr><th>Erstellt am</th><td className="mono">{__BUILD_TIME__}</td></tr>}
+                <tr><th>Version</th><td className="mono">{serverVersion ?? __APP_VERSION__}</td></tr>
               </tbody>
             </table>
           </div>
+          {serverVersion !== null && serverVersion !== __APP_VERSION__ && (
+            <p className="muted" style={{ marginTop: 12 }}>
+              Oberfläche (Version {__APP_VERSION__}) und Server (Version {serverVersion}) laufen mit
+              unterschiedlichen Versionen. Seite neu laden bzw. beide Container aktualisieren.
+            </p>
+          )}
         </div>
       )}
     </>
