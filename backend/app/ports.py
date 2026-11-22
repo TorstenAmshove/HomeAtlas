@@ -48,6 +48,7 @@ SERVICES: dict[int, tuple[str, str]] = {
     5900: ("VNC", "Fernsteuerung des Bildschirms"),
     6379: ("Redis", "Zwischenspeicher-Datenbank"),
     7000: ("AirPlay", "Apple-Streaming"),
+    81: ("HTTP alt", "Web-Oberfläche auf einem Ausweich-Port"),
     8006: ("Proxmox", "Web-Oberfläche des Proxmox-Virtualisierungsservers"),
     8008: ("Chromecast", "Google-Streaming-Steuerung"),
     8009: ("Chromecast", "Google-Streaming (Datenkanal)"),

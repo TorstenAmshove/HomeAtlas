@@ -545,7 +545,7 @@ sind dort eingeschränkt, die Oberfläche und alles andere funktionieren.
 - **Zufällige MAC-Adressen.** Moderne Telefone wechseln ihre Netzwerkkennung regelmäßig und
   können deshalb mehrfach im Inventar erscheinen. Solche Geräte sind intern als
   `randomizedMac` markiert.
-- **Hersteller-Datenbank.** Ohne die IEEE-Liste (wird beim ersten Scan automatisch geladen, sonst
+- **Hersteller-Datenbank.** Ohne die IEEE-Liste (wird bei einem Scan automatisch geladen, höchstens einmal je 24 h, sonst
   manuell in den Einstellungen) ist die Herstellererkennung auf eine kleine, handgepflegte Liste
   beschränkt.
 
