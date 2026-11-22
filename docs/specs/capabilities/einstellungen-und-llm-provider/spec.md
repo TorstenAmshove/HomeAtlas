@@ -39,7 +39,7 @@ verlinkten Fähigkeiten. Quelle Defaults: `backend/app/db.py:408`.
 | `deepseekBaseUrl` | (fehlt in Defaults) | leer = `https://api.deepseek.com/v1` | llm_providers |
 | `ollamaApiKey` / `ollamaModel` / `ollamaBaseUrl` | (fehlen in Defaults) | Ollama; Schlüssel optional; leer = `http://localhost:11434/v1` | llm_providers |
 | `providerModelCache` | `{}` | Je Anbieter `{models: [{id, label}]}` aus „Modelle laden“ | llm_providers, main |
-| `systemPromptOverride` | „“ | Ersetzt den Chat-Systemprompt (keine UI) | tools, siehe [assistent-chat-und-mcp](../assistent-chat-und-mcp/spec.md) |
+| `systemPromptOverride` | „“ | Ersetzt den Chat-Systemprompt; `{home_name}` wird ersetzt (Einstellungen → KI-Assistent) | tools, siehe [assistent-chat-und-mcp](../assistent-chat-und-mcp/spec.md) |
 | `scanSubnets` | `[]` | Freitext-Netze für Scans | discovery |
 | `scanControllerNetworkIds` | `[]` | Ausgewählte Controller-Netze (IDs) | discovery, tools |
 | `scanControllerNetworksSeen` | `[]` | Beim letzten Speichern angezeigte Netz-IDs (Markierung „neu“) | nur UI |

@@ -213,6 +213,7 @@ export default function SettingsPage() {
       )}
 
       {tab === "llm" && isAdmin && (
+        <>
         <div className="card">
           <h2>KI-Assistent</h2>
           <p className="muted">
@@ -286,6 +287,33 @@ export default function SettingsPage() {
             </button>
           </div>
         </div>
+
+        <div className="card">
+          <h2>Eigener Systemprompt (optional)</h2>
+          <div className="field">
+            <textarea
+              rows={12}
+              value={form.systemPromptOverride ?? ""}
+              onChange={(e) => set("systemPromptOverride", e.target.value)}
+            />
+            <div className="field-hint">
+              Ersetzt den Standardprompt vollständig. {"{home_name}"} wird durch den Namen deines Zuhauses
+              ersetzt; der aktuelle Netzwerkstand wird immer angehängt. Leer = Standard.
+            </div>
+          </div>
+          <div className="row">
+            <button onClick={() => void save({ systemPromptOverride: form.systemPromptOverride })}
+                    disabled={busy !== ""}>
+              Speichern
+            </button>
+            <button className="secondary"
+                    onClick={() => { set("systemPromptOverride", ""); void save({ systemPromptOverride: "" }); }}
+                    disabled={busy !== ""}>
+              Zurücksetzen
+            </button>
+          </div>
+        </div>
+        </>
       )}
 
       {tab === "scan" && isAdmin && (
