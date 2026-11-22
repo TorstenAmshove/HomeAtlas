@@ -834,12 +834,17 @@ async def probe_homeassistant(url: str, account: dict) -> dict:
     return {"ok": True, "error": "", "facts": facts}
 
 
+# Mirror of `switch_admin._COVER_ALLOWED_CLASSES` (this read module must not import the write one;
+# tests keep both in sync).
+_HA_COVER_ALLOWED_CLASSES = ("blind", "shade", "shutter", "curtain", "awning", "window")
+
+
 async def list_ha_switchables(url: str, account: dict) -> dict:
     """Lists every `switch.*`/`light.*` entity Home Assistant knows about, for resolving a name
     like "Wohnzimmerlicht" to the exact entity_id `switch_admin.ha_set_switch` needs. Read-only --
     one `GET /api/states` call, same as `probe_homeassistant` already makes, just filtered and
-    projected differently. Scope matches `switch_admin._HA_ALLOWED_DOMAINS`: only the two domains
-    that can actually be flipped stay in the result, so a caller never has to separately learn
+    projected differently. Scope matches `switch_admin`: switch/light plus shutter-like covers
+    (device_class allowlist); only entities that can actually be flipped stay in the result, so a caller never has to separately learn
     which entities are off-limits."""
     token, _ = _decode_secret(account)
     base_url = (url or "").rstrip("/")
@@ -867,12 +872,21 @@ async def list_ha_switchables(url: str, account: dict) -> dict:
     except (httpx.HTTPError, ValueError) as exc:
         return {"ok": False, "error": f"Home Assistant unter {base_url} nicht erreichbar: {exc}", "entities": []}
 
-    entities = [
-        {"entityId": s["entity_id"], "name": (s.get("attributes") or {}).get("friendly_name") or s["entity_id"],
-         "state": s.get("state", "")}
-        for s in states
-        if isinstance(s, dict) and s.get("entity_id", "").split(".", 1)[0] in ("switch", "light")
-    ]
+    entities = []
+    for s in states:
+        if not isinstance(s, dict):
+            continue
+        entity_id = str(s.get("entity_id", ""))
+        domain = entity_id.split(".", 1)[0]
+        attrs = s.get("attributes") or {}
+        entry = {"entityId": entity_id, "name": attrs.get("friendly_name") or entity_id,
+                 "state": s.get("state", "")}
+        if domain in ("switch", "light"):
+            entities.append(entry)
+        elif domain == "cover":
+            device_class = str(attrs.get("device_class") or "").strip().lower()
+            if device_class in _HA_COVER_ALLOWED_CLASSES:
+                entities.append({**entry, "deviceClass": device_class})
     return {"ok": True, "error": "", "entities": entities}
 
 

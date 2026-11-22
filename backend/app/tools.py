@@ -6,12 +6,12 @@ Two rules shape what is exposed here:
   things up and run the diagnostics in `diagnostics.py`; it cannot edit the inventory, rewrite
   documentation, touch a container, or reboot a device -- all of that stays behind the UI, where a
   human clicks it. The one deliberate exception is `set_switch`: turning a Shelly relay or a Home
-  Assistant `switch`/`light` entity on or off, on request, no confirmation step. That was an
+  Assistant `switch`/`light` entity on or off (or moving a shutter-class `cover`), on request, no confirmation step. That was an
   explicit product decision (every role, and every external MCP client, gets this -- not just
   admins, see `main.py`'s module docstring), traded off against the read-only rule because
   flipping a light/plug is judged low-risk and easily reversible, unlike anything else this module
   could reach. See `switch_admin.py`'s module docstring for the write side and its own, narrower
-  scope (on/off only, `switch`/`light` domains only).
+  scope (on/off for `switch`/`light`; open/close/stop for allowlisted shutter `device_class`es, ADR-0013).
 * **Live Home Assistant reads** (`get_ha_state/history/logbook/error_log`) go through GET-only,
   bounded and redacted helpers in `probe_auth.py`; the token is decrypted there and never returned.
 * **Stored secrets never reach the model.** `list_accounts` returns labels, usernames and notes so
@@ -120,17 +120,18 @@ TOOL_DEFINITIONS: list[dict] = [
     },
     {
         "name": "list_switches",
-        "description": ("Listet schaltbare Shelly-Geräte und Home-Assistant-Entities (nur switch/light) mit den "
+        "description": ("Listet schaltbare Shelly-Geräte und Home-Assistant-Entities (switch/light und Rollos) mit den "
                         "IDs, die set_switch braucht. Immer zuerst aufrufen, um einen umgangssprachlichen Namen "
                         "wie 'das Wohnzimmerlicht' einem konkreten Ziel zuzuordnen, bevor geschaltet wird."),
         "inputSchema": {"type": "object", "properties": {}},
     },
     {
         "name": "set_switch",
-        "description": ("Schaltet ein Shelly-Relais oder eine Home-Assistant-switch/light-Entity ein oder aus. "
+        "description": ("Schaltet ein Shelly-Relais oder eine Home-Assistant-switch/light-Entity ein oder aus "
+                        "('on') bzw. fährt ein Rollo (cover) hoch/runter/stoppt es ('action'). "
                         "Vorher list_switches aufrufen, um die passende ID zu finden. Wird sofort ausgeführt, "
-                        "ohne Rückfrage -- nur für Ein/Aus-Schalten, nicht für Schlösser, Rollläden, Heizung "
-                        "oder Alarmanlage (die bietet dieses Werkzeug gar nicht erst an)."),
+                        "ohne Rückfrage. Keine Garagen-/Hoftore, Türen, Schlösser, Heizung oder Alarmanlage "
+                        "und keine Rollo-Position (die bietet dieses Werkzeug nicht an)."),
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -140,9 +141,12 @@ TOOL_DEFINITIONS: list[dict] = [
                 "accountId": {"type": "string", "description": "Für kind='ha': die accountId aus list_switches."},
                 "entityId": {"type": "string", "description": "Für kind='ha': die entityId aus list_switches, "
                                                               "z. B. switch.wohnzimmer_stecker."},
-                "on": {"type": "boolean", "description": "true = einschalten, false = ausschalten."},
+                "on": {"type": "boolean", "description": "Für Shelly und HA switch/light: true = einschalten, "
+                                                         "false = ausschalten."},
+                "action": {"type": "string", "enum": ["open", "close", "stop"],
+                           "description": "Nur für HA cover (Rollo): open = hoch, close = runter, stop."},
             },
-            "required": ["kind", "on"],
+            "required": ["kind"],
         },
     },
     {
@@ -521,9 +525,12 @@ async def _dispatch(name: str, args: dict) -> object:
         # `systemId`/`accountId`+`entityId` are always re-resolved against the database here, never
         # trusted as a free-form host/URL from the model, so the blast radius stays "a device
         # already in the inventory", not "whatever address the model was talked into naming".
+        kind = args.get("kind")
+        has_on = "on" in args and args.get("on") is not None
         on = bool(args.get("on"))
         state_label = "ein" if on else "aus"
-        kind = args.get("kind")
+        if kind == "shelly" and not has_on:
+            return {"error": "Für Shelly-Geräte ist 'on' (true/false) nötig."}
         if kind == "shelly":
             system = db.get_system(args.get("systemId") or "")
             if system is None or not switch_admin.is_shelly(system):
@@ -544,6 +551,18 @@ async def _dispatch(name: str, args: dict) -> object:
                                  "aufrufen."}
             system = db.get_system(account.get("systemId") or "") or {}
             token = crypto.decrypt(account.get("secretEnc") or "")
+            if entity_id.split(".", 1)[0] == "cover":
+                action = args.get("action")
+                if has_on or action not in ("open", "close", "stop"):
+                    return {"error": "Rollos brauchen 'action' (open, close oder stop), nicht 'on'."}
+                result = await switch_admin.ha_set_cover(account.get("url") or system.get("url") or "", token,
+                                                         entity_id, action)
+                _log_switch(f"{entity_id} -> {action}", result["ok"])
+                if not result["ok"]:
+                    return {"error": result["error"]}
+                return {"ok": True, "entity": entity_id, "action": action}
+            if args.get("action") is not None or not has_on:
+                return {"error": "switch/light brauchen 'on' (true/false), nicht 'action'."}
             result = await switch_admin.ha_set_switch(account.get("url") or system.get("url") or "", token,
                                                        entity_id, on)
             _log_switch(f"{entity_id} -> {state_label}", result["ok"])

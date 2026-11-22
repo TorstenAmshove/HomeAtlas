@@ -1,6 +1,6 @@
 # ADR-0004: `tools.py` als vollständige Fähigkeitsgrenze des LLM
 
-- **Status:** Akzeptiert (nachträglich dokumentiert)
+- **Status:** Ersetzt durch ADR-0013 (nachträglich dokumentiert)
 - **Datum:** 2026-11-14
 
 ## Kontext

@@ -1,6 +1,6 @@
 # ADR-0012: Lesender WebSocket für Home-Assistant-Traces
 
-- **Status:** Akzeptiert, ersetzt ADR-0011
+- **Status:** Ersetzt durch ADR-0013 (ersetzte ADR-0011)
 - **Datum:** 2026-11-22
 
 ## Kontext
