@@ -81,7 +81,7 @@
   (`scanUseCredentials`); Controller-Abfragen (UniFi, Omada, Proxmox, AdGuard) haben eigene Schalter.
   > OFFEN: Die README verspricht „komplett abschaltbar“; heute schaltet `scanUseCredentials` die
   > Controller-Abfragen nicht mit ab.
-  > OFFEN: Die Live-Abfragen des Assistenten an Home Assistant und UniFi (`get_ha_*`, `get_unifi_client`)
+  > OFFEN: Die Live-Abfragen des Assistenten an Home Assistant und UniFi (`get_ha_*`, `get_unifi_*`)
   > prüfen das Opt-in nicht.
 - **L3a [Muss]** Manche Plattformen brauchen zum Lesen einen Befehl, der formal in einen
   Konfigurationsmodus wechselt (TP-Link `configure` / `no clipaging` gegen Seitenumbruch). Erlaubt
@@ -99,7 +99,7 @@
 - **L6 [Impl]** Lese- und Schreibseite sind getrennte Module, die einander nicht importieren;
   gemeinsamer Code wird eher dupliziert als geteilt. ([ADR-0015](../adr/0015-lesender-zugriff-klassische-unifi-api.md))
 - **L8 [Muss]** Live-Zugriff auf die klassische UniFi-API (`unifi_live.py`) ist nur lesend: Auth
-  allein per `X-API-Key`, feste Endpunkt-Allowlist (GET plus höchstens ein lesender POST für Events, der mit `get_unifi_events` folgt), Feld-Positivliste,
+  allein per `X-API-Key`, feste Endpunkt-Allowlist (GET plus genau ein lesender POST für Events, `get_unifi_events`), Feld-Positivliste,
   höchstens 7 Tage, begrenzte Menge, nichts wird gespeichert. Importiert kein `*_admin`-Modul und
   wird nicht von Scan-Modulen importiert. ([ADR-0015](../adr/0015-lesender-zugriff-klassische-unifi-api.md))
 - **L7 [Muss, bewusste Abwägung]** SSH-Hostschlüssel werden nicht geprüft (kein Vertrauensspeicher;

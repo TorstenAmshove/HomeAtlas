@@ -122,7 +122,7 @@ Lücken: **0**
 | `systems` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [credentialed-probing](capabilities/credentialed-probing/spec.md), [dashboard](capabilities/dashboard/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [dokumentation](capabilities/dokumentation/spec.md), [erreichbarkeit](capabilities/erreichbarkeit/spec.md), [inventar](capabilities/inventar/spec.md), [klassifikation-llm](capabilities/klassifikation-llm/spec.md), [monitoring](capabilities/monitoring/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md), [remote-admin](capabilities/remote-admin/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md), [topologie](capabilities/topologie/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `users` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md) |
 
-## KI-Werkzeuge (24)
+## KI-Werkzeuge (27)
 
 | Eintrag | Spec |
 |---|---|
@@ -140,6 +140,9 @@ Lücken: **0**
 | `get_ha_history` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `get_ha_logbook` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `get_unifi_client` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
+| `get_unifi_device` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
+| `get_unifi_network` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
+| `get_unifi_events` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `get_ha_error_log` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `list_ha_traces` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `get_ha_trace` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |

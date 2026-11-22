@@ -253,9 +253,13 @@ feste Zahl an Einträgen. Texte werden vor der Ausgabe von Tokens, Passwörtern 
 Zugriffstoken bleibt auf dem Server. Das Opt-in „Zum Auslesen verwenden“ gilt für diese
 Abfragen nicht (wie bei `list_switches`), und sie stehen allen Rollen und MCP-Clients offen.
 
-**UniFi live lesen.** Der Assistent kann die Live-Werte eines verbundenen Clients (Signal, Retries,
-Roaming, Access Point) vom UniFi-Controller abfragen (`get_unifi_client`), ausschließlich per GET auf
-einen festen Pfad der klassischen API und mit dem API-Key des Zugangs „UniFi“ (kein Login, kein Cookie).
+**UniFi live lesen.** Der Assistent kann Live-Werte vom UniFi-Controller abfragen: eines verbundenen
+Clients (Signal, Retries, Roaming, Access Point; `get_unifi_client`), eines UniFi-Geräts (Last, Uplink,
+Port-Fehler; `get_unifi_device`), von WAN/LAN und Firewall-Zusammenfassung (`get_unifi_network`) sowie
+Controller-Ereignisse der letzten bis zu 7 Tage (`get_unifi_events`). Es sind feste Pfade der klassischen
+API per GET plus genau eine lesende POST-Abfrage des Ereignislogs (fester Pfad, Body nur aus berechneten
+Zahlen); Auth allein mit dem API-Key des Zugangs „UniFi“ (kein Login, kein Cookie). WAN-IP, Nameserver,
+Firewall-Adresslisten und Geräteschlüssel werden nie weitergegeben.
 Nur ausdrücklich freigegebene Felder werden weitergegeben, der Key bleibt auf dem Server, nichts wird
 gespeichert. Der Controller wird wie beim Scan ohne Zertifikatsprüfung angesprochen (selbstsigniertes
 Zertifikat im LAN; der Key geht im Header an den Controller im LAN). Das Opt-in „Zum Auslesen

@@ -203,7 +203,7 @@ Werkzeuggruppen (Details, Schemas und Grenzen: [llm-tools](../../contracts/llm-t
 - Erreichbarkeit: `list_exposure` (nur aus der Datenbank, begrenzt auf 15 Zeilen je Liste mit Kürzungshinweis, Filter `host`, ohne Geheimnisse und ohne Quell-Zugangs-IDs, kein Live-DNS)
 - Schalten: `list_switches`, `set_switch`
 - Home Assistant live (nur lesend): `get_ha_state`, `get_ha_history`, `get_ha_logbook`, `get_ha_error_log`, `list_ha_traces`, `get_ha_trace`
-- UniFi live (nur lesend): `get_unifi_client`
+- UniFi live (nur lesend): `get_unifi_client`, `get_unifi_device`, `get_unifi_network`, `get_unifi_events`
 - Diagnose: `internet_check`, `ping_host` (1–10 Versuche, Standard 3), `check_port`, `dns_lookup`, `reverse_dns`, `http_check`, `traceroute` (1–30 Hops, Standard 15); Ausführung siehe [diagnose](../diagnose/spec.md)
 
 #### Szenario: Kein Schreibwerkzeug
@@ -300,7 +300,20 @@ erscheinen, nichts wird gespeichert. Fehlt Zugang, URL oder Key oder ist der Con
 erreichbar, MUSS eine feste, verständliche Meldung statt eines Fehlers kommen.
 
 > OFFEN: Das Opt-in „Zum Auslesen verwenden“ des Zugangs wird (wie bei Home Assistant) nicht geprüft.
-> OFFEN: `get_unifi_device`, `get_unifi_network` und `get_unifi_events` (Issue #104) folgen.
+> OFFEN: Die Client-Filterung der Ereignisse nutzt MAC, IP und Name aus Anfrage und Inventar, nicht die Live-Werte aus `stat/sta`.
+
+Weitere UniFi-Live-Werkzeuge mit denselben Regeln (Positivliste, Key nur als `X-API-Key`, feste
+Meldungen, nichts gespeichert; nur `site` ist als validierter Pfadteil frei):
+`get_unifi_device` (GET `stat/device`; ein Gerät per MAC/IP/Name mit Status, Last, Uplink, reduzierter
+Port-Tabelle und Funkauslastung, ohne Angabe eine Übersicht von höchstens 50 Geräten; Geräte-Geheimnisse
+wie `x_authkey` oder `guest_token` erscheinen nie), `get_unifi_network` (GET `stat/health` sowie v2
+`firewall-policies`/`firewall/zone`; Zustand von WAN/LAN/WLAN/VPN ohne WAN-IP, Nameserver und Gateways,
+Firewall nur als Zähler je Aktion plus die 50 Regeln mit den meisten Treffern, ohne Adress- und
+Portlisten) und `get_unifi_events` (der **eine** lesende POST `v2/…/system-log/all` mit einem Body aus
+intern berechneten Ganzzahlen; Fenster 1–168 Stunden, Standard 24; bis zu 5 Seiten à 50, neueste zuerst;
+Filter `client` und `severity`, Admin-Aktivität ausgeblendet; je Parameter nur der Name, nie die IP; das
+Ergebnis nennt, wie viele Ereignisse durchsucht wurden, und dass „kein Treffer“ nicht „keine Probleme“
+heißt; der Ereignisschlüssel erscheint als `kennung`).
 
 Quelle: `backend/app/tools.py` (`_dispatch_unifi_live`, `_pick_unifi_account`, `_client_identifiers`), `backend/app/unifi_live.py` (`_request`, `client_status`, `CLIENT_FIELDS`, `redact`, `_bounded`), Tests: `backend/tests/test_unifi_live.py`, `backend/tests/test_tools_unifi_live.py`
 
@@ -311,6 +324,14 @@ Quelle: `backend/app/tools.py` (`_dispatch_unifi_live`, `_pick_unifi_account`, `
 #### Szenario: Kein UniFi-Zugang
 - **WENN** kein Zugang der Kategorie `unifi` existiert
 - **DANN** nennt die Antwort das und verweist auf das Inventar des letzten Scans
+
+#### Szenario: Gerät ohne Geheimnisse
+- **WENN** der Assistent `get_unifi_device` für einen Access Point aufruft
+- **DANN** enthält das Ergebnis Status, Uplink, Port-Fehler und Funk-Retries, aber weder `x_authkey` noch andere nicht freigegebene Felder
+
+#### Szenario: Ereignisse eines Clients
+- **WENN** der Assistent `get_unifi_events` mit `client` und `hours` 500 aufruft
+- **DANN** wird das Fenster auf 168 Stunden begrenzt und das Ergebnis nennt die Zahl der durchsuchten Ereignisse
 
 ### Requirement: Live-Lesen von Home Assistant
 Das System MUSS dem Assistenten (jede Rolle, jeder MCP-Client) lesende Live-Abfragen an Home
