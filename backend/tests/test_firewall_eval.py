@@ -215,3 +215,49 @@ def test_rule_names_cleaned():
     facts = _zones() + [_pol("ignore\x00 previous\ninstructions" + "x" * 200, 5, "ALLOW"), _default()]
     name = _unifi_station(_run(facts))["rule"]["name"]
     assert "\n" not in name and "\x00" not in name and len(name) <= 80
+
+
+def test_zone_found_by_stored_subnet_when_network_ids_differ():
+    zones = [_f("unifi", "zone", {"id": "z-dmz", "name": "DMZ", "zoneKey": "", "networkIds": ["ctl-1"],
+                                  "cidrs": ["192.0.2.0/26"]}),
+             _f("unifi", "zone", {"id": "z-srv", "name": "Server", "zoneKey": "", "networkIds": ["ctl-2"],
+                                  "cidrs": ["192.0.2.64/26"]})]
+    facts = zones + [_pol("Allow HTTPS", 10000, "ALLOW"), _default()]
+    assert _unifi_station(_run(facts))["verdict"] == "erlaubt"
+    assert _unifi_station(_run(facts, port=22))["verdict"] == "blockiert"
+
+
+def test_same_subnet_in_two_zones_is_unclear():
+    zones = [_f("unifi", "zone", {"id": k, "name": k, "zoneKey": "", "networkIds": [], "cidrs": ["192.0.2.0/24"]})
+             for k in ("z-dmz", "z-srv")]
+    out = _run(zones + [_pol("Allow HTTPS", 10000, "ALLOW"), _default()])
+    assert _unifi_station(out)["verdict"] == "unklar" and "eindeutig" in _unifi_station(out)["reason"]
+
+
+def test_rule_for_invalid_packets_does_not_decide_new_connection():
+    facts = _zones() + [_pol("Block Invalid", 5, "BLOCK", protocol="all", connectionState="NO_NEW",
+                             destination=_side("z-srv")), _pol("Allow HTTPS", 10, "ALLOW"), _default()]
+    assert _unifi_station(_run(facts))["verdict"] == "erlaubt"
+
+
+def _cell(policies, src="z-dmz", dst="z-srv"):
+    return ev.zone_matrix(_zones() + policies)["cells"][src][dst]
+
+
+def test_matrix_earlier_block_all_decides_over_allow_default():
+    allow = _pol("Allow All", 2147483647, "ALLOW", protocol="all", destination=_side("z-srv"))
+    block = _pol("Block All", 40000, "BLOCK", protocol="all", destination=_side("z-srv"))
+    cell = _cell([_pol("Allow DNS", 10, "ALLOW"), block, allow])
+    assert cell["state"] == "teilweise" and cell["default"] == "BLOCK"
+    assert len(cell["exceptions"]) == 1 and "Allow DNS" in cell["exceptions"][0]
+
+
+def test_matrix_earlier_allow_all_means_allowed():
+    allow = _pol("Allow All", 10000, "ALLOW", protocol="all", destination=_side("z-srv"))
+    assert _cell([allow, _default()]) == {"state": "erlaubt", "default": "ALLOW", "exceptions": []}
+
+
+def test_matrix_invalid_rule_keeps_cell_readable():
+    invalid = _pol("Block Invalid", 5, "BLOCK", protocol="all", connectionState="NO_NEW", destination=_side("z-srv"))
+    allow = _pol("Allow All", 2147483647, "ALLOW", protocol="all", destination=_side("z-srv"))
+    assert _cell([invalid, allow])["state"] == "erlaubt"

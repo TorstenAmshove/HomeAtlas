@@ -38,6 +38,11 @@ GROUPS = [{"_id": "g1", "name": "Sonos", "group_type": "address-group", "group_m
           {"_id": "g3", "name": "Netz", "group_type": "address-group", "group_members": ["10.0.0.0/8"]}]
 
 
+NETWORKS = [{"_id": "net-1", "ip_subnet": "192.0.2.2/26", "name": "DMZ", "x_password": "wan-geheim"},
+            {"_id": "net-2", "ip_subnet": "192.0.2.66/26"},
+            {"_id": "net-wan", "purpose": "wan", "x_pppoe_password": "wan-geheim"}]
+
+
 def _handler(requests, policies, zones=None, groups=None, sites=None):
     def handler(request):
         requests.append(request)
@@ -50,6 +55,8 @@ def _handler(requests, policies, zones=None, groups=None, sites=None):
             return httpx.Response(200, json=policies)
         if path.endswith("/rest/firewallgroup"):
             return httpx.Response(200, json={"data": GROUPS if groups is None else groups})
+        if path.endswith("/rest/networkconf"):
+            return httpx.Response(200, json={"data": NETWORKS})
         raise AssertionError(path)
     return handler
 
@@ -66,7 +73,8 @@ def test_only_get_with_api_key_no_redirect(monkeypatch):
     assert all(r.headers["X-API-Key"] == KEY for r in requests)
     assert all(not {"cookie", "x-csrf-token", "authorization"} & set(r.headers) for r in requests)
     paths = sorted({r.url.path for r in requests})
-    assert paths == ["/proxy/network/api/s/default/rest/firewallgroup", "/proxy/network/api/self/sites",
+    assert paths == ["/proxy/network/api/s/default/rest/firewallgroup", "/proxy/network/api/s/default/rest/networkconf",
+                     "/proxy/network/api/self/sites",
                      "/proxy/network/v2/api/site/default/firewall-policies",
                      "/proxy/network/v2/api/site/default/firewall/zone"]
 
@@ -139,3 +147,18 @@ def test_max_500_policies_is_unreadable_not_a_subset(monkeypatch):
     result = _run(_handler([], pol), monkeypatch)
     assert not result["ok"] and result["facts"] == [] and "Zu viele" in result["error"]
     assert _run(_handler([], pol[:500]), monkeypatch)["ok"]
+
+
+def test_zone_gets_only_subnets_from_networkconf(monkeypatch):
+    result = _run(_handler([], [_policy("p1", 1)]), monkeypatch)
+    zone = next(z for z in _by_kind(result, "zone") if z["id"] == ZONE_A)
+    assert zone["cidrs"] == ["192.0.2.0/26", "192.0.2.64/26"]
+    assert "wan-geheim" not in str(result)
+
+
+def test_custom_state_without_new_is_not_unsupported(monkeypatch):
+    pol = [_policy("inv", 1, connection_state_type="CUSTOM", connection_states=["INVALID"]),
+           _policy("new", 2, connection_state_type="CUSTOM", connection_states=["NEW", "INVALID"])]
+    by_id = {p["id"]: p for p in _by_kind(_run(_handler([], pol), monkeypatch), "policy")}
+    assert by_id["inv"]["connectionState"] == "NO_NEW" and by_id["inv"]["unsupported"] == []
+    assert by_id["new"]["unsupported"] == ["Verbindungsstatus benutzerdefiniert"]

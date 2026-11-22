@@ -452,6 +452,14 @@ def _sys_names(systems: list[dict]) -> str:
     return ", ".join(_md(s["name"]) for s in systems) or "nicht im Inventar"
 
 
+def _firewall_label(result: dict | None) -> str:
+    """Verdict of a chain step, with the reason unless it is simply allowed."""
+    result = result or {}
+    verdict = _md(result.get("verdict") or "unklar")
+    reason = result.get("reason") if verdict != "erlaubt" else ""
+    return f"{verdict}: {_md(reason, 140)}" if reason else verdict
+
+
 def _exposure_section() -> str:
     """Chapter body for reachability; facts only, no secrets ever reach this (ADR-0014)."""
     wan = next((r.get("facts") or {} for r in db.list_network_resources(kind="wan", active_only=True)
@@ -468,7 +476,7 @@ def _exposure_section() -> str:
             out.append(f"**{_md(chain['host'])}**" + (" (über Cloudflare)" if chain["cloudflare"] else ""))
             for path in chain["paths"]:
                 steps = " → ".join(
-                    f"{_md(s['label'])} ({_sys_names(s['systems'])}) [Firewall: {_md((s.get('firewall') or {}).get('verdict') or 'unklar')}]"
+                    f"{_md(s['label'])} ({_sys_names(s['systems'])}) [Firewall: {_firewall_label(s.get('firewall'))}]"
                     for s in path["steps"]) or "-"
                 guard = ", Client-Zertifikat (mTLS) nötig" if path["mtls"] else ""
                 out.append(f"- {path['sourceLabel']} [{path['status']}{guard}]: Internet → {steps}")

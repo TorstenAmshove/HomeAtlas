@@ -25,6 +25,7 @@ NOTE = ("Nicht ausgewertet: Proxmox-Firewall, nftables-forward, NAT/Portweiterle
 _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 _DEFAULT_INDEX = 2147483647
 _UNIFI, _NFT = "UniFi", "nftables"
+_NOT_NEW = {"RESPOND_ONLY", "NO_NEW"}  # rules that never decide a new connection
 
 
 def clean(value: object, limit: int = 80) -> str:
@@ -73,6 +74,22 @@ def zone_of(ip_text: str, zones: list[dict], netres: list[dict]) -> tuple[dict |
     ip = _ip(ip_text)
     if ip is None or ip.version != 4:
         return None, "IPv6 wird nicht ausgewertet"
+    # Subnets stored on the zone (ADR-0019) are authoritative; the inventory's network IDs differ.
+    hits = []
+    for zone in zones:
+        for cidr in zone.get("cidrs") or []:
+            try:
+                net = ipaddress.ip_network(str(cidr), strict=False)
+            except ValueError:
+                continue
+            if net.version == 4 and ip in net:
+                hits.append((net.prefixlen, zone))
+    if hits:
+        longest = max(length for length, _ in hits)
+        found = {z["id"]: z for length, z in hits if length == longest}
+        if len(found) == 1:
+            return next(iter(found.values())), ""
+        return None, "Zone nicht zuordenbar (Netz gehört zu keiner eindeutigen Zone)"
     best, best_len = None, -1
     for res in netres:
         if res.get("kind") != "network":
@@ -189,8 +206,8 @@ def _unifi_station(src_ip: str, dst_ip: str, port: int, proto: str, unifi_facts:
         return _station(name, _UNIFI, UNCLEAR, "Mehrere Regeln mit gleichem Index im Zonenpaar")
     sip, dip = _ip(src_ip), _ip(dst_ip)
     for policy in pair:
-        if policy.get("connectionState") == "RESPOND_ONLY":
-            continue  # only answers of existing connections, never a new one
+        if policy.get("connectionState") in _NOT_NEW:
+            continue  # only answers or invalid packets, never a new connection
         if policy.get("ipVersion") == "IPV6":
             continue
         if policy.get("unsupported"):
@@ -419,30 +436,37 @@ def _summary(result: dict) -> dict:
     if pick:
         rule = pick.get("rule") or {}
         reason = pick["reason"] or clean(rule.get("name"))
+    gateway = next((s for s in stations if s["source"] == _UNIFI and s["verdict"] == ALLOWED), None)
+    if result["verdict"] == UNCLEAR and gateway:  # say what is known: the gateway allows, the rest is open
+        reason = f"UniFi erlaubt ({clean((gateway.get('rule') or {}).get('name'))}); {reason}"
     return {"verdict": result["verdict"], "station": pick["station"] if pick else "", "reason": reason}
 
 
 def annotate_chains(chains: list[dict], facts: list[dict], systems: list[dict], netres: list[dict]) -> list[dict]:
     """Adds `firewall: {verdict, station, reason}` to every step of every chain path (in place) and a hint to the
-    chain when a path that is configured as active is blocked. Step n is judged as previous step -> step n.
-    The first step comes from the Internet (port forwarding/tunnel is not evaluated): always "unklar"."""
+    chain when a path that is configured as active is blocked. Step n is judged as previous step -> step n; a step
+    the proxy or tunnel connects to directly (`fromVia`) is judged from the system running it (`via`). Without a
+    known `via` it stays "unklar", because the way in from the Internet is not evaluated."""
     for chain in chains:
         for path in chain.get("paths") or []:
             prev: dict | None = None
             for step in path.get("steps") or []:
                 port = _target_port(step.get("label") or "")
                 found = step.get("systems") or []
-                if prev is None:
+                via = str(path.get("via") or "") if prev is None or step.get("fromVia") else ""
+                if (prev is None or step.get("fromVia")) and not via:
                     fw = {"verdict": UNCLEAR, "station": "", "reason": "Portweiterleitung/Tunnel nicht ausgewertet"}
                 elif port is None:
                     fw = {"verdict": UNCLEAR, "station": "", "reason": "kein Port bekannt"}
-                elif len(found) != 1 or len(prev) != 1:
+                elif len(found) != 1 or (not via and len(prev) != 1):
                     fw = {"verdict": UNCLEAR, "station": "", "reason": "System nicht eindeutig im Inventar"}
                 else:
-                    src = resolve_endpoint(prev[0]["id"], systems)
+                    src = resolve_endpoint(via or prev[0]["id"], systems)
                     dst = resolve_endpoint(found[0]["id"], systems)
                     if "error" in src or "error" in dst:
                         fw = {"verdict": UNCLEAR, "station": "", "reason": clean(src.get("error") or dst.get("error"))}
+                    elif src["ip"] == dst["ip"]:
+                        fw = {"verdict": UNCLEAR, "station": "", "reason": "Quelle und Ziel auf demselben Host"}
                     else:
                         fw = _summary(evaluate_path(src, dst, port, "tcp", facts, netres))
                 step["firewall"] = fw
@@ -466,12 +490,21 @@ def _describe(policy: dict) -> str:
     return f"{clean(policy.get('name')) or '(ohne Name)'} ({clean(policy.get('protocol'), 20)}, {clean(port, 40)})"
 
 
+def _matches_everything(policy: dict) -> bool:
+    """True for a rule without any restriction on protocol, addresses or ports."""
+    if policy.get("protocol") != "all" or policy.get("unsupported"):
+        return False
+    return all(side.get("target") == "ANY" and not side.get("ipGroupId") and side.get("portType") == "ANY"
+               for side in (policy.get("source") or {}, policy.get("destination") or {}))
+
+
 def zone_matrix(facts: list[dict]) -> dict:
     """Zone x zone summary of the stored UniFi policies for the documentation.
 
     `{zones, extraZones, cells: {src: {dst: {state, exceptions: [text]}}}, disabled: [names], sources}`;
-    state is "erlaubt" / "gesperrt" / "teilweise" / "unklar". Only rules that deviate from the pair's default
-    count as exceptions; answers to existing connections (RESPOND_ONLY) are ignored."""
+    state is "erlaubt" / "gesperrt" / "teilweise" / "unklar". Rules apply in index order: the first rule matching
+    all traffic decides the pair's effective default and everything behind it is unreachable. Only earlier rules
+    with the other action count as exceptions; rules that never decide a new connection are ignored."""
     unifi = [f for f in facts if f["source"] == "unifi"]
     zones = sorted((f["data"] for f in unifi if f["kind"] == "zone"), key=lambda z: clean(z.get("name")).lower())
     policies = [f["data"] for f in unifi if f["kind"] == "policy"]
@@ -483,9 +516,10 @@ def zone_matrix(facts: list[dict]) -> dict:
                 continue
             pair = sorted((p for p in policies if p["source"]["zoneId"] == a["id"]
                            and p["destination"]["zoneId"] == b["id"] and p.get("enabled")), key=lambda p: p["index"])
-            live = [p for p in pair if p.get("connectionState") != "RESPOND_ONLY" and p.get("ipVersion") != "IPV6"]
-            default = next((p for p in live if p["index"] >= _DEFAULT_INDEX), None)
-            others = [p for p in live if p is not default]
+            live = [p for p in pair if p.get("connectionState") not in _NOT_NEW and p.get("ipVersion") != "IPV6"]
+            cut = next((i for i, p in enumerate(live) if _matches_everything(p)), None)
+            default = live[cut] if cut is not None else None
+            others = live[:cut] if cut is not None else live
             if default is None or default.get("action") not in ("ALLOW", "BLOCK") or any(p.get("unsupported") for p in others):
                 cells.setdefault(a["id"], {})[b["id"]] = {"state": UNCLEAR, "exceptions": []}
                 continue

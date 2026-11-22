@@ -1,21 +1,25 @@
 """Reads UniFi firewall zones, policies and address/port groups, read-only (ADR-0017).
 
-Three fixed GET paths per site, all with the integration API key (header ``X-API-Key``, like
+Four fixed GET paths per site, all with the integration API key (header ``X-API-Key``, like
 `unifi_classic_probe.py`; no login, no cookie, redirects are not followed):
 
 - ``/proxy/network/v2/api/site/<site>/firewall/zone``      (plain JSON list)
 - ``/proxy/network/v2/api/site/<site>/firewall-policies``  (plain JSON list)
 - ``/proxy/network/api/s/<site>/rest/firewallgroup``       (``{"data": [...]}``)
+- ``/proxy/network/api/s/<site>/rest/networkconf``         (``{"data": [...]}``, only ``_id`` and ``ip_subnet``)
 
 The v2 group paths answer 404 on UniFi Network 11.0.103, so the classic path is used (spike, #106).
+A zone lists its networks by controller ID, which differs from the integration API's network ID in
+the inventory, so the subnets are resolved here and stored on the zone (ADR-0019). Nothing else of
+``networkconf`` is kept: it also holds WAN credentials.
 Opt-in like every source: only accounts of category ``unifi`` with ``allowProbe`` and only while
 ``scanEnableFirewallUnifi`` is on (pipeline.py). The key never leaves this module (not in errors, not
 in results), error texts never contain a response body.
 
 Only a positive list of fields is kept; raw answers are never stored. What the evaluation
 (`firewall_eval.py`) cannot judge with certainty is recorded as ``unsupported`` reasons on the policy
-(time schedule, IPsec match, "custom" connection states, negated matches, unknown action, formats
-this module does not understand). The evaluation then reports "unclear" instead of guessing.
+(time schedule, IPsec match, custom connection states that include new connections, negated matches,
+unknown action, formats this module does not understand). The evaluation then reports "unclear" instead of guessing.
 
 This module must not import `unifi_live.py` (ADR-0015/0017 keep the scan separate); the small GET
 helper is duplicated on purpose. More than 500 policies makes the source unreadable (no subset: a
@@ -43,6 +47,7 @@ _ACTIONS = {"ALLOW", "BLOCK"}
 _PROTOCOLS = {"all", "tcp", "udp", "tcp_udp", "icmp", "icmpv6", "igmp"}
 _IP_VERSIONS = {"BOTH", "IPV4", "IPV6"}
 _STATES = {"ALL", "RESPOND_ONLY", "CUSTOM"}
+_NOT_NEW_STATES = {"ESTABLISHED", "RELATED", "INVALID"}  # a rule limited to these never decides a new connection
 _GROUP_TYPES = {"address-group", "port-group"}
 
 
@@ -99,7 +104,21 @@ def _ip_entry(value: object) -> str:
     return ""
 
 
-def _zone(entry: dict, site: str) -> dict | None:
+def _network_cidrs(entries: list[dict]) -> dict[str, str]:
+    """Controller network ID -> IPv4 subnet. ``ip_subnet`` is the gateway form (``192.168.1.2/24``)."""
+    out: dict[str, str] = {}
+    for entry in entries:
+        network_id = _id(entry.get("_id"))
+        try:
+            net = ipaddress.ip_interface(str(entry.get("ip_subnet") or "")).network
+        except ValueError:
+            continue
+        if network_id and net.version == 4:
+            out[network_id] = str(net)
+    return out
+
+
+def _zone(entry: dict, site: str, cidrs: dict[str, str]) -> dict | None:
     zone_id = _id(entry.get("_id"))
     if not zone_id:
         return None
@@ -107,7 +126,8 @@ def _zone(entry: dict, site: str) -> dict | None:
                             if isinstance(entry.get("network_ids"), list)) if n]
     return {"kind": "zone", "key": f"zone:{site}:{zone_id}", "data": {
         "site": site, "id": zone_id, "name": _text(entry.get("name")), "zoneKey": _text(entry.get("zone_key"), 40),
-        "defaultZone": bool(entry.get("default_zone")), "networkIds": networks}}
+        "defaultZone": bool(entry.get("default_zone")), "networkIds": networks,
+        "cidrs": sorted({cidrs[n] for n in networks if n in cidrs})}}
 
 
 def _side(entry: object, unsupported: list[str], label: str) -> dict:
@@ -162,7 +182,11 @@ def _policy(entry: dict, site: str) -> dict | None:
     if state not in _STATES:
         unsupported.append("Verbindungsstatus")
     elif state == "CUSTOM":
-        unsupported.append("Verbindungsstatus benutzerdefiniert")
+        states = entry.get("connection_states")
+        if isinstance(states, list) and states and all(s in _NOT_NEW_STATES for s in states):
+            state = "NO_NEW"
+        else:
+            unsupported.append("Verbindungsstatus benutzerdefiniert")
     schedule = entry.get("schedule")
     mode = str((schedule or {}).get("mode") or "ALWAYS") if isinstance(schedule, dict) else "ALWAYS"
     if mode != "ALWAYS":
@@ -178,7 +202,7 @@ def _policy(entry: dict, site: str) -> dict | None:
         "enabled": bool(entry.get("enabled", True)), "predefined": bool(entry.get("predefined")),
         "action": action if action in _ACTIONS else "OTHER", "protocol": protocol if protocol in _PROTOCOLS else "other",
         "ipVersion": ip_version if ip_version in _IP_VERSIONS else "OTHER",
-        "connectionState": state if state in _STATES else "OTHER",
+        "connectionState": state if state in _STATES or state == "NO_NEW" else "OTHER",
         "source": source, "destination": destination, "unsupported": sorted(set(unsupported))}}
 
 
@@ -227,8 +251,9 @@ async def probe(base_url: str, api_key: str, account_id: str,
             policies = zones = groups = 0
             for site in sites:
                 name = site["name"]
+                cidrs = _network_cidrs(await _get_json(client, f"{root}/api/s/{name}/rest/networkconf"))
                 for entry in await _get_json(client, f"{root}/v2/api/site/{name}/firewall/zone"):
-                    if (fact := _zone(entry, name)) is not None:
+                    if (fact := _zone(entry, name, cidrs)) is not None:
                         facts.append(fact)
                         zones += 1
                 for entry in await _get_json(client, f"{root}/v2/api/site/{name}/firewall-policies"):

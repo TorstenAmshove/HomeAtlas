@@ -1,6 +1,6 @@
 # ADR-0018: WAN-Status lesen, HA-Systemprotokoll, Dachfenster gesperrt
 
-- **Status:** Akzeptiert, ersetzt ADR-0017
+- **Status:** Ersetzt durch ADR-0019; ersetzte ADR-0017
 - **Datum:** 2026-11-22
 
 ## Kontext

@@ -293,9 +293,9 @@ Start gelöscht; nötig ist stattdessen ein `unifi`-Zugang mit „Zum Auslesen v
 **Firewall-Regeln (UniFi).** Optional liest HomeAtlas die Firewall-Zonen, -Policies und Adress-/Port-Gruppen
 des UniFi-Gateways, um später auszuwerten, welche Netze miteinander sprechen dürfen. Das ist
 standardmäßig **aus** (`scanEnableFirewallUnifi`) und braucht denselben Zugang wie oben: „UniFi Network
-(API-Key)“ mit „Zum Auslesen verwenden“. Nur GET mit `X-API-Key` auf drei feste Pfade je Site, ohne Login und
-Weiterleitungen. Minimal nötige Rechte: wie oben, der Key hat die Rechte seines Erstellers (ADR-0017).
-Gespeichert werden nur Zonen, Regelname, Reihenfolge, Aktion, Protokoll, Ports und IPs, nie Kommentare,
+(API-Key)“ mit „Zum Auslesen verwenden“. Nur GET mit `X-API-Key` auf vier feste Pfade je Site, ohne Login und
+Weiterleitungen. Minimal nötige Rechte: wie oben, der Key hat die Rechte seines Erstellers (ADR-0019).
+Gespeichert werden nur Zonen mit ihren Subnetzen, Regelname, Reihenfolge, Aktion, Protokoll, Ports und IPs, nie Kommentare,
 Trefferzähler oder Schlüssel. Ist die Quelle nicht lesbar, bleiben die alten Regeln als veraltet markiert.
 Der Assistent bewertet damit Wege: `check_firewall_path` (von, nach, Port, Protokoll) liefert je Station (UniFi-Gateway,
 Host-Firewall) „erlaubt“, „blockiert“ oder „unklar“ mit auslösender Regel, `list_firewall_rules` listet die gespeicherten

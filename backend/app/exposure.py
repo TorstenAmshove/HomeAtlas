@@ -218,9 +218,11 @@ def build_chains(facts: list[dict], systems: list[dict], wan: dict | None = None
                     status = "verwaist"
             steps = []
             for t in path["targets"][:3]:
-                steps += follow(t, path["via"], 0, {host})
+                hops = follow(t, path["via"], 0, {host})
+                hops[0]["fromVia"] = True  # the proxy/tunnel connects to this hop itself
+                steps += hops
             paths.append({"source": path["source"], "sourceLabel": _SOURCE_LABEL[path["source"]],
-                          "status": status, "mtls": path["mtls"] or host in waf, "steps": steps})
+                          "status": status, "mtls": path["mtls"] or host in waf, "via": path["via"], "steps": steps})
         chain = {"host": host, "paths": paths, "cloudflare": bool(cf_dns.get(host, {}).get("proxied")),
                  "mtlsCloudflare": host in waf, "hints": []}
         if len(paths) > 1 or any(p["status"] == "verwaist" for p in paths):
