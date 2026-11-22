@@ -39,6 +39,9 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "scanEnableTraefik": True,
     "scanEnableUnifiClassic": True,
     "scanEnableExposureFiles": True,
+    # Contacts outside the LAN (ADR-0014): off until switched on deliberately.
+    "scanEnableCloudflare": False,
+    "scanEnablePublicDns": False,
     "scanEnableHttpBanner": True,
     "scanUseLlm": True,
     "scanExcludeIps": [],

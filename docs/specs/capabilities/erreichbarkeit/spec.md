@@ -1,7 +1,7 @@
 # Erreichbarkeit von außen
 
-> Status: neu (Issue #102, Teil 3 von 6: Datenmodell, Kettenlogik, Kapitel, Traefik, Datei-Quellen). Die weiteren Quellen
-> (Caddy/cloudflared/ddclient, UniFi, Cloudflare, öffentliches DNS) folgen in den nächsten Teilen.
+> Status: neu (Issue #102, Teil 5 von 6: Datenmodell, Kettenlogik, Kapitel, Traefik, Datei-Quellen, UniFi, Cloudflare,
+> öffentliches DNS, DynDNS-Container). Das Assistenten-Werkzeug und die Systemseite folgen im letzten Teil.
 
 ## Zweck
 
@@ -100,3 +100,36 @@ Ausgabe ist auf 256 KB begrenzt, ein `import` anderer Dateien wird nicht verfolg
 - **DANN** werden die Fakten dieser Quellen beim nächsten Scan gelöscht
 
 Quelle: `backend/app/exposure_files.py`, `backend/app/pipeline.py`, Test: `backend/tests/test_exposure_files.py`, `backend/tests/test_exposure_boundaries.py`
+
+### Requirement: Cloudflare, öffentliches DNS und DynDNS-Container
+Das System MUSS Cloudflare-DNS-Einträge, Tunnel-Status und mTLS-WAF-Regeln (nur der Ausdruck) per GET lesen und
+öffentliche Hostnamen über einen festen DoH-Resolver auflösen, beides nur mit Schalter (`scanEnableCloudflare`,
+`scanEnablePublicDns`, Standard **aus**) und `allowProbe`-Zugang (Kategorie `cloudflare`: Adresse = Zone-ID,
+Benutzername = Account-ID, Geheimnis = Token). Das Tunnel-Token wird nie abgerufen; das öffentliche DNS fragt nur
+validierte Hostnamen ohne Wildcards, höchstens 200 Abfragen je Scan. DynDNS-Container werden am Image erkannt
+(feste Liste); aus ihrer Umgebung bleiben nur Hostnamen und die IPv4/IPv6-Schalter. **[Muss]**
+
+#### Szenario: Schalter aus
+- **WENN** `scanEnableCloudflare` oder `scanEnablePublicDns` aus ist (Standard)
+- **DANN** erfolgt kein Aufruf nach außen, bereits gespeicherte Fakten dieser Quelle werden gelöscht und das Kapitel nennt den Pfadstatus „unklar“
+
+#### Szenario: Extern gehosteter Hostname
+- **WENN** ein Cloudflare-Eintrag weder auf die WAN-IP noch in einen Tunnel führt und kein Pfad dafür konfiguriert ist
+- **DANN** steht er im Abschnitt „Extern gehostet“ (Ziel, Reverse-DNS-Anbieterlabel) ohne Kette und ohne Warnung; ohne WAN-IP bleibt er unklar
+
+#### Szenario: Tunnel nicht verbunden
+- **WENN** die Cloudflare-Tunnel-API den Tunnel eines DNS-Eintrags als `down`/`inactive` meldet
+- **DANN** erscheint ein Hinweis
+
+Quelle: `backend/app/cloudflare_probe.py`, `backend/app/public_dns.py`, `backend/app/docker_probe.py`, `backend/app/exposure.py`, Test: `backend/tests/test_cloudflare_probe.py`, `backend/tests/test_public_dns.py`, `backend/tests/test_exposure_dyndns.py`, `backend/tests/test_exposure_secrets.py`
+
+### Requirement: Assistent-Werkzeug und Systemseite
+Das System MUSS `list_exposure` (nur lesend, nur aus gespeicherten Fakten, ohne Live-DNS, begrenzt mit
+Kürzungshinweis, ohne Geheimnisse und Quell-Zugangs-IDs) für ADMIN, MEMBER und Assistent bereitstellen.
+`tools.py` DARF aus den Erreichbarkeits-Modulen nur `exposure` importieren (ADR-0014). Die Systemseite
+(Tab „Technik“) MUSS über `GET /api/systems/{id}/exposure` „Erreichbar über …“ zeigen, wenn das System
+Ziel einer Kette, einer Traefik-Route oder einer Portweiterleitung ist. **[Muss]**
+
+#### Szenario: Frage nach einem Hostnamen
+- **WENN** der Assistent `list_exposure` mit `host` aufruft
+- **DANN** enthält die Antwort nur Ketten, interne Routen und Extern-Zeilen zu diesem Host

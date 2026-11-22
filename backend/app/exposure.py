@@ -9,6 +9,7 @@ Fact shapes (`data` of an `exposureFacts` row; hostnames lower-case, no trailing
   tunnel_ingress  {host, origin, tls_noverify, via}
   cf_dns          {host, type, target, proxied, provider?}
   cf_waf_mtls     {host}
+  cf_tunnel       {id, name, status}                  status "healthy"/"degraded"/"down"/"inactive"
   dns             {host, addrs[], cname?}               public resolution (never the LAN resolver)
   traefik_router  {hosts[], service, resolver, middlewares[], tls}
   ddns            {client, provider, hosts[], ipv4, ipv6, via}
@@ -201,11 +202,26 @@ def build_chains(facts: list[dict], systems: list[dict], wan: dict | None = None
         chain["hints"] = list(dict.fromkeys(chain["hints"]))
         chains.append(chain)
 
+    tunnels = {f["data"].get("id", ""): f["data"] for f in _by_kind(facts, "cf_tunnel")}
+    for cf in cf_dns.values():
+        target = str(cf.get("target", ""))
+        tunnel = tunnels.get(target[:-len(_TUNNEL_SUFFIX)]) if target.endswith(_TUNNEL_SUFFIX) else None
+        if tunnel and tunnel.get("status") in ("down", "inactive"):
+            hints.append(f"Cloudflare-Tunnel „{tunnel.get('name', '')}“ ist nicht verbunden.")
+
     external = []
     for host, cf in sorted(cf_dns.items()):
         if "*" in host or host in paths_by_host or str(cf.get("target", "")).endswith(_TUNNEL_SUFFIX):
             continue
-        if cf.get("type") in ("A", "AAAA") and wan_ip and not _ip_eq(cf.get("target", ""), wan_ip):
+        if not wan_ip:
+            continue  # without the WAN address nothing can be told apart from the home network
+        if cf.get("type") in ("A", "AAAA"):
+            addrs = [cf.get("target", "")]
+        else:  # CNAME: only the public resolution says where it really ends up
+            addrs = list((dns.get(host) or {}).get("addrs") or [])
+            if not addrs:
+                continue
+        if not any(_ip_eq(a, wan_ip) for a in addrs):
             external.append({"host": host, "target": cf.get("target", ""), "provider": cf.get("provider", "")})
 
     internal = []
@@ -244,3 +260,22 @@ def build_chains(facts: list[dict], systems: list[dict], wan: dict | None = None
             "internal": internal, "ddns": ddns, "portforwards": forwards, "hints": list(dict.fromkeys(hints)),
             "portforwardsChecked": any(not f.get("stale") for f in _by_kind(facts, "portforward_scan")),
             "hasData": bool(facts)}
+
+
+def for_system(data: dict, system_id: str) -> list[dict]:
+    """Rows "reachable via ..." for one inventory system, from an already built `build_chains` result."""
+    rows: list[dict] = []
+    for chain in data["chains"]:
+        for path in chain["paths"]:
+            if any(s["id"] == system_id for step in path["steps"] for s in step["systems"]):
+                rows.append({"host": chain["host"], "scope": "extern", "via": path["sourceLabel"],
+                             "status": path["status"], "mtls": path["mtls"]})
+    for r in data["internal"]:
+        if any(s["id"] == system_id for s in r["systems"]):
+            rows.append({"host": r["host"], "scope": "intern", "via": "Traefik (TLS)", "status": "",
+                         "mtls": False})
+    for p in data["portforwards"]:
+        if any(s["id"] == system_id for s in p["systems"]):
+            rows.append({"host": f"{p['proto']} {p['wanPort']}", "scope": "portforward", "via": "Router-Portweiterleitung",
+                         "status": "aktiv" if p.get("enabled", True) else "aus", "mtls": False})
+    return rows[:50]

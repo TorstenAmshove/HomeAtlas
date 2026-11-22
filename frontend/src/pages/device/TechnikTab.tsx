@@ -1,5 +1,6 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import type { ProbeResult, System, SystemAlias } from "../../lib/api";
+import { api, type ExposureEntry, type ProbeResult, System, SystemAlias } from "../../lib/api";
 import { Facts, NoticeLine, Section, StateChip, fullDate, type Notice } from "./common";
 
 /** Tab "Technik": everything the scan and the read-only probe found (forensics "Gerät" 5). The
@@ -16,6 +17,13 @@ export default function TechnikTab({ system, monitorPorts, aliases, isAdmin, can
   onProbe: () => void;
 }) {
   const docker = system.extra?.docker;
+  // "Erreichbar über ..." (GET /systems/{id}/exposure); empty when no reachability source is set up.
+  const [exposure, setExposure] = useState<ExposureEntry[]>([]);
+  useEffect(() => {
+    let live = true;
+    api.getSystemExposure(system.id).then((r) => { if (live) setExposure(r.entries); }).catch(() => {});
+    return () => { live = false; };
+  }, [system.id]);
   // Per-address ports of a merged multi-homed device -- see db.merge_systems / _record_interface.
   const interfaceEntries = Object.entries(
     (system.extra?.interfaces ?? {}) as Record<string, { openPorts?: number[] }>,
@@ -81,6 +89,19 @@ export default function TechnikTab({ system, monitorPorts, aliases, isAdmin, can
                   )}
                 </span>
                 {s.explanation && <span className="dv-row-sub">{s.explanation}</span>}
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+
+      {exposure.length > 0 && (
+        <Section title="Erreichbar über …" id="dv-exposure">
+          <ul>
+            {exposure.map((e, i) => (
+              <li key={i}>
+                <span className="mono">{e.host}</span> — {e.scope === "intern" ? "intern per TLS" : e.scope === "extern" ? "aus dem Internet" : "Portweiterleitung"}
+                {" "}über {e.via}{e.status ? ` (${e.status})` : ""}{e.mtls ? ", Client-Zertifikat nötig" : ""}
               </li>
             ))}
           </ul>

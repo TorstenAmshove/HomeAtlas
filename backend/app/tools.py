@@ -31,8 +31,8 @@ import json
 import time
 from contextvars import ContextVar
 
-from . import (crypto, db, diagnostics, discovery, docker_probe, llm_providers, probe_auth, prompts, switch_admin,
-               unifi_live)
+from . import (crypto, db, diagnostics, discovery, docker_probe, exposure, llm_providers, probe_auth, prompts,
+               switch_admin, unifi_live)
 from datetime import datetime, timezone
 
 # A tool result is fed straight back into the context window; an unbounded one (a /24 inventory, a
@@ -125,6 +125,17 @@ TOOL_DEFINITIONS: list[dict] = [
         "name": "list_containers",
         "description": "Listet die Docker-Container auf dem Server: Image, Status, veröffentlichte Ports, Volumes.",
         "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "list_exposure",
+        "description": ("Zeigt, welche Dienste von außen (Internet) und intern per TLS erreichbar sind: je öffentlichem "
+                        "Hostnamen die Kette bis zum Gerät/Container, Pfadstatus (aktiv/verwaist/unklar), mTLS, "
+                        "Hinweise auf Abweichungen, DynDNS und Portweiterleitungen. Stand des letzten Scans, ohne "
+                        "Geheimnisse. Mit `host` nur zu einem Hostnamen."),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"host": {"type": "string", "description": "Optional: Hostname, z. B. app2.example.net."}},
+        },
     },
     {
         "name": "list_switches",
@@ -596,6 +607,25 @@ async def _dispatch(name: str, args: dict) -> object:
                 if k in ("state", "status", "composeProject", "portMappings", "volumes", "networks")}}
             for s in systems
         ]}
+
+    if name == "list_exposure":
+        wan = next((r.get("facts") or {} for r in db.list_network_resources(kind="wan", active_only=True)
+                    if (r.get("facts") or {}).get("ip")), None)
+        data = exposure.build_chains(db.list_exposure_facts(), db.list_systems(), wan)
+        needle = exposure.norm_host(str(args.get("host") or ""))
+        limit = 15
+        if needle:
+            data["chains"] = [c for c in data["chains"] if needle in c["host"]]
+            data["internal"] = [r for r in data["internal"] if needle in r["host"]]
+            data["external"] = [r for r in data["external"] if needle in r["host"]]
+        out = {k: data[k] for k in ("wan", "hints", "portforwardsChecked", "hasData")}
+        for key in ("chains", "internal", "external", "ddns", "portforwards"):
+            rows = data[key] if not needle or key in ("chains", "internal", "external") else []
+            out[key] = rows[:limit]
+            if len(rows) > limit:
+                out["truncated"] = f"{key}: nur die ersten {limit} von {len(rows)} -- bitte mit `host` eingrenzen."
+        out["hints"] = out["hints"][:limit]
+        return out
 
     if name == "list_switches":
         shellies = [

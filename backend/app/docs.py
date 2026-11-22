@@ -490,6 +490,9 @@ def _exposure_section() -> str:
         out.append("")
     elif data["portforwardsChecked"]:
         out += ["### Portweiterleitungen\n", "_Auf dem Router sind keine Portweiterleitungen eingerichtet._", ""]
+    settings = db.get_settings()
+    if not (settings.get("scanEnableCloudflare") and settings.get("scanEnablePublicDns")):
+        out += ["_Cloudflare/öffentliches DNS aus – Status unklar. In den Einstellungen aktivieren._", ""]
     if data["hints"]:
         out.append("### Hinweise\n")
         out += [f"- {_md(h, 300)}" for h in data["hints"]]
