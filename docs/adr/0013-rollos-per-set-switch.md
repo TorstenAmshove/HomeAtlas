@@ -1,6 +1,6 @@
 # ADR-0013: Rollos per `set_switch`, Tore bleiben gesperrt
 
-- **Status:** Akzeptiert, ersetzt ADR-0012 und ADR-0004
+- **Status:** Ersetzt durch ADR-0014 (ersetzte ADR-0012 und ADR-0004)
 - **Datum:** 2026-11-22
 
 ## Kontext

@@ -24,7 +24,7 @@ things enforce it:
    Failures are expected and swallowed (`2>/dev/null`) so a missing binary never turns into a
    retry with something more aggressive.
 3. **HTTP is GET-only** (the one exception: Home Assistant's WebSocket, which only ever sends
-   `trace/list`/`trace/get`, ADR-0012), TR-064 uses only `GetInfo`-style SOAP actions -- the `Set*` half of that
+   `trace/list`/`trace/get`, ADR-0012/ADR-0014), TR-064 uses only `GetInfo`-style SOAP actions -- the `Set*` half of that
    API is never constructed -- and SNMP (`probe_snmp`) only ever runs `snmpget`/`snmpwalk`, never
    `snmpset`.
 4. **Opt-in per credential.** Nothing here runs unless a human ticked `allowProbe` on that
@@ -1144,7 +1144,7 @@ async def ha_error_log(url: str, account: dict) -> dict:
     return {"ok": True, "error": "", "text": text, "truncated": bool(notes), "note": "; ".join(notes)}
 
 
-# --- Automation traces over the HA WebSocket API (ADR-0012) ------------------------------------
+# --- Automation traces over the HA WebSocket API (ADR-0012/ADR-0014) ------------------------------------
 # The only non-GET channel in this module, and read-only by construction: `_ha_ws_call` refuses
 # every message type except the two below (exact match), so no setting, parameter or tool can
 # make it send a command that changes anything.
