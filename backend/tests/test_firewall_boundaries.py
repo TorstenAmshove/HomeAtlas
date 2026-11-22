@@ -29,6 +29,7 @@ def test_tools_does_not_import_firewall_sources():
 def test_constitution_links_no_superseded_adr():
     text = (ROOT / "docs/specs/constitution.md").read_text()
     assert "0016-unifi-scan-nur-mit-api-key" not in text
-    assert "0017-firewall-quellen-und-pfadbewertung" in text
+    assert "0017-firewall-quellen-und-pfadbewertung" not in text
+    assert "0018-wan-status-und-lesepfade" in text
 
 

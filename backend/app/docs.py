@@ -463,6 +463,15 @@ def _exposure_section() -> str:
                 out.append(f"- {path['sourceLabel']} [{path['status']}{guard}]: Internet → {steps}")
             out.extend(f"- Hinweis: {_md(h, 300)}" for h in chain["hints"])
             out.append("")
+    if data["direct"]:
+        out += ["### Direkt über den Internetanschluss erreichbar\n",
+                "| Hostname | Zeigt auf | Status | Weiterleitung |", "| --- | --- | --- | --- |"]
+        for row in data["direct"]:
+            ways = ", ".join(f"{p['wanPort']} → {p['destIp']}:{p['destPort']} ({_sys_names(p['systems'])})"
+                             for p in row["forwards"])
+            guard = ", Client-Zertifikat (mTLS) nötig" if row["mtls"] else ""
+            out.append(f"| {_md(row['host'])} | {_md(row['target'])} | {row['status']}{guard} | {_md(ways, 300)} |")
+        out.append("")
     if data["external"]:
         out.append("### Extern gehostet\n")
         out += ["| Hostname | Ziel | Anbieter |", "| --- | --- | --- |"]

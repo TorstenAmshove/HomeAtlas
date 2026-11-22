@@ -108,7 +108,7 @@ from .network_resources import (  # noqa: E402
     _network_resource_key,
     get_network_resource,
     list_network_resources,
-    set_wan_ips,
+    set_wan_status,
     sync_network_resources,
     update_network_resource_manual,
 )
@@ -332,7 +332,7 @@ __all__ = [
     "snapshot_doc_page",
     "strip_probe_facts",
     "replace_exposure_facts",
-    "set_wan_ips",
+    "set_wan_status",
     "sync_network_resources",
     "touch_api_token",
     "update_account",

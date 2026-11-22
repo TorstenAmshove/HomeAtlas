@@ -259,7 +259,7 @@ Relais (Kanal 0) oder eine Home-Assistant-Entity ein- oder auszuschalten. Ziele 
 aus der Datenbank aufgelöst werden (Shelly: `systemId` eines Inventargeräts → dessen IP/Hostname;
 HA: `accountId` eines Zugangs der Kategorie `homeassistant` → dessen URL/Token), nie aus vom LLM
 gelieferten Adressen. Bei Home Assistant MÜSSEN nur die Domänen `switch` und `light` geschaltet
-werden, dazu `cover`-Entities mit `device_class` blind/shade/shutter/curtain/awning/window per `action` open/close/stop (keine Position; `device_class` wird live vor dem POST gelesen; garage/gate/door und fehlende `device_class` gesperrt; `on` nur für switch/light, `action` nur für cover); Shelly-Befehle gehen nur an Geräte, deren Hersteller oder Modell „Shelly“ enthält (dieselbe
+werden, dazu `cover`-Entities mit `device_class` blind/shade/shutter/curtain/awning per `action` open/close/stop (keine Position; `device_class` wird live vor dem POST gelesen; garage/gate/door und fehlende `device_class` gesperrt; `on` nur für switch/light, `action` nur für cover); Shelly-Befehle gehen nur an Geräte, deren Hersteller oder Modell „Shelly“ enthält (dieselbe
 Prüfung wie `list_switches` und die Oberfläche). Jeder Schaltversuch MUSS mit Aktion
 `switch.assistant`, Ziel, Ergebnis und Auslöser (angemeldeter Benutzer im Chat bzw. „MCP: <Token-
 Bezeichnung>“) ins Zugriffsprotokoll. `list_switches` liefert die Shelly-Geräte und höchstens 200
@@ -341,7 +341,7 @@ Zustand), `get_ha_logbook` (inkl. `context_entity_id`/`context_domain`/`context_
 Ursache), `get_ha_error_log` (letzte 200 Zeilen, höchstens 20 000 Zeichen) sowie `list_ha_traces`
 (letzte 10 Läufe einer `automation.*`/`script.*`) und `get_ha_trace` (Trigger, Bedingungen, Ablauf,
 Fehler eines Laufs, höchstens 16 000 Zeichen). Es DÜRFEN nur GET-Aufrufe und die WebSocket-Befehle
-`trace/list`/`trace/get` gesendet werden ([ADR-0012](../../../adr/0012-lesender-websocket-fuer-ha-traces.md)). Zeiträume MÜSSEN auf 1–7 Tage (Standard 7) und Eintragszahlen auf
+`trace/list`/`trace/get` sowie als Rückfall bei HTTP 404 auf `/api/error_log` `system_log/list` gesendet werden ([ADR-0018](../../../adr/0018-wan-status-und-lesepfade.md)). Zeiträume MÜSSEN auf 1–7 Tage (Standard 7) und Eintragszahlen auf
 200 (Verlauf) bzw. 100 (Logbuch) begrenzt werden; Kürzung MUSS im Ergebnis als `truncated` und
 `note` stehen. Texte aus Fehlerlog, Logbuch, Zuständen und Fehlermeldungen MÜSSEN vor dem Kürzen
 geschwärzt werden (Bearer-Tokens, JWTs, `token`/`password`/`secret`/`api_key`-Werte,

@@ -4,8 +4,8 @@ The official integration API (`unifi_probe.py`) lists WANs with id and name only
 forwards, so this module reads them from the classic API under ``/proxy/network/api``. The same
 integration API key (header ``X-API-Key``) is accepted there (spike on UniFi Network 11.0.103), so
 there is no login, no cookie, no CSRF token and no local user: every request is a GET against one of
-three fixed paths (sites, ``rest/portforward``, ``stat/health``), redirects are not followed. Note the
-trade-off recorded in ADR-0016: the key has the rights of whoever created it.
+four fixed paths (sites, ``rest/portforward``, ``stat/device``, ``rest/networkconf``), redirects are not
+followed. Note the trade-off recorded in ADR-0016: the key has the rights of whoever created it.
 
 Opt-in like every source: only accounts of category ``unifi`` with ``allowProbe`` are used
 (pipeline.py, the same accounts as `unifi_probe.py`), and only while ``scanEnableUnifiClassic`` is
@@ -13,8 +13,11 @@ on. The key never leaves this module (not in errors, not in results), and error 
 response body. This module must not import `unifi_live.py` (ADR-0015 keeps the scan separate); the
 small GET helper is duplicated on purpose.
 
-The WAN addresses are returned as plain list (`wanIps`); the pipeline attaches them to the WAN
-resources `unifi_probe.py` already created, so there is one WAN row per connection.
+WAN status (ADR-0018): `wans` has one entry per WAN connection, matched by name to the rows
+`unifi_probe.py` created. Only the active connection gets an address. A public interface address is
+authoritative; behind an upstream router the interface is private and only the gateway's `geo_info` is
+left, which can lag behind a reconnect (`origin: geo`, see exposure.py). From `networkconf` only name,
+purpose, group and type are kept, never the credentials of a PPPoE connection.
 """
 from __future__ import annotations
 
@@ -30,6 +33,7 @@ _PORT = re.compile(r"^\d{1,5}(-\d{1,5})?(,\d{1,5}(-\d{1,5})?)*$")
 
 
 _KEY = re.compile(r"^[\x21-\x7e]{8,512}$")
+_GATEWAY_TYPES = ("udm", "ugw", "uxg")
 
 
 async def _get_data(client: httpx.AsyncClient, base: str, path: str) -> list[dict]:
@@ -68,6 +72,39 @@ def _ip(value: object) -> str:
         return ""
 
 
+def _public(value: object) -> str:
+    ip = _ip(value)
+    return ip if ip and ipaddress.ip_address(ip).is_global else ""
+
+
+def _mapping(value: object) -> dict:
+    return value if isinstance(value, dict) else {}
+
+
+def _wan_status(networks: list[dict], devices: list[dict]) -> list[dict]:
+    """One entry per WAN connection; only the active one carries an address."""
+    gateway = next((d for d in devices if d.get("type") in _GATEWAY_TYPES), {})
+    interfaces, status = _mapping(gateway.get("last_wan_interfaces")), _mapping(gateway.get("last_wan_status"))
+    geo = _mapping(gateway.get("geo_info"))
+    uplink_group = str(_mapping(gateway.get("uplink")).get("comment") or "")
+    wans = []
+    for network in networks:
+        if network.get("purpose") != "wan":
+            continue
+        group = str(network.get("wan_networkgroup") or "")
+        interface = _mapping(interfaces.get(group))
+        online = status.get(group) == "online" and interface.get("alive") is not False
+        active = online and (group == uplink_group if uplink_group in interfaces else True)
+        interface_ip = _ip(interface.get("ip")) if active else ""
+        interface_public = _public(interface_ip)
+        public_ip = interface_public or (_public(_mapping(geo.get(group)).get("address")) if active else "")
+        wans.append({"name": str(network.get("name") or "")[:100], "group": group[:20],
+                     "type": str(network.get("wan_type") or "")[:20], "active": active,
+                     "ip": public_ip or interface_ip, "interfaceIp": interface_ip, "publicIp": public_ip,
+                     "publicOrigin": ("interface" if interface_public else "geo") if public_ip else ""})
+    return wans
+
+
 def _forward(entry: dict) -> dict | None:
     """Only proto, ports, destination and the enabled flag; name, source filter etc. are dropped."""
     dest, wan_port, dest_port = _ip(entry.get("fwd")), _port(entry.get("dst_port")), _port(entry.get("fwd_port"))
@@ -81,8 +118,8 @@ def _forward(entry: dict) -> dict | None:
 
 async def probe(base_url: str, api_key: str, account_id: str,
                 controller_system_id: str | None) -> dict:
-    """`{ok, error, forwards: [{kind, key, data}], wanIps: [str]}`; read-only, API key only."""
-    fail = {"ok": False, "forwards": [], "wanIps": []}
+    """`{ok, error, forwards, wans, wanFacts, warnings}`; read-only, API key only."""
+    fail = {"ok": False, "forwards": [], "wans": [], "wanFacts": [], "warnings": []}
     base = (base_url or "").strip().rstrip("/")
     if not base:
         return {**fail, "error": "Keine Adresse für die klassische UniFi-API hinterlegt."}
@@ -91,7 +128,9 @@ async def probe(base_url: str, api_key: str, account_id: str,
     if not _KEY.match(api_key):
         return {**fail, "error": "Ungültiger UniFi API-Key (Leerzeichen oder Zeilenumbruch?)."}
     forwards: list[dict] = []
-    wan_ips: list[str] = []
+    wans: list[dict] = []
+    wan_facts: list[dict] = []
+    warnings: list[str] = []
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT, verify=False, follow_redirects=False,
                                      headers={"X-API-Key": api_key}) as client:
@@ -104,8 +143,16 @@ async def probe(base_url: str, api_key: str, account_id: str,
                     if (fwd := _forward(entry)) is not None and len(forwards) < _MAX_FORWARDS:
                         key = f"{name}:{fwd['proto']}:{fwd['wanPort']}>{fwd['destIp']}:{fwd['destPort']}"
                         forwards.append({"kind": "portforward", "key": key, "data": fwd})
-                health = await _get_data(client, api, f"/s/{name}/stat/health")
-                wan_ips += [_ip(h.get("wan_ip")) for h in health if h.get("subsystem") == "wan"]
+                try:  # the forwards above stay useful when the WAN status cannot be read
+                    site_wans = _wan_status(await _get_data(client, api, f"/s/{name}/rest/networkconf"),
+                                            await _get_data(client, api, f"/s/{name}/stat/device"))
+                except (PermissionError, ValueError, httpx.HTTPError) as exc:
+                    warnings.append(f"WAN-Status nicht lesbar ({type(exc).__name__}).")
+                    continue
+                wans += site_wans
+                wan_facts += [{"kind": "wan_address", "key": f"unifi:{name}:{w['group']}",
+                               "data": {"ip": w["publicIp"], "source": "UniFi", "origin": w["publicOrigin"]}}
+                              for w in site_wans if w["publicIp"]]
     except PermissionError as exc:
         return {**fail, "error": str(exc)}
     except ValueError as exc:  # fixed German texts from _get_data only
@@ -113,4 +160,5 @@ async def probe(base_url: str, api_key: str, account_id: str,
     except httpx.HTTPError as exc:
         return {**fail, "error": f"Klassische UniFi-API nicht lesbar: {type(exc).__name__}"}
     forwards.append({"kind": "portforward_scan", "key": "scan", "data": {"count": len(forwards)}})
-    return {"ok": True, "error": "", "forwards": forwards, "wanIps": wan_ips}
+    return {"ok": True, "error": "", "forwards": forwards, "wans": wans, "wanFacts": wan_facts,
+            "warnings": warnings}

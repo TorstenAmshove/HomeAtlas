@@ -163,7 +163,7 @@ Lücken: **0**
 | `DocsPage` | [dokumentation](capabilities/dokumentation/spec.md) |
 | `SettingsPage` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [diagnose](capabilities/diagnose/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md), [firewall](capabilities/firewall/spec.md), [monitoring](capabilities/monitoring/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) |
 
-## ADRs in der Constitution (17)
+## ADRs in der Constitution (18)
 
 Quelle links sind die Dateien in `docs/adr/`, rechts die Regeln in [constitution.md](constitution.md),
 die auf das ADR verlinken.
@@ -186,4 +186,5 @@ die auf das ADR verlinken.
 | [ADR-0014](../adr/0014-erreichbarkeits-quellen-lesend.md) | Ersetzt durch ADR-0015; ersetzte ADR-0013 | – |  |
 | [ADR-0015](../adr/0015-lesender-zugriff-klassische-unifi-api.md) | Ersetzt durch ADR-0016; ersetzte ADR-0014 | – |  |
 | [ADR-0016](../adr/0016-unifi-scan-nur-mit-api-key.md) | Ersetzt durch ADR-0017; ersetzte ADR-0015 | – |  |
-| [ADR-0017](../adr/0017-firewall-quellen-und-pfadbewertung.md) | Akzeptiert, ersetzt ADR-0016 | P1, L1, L2, L4, L5, L6, L8, K1, K2, K3 |  |
+| [ADR-0017](../adr/0017-firewall-quellen-und-pfadbewertung.md) | Ersetzt durch ADR-0018; ersetzte ADR-0016 | – |  |
+| [ADR-0018](../adr/0018-wan-status-und-lesepfade.md) | Akzeptiert, ersetzt ADR-0017 | P1, L1, L2, L4, L5, L6, L8, K1, K2, K3 |  |

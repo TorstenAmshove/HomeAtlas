@@ -17,6 +17,7 @@ import ipaddress
 from datetime import datetime, timedelta, timezone
 
 from . import (
+    fritz_wan,
     adguard_probe, classify, cloudflare_probe, crypto, db, diagnostics, discovery, docker_probe, docs,
     exposure_files, firewall_unifi, omada_probe, oui, probe_auth, proxmox_probe, public_dns, traefik_probe,
     unifi_classic_probe, unifi_probe,
@@ -515,7 +516,7 @@ async def run_full_scan(scan_id: str) -> None:
                     if account.get("systemId"):
                         db.add_device_error_event(account["systemId"], "error", adguard_result["error"])
 
-        classic_wan_ips: list[tuple[str, list[str]]] = []
+        classic_wans: list[tuple[str, list[dict]]] = []
         if settings.get("scanEnableUnifiClassic", True):
             # Same accounts as the integration-API scan above: one UniFi API key serves both (ADR-0016).
             classic_accounts = [a for a in db.list_accounts()
@@ -530,8 +531,10 @@ async def run_full_scan(scan_id: str) -> None:
                 except Exception as exc:  # one failing source must never stop the scan
                     classic = {"ok": False, "error": f"UniFi (klassisch): {type(exc).__name__}"}
                 if classic["ok"]:
-                    db.replace_exposure_facts("unifi_classic", account["id"], classic["forwards"])
-                    classic_wan_ips.append((account["id"], classic["wanIps"]))
+                    db.replace_exposure_facts("unifi_classic", account["id"],
+                                              classic["forwards"] + (classic.get("wanFacts") or []))
+                    classic_wans.append((account["id"], classic.get("wans") or []))
+                    warnings += [f"UniFi klassisch ({account['label']}): {w}" for w in classic.get("warnings") or []]
                     log(f"UniFi klassisch ({account['label']}): {len(classic['forwards']) - 1} Portweiterleitung(en) gelesen")
                 else:
                     db.mark_exposure_facts_stale("unifi_classic", account["id"])
@@ -541,6 +544,30 @@ async def run_full_scan(scan_id: str) -> None:
             db.prune_exposure_facts("unifi_classic", [a["id"] for a in classic_accounts])
         else:
             db.delete_exposure_facts(source="unifi_classic")
+
+        # Optional second opinion on the public address (ADR-0018); UniFi works without it.
+        fritz_ip = ""
+        fritz_targets: dict[str, tuple[dict, dict]] = {}
+        if settings.get("scanUseCredentials", True):
+            for account in db.list_accounts():
+                target = db.get_system(account["systemId"]) if account.get("allowProbe") and account.get("systemId") else None
+                label = " ".join(str((target or {}).get(k) or "") for k in ("name", "hostname", "vendor", "model")).lower()
+                if target and target.get("ip") and "fritz" in label:
+                    fritz_targets.setdefault(target["id"], (account, target))
+        for account, target in fritz_targets.values():
+            try:
+                fritz = await asyncio.wait_for(fritz_wan.probe(target["ip"]), timeout=15)
+            except Exception as exc:  # one failing source must never stop the scan
+                fritz = {"ok": False, "ip": "", "error": f"FRITZ!Box: {type(exc).__name__}"}
+            if fritz["ok"]:
+                db.replace_exposure_facts("fritzbox", account["id"], [
+                    {"kind": "wan_address", "key": "fritzbox", "data": {"ip": fritz["ip"], "source": "FRITZ!Box"}}])
+                fritz_ip = fritz_ip or fritz["ip"]
+                log(f"FRITZ!Box ({target['name']}): öffentliche Adresse gelesen")
+            else:
+                db.mark_exposure_facts_stale("fritzbox", account["id"])
+                warnings.append(f"FRITZ!Box ({target['name']}): {fritz['error']}")
+        db.prune_exposure_facts("fritzbox", [account["id"] for account, _ in fritz_targets.values()])
 
         # Firewall zones/policies/groups (ADR-0017): off by default, same UniFi accounts as above.
         if settings.get("scanEnableFirewallUnifi", False):
@@ -704,10 +731,12 @@ async def run_full_scan(scan_id: str) -> None:
                 account["id"], unifi_result["resources"], unifi_result["completeScopes"],
             )
             log(f"UniFi ({account['label']}): {len(synced)} Netze, WLANs und WANs aktualisiert")
-        # WAN addresses come from the classic API but belong on the WAN rows of the integration API
-        # (same account), so they are attached only after those rows are synced.
-        for account_id, ips in classic_wan_ips:
-            db.set_wan_ips(account_id, ips)
+        # WAN status comes from the classic API but belongs on the WAN rows of the integration API
+        # (same account), so it is attached only after those rows are synced.
+        for account_id, wans in classic_wans:
+            # UniFi's geo address can lag behind a reconnect; the upstream router knows the real one.
+            db.set_wan_status(account_id, [{**w, "ip": fritz_ip} if fritz_ip and w.get("publicOrigin") == "geo" else w
+                                           for w in wans])
 
         # Anything critical is worth watching continuously -- that is what "critical" means. Done
         # here rather than in the UI so it also covers devices a scan just promoted.

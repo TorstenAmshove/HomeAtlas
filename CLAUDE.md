@@ -103,7 +103,7 @@ other:
 **`tools.py` is the LLM's entire capability surface** (used by both the in-app chat and
 `mcp_server.py`'s external MCP endpoint). It is read-only plus bounded live diagnostics, with one
 documented exception (`set_switch`: Shelly relay / Home Assistant `switch`/`light` on/off plus shutter-class `cover`
-open/close/stop, never garage doors or gates, see ADR-0014; Home Assistant automation traces are read over a WebSocket limited to `trace/list`/`trace/get`, ADR-0014); live UniFi reads go through `unifi_live.py` (ADR-0017: fixed allowlist incl. exactly one read-only POST for the event log, `X-API-Key`, field allowlist; the one source module `tools.py` may import); nothing else reachable from here mutates inventory, docs, or devices, and `list_accounts` always strips
+open/close/stop, never garage doors, gates or windows, see ADR-0018; Home Assistant automation traces and the system-log fallback are read over a WebSocket limited to `trace/list`/`trace/get`/`system_log/list`, ADR-0018); live UniFi reads go through `unifi_live.py` (ADR-0017: fixed allowlist incl. exactly one read-only POST for the event log, `X-API-Key`, field allowlist; the one source module `tools.py` may import); nothing else reachable from here mutates inventory, docs, or devices, and `list_accounts` always strips
 passwords before they reach a model — secrets never enter a prompt, provider log, or chat
 history. When adding a new assistant capability, this boundary is the thing to preserve.
 
