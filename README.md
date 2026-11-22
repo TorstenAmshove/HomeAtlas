@@ -17,7 +17,7 @@ Läuft als Docker-Container im eigenen Netz. Keine Cloud, keine Registrierung.
 |---|---|
 | **Selbstständige Erkennung** | Ping/ARP-Sweep, Portscan, Reverse-DNS, mDNS/Bonjour, UPnP/SSDP, HTTP-Banner und Docker-API — fünf unabhängige Quellen, weil keine davon allein alles sieht |
 | **Container-Namen & Compose-Stacks** | Docker-Container heißen `<service> · <projekt>` (z. B. `postgres · immich`); die Geräteliste gruppiert sie nach Compose-Projekt (einklappbar, mit Projekt-Filter), die Dokumentation zeigt eine Überschrift je Stack. Die KI-Einordnung benennt nie ein Gerät um, dessen Name aus einer Quelle stammt (UniFi, Docker, Proxmox, Omada) oder vom Gerät selbst gemeldet wird (UPnP, mDNS) |
-| **Verständliche Doku** | 12 Kapitel nach Themen (Internet & Router, Netzwerk, Server, Container, Smart Home, Wärme & Energie, Zugänge, Notfall …) als Markdown im Browser |
+| **Verständliche Doku** | 13 Kapitel nach Themen (Internet & Router, Netzwerk, Server, Container, Smart Home, Wärme & Energie, Erreichbarkeit von außen, Zugänge, Notfall …) als Markdown im Browser |
 | **KI-Assistent** | Kennt das Inventar, misst live nach und führt Schritt für Schritt durch die Fehlersuche |
 | **Zugangsverwaltung** | Passwörter, SSH-Schlüssel und Passphrasen verschlüsselt gespeichert, nie in der Doku, nie beim KI-Anbieter |
 | **Geräte auslesen** | Mit freigegebenen Zugängen anmelden und Eckdaten lesen — streng lesend, feste Befehlsliste (SSH, HTTP, FRITZ!Box TR-064) |

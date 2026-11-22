@@ -110,7 +110,7 @@ Netzplan-Ebenen, `set_switch`), ADR-0009 für die Netzplan-Ebenen. Offen bleiben
 
 ### [dokumentation](capabilities/dokumentation/spec.md) (10)
 
-1. Reset eines Kapitels erzeugt alle 12 Kapitel neu (Laufzeit/KI-Kosten, neue Versionen auf anderen Seiten). Absicht oder sollte nur das eine Kapitel neu entstehen?
+1. Reset eines Kapitels erzeugt alle 13 Kapitel neu (Laufzeit/KI-Kosten, neue Versionen auf anderen Seiten). Absicht oder sollte nur das eine Kapitel neu entstehen?
 2. `POST /api/docs/{slug}/reset` mit unbekanntem Slug liefert 200 mit `page: null` statt 404.
 3. `GET /api/docs/{slug}/versions` mit unbekanntem Slug liefert leere Liste statt 404.
 4. `PUT /api/docs/{slug}` ohne Feld `bodyMd` speichert leeren Text (keine Validierung).

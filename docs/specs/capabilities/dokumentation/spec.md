@@ -6,7 +6,7 @@
 
 Haushaltsmitglieder ohne IT-Kenntnisse sollen im Störungsfall nachlesen können, was es im Heimnetz
 gibt, wozu es dient und was zu tun ist. Das System erzeugt dazu aus dem Inventar eine nach
-Themen (nicht nach Technik) sortierte Markdown-Dokumentation in 12 Kapiteln. Bewohner können je
+Themen (nicht nach Technik) sortierte Markdown-Dokumentation in 13 Kapiteln. Bewohner können je
 Kapitel eigene, dauerhafte Notizen ergänzen oder eine ganze Seite selbst schreiben; jeder frühere
 Stand bleibt abrufbar und wiederherstellbar.
 
@@ -28,7 +28,7 @@ Alle Routen setzen eine angemeldete Sitzung mit eingerichteter Zwei-Faktor-Anmel
 ## Anforderungen
 
 ### Requirement: Feste Kapitelstruktur
-Das System MUSS genau 12 Kapitel mit festen Kürzeln, Titeln und fester Reihenfolge erzeugen; Geräte
+Das System MUSS genau 13 Kapitel mit festen Kürzeln, Titeln und fester Reihenfolge erzeugen; Geräte
 werden über ihre Kategorie (`kind`) genau einem Kapitel zugeordnet. **[Muss]**
 
 | # | Slug | Titel | Kategorien | Inhalt |
@@ -43,8 +43,9 @@ werden über ihre Kategorie (`kind`) genau einem Kapitel zugeordnet. **[Muss]**
 | 7 | `klima-heizung-energie` | Wärme, Klima und Energie | heating, climate, energy | Einleitung, Gerätetabelle, Details |
 | 8 | `drucker-medien-kameras` | Drucker, Medien und Kameras | printer, media, camera | Einleitung, Gerätetabelle, Details |
 | 9 | `sonstige-geraete` | Weitere Geräte | other | Einleitung, Gerätetabelle, Details |
-| 10 | `zugaenge-und-konten` | Zugänge und Konten | – | Einleitung, „Hinterlegte Zugänge“ |
-| 11 | `notfall` | Wenn etwas nicht funktioniert | – | Notfall-Checkliste |
+| 10 | `erreichbarkeit` | Erreichbarkeit von außen | – | Einleitung, Ketten je öffentlichem Hostnamen (aktiv/verwaist/unklar), „Extern gehostet“, „Intern per TLS erreichbare Dienste“, DynDNS, Portweiterleitungen, Hinweise; Leerzustand ohne Quellen. Siehe [erreichbarkeit](../erreichbarkeit/spec.md) |
+| 11 | `zugaenge-und-konten` | Zugänge und Konten | – | Einleitung, „Hinterlegte Zugänge“ |
+| 12 | `notfall` | Wenn etwas nicht funktioniert | – | Notfall-Checkliste |
 
 Jedes Kapitel hat einen festen, handgeschriebenen Einleitungstext (Fallback) und eine Kurzbeschreibung
 (`intro`), die als Metadatum gespeichert wird. Kategorielabels (deutsch) und Zustandslabels
@@ -108,7 +109,7 @@ Das System MUSS je Gerät einen Abschnitt mit Name als Überschrift, „Wozu“-
 vorhandenen Fakten ausgeben: IP, MAC, Hersteller, Modell, Standort, Bedeutung (nur wenn ≠ normal),
 „Läuft auf“ (Elterngerät), Weboberfläche, Hersteller-Dokumentation, eigene Dokumentation, zuletzt
 gesehen (Format `TT.MM.JJJJ HH:MM`); ferner falls vorhanden: direkt vom Gerät ausgelesene Werte
-(höchstens 14, mehrzeilige als Codeblock), Docker-Fakten (Image, Compose-Projekt, Port-Weiterleitungen,
+(höchstens 14, mehrzeilige als Codeblock), Docker-Fakten (Image, Compose-Projekt, Port-Zuordnungen (Docker),
 höchstens 6 Volumes), Proxmox-Fakten (Node, VM-ID, CPU-Kerne, RAM in MB), Tabelle der Kindgeräte
 („Läuft auf diesem Gerät“, Funktion auf 140 Zeichen gekürzt), höchstens 15 erreichbare Dienste
 (Port | Dienst | Bedeutung), PoE-Hinweis bei einem Tag mit „poe“ und die Gerätenotiz. **[Muss]**
@@ -424,7 +425,7 @@ für den offenen Verlauf).
 
 ## OFFEN
 
-- > OFFEN: Reset eines Kapitels erzeugt alle 12 Kapitel neu (Laufzeit/KI-Kosten, neue Versionen auf anderen Seiten). Absicht oder sollte nur das eine Kapitel neu entstehen?
+- > OFFEN: Reset eines Kapitels erzeugt alle 13 Kapitel neu (Laufzeit/KI-Kosten, neue Versionen auf anderen Seiten). Absicht oder sollte nur das eine Kapitel neu entstehen?
 - > OFFEN: `POST /api/docs/{slug}/reset` mit unbekanntem Slug liefert 200 mit `page: null` statt 404.
 - > OFFEN: `GET /api/docs/{slug}/versions` mit unbekanntem Slug liefert leere Liste statt 404.
 - > OFFEN: `PUT /api/docs/{slug}` ohne Feld `bodyMd` speichert leeren Text (keine Validierung).

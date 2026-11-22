@@ -96,7 +96,7 @@ Lücken: **0**
 | `WS /api/ws/systems/{system_id}/remote-docker-console` | [remote-admin](capabilities/remote-admin/spec.md) |
 | `WS /api/ws/systems/{system_id}/ssh-console` | [remote-admin](capabilities/remote-admin/spec.md) |
 
-## Tabellen (19)
+## Tabellen (20)
 
 | Eintrag | Spec |
 |---|---|
@@ -111,6 +111,7 @@ Lücken: **0**
 | `docPageVersions` | [dokumentation](capabilities/dokumentation/spec.md) |
 | `docPages` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [dokumentation](capabilities/dokumentation/spec.md) |
 | `duplicateDismissals` | [inventar](capabilities/inventar/spec.md) |
+| `exposureFacts` | [erreichbarkeit](capabilities/erreichbarkeit/spec.md) |
 | `monitorEvents` | [inventar](capabilities/inventar/spec.md), [monitoring](capabilities/monitoring/spec.md) |
 | `networkResources` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [credentialed-probing](capabilities/credentialed-probing/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [dokumentation](capabilities/dokumentation/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md), [topologie](capabilities/topologie/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `scans` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [dashboard](capabilities/dashboard/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [dokumentation](capabilities/dokumentation/spec.md), [klassifikation-llm](capabilities/klassifikation-llm/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md), [topologie](capabilities/topologie/spec.md) |

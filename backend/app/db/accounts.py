@@ -212,4 +212,6 @@ def delete_account(account_id: str) -> None:
         # once its source credential is gone.
         conn.execute("UPDATE networkResources SET active = 0, updatedAt = ? WHERE sourceAccountId = ?",
                      (_now(), account_id))
+        # Reachability facts read through this account are no longer current without it.
+        conn.execute("DELETE FROM exposureFacts WHERE sourceAccountId = ?", (account_id,))
         conn.execute("DELETE FROM accounts WHERE id = ?", (account_id,))

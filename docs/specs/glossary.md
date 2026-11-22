@@ -21,7 +21,7 @@
 | **Secret** | Der geschützte Teil eines Zugangs (Passwort, Schlüssel, Passphrase, Token). Verlässt den Server nur einzeln und nur für ADMIN. |
 | **Netzwerkressource** | Netz/VLAN, WLAN oder WAN-Anschluss, gelesen aus einem Controller (UniFi, Omada). Entität `networkResources`. |
 | **Controller** | Zentrale Verwaltung von Netzgeräten (UniFi Network, TP-Link Omada), über deren API HomeAtlas Geräte, Uplinks, VLANs, WLANs, WANs liest. |
-| **Doku-Kapitel (Doc-Seite)** | Eines der 12 thematischen Markdown-Kapitel, aus dem Inventar erzeugt. Slug als Schlüssel. |
+| **Doku-Kapitel (Doc-Seite)** | Eines der 13 thematischen Markdown-Kapitel, aus dem Inventar erzeugt. Slug als Schlüssel. |
 | **Manuelle Notizen** | Eigener Abschnitt je Kapitel, den die Generierung nie anfasst. |
 | **Manueller Override** | Ganze Kapitelseite von Hand überschrieben; sie wird dann nicht mehr automatisch erzeugt, bis sie zurückgesetzt wird. |
 | **Version** | Früherer Stand eines Kapitels (oder einer Gerätekonfiguration), abrufbar und wiederherstellbar. |

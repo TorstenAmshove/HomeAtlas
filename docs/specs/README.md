@@ -47,7 +47,8 @@ Abschnitt 11.
 | [zugangsdaten](capabilities/zugangsdaten/spec.md) | Zugänge verschlüsselt speichern, einzeln anzeigen, zuordnen, SSH-Schlüssel erzeugen und ausrollen | ADMIN | Zugänge (`/zugaenge`) | `/api/accounts*`, `/api/systems/{id}/ssh-keys` |
 | [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) | Netze/VLANs, WLANs, WANs aus Controllern | alle lesen / ADMIN ändern | Netze & WLAN (`/netze`) | `/api/network-resources*` |
 | [topologie](capabilities/topologie/spec.md) | automatischer Netzplan für Laien, Layer-3-Ansicht | alle | Netzplan (`/plan`) | `/api/topology*.svg` |
-| [dokumentation](capabilities/dokumentation/spec.md) | 12 Kapitel aus dem Inventar, manuelle Notizen, Override, Versionen | alle lesen / ADMIN ändern | Dokumentation (`/dokumentation`) | `/api/docs*` |
+| [dokumentation](capabilities/dokumentation/spec.md) | 13 Kapitel aus dem Inventar, manuelle Notizen, Override, Versionen | alle lesen / ADMIN ändern | Dokumentation (`/dokumentation`) | `/api/docs*` |
+| [erreichbarkeit](capabilities/erreichbarkeit/spec.md) | Ketten „Internet → Weg → Inventar“, Pfadstatus aktiv/verwaist/unklar | alle lesen | Kapitel in der Dokumentation | – |
 | [monitoring](capabilities/monitoring/spec.md) | wichtige Geräte laufend prüfen, Ausfallverlauf | alle | Übersicht, Gerätedetail | `/api/monitor*` |
 | [diagnose](capabilities/diagnose/spec.md) | Live-Messungen: Ping, Port, DNS, HTTP, Traceroute, Speedtest | siehe Spec | Gerätedetail, Assistent | `/api/diagnostics*` |
 | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) | KI-Assistent mit Werkzeugen, externer MCP-Endpunkt | alle / MCP-Tokens: ADMIN | KI-Assistent (`/assistent`) | `/api/chats*`, `/api/mcp`, `/api/settings/mcp-tokens*` |
