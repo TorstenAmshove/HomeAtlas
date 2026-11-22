@@ -11,11 +11,49 @@ root-equivalent on the host, which the README states outright.
 from __future__ import annotations
 
 import os
+import re
 
 import httpx
 
 _SOCKET = os.environ.get("DOCKER_SOCKET", "/var/run/docker.sock")
 _TIMEOUT = httpx.Timeout(15.0, connect=5.0)
+
+
+# DynDNS clients are recognised by image name only; the environment is read (one GET per match) and
+# reduced to this allowlist of non-secret keys. Tokens/passwords (CF_API_TOKEN, PASSWORD, CONFIG, ...)
+# are never copied, and values are validated as hostnames before they are kept.
+_DDNS_IMAGES = {
+    "favonia/cloudflare-ddns": "Cloudflare", "cloudflare-ddns": "Cloudflare", "ddclient": "ddclient",
+    "ddns-updater": "ddns-updater", "inadyn": "inadyn", "ddnss": "DDNSS",
+}
+_DDNS_HOST_KEYS = ("DOMAINS", "DOMAIN", "HOSTNAME", "HOSTS")
+_HOSTNAME = re.compile(r"^([a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9_])?\.)+[a-z0-9-]{2,63}$")
+
+
+def _ddns_provider(image: str) -> str:
+    low = (image or "").lower()
+    return next((label for key, label in _DDNS_IMAGES.items() if key in low), "")
+
+
+def ddns_fact(image: str, env: list[str], via: str) -> dict | None:
+    """Builds a `ddns` fact from an image name and its env list, keeping allowlisted keys only."""
+    provider = _ddns_provider(image)
+    if not provider:
+        return None
+    values = {k: v for k, _, v in (e.partition("=") for e in env or []) if k in (*_DDNS_HOST_KEYS, "IP4_PROVIDER", "IP6_PROVIDER")}
+    hosts: list[str] = []
+    for key in _DDNS_HOST_KEYS:
+        for part in re.split(r"[,\s]+", values.get(key, "")):
+            part = part.strip().lower().rstrip(".")
+            if part and len(part) <= 253 and _HOSTNAME.match(part) and part not in hosts:
+                hosts.append(part)
+    cloudflare = provider == "Cloudflare"
+    ipv4 = values.get("IP4_PROVIDER", "").lower() != "none"
+    ipv6 = values.get("IP6_PROVIDER", "").lower() != "none" if cloudflare and "IP6_PROVIDER" not in values \
+        else values.get("IP6_PROVIDER", "none").lower() != "none"
+    name = image.rsplit("/", 1)[-1].split(":", 1)[0][:100]
+    return {"kind": "ddns", "key": name, "data": {
+        "client": name, "provider": provider, "hosts": hosts[:20], "ipv4": ipv4, "ipv6": ipv6, "via": via}}
 
 
 def socket_available() -> bool:
@@ -81,6 +119,19 @@ async def probe(host_ip: str = "") -> dict:
     # ever fill in for 30 containers.
     host_name = (info or {}).get("Name", "") if isinstance(info, dict) else ""
     location = host_name or host_ip or "Docker-Host"
+
+    ddns: list[dict] = []
+    for container in containers:
+        if container.get("State") != "running" or not _ddns_provider(container.get("Image", "")):
+            continue
+        cid = str(container.get("Id", ""))
+        try:
+            env = ((await _get(f"/containers/{cid}/json")).get("Config") or {}).get("Env") or [] if re.match(r"^[0-9a-f]{12,64}$", cid) else []
+        except (httpx.HTTPError, ValueError, AttributeError):
+            env = []
+        fact = ddns_fact(container.get("Image", ""), env, host_ip)
+        if fact:
+            ddns.append(fact)
 
     systems = []
     for container in containers:
@@ -157,6 +208,7 @@ async def probe(host_ip: str = "") -> dict:
             "arch": (version or {}).get("Arch", "") if isinstance(version, dict) else "",
         },
         "systems": systems,
+        "ddns": ddns,
         "networks": [
             {
                 "name": n.get("Name", ""),

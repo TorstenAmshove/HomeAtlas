@@ -17,9 +17,8 @@ import ipaddress
 from datetime import datetime, timedelta, timezone
 
 from . import (
-    adguard_probe, classify, crypto, db, discovery, docker_probe, docs, exposure_files, omada_probe, oui,
-    probe_auth,
-    proxmox_probe, traefik_probe, unifi_classic_probe, unifi_probe,
+    adguard_probe, classify, cloudflare_probe, crypto, db, diagnostics, discovery, docker_probe, docs,
+    exposure_files, omada_probe, oui, probe_auth, proxmox_probe, public_dns, traefik_probe, unifi_classic_probe, unifi_probe,
 )
 
 
@@ -365,6 +364,21 @@ async def _classify_new_findings(findings: list[dict], settings: dict, log) -> t
     return result, warnings
 
 
+
+async def _label_providers(facts: list[dict]) -> None:
+    """Fills `provider` of Cloudflare A/AAAA records with the reverse-DNS name of the target (a
+    label for "Extern gehostet" only; no answer leaves it empty)."""
+    targets = sorted({f["data"]["target"] for f in facts if f["kind"] == "cf_dns" and f["data"]["type"] in ("A", "AAAA")})[:30]
+    names: dict[str, str] = {}
+    for ip in targets:
+        try:
+            names[ip] = (await diagnostics.reverse_dns(ip)).get("hostname", "")[:100]
+        except Exception:
+            names[ip] = ""
+    for f in facts:
+        if f["kind"] == "cf_dns":
+            f["data"]["provider"] = names.get(f["data"]["target"], "")
+
 async def run_full_scan(scan_id: str) -> None:
     settings = db.get_settings()
     warnings: list[str] = []
@@ -406,10 +420,14 @@ async def run_full_scan(scan_id: str) -> None:
             if docker_result["ok"]:
                 findings += docker_result["systems"]
                 log(f"Docker: {len(docker_result['systems'])} Container gefunden")
+                db.replace_exposure_facts("docker_ddns", "docker", docker_result.get("ddns") or [])
             elif docker_probe.socket_available():
                 warnings.append(docker_result["error"])
+                db.mark_exposure_facts_stale("docker_ddns", "docker")
             else:
                 log("Docker-Socket nicht eingebunden -- Container werden übersprungen")
+        else:
+            db.delete_exposure_facts(source="docker_ddns")
 
         if settings.get("scanEnableUnifi", True):
             unifi_accounts = [a for a in db.list_accounts()
@@ -575,6 +593,51 @@ async def run_full_scan(scan_id: str) -> None:
         else:
             for source in exposure_files.CATEGORIES.values():
                 db.delete_exposure_facts(source=source)
+
+        if settings.get("scanEnableCloudflare", False):
+            cf_accounts = [a for a in db.list_accounts()
+                           if a.get("category") == "cloudflare" and a.get("allowProbe")]
+            if cf_accounts:
+                progress("Cloudflare erfassen", 88, "Frage Cloudflare-API ab")
+            for account in cf_accounts:
+                try:
+                    cf_result = await asyncio.wait_for(cloudflare_probe.probe(
+                        account.get("url") or "", account.get("username") or "",
+                        crypto.decrypt(account.get("secretEnc") or "")), timeout=90)
+                except Exception as exc:  # one failing source must never stop the scan
+                    cf_result = {"ok": False, "facts": [], "error": f"Cloudflare: {type(exc).__name__}"}
+                if cf_result["ok"]:
+                    await _label_providers(cf_result["facts"])
+                    db.replace_exposure_facts("cloudflare", account["id"], cf_result["facts"])
+                    log(f"Cloudflare ({account['label']}): {len(cf_result['facts'])} Eintrag/Einträge gelesen")
+                else:
+                    db.mark_exposure_facts_stale("cloudflare", account["id"])
+                    warnings.append(f"Cloudflare ({account['label']}): {cf_result['error']}")
+                    if account.get("systemId"):
+                        db.add_device_error_event(account["systemId"], "error", cf_result["error"])
+            db.prune_exposure_facts("cloudflare", [a["id"] for a in cf_accounts])
+        else:
+            db.delete_exposure_facts(source="cloudflare")
+
+        if settings.get("scanEnablePublicDns", False):
+            hosts = public_dns.hostnames(db.list_exposure_facts())
+            if hosts:
+                progress("Öffentliches DNS", 88, "Löse öffentliche Hostnamen auf")
+                try:
+                    dns_result = await asyncio.wait_for(public_dns.resolve(hosts), timeout=120)
+                except Exception as exc:  # one failing source must never stop the scan
+                    dns_result = {"ok": False, "facts": [], "skipped": 0, "error": f"Öffentliches DNS: {type(exc).__name__}"}
+                if dns_result["ok"]:
+                    db.replace_exposure_facts("public_dns", "public", dns_result["facts"])
+                    log(f"Öffentliches DNS: {len(dns_result['facts'])} Hostname(n) aufgelöst"
+                        + (f", {dns_result['skipped']} nicht abgefragt" if dns_result["skipped"] else ""))
+                else:
+                    db.mark_exposure_facts_stale("public_dns", "public")
+                    warnings.append(dns_result["error"])
+            else:
+                db.delete_exposure_facts(source="public_dns")
+        else:
+            db.delete_exposure_facts(source="public_dns")
 
         if settings.get("scanUseLlm", True):
             progress("Geräte einordnen (KI)", 89, "KI-Einordnung unbekannter Geräte")
