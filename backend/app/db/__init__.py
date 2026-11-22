@@ -115,6 +115,7 @@ from .exposure import (  # noqa: E402
     delete_exposure_facts,
     list_exposure_facts,
     mark_exposure_facts_stale,
+    prune_exposure_facts,
     replace_exposure_facts,
 )
 from .accounts import (  # noqa: E402
@@ -294,6 +295,7 @@ __all__ = [
     "delete_exposure_facts",
     "list_exposure_facts",
     "mark_exposure_facts_stale",
+    "prune_exposure_facts",
     "list_network_resources",
     "list_probe_accounts",
     "list_scans",

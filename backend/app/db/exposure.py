@@ -62,3 +62,11 @@ def delete_exposure_facts(source: str | None = None, account_id: str | None = No
     where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
     with _conn() as conn:
         conn.execute("DELETE FROM exposureFacts" + where, tuple(params))
+
+
+def prune_exposure_facts(source: str, keep_account_ids: list[str]) -> None:
+    """Drops facts of `source` whose account is no longer active (deleted, opt-in or switch off)."""
+    with _conn() as conn:
+        marks = ",".join("?" * len(keep_account_ids))
+        clause = f" AND sourceAccountId NOT IN ({marks})" if keep_account_ids else ""
+        conn.execute("DELETE FROM exposureFacts WHERE source = ?" + clause, (source, *keep_account_ids))

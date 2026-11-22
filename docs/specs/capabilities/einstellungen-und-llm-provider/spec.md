@@ -45,7 +45,7 @@ verlinkten Fähigkeiten. Quelle Defaults: `backend/app/db.py:408`.
 | `scanControllerNetworksSeen` | `[]` | Beim letzten Speichern angezeigte Netz-IDs (Markierung „neu“) | nur UI |
 | `scanTimeoutMs` | 700 | Timeout je Probe (min. 100 ms wirksam) | discovery |
 | `scanConcurrency` | 128 | Parallelität, wirksam 8–512 | discovery |
-| `scanEnableMdns`, `scanEnableSsdp`, `scanEnableDocker`, `scanEnableUnifi`, `scanEnableOmada`, `scanEnableProxmox`, `scanEnableAdguard`, `scanEnableHttpBanner` | true | Quellen einzeln abschaltbar | discovery, pipeline |
+| `scanEnableMdns`, `scanEnableSsdp`, `scanEnableDocker`, `scanEnableUnifi`, `scanEnableOmada`, `scanEnableProxmox`, `scanEnableAdguard`, `scanEnableTraefik`, `scanEnableHttpBanner` | true | Quellen einzeln abschaltbar | discovery, pipeline |
 | `scanUseLlm` | true | KI-Einordnung und KI-Doku-Einleitungen | pipeline, docs, main |
 | `scanExcludeIps` | `[]` | Auszuschließende IPs | discovery |
 | `scanExtraTargets` | `[]` | Einzelziele außerhalb der Netze | pipeline |
