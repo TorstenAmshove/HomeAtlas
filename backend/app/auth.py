@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import os
 import secrets
+from typing import NamedTuple
 
 from . import crypto, db, security
 
@@ -27,21 +28,50 @@ def hash_password(password: str, salt: str) -> str:
     return hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), _PBKDF2_ITERATIONS).hex()
 
 
-def ensure_admin_bootstrapped() -> str | None:
-    """Called once at startup. Returns a freshly generated password if the first ADMIN account had
-    to be created (so `main.py` can log it), None if any user already existed or the password came
-    from `ADMIN_PASSWORD`."""
-    if db.count_users() > 0:
-        return None
-    username = os.environ.get("ADMIN_USERNAME", "admin")
+class BootstrapResult(NamedTuple):
+    """`password` is set only when a password was generated (so `main.py` can log it); `reason` is
+    set when `ADMIN_PASSWORD` was given but rejected by the policy (never contains the password)."""
+
+    password: str | None = None
+    reason: str | None = None
+
+
+def _generate_password(username: str) -> str:
     # Readable by design: this password gets copied out of a terminal by hand exactly once.
-    # Four words plus digits clears the policy and is far easier to retype than base64 noise.
-    password = os.environ.get("ADMIN_PASSWORD") or "-".join(
-        [secrets.choice(_WORDS) for _ in range(4)] + [str(secrets.randbelow(90) + 10)]
-    )
+    # Four words plus digits is far easier to retype than base64 noise. The words may appear in the
+    # username, so every candidate is checked against the policy and re-rolled on failure.
+    for _ in range(20):
+        candidate = "-".join([secrets.choice(_WORDS) for _ in range(4)] + [str(secrets.randbelow(90) + 10)])
+        try:
+            security.check_password(candidate, username)
+            return candidate
+        except security.PasswordError:
+            continue
+    raise RuntimeError("Konnte kein richtlinienkonformes Passwort generieren")
+
+
+def ensure_admin_bootstrapped() -> BootstrapResult:
+    """Called once at startup. Creates the first ADMIN account if no user exists. `ADMIN_PASSWORD` is
+    used only if it satisfies the password policy; otherwise (or if unset) a password is generated.
+    Falling back instead of aborting avoids a crash loop with an empty volume."""
+    if db.count_users() > 0:
+        return BootstrapResult()
+    username = os.environ.get("ADMIN_USERNAME", "admin")
+    configured = os.environ.get("ADMIN_PASSWORD") or ""
+    reason = None
+    password = None
+    if configured:
+        try:
+            security.check_password(configured, username)
+            password = configured
+        except security.PasswordError as exc:
+            reason = str(exc)
+    generated = None
+    if password is None:
+        generated = password = _generate_password(username)
     salt = secrets.token_hex(16)
     db.create_user(username, hash_password(password, salt), salt, ROLE_ADMIN)
-    return password if not os.environ.get("ADMIN_PASSWORD") else None
+    return BootstrapResult(generated, reason)
 
 
 _WORDS = (

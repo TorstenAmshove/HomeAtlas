@@ -58,7 +58,7 @@
 - **R6 [Muss]** Zugriffsprotokoll für Anmeldungen, Fehlversuche, Benutzeränderungen und **jedes
   Anzeigen eines gespeicherten Passworts**, mit Zeit, Benutzer, IP, User-Agent und Erfolg.
 - **R7 [Muss]** Erst-Admin: Gibt es noch keinen Benutzer, wird einer angelegt (Name/Passwort aus
-  der Konfiguration oder generiert und **einmalig** im Log ausgegeben).
+  der Konfiguration, sofern es R5 erfüllt, sonst generiert und **einmalig** im Log ausgegeben).
 - **R8 [Muss]** WebSocket-Verbindungen (Konsolen) prüfen Sitzung, Rolle und Herkunft (Origin) wie
   normale Anfragen.
 

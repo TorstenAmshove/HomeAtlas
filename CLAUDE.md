@@ -26,7 +26,7 @@ probe/remote-admin modules — it states the threat model and trade-offs this co
 Backend (from `backend/`):
 ```bash
 pip install -r requirements.txt
-HOMEATLAS_DB_PATH=./dev.db HOMEATLAS_KEY_PATH=./dev.key ADMIN_PASSWORD=devpass123 \
+HOMEATLAS_DB_PATH=./dev.db HOMEATLAS_KEY_PATH=./dev.key ADMIN_PASSWORD=Dev-Passwort-2024 \
   uvicorn app.main:app --reload --port 8000
 ```
 
@@ -53,7 +53,7 @@ run (it enrolls the admin). Locally, with a fresh backend on :8000 and `npm run 
 preview --port 8280` in `frontend/`:
 ```bash
 cd frontend/e2e && npm ci
-SMOKE_ADMIN_PASSWORD=devpass123 SMOKE_CHROMIUM_PATH=/path/to/chrome npx playwright test
+SMOKE_ADMIN_PASSWORD=Dev-Passwort-2024 SMOKE_CHROMIUM_PATH=/path/to/chrome npx playwright test
 ```
 `SMOKE_CHROMIUM_PATH` is only for a pre-installed Chromium; otherwise run `npx playwright install chromium`.
 
@@ -62,7 +62,7 @@ Project hooks in `.claude/settings.json`: edited backend `.py` files are run thr
 
 Full stack via Docker: `docker compose up -d --build`, then http://localhost:8280. First-run
 admin credentials are printed once to `docker compose logs backend`. `ADMIN_USERNAME`/
-`ADMIN_PASSWORD` in `docker-compose.yml` only take effect when no user exists yet.
+`ADMIN_PASSWORD` in `docker-compose.yml` only take effect when no user exists yet, and a weak `ADMIN_PASSWORD` (policy violation) is replaced by a generated one.
 
 Container releases are automated: a pull request against `master` builds both images without
 pushing. Merging a code-changing pull request to `master` derives a shared Semver release from

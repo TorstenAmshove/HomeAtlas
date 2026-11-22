@@ -90,7 +90,7 @@ docker compose logs backend | grep -A4 Anmeldedaten
 ```
 
 Ein eigenes Passwort lässt sich stattdessen in `docker-compose.yml` über `ADMIN_USERNAME` /
-`ADMIN_PASSWORD` vorgeben (wirkt nur, solange noch kein Benutzer existiert).
+`ADMIN_PASSWORD` vorgeben (wirkt nur, solange noch kein Benutzer existiert; es muss die Passwortrichtlinie erfüllen, sonst wird eines generiert).
 
 Direkt nach der ersten Anmeldung verlangt HomeAtlas die Einrichtung der Zwei-Faktor-Anmeldung:
 QR-Code mit einer Authenticator-App (z. B. Aegis, Google Authenticator, 1Password) scannen und den
@@ -483,7 +483,7 @@ Inventar über die Auswahl mehrerer Geräte. Konten, Verlauf und Monitoring wand
 | `HOMEATLAS_DB_PATH` | `/data/homeatlas.db` | SQLite-Datenbank |
 | `HOMEATLAS_KEY_PATH` | `/data/secret.key` | Verschlüsselungsschlüssel (wird automatisch erzeugt) |
 | `HOMEATLAS_OUI_PATH` | `/data/oui.json` | Zwischenspeicher der IEEE-Herstellerdatenbank |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | — | Erstes Konto vorgeben statt generieren lassen |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | — | Erstes Konto vorgeben statt generieren lassen (Passwort muss die Richtlinie erfüllen, sonst wird eines generiert) |
 | `TZ` | `Europe/Berlin` | Zeitzone für Anzeigen und Protokolle |
 
 Scan-Verhalten (Bereiche, Ausnahmen, Timeouts, welche Quellen aktiv sind, ob die KI mitarbeitet)
@@ -506,7 +506,7 @@ als Warnung im Scan-Log.
 # Backend
 cd backend
 pip install -r requirements.txt
-HOMEATLAS_DB_PATH=./dev.db HOMEATLAS_KEY_PATH=./dev.key ADMIN_PASSWORD=devpass123 \
+HOMEATLAS_DB_PATH=./dev.db HOMEATLAS_KEY_PATH=./dev.key ADMIN_PASSWORD=Dev-Passwort-2024 \
   uvicorn app.main:app --reload --port 8000
 
 # Frontend (proxyt /api automatisch auf :8000)
