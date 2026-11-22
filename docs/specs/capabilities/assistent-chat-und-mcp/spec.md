@@ -257,11 +257,11 @@ Relais (Kanal 0) oder eine Home-Assistant-Entity ein- oder auszuschalten. Ziele 
 aus der Datenbank aufgelöst werden (Shelly: `systemId` eines Inventargeräts → dessen IP/Hostname;
 HA: `accountId` eines Zugangs der Kategorie `homeassistant` → dessen URL/Token), nie aus vom LLM
 gelieferten Adressen. Bei Home Assistant MÜSSEN nur die Domänen `switch` und `light` geschaltet
-werden; Shelly-Befehle gehen nur an Geräte, deren Hersteller oder Modell „Shelly“ enthält (dieselbe
+werden, dazu `cover`-Entities mit `device_class` blind/shade/shutter/curtain/awning/window per `action` open/close/stop (keine Position; `device_class` wird live vor dem POST gelesen; garage/gate/door und fehlende `device_class` gesperrt; `on` nur für switch/light, `action` nur für cover); Shelly-Befehle gehen nur an Geräte, deren Hersteller oder Modell „Shelly“ enthält (dieselbe
 Prüfung wie `list_switches` und die Oberfläche). Jeder Schaltversuch MUSS mit Aktion
 `switch.assistant`, Ziel, Ergebnis und Auslöser (angemeldeter Benutzer im Chat bzw. „MCP: <Token-
 Bezeichnung>“) ins Zugriffsprotokoll. `list_switches` liefert die Shelly-Geräte und höchstens 200
-HA-Entities der Domänen switch/light. **[Muss]** (Produktentscheidung, ADR 0011/0004, bestätigt in #43.)
+HA-Entities der Domänen switch/light und erlaubte Rollos. **[Muss]** (Produktentscheidung, ADR-0013, bestätigt in #43, #99.)
 
 #### Szenario: Kein Shelly
 - **WENN** `set_switch` mit `kind=shelly` und der `systemId` eines NAS aufgerufen wird
@@ -270,6 +270,14 @@ HA-Entities der Domänen switch/light. **[Muss]** (Produktentscheidung, ADR 0011
 #### Szenario: Schloss verweigert
 - **WENN** das LLM `set_switch` mit `kind=ha`, `entityId=lock.haustuer` aufruft
 - **DANN** wird keine Anfrage an Home Assistant gesendet und das Ergebnis ist ein Fehler „… geschaltet werden dürfen hier nur switch/light-Entities …“
+
+#### Szenario: Garagentor verweigert
+- **WENN** das LLM `set_switch` mit `kind=ha`, `entityId=cover.garage` (`device_class` garage) und `action=open` aufruft
+- **DANN** wird kein POST gesendet und das Ergebnis ist ein Fehler „… ist kein Rollo …“
+
+#### Szenario: Rollo fährt
+- **WENN** `set_switch` mit `entityId=cover.buero` (`device_class` shutter) und `action=close` aufgerufen wird
+- **DANN** ruft das System `cover/close_cover` auf und protokolliert `switch.assistant`
 
 #### Szenario: Unbekannte Geräte-ID
 - **WENN** `set_switch` mit `kind=shelly` und unbekannter `systemId` aufgerufen wird

@@ -64,14 +64,14 @@
 
 - **L1 [Muss]** Lesender und schreibender Gerätezugriff sind getrennte Pfade. Kein lesender Pfad
   kann über eine Einstellung, einen Parameter oder ein KI-Werkzeug schreibend werden.
-  ([ADR-0012](../adr/0012-lesender-websocket-fuer-ha-traces.md))
+  ([ADR-0013](../adr/0013-rollos-per-set-switch.md))
 - **L2 [Muss]** Credentialed Probing ist **streng lesend**: SSH nur aus einer festen, im Code
   stehenden Befehlsliste (nicht erweiterbar, nicht interaktiv, kein `sudo`, kein Paketmanager, keine
   Dienststeuerung, keine schreibende Umleitung in Dateien; Pipes zu Lesewerkzeugen wie `base64` und
   `2>/dev/null` sind erlaubt);
   HTTP nur GET; TR-064 nur `Get*`-Aktionen; Docker-API nur GET; Home-Assistant-WebSocket nur
   `trace/list` und `trace/get`.
-  ([ADR-0012](../adr/0012-lesender-websocket-fuer-ha-traces.md))
+  ([ADR-0013](../adr/0013-rollos-per-set-switch.md))
 - **L3 [Muss]** Ein Zugang wird nur benutzt, wenn er **ausdrücklich zum Auslesen freigegeben**
   ist (Opt-in je Zugang, Default aus). Das Auslesen pro Gerät lässt sich global abschalten
   (`scanUseCredentials`); Controller-Abfragen (UniFi, Omada, Proxmox, AdGuard) haben eigene Schalter.
@@ -82,13 +82,16 @@
   ist das nur, um die Ausgabe lesbar zu machen, nie, um etwas zu ändern.
 - **L4 [Muss]** Schreibende Funktionen (Container steuern, Reboot, SSH-Konsole, Schlüssel ausrollen,
   Proxmox-Aktionen) sind nur für ADMIN und nur über die Oberfläche/API erreichbar, nie über
-  Scan-Pipeline, Probes oder KI-Werkzeuge. ([ADR-0012](../adr/0012-lesender-websocket-fuer-ha-traces.md))
+  Scan-Pipeline, Probes oder KI-Werkzeuge. ([ADR-0013](../adr/0013-rollos-per-set-switch.md))
 - **L5 [Muss]** Einzige Ausnahme: Ein/Aus-Schalten von Shelly-Relais und Home-Assistant
-  `switch`/`light` per KI-Werkzeug `set_switch`, für alle Rollen und MCP-Clients, ohne Rückfrage
-  (bestätigt in #43). Nur echte Shelly-Geräte; jeder Vorgang wird mit Auslöser protokolliert.
-  Erweiterungen brauchen ein neues ADR. ([ADR-0012](../adr/0012-lesender-websocket-fuer-ha-traces.md), [ADR-0004](../adr/0004-llm-faehigkeitsgrenze.md))
+  `switch`/`light` sowie Auf/Zu/Stopp (keine Position) von Home-Assistant-Rollos (`cover` mit
+  `device_class` blind/shade/shutter/curtain/awning/window; Garagen-/Hoftore, Türen und Entities ohne
+  `device_class` gesperrt) per KI-Werkzeug `set_switch`, für alle Rollen und MCP-Clients, ohne
+  Rückfrage (bestätigt in #43, #99). Nur echte Shelly-Geräte; jeder Vorgang wird mit Auslöser
+  protokolliert.
+  Erweiterungen brauchen ein neues ADR. ([ADR-0013](../adr/0013-rollos-per-set-switch.md), [ADR-0013](../adr/0013-rollos-per-set-switch.md))
 - **L6 [Impl]** Lese- und Schreibseite sind getrennte Module, die einander nicht importieren;
-  gemeinsamer Code wird eher dupliziert als geteilt. ([ADR-0012](../adr/0012-lesender-websocket-fuer-ha-traces.md))
+  gemeinsamer Code wird eher dupliziert als geteilt. ([ADR-0013](../adr/0013-rollos-per-set-switch.md))
 - **L7 [Muss, bewusste Abwägung]** SSH-Hostschlüssel werden nicht geprüft (kein Vertrauensspeicher;
   sonst wäre die Funktion im Zielnetz unbrauchbar). Eine Alternative darf das verbessern
   (z. B. Trust-on-first-use), muss es aber nicht.
@@ -96,12 +99,12 @@
 ## 4. KI-Assistent
 
 - **K1 [Muss]** Die Werkzeugliste ist die **vollständige** Fähigkeitsgrenze des Modells: lesend
-  plus begrenzte Live-Diagnosen plus die eine Ausnahme `set_switch` (L5). ([ADR-0004](../adr/0004-llm-faehigkeitsgrenze.md),
+  plus begrenzte Live-Diagnosen plus die eine Ausnahme `set_switch` (L5). ([ADR-0013](../adr/0013-rollos-per-set-switch.md),
   [llm-tools](contracts/llm-tools.md))
 - **K2 [Muss]** Gespeicherte Secrets erreichen **nie** ein Modell, einen Prompt, Anbieter-Logs oder
-  den Chatverlauf. Werkzeuge, die ein Secret brauchen, nutzen es serverseitig. ([ADR-0004](../adr/0004-llm-faehigkeitsgrenze.md))
+  den Chatverlauf. Werkzeuge, die ein Secret brauchen, nutzen es serverseitig. ([ADR-0013](../adr/0013-rollos-per-set-switch.md))
 - **K3 [Muss]** Live-Diagnosen laufen ohne Shell (Argumentliste), mit Timeout und mit strikt
-  validierten Zielen (Hostname/IP/URL nach Muster). ([ADR-0004](../adr/0004-llm-faehigkeitsgrenze.md))
+  validierten Zielen (Hostname/IP/URL nach Muster). ([ADR-0013](../adr/0013-rollos-per-set-switch.md))
 - **K4 [Muss]** Werkzeugergebnisse sind in der Größe begrenzt; eine Kürzung wird dem Modell
   mitgeteilt. Die Zahl der LLM-Aufrufe pro Antwort ist begrenzt.
 - **K5 [Muss]** Anbieter frei wählbar: Anthropic Claude, OpenAI, Google Gemini, DeepSeek, lokales

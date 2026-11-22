@@ -258,7 +258,7 @@ gespeichertes Passwort nur über `GET /api/accounts/{id}/secret` — genau eines
 Administratoren. Es gibt keine Route, die den Zugangsspeicher im Klartext ausgibt.
 
 **Diagnose-Werkzeuge ohne Shell.** Alles, was der Assistent ausführen kann, ist lesend (einzige
-bewusste Ausnahme: Shelly-Relais und Home-Assistant-Lichter/-Schalter ein- und ausschalten), hat ein
+bewusste Ausnahme: Shelly-Relais und Home-Assistant-Lichter/-Schalter ein- und ausschalten sowie Rollos hoch/runter/stoppen; Garagen- und Hoftore, Türen und Entities ohne Rollo-`device_class` sind gesperrt), hat ein
 Timeout und läuft über `create_subprocess_exec` mit Argumentliste. Ein Hostname mit `;` oder
 Backticks ist ein Hostname, kein Befehl — und wird vorher gegen ein striktes Muster geprüft.
 Port- und Webseiten-Prüfungen lehnen Ziele auf dem HomeAtlas-Server selbst (Loopback) und

@@ -90,7 +90,7 @@
     "name": "list_containers"
   },
   {
-    "description": "Listet schaltbare Shelly-Geräte und Home-Assistant-Entities (nur switch/light) mit den IDs, die set_switch braucht. Immer zuerst aufrufen, um einen umgangssprachlichen Namen wie 'das Wohnzimmerlicht' einem konkreten Ziel zuzuordnen, bevor geschaltet wird.",
+    "description": "Listet schaltbare Shelly-Geräte und Home-Assistant-Entities (switch/light und Rollos) mit den IDs, die set_switch braucht. Immer zuerst aufrufen, um einen umgangssprachlichen Namen wie 'das Wohnzimmerlicht' einem konkreten Ziel zuzuordnen, bevor geschaltet wird.",
     "inputSchema": {
       "properties": {},
       "type": "object"
@@ -98,11 +98,20 @@
     "name": "list_switches"
   },
   {
-    "description": "Schaltet ein Shelly-Relais oder eine Home-Assistant-switch/light-Entity ein oder aus. Vorher list_switches aufrufen, um die passende ID zu finden. Wird sofort ausgeführt, ohne Rückfrage -- nur für Ein/Aus-Schalten, nicht für Schlösser, Rollläden, Heizung oder Alarmanlage (die bietet dieses Werkzeug gar nicht erst an).",
+    "description": "Schaltet ein Shelly-Relais oder eine Home-Assistant-switch/light-Entity ein oder aus ('on') bzw. fährt ein Rollo (cover) hoch/runter/stoppt es ('action'). Vorher list_switches aufrufen, um die passende ID zu finden. Wird sofort ausgeführt, ohne Rückfrage. Keine Garagen-/Hoftore, Türen, Schlösser, Heizung oder Alarmanlage und keine Rollo-Position (die bietet dieses Werkzeug nicht an).",
     "inputSchema": {
       "properties": {
         "accountId": {
           "description": "Für kind='ha': die accountId aus list_switches.",
+          "type": "string"
+        },
+        "action": {
+          "description": "Nur für HA cover (Rollo): open = hoch, close = runter, stop.",
+          "enum": [
+            "open",
+            "close",
+            "stop"
+          ],
           "type": "string"
         },
         "entityId": {
@@ -118,7 +127,7 @@
           "type": "string"
         },
         "on": {
-          "description": "true = einschalten, false = ausschalten.",
+          "description": "Für Shelly und HA switch/light: true = einschalten, false = ausschalten.",
           "type": "boolean"
         },
         "systemId": {
@@ -127,8 +136,7 @@
         }
       },
       "required": [
-        "kind",
-        "on"
+        "kind"
       ],
       "type": "object"
     },

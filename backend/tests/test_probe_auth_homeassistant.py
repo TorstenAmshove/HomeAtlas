@@ -135,3 +135,21 @@ def test_automation_line_omits_last_triggered_when_never_fired(monkeypatch):
 def test_format_last_triggered_falls_back_to_raw_value_on_bad_input():
     assert probe_auth._ha_format_last_triggered("not-a-date") == "not-a-date"
     assert probe_auth._ha_format_last_triggered("") == ""
+
+
+def test_list_switchables_includes_only_allowed_covers(monkeypatch):
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/":
+            return httpx.Response(200, json={"message": "API running."})
+        return httpx.Response(200, json=[
+            {"entity_id": "light.a", "state": "on", "attributes": {}},
+            {"entity_id": "cover.rollo", "state": "open", "attributes": {"device_class": "shutter"}},
+            {"entity_id": "cover.garage", "state": "closed", "attributes": {"device_class": "garage"}},
+            {"entity_id": "cover.ohne", "state": "closed", "attributes": {}},
+            {"entity_id": "lock.tuer", "state": "locked", "attributes": {}},
+        ])
+
+    _fake_client(monkeypatch, handler)
+    result = asyncio.run(probe_auth.list_ha_switchables("http://ha.local:8123", {}))
+    assert [e["entityId"] for e in result["entities"]] == ["light.a", "cover.rollo"]
+    assert result["entities"][1]["deviceClass"] == "shutter"

@@ -117,3 +117,38 @@ def test_shelly_rest_route_refuses_non_shelly(as_user, switched):
     nas = db.create_system({"name": "NAS", "kind": "nas", "ip": "192.168.1.20", "vendor": "Synology"})
     assert as_user(ADMIN).post(f"/api/systems/{nas['id']}/shelly-switch/on").status_code == 400
     assert switched == []
+
+
+# --- #99 PR3: shutters via set_switch ---------------------------------------------------------
+
+def _ha_account(temp_db):
+    return db.create_account({"label": "HA", "category": "homeassistant", "url": "http://ha:8123"})
+
+
+def _ha_call(args: dict) -> dict:
+    return json.loads(asyncio.run(tools.dispatch("set_switch", {"kind": "ha", **args})))
+
+
+def test_set_switch_cover_via_tool(temp_db, monkeypatch):
+    acc = _ha_account(temp_db)
+    seen = {}
+
+    async def fake(url, token, entity, action):
+        seen["a"] = (entity, action)
+        return {"ok": True, "error": ""}
+
+    monkeypatch.setattr(switch_admin, "ha_set_cover", fake)
+    out = _ha_call({"accountId": acc["id"], "entityId": "cover.buero", "action": "close"})
+    assert out["ok"] is True and seen["a"] == ("cover.buero", "close")
+    assert any(e["action"] == "switch.assistant" for e in db.list_access_log(10))
+
+
+def test_set_switch_on_for_cover_rejected(temp_db):
+    acc = _ha_account(temp_db)
+    assert "error" in _ha_call({"accountId": acc["id"], "entityId": "cover.buero", "on": True})
+
+
+def test_set_switch_action_for_light_rejected(temp_db):
+    acc = _ha_account(temp_db)
+    assert "error" in _ha_call({"accountId": acc["id"], "entityId": "light.x", "action": "open"})
+    assert "error" in _ha_call({"accountId": acc["id"], "entityId": "light.x"})
