@@ -8,7 +8,7 @@ import asyncio
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 
-from .. import classify, crypto, db, discovery, docs, llm_providers, pipeline, probe_auth, unifi_probe
+from .. import classify, crypto, db, discovery, docs, exposure, llm_providers, pipeline, probe_auth, unifi_probe
 from .. import monitor as monitor_module
 from ..deps import _public_account, current_user, require_admin
 
@@ -206,6 +206,16 @@ async def list_system_errors(system_id: str, _: dict = Depends(current_user)) ->
     if db.get_system(system_id) is None:
         raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
     return {"events": db.list_device_error_events(system_id)}
+
+
+@router.get("/api/systems/{system_id}/exposure")
+async def system_exposure(system_id: str, _: dict = Depends(current_user)) -> dict:
+    if db.get_system(system_id) is None:
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
+    wan = next((r.get("facts") or {} for r in db.list_network_resources(kind="wan", active_only=True)
+                if (r.get("facts") or {}).get("ip")), None)
+    data = exposure.build_chains(db.list_exposure_facts(), db.list_systems(), wan)
+    return {"entries": exposure.for_system(data, system_id)}
 
 
 @router.post("/api/systems/{system_id}/classify")

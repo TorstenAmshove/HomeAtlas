@@ -260,3 +260,22 @@ def build_chains(facts: list[dict], systems: list[dict], wan: dict | None = None
             "internal": internal, "ddns": ddns, "portforwards": forwards, "hints": list(dict.fromkeys(hints)),
             "portforwardsChecked": any(not f.get("stale") for f in _by_kind(facts, "portforward_scan")),
             "hasData": bool(facts)}
+
+
+def for_system(data: dict, system_id: str) -> list[dict]:
+    """Rows "reachable via ..." for one inventory system, from an already built `build_chains` result."""
+    rows: list[dict] = []
+    for chain in data["chains"]:
+        for path in chain["paths"]:
+            if any(s["id"] == system_id for step in path["steps"] for s in step["systems"]):
+                rows.append({"host": chain["host"], "scope": "extern", "via": path["sourceLabel"],
+                             "status": path["status"], "mtls": path["mtls"]})
+    for r in data["internal"]:
+        if any(s["id"] == system_id for s in r["systems"]):
+            rows.append({"host": r["host"], "scope": "intern", "via": "Traefik (TLS)", "status": "",
+                         "mtls": False})
+    for p in data["portforwards"]:
+        if any(s["id"] == system_id for s in p["systems"]):
+            rows.append({"host": f"{p['proto']} {p['wanPort']}", "scope": "portforward", "via": "Router-Portweiterleitung",
+                         "status": "aktiv" if p.get("enabled", True) else "aus", "mtls": False})
+    return rows[:50]

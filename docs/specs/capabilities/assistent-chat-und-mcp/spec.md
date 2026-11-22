@@ -200,6 +200,7 @@ Werkzeuggruppen (Details, Schemas und Grenzen: [llm-tools](../../contracts/llm-t
 - Inventar: `list_systems` (Filter `kind`, `query`, `onlyOnline`), `get_system`, `network_overview`, `list_containers`
 - Dokumentation: `list_documentation`, `get_documentation`
 - Zugänge: `list_accounts` (ohne Passwörter)
+- Erreichbarkeit: `list_exposure` (nur aus der Datenbank, begrenzt auf 15 Zeilen je Liste mit Kürzungshinweis, Filter `host`, ohne Geheimnisse und ohne Quell-Zugangs-IDs, kein Live-DNS)
 - Schalten: `list_switches`, `set_switch`
 - Home Assistant live (nur lesend): `get_ha_state`, `get_ha_history`, `get_ha_logbook`, `get_ha_error_log`, `list_ha_traces`, `get_ha_trace`
 - Diagnose: `internet_check`, `ping_host` (1–10 Versuche, Standard 3), `check_port`, `dns_lookup`, `reverse_dns`, `http_check`, `traceroute` (1–30 Hops, Standard 15); Ausführung siehe [diagnose](../diagnose/spec.md)

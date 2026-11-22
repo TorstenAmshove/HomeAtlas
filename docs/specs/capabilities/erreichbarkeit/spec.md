@@ -122,3 +122,14 @@ validierte Hostnamen ohne Wildcards, höchstens 200 Abfragen je Scan. DynDNS-Con
 - **DANN** erscheint ein Hinweis
 
 Quelle: `backend/app/cloudflare_probe.py`, `backend/app/public_dns.py`, `backend/app/docker_probe.py`, `backend/app/exposure.py`, Test: `backend/tests/test_cloudflare_probe.py`, `backend/tests/test_public_dns.py`, `backend/tests/test_exposure_dyndns.py`, `backend/tests/test_exposure_secrets.py`
+
+### Requirement: Assistent-Werkzeug und Systemseite
+Das System MUSS `list_exposure` (nur lesend, nur aus gespeicherten Fakten, ohne Live-DNS, begrenzt mit
+Kürzungshinweis, ohne Geheimnisse und Quell-Zugangs-IDs) für ADMIN, MEMBER und Assistent bereitstellen.
+`tools.py` DARF aus den Erreichbarkeits-Modulen nur `exposure` importieren (ADR-0014). Die Systemseite
+(Tab „Technik“) MUSS über `GET /api/systems/{id}/exposure` „Erreichbar über …“ zeigen, wenn das System
+Ziel einer Kette, einer Traefik-Route oder einer Portweiterleitung ist. **[Muss]**
+
+#### Szenario: Frage nach einem Hostnamen
+- **WENN** der Assistent `list_exposure` mit `host` aufruft
+- **DANN** enthält die Antwort nur Ketten, interne Routen und Extern-Zeilen zu diesem Host
