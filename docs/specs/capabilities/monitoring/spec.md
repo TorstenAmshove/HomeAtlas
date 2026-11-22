@@ -174,10 +174,10 @@ UI-Seite(n): `frontend/src/pages/geraete/PlanPage.tsx` (Route `/plan`, Überwach
 
 ## OFFEN
 
-- > OFFEN: Kritische Geräte werden vor jeder Runde zwangsweise wieder auf „überwacht“ gesetzt – ein Admin kann die Überwachung eines kritischen Geräts nicht abschalten; das Abwählen wird stillschweigend rückgängig gemacht. Absicht? (`backend/app/db.py:1890`)
-- > OFFEN: `unknown` (z. B. Ping-Aufruf wirft) setzt den Fehlerzähler zurück und wird sofort übernommen; ein Gerät kann so `offline → unknown → offline` flattern und jeweils Ereignisse erzeugen.
-- > OFFEN: Manuelle Runde und Hintergrundschleife teilen sich den Fehlerzähler und können parallel laufen; ein Klick auf „Jetzt prüfen“ kann einen Ausfall daher schneller „bestätigen“ als zwei Intervalle.
-- > OFFEN: `monitorEvents` hat keine Aufbewahrungsgrenze (im Gegensatz zu `deviceErrorEvents`/`accessLog`); wächst bei flatternden Geräten unbegrenzt.
-- > OFFEN: Rückkehr auf `online` nach Ausfall erzeugt kein Fehler-/Info-Ereignis am Gerät, nur ein `monitorEvents`-Eintrag – gewollt?
-- > OFFEN: `intervalSeconds` in `GET /api/monitor` ist der ungeklemmte Einstellungswert, nicht das tatsächlich verwendete Intervall; `monitorTimeoutMs` hat serverseitig keine Obergrenze.
-- > OFFEN: Für Docker-Container (Art `container`, teilen die Host-IP) gibt es keine typischen Ports; ohne offene Ports prüft der Monitor per Ping effektiv nur den Host.
+- > OFFEN: Kritische Geräte werden vor jeder Runde zwangsweise wieder auf „überwacht“ gesetzt – ein Admin kann die Überwachung eines kritischen Geräts nicht abschalten; das Abwählen wird stillschweigend rückgängig gemacht. Absicht? (`backend/app/db.py:1890`) → #131
+- > OFFEN: `unknown` (z. B. Ping-Aufruf wirft) setzt den Fehlerzähler zurück und wird sofort übernommen; ein Gerät kann so `offline → unknown → offline` flattern und jeweils Ereignisse erzeugen. → #130
+- > OFFEN: Manuelle Runde und Hintergrundschleife teilen sich den Fehlerzähler und können parallel laufen; ein Klick auf „Jetzt prüfen“ kann einen Ausfall daher schneller „bestätigen“ als zwei Intervalle. → #129
+- > OFFEN: `monitorEvents` hat keine Aufbewahrungsgrenze (im Gegensatz zu `deviceErrorEvents`/`accessLog`); wächst bei flatternden Geräten unbegrenzt. → #130
+- > OFFEN: Rückkehr auf `online` nach Ausfall erzeugt kein Fehler-/Info-Ereignis am Gerät, nur ein `monitorEvents`-Eintrag – gewollt? → #130
+- > OFFEN: `intervalSeconds` in `GET /api/monitor` ist der ungeklemmte Einstellungswert, nicht das tatsächlich verwendete Intervall; `monitorTimeoutMs` hat serverseitig keine Obergrenze. → #130
+- > OFFEN: Für Docker-Container (Art `container`, teilen die Host-IP) gibt es keine typischen Ports; ohne offene Ports prüft der Monitor per Ping effektiv nur den Host. → #130

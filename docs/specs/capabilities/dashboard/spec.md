@@ -198,7 +198,7 @@ UI-Seite(n): `frontend/src/pages/start/StartPage.tsx` (Route `/`).
 
 ## OFFEN
 
-- > OFFEN: `lastScan` liefert die komplette Scan-Zeile inkl. vollständigem `log` und `summary` an MEMBER (`backend/app/main.py:1633`); die UI braucht nur `startedAt`/`status`. Unnötige Datenmenge und Offenlegung von Scan-Details.
-- > OFFEN: Kritische Geräte ohne IP und Hostname werden nie überwacht (`backend/app/db.py:1900`) und stehen dauerhaft als „wird geprüft…" auf dem Dashboard – irreführend.
-- > OFFEN: Bei mehr als 10 kritischen Geräten werden still nur die ersten 10 (alphabetisch) gezeigt; die Kachel nennt die volle Zahl, ein Hinweis auf weitere fehlt.
-- > OFFEN: Status `unknown` und jeder andere Wert erscheinen gleichermaßen als „wird geprüft…", auch wenn die Überwachung abgeschaltet ist (dann wird nichts geprüft).
+- > OFFEN: `lastScan` liefert die komplette Scan-Zeile inkl. vollständigem `log` und `summary` an MEMBER (`backend/app/main.py:1633`); die UI braucht nur `startedAt`/`status`. Unnötige Datenmenge und Offenlegung von Scan-Details. → #119
+- > OFFEN: Kritische Geräte ohne IP und Hostname werden nie überwacht (`backend/app/db.py:1900`) und stehen dauerhaft als „wird geprüft…" auf dem Dashboard – irreführend. → #131
+- > OFFEN: Bei mehr als 10 kritischen Geräten werden still nur die ersten 10 (alphabetisch) gezeigt; die Kachel nennt die volle Zahl, ein Hinweis auf weitere fehlt. → #131
+- > OFFEN: Status `unknown` und jeder andere Wert erscheinen gleichermaßen als „wird geprüft…", auch wenn die Überwachung abgeschaltet ist (dann wird nichts geprüft). → #131

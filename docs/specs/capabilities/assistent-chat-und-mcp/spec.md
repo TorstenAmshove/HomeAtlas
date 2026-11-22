@@ -400,9 +400,9 @@ UI-Seite(n): `frontend/src/pages/ChatPage.tsx` (Routen `/assistent`, `/assistent
 
 ## OFFEN
 
-- > OFFEN: `list_switches` nutzt jeden HA-Zugang unabhängig vom Opt-in „Zum Auslesen verwenden“ und fragt bei jedem Aufruf live alle HA-Instanzen ab.
-- > OFFEN: Scheitert eine Runde (502), bleibt die Benutzernachricht gespeichert; die UI legt sie zurück ins Eingabefeld → beim erneuten Senden doppelt im Verlauf. Umbenennung passiert auch bei gescheiterter Runde.
-- > OFFEN: Keine Gesamtzeitgrenze je Runde: bis zu 8 LLM-Aufrufe à 120 s plus Werkzeuge.
-- > OFFEN: `systemPromptOverride` ist nur per API setzbar (keine UI) und ersetzt den Prompt ohne Platzhalter-Ersetzung (`{home_name}` bliebe wörtlich).
-- > OFFEN: Kein Rate-Limit auf `/api/mcp`; `lastUsedAt` wird bei jeder Anfrage geschrieben.
-- > OFFEN: Eine Nachricht nur aus Leerzeichen erfüllt die Mindestlänge 1 und wird gesendet; als erste Nachricht ergibt sie einen leeren Chat-Titel.
+- > OFFEN: `list_switches` nutzt jeden HA-Zugang unabhängig vom Opt-in „Zum Auslesen verwenden“ und fragt bei jedem Aufruf live alle HA-Instanzen ab. → #121
+- > OFFEN: Scheitert eine Runde (502), bleibt die Benutzernachricht gespeichert; die UI legt sie zurück ins Eingabefeld → beim erneuten Senden doppelt im Verlauf. Umbenennung passiert auch bei gescheiterter Runde. → #150
+- > OFFEN: Keine Gesamtzeitgrenze je Runde: bis zu 8 LLM-Aufrufe à 120 s plus Werkzeuge. → #120
+- > OFFEN: `systemPromptOverride` ist nur per API setzbar (keine UI) und ersetzt den Prompt ohne Platzhalter-Ersetzung (`{home_name}` bliebe wörtlich). → #150
+- > OFFEN: Kein Rate-Limit auf `/api/mcp`; `lastUsedAt` wird bei jeder Anfrage geschrieben. → #120
+- > OFFEN: Eine Nachricht nur aus Leerzeichen erfüllt die Mindestlänge 1 und wird gesendet; als erste Nachricht ergibt sie einen leeren Chat-Titel. → #150

@@ -294,12 +294,12 @@ Admins; Konto und Über für alle; Darstellung (System · Hell · Dunkel, pro Br
 
 ## OFFEN
 
-- > OFFEN: Ein leer gesendeter API-Schlüssel löscht ihn, ein leer gesendetes Standard-Zugang-Geheimnis bleibt erhalten — uneinheitliche Semantik.
-- > OFFEN: `PATCH /api/settings` akzeptiert beliebige Schlüssel und Typen, auch `setupCompleted` oder ein rohes `defaultCredentialSecretEnc`.
-- > OFFEN: UI-Fehler: Nach „Modelle laden“ wird nur `data`, nicht `form` aktualisiert; die neue Liste erscheint erst nach Neuladen, und ein anschließendes „Speichern“ schreibt den alten `providerModelCache` zurück.
-- > OFFEN: Die Live-Liste wird nach ID sortiert gespeichert; der Fallback „erster/letzter Eintrag“ in `resolve` wählt dadurch alphabetisch, nicht nach Anbieter-Reihenfolge (Docstring geht von Anbieterreihenfolge aus).
-- > OFFEN: `providerModelCache` wird bei Wechsel von Schlüssel oder Server-Adresse nicht verworfen.
-- > OFFEN: Claude-Modellabruf holt höchstens 100 Modelle, ohne Paginierung.
-- > OFFEN: Ollama-, `deepseekBaseUrl`-Schlüssel fehlen in den Defaults (funktional egal, aber unvollständig dokumentiert).
-- > OFFEN: Test/Modelle-Laden schicken Anfragen an eine frei eingebbare Server-Adresse (Admin-only, aber serverseitige Anfrage an beliebige URL).
-- > OFFEN: Gemini-Schlüssel steht als Query-Parameter in der URL (kann in Proxy-Logs landen).
+- > OFFEN: Ein leer gesendeter API-Schlüssel löscht ihn, ein leer gesendetes Standard-Zugang-Geheimnis bleibt erhalten — uneinheitliche Semantik. → #124
+- > OFFEN: `PATCH /api/settings` akzeptiert beliebige Schlüssel und Typen, auch `setupCompleted` oder ein rohes `defaultCredentialSecretEnc`. → #124
+- > OFFEN: UI-Fehler: Nach „Modelle laden“ wird nur `data`, nicht `form` aktualisiert; die neue Liste erscheint erst nach Neuladen, und ein anschließendes „Speichern“ schreibt den alten `providerModelCache` zurück. → #125
+- > OFFEN: Die Live-Liste wird nach ID sortiert gespeichert; der Fallback „erster/letzter Eintrag“ in `resolve` wählt dadurch alphabetisch, nicht nach Anbieter-Reihenfolge (Docstring geht von Anbieterreihenfolge aus). → #125
+- > OFFEN: `providerModelCache` wird bei Wechsel von Schlüssel oder Server-Adresse nicht verworfen. → #125
+- > OFFEN: Claude-Modellabruf holt höchstens 100 Modelle, ohne Paginierung. → #125
+- > OFFEN: Ollama-, `deepseekBaseUrl`-Schlüssel fehlen in den Defaults (funktional egal, aber unvollständig dokumentiert). → #124
+- > OFFEN: Test/Modelle-Laden schicken Anfragen an eine frei eingebbare Server-Adresse (Admin-only, aber serverseitige Anfrage an beliebige URL). → #114
+- > OFFEN: Gemini-Schlüssel steht als Query-Parameter in der URL (kann in Proxy-Logs landen). → #125
