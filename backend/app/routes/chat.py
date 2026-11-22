@@ -2,11 +2,15 @@
 
 Chats belong to the user who started them (#49): everyone sees, reads, continues and deletes only
 their own; ADMIN sees all. Chats from before ownership existed have no owner and are admin-only.
-A chat someone may not see answers 404, not 403, so its existence is not revealed."""
+A chat someone may not see answers 404, not 403, so its existence is not revealed.
+
+A failed round (provider error or crash) is rolled back completely: the user message and any tool
+traffic of that round are deleted and the chat is not renamed, because the UI puts the text back
+into the input field and a resend would otherwise duplicate it (#150)."""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from .. import auth, db, llm_providers, tools
 from ..deps import current_user
@@ -50,6 +54,11 @@ async def list_messages(chat_id: str, user: dict = Depends(current_user)) -> dic
 class ChatBody(BaseModel):
     message: str = Field(min_length=1)
 
+    @field_validator("message", mode="before")
+    @classmethod
+    def _strip(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
 
 @router.post("/api/chats/{chat_id}/messages")
 async def send_message(chat_id: str, body: ChatBody, user: dict = Depends(current_user)) -> dict:
@@ -63,12 +72,18 @@ async def send_message(chat_id: str, body: ChatBody, user: dict = Depends(curren
             "Es ist noch kein KI-Zugang eingerichtet. Bitte unter Einstellungen -> KI-Assistent "
             "einen Anbieter und einen Schlüssel hinterlegen."
         ))
-    if chat["title"] == "Neue Unterhaltung":
-        db.rename_chat(chat_id, body.message.strip()[:60])
+    anchor = db.last_chat_message_rowid(chat_id)
     try:
-        return await tools.run_chat_turn(chat_id, body.message, settings, user=user)
+        result = await tools.run_chat_turn(chat_id, body.message, settings, user=user)
     except llm_providers.ProviderError as exc:
+        db.delete_chat_messages_after(chat_id, anchor)
         raise HTTPException(status_code=502, detail=f"Der KI-Anbieter meldet: {exc}") from exc
+    except Exception:
+        db.delete_chat_messages_after(chat_id, anchor)
+        raise
+    if chat["title"] == "Neue Unterhaltung":
+        db.rename_chat(chat_id, body.message[:60])
+    return result
 
 
 @router.delete("/api/chats/{chat_id}")

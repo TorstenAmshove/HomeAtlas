@@ -50,7 +50,7 @@ Die Oberfläche legt nichts an, solange keine Frage gestellt wird (siehe „Unte
 
 #### Szenario: Automatischer Titel
 - **WENN** die erste Nachricht in einer Unterhaltung mit Titel „Neue Unterhaltung“ gesendet wird
-- **DANN** wird die Unterhaltung auf die ersten 60 Zeichen der (getrimmten) Nachricht umbenannt
+- **DANN** und die Runde erfolgreich war, wird die Unterhaltung auf die ersten 60 Zeichen der (getrimmten) Nachricht umbenannt; scheitert die Runde, bleibt der Titel „Neue Unterhaltung“
 
 Quelle: `backend/app/main.py:1496`, `backend/app/main.py:1528`, `backend/app/db.py:1946`, `backend/app/db.py:1954`, `backend/app/db.py:1969`
 
@@ -113,11 +113,15 @@ rückgängig machen lässt. Während eine Antwort läuft, ist Löschen gesperrt.
 Quelle: `frontend/src/pages/ChatPage.tsx`
 
 ### Requirement: Nachricht senden — Vorbedingungen und Fehler
-Das System MUSS eine nicht-leere Nachricht verlangen (sonst Validierungsfehler 422), bei unbekannter
+Das System MUSS die Nachricht trimmen und eine nicht-leere (auch nicht nur aus Leerzeichen bestehende) verlangen (sonst Validierungsfehler 422, nichts wird gespeichert), bei unbekannter
 Unterhaltung 404 liefern und, wenn der gewählte Anbieter nicht Ollama ist und kein API-Schlüssel
 hinterlegt ist, mit 400 und einem Hinweis auf „Einstellungen -> KI-Assistent“ ablehnen, bevor ein
 Anbieter kontaktiert wird. Ein Fehler des Anbieters MUSS als 502 „Der KI-Anbieter meldet: …“
-zurückkommen. **[Muss]**
+zurückkommen; der Verlauf bleibt dabei unverändert. **[Muss]**
+
+#### Szenario: Nur Leerzeichen
+- **WENN** die Nachricht nur aus Leerzeichen besteht
+- **DANN** antwortet das System mit 422 und legt keine Nachricht an
 
 #### Szenario: Kein Schlüssel
 - **WENN** Anbieter DEEPSEEK gewählt und kein `deepseekApiKey` gespeichert ist
@@ -147,8 +151,10 @@ Quelle: `backend/app/tools.py:35`, `backend/app/tools.py:448`, `backend/app/tool
 
 ### Requirement: Jeder Zwischenschritt wird gespeichert
 Das System MUSS die Benutzernachricht vor dem ersten LLM-Aufruf speichern und jeden Assistentenschritt
-mit Werkzeugaufrufen sowie jedes Werkzeugergebnis sofort speichern, sodass ein Abbruch einen lesbaren,
-wieder abspielbaren Verlauf hinterlässt. Der vollständige gespeicherte Verlauf (inkl. Tool-Verkehr)
+mit Werkzeugaufrufen sowie jedes Werkzeugergebnis sofort speichern. Scheitert die Runde (502 oder
+unerwarteter Fehler), nimmt das System sie vollständig zurück: Benutzernachricht und Zwischenschritte
+dieser Runde werden gelöscht, frühere Nachrichten bleiben, denn die Oberfläche legt den Text zurück
+ins Eingabefeld und ein Rest im Verlauf würde beim erneuten Senden doppelt erscheinen. Der vollständige gespeicherte Verlauf (inkl. Tool-Verkehr)
 wird bei jeder Runde als Kontext an das LLM gegeben. **[Muss]**
 
 Anbieter-Rohdaten eines Assistentenschritts (Claude-Thinking-Blöcke mit Signatur, Gemini
@@ -156,7 +162,9 @@ Anbieter-Rohdaten eines Assistentenschritts (Claude-Thinking-Blöcke mit Signatu
 
 #### Szenario: Abbruch während Werkzeug
 - **WENN** der Anbieter nach dem ersten Werkzeugaufruf mit HTTP 500 antwortet
-- **DANN** enthält der gespeicherte Verlauf Benutzernachricht, Werkzeugaufruf und -ergebnis, und die API antwortet 502
+- **DANN** antwortet die API 502 und der Verlauf enthält nichts von dieser Runde (Benutzernachricht, Werkzeugaufruf und -ergebnis sind zurückgenommen)
+
+Tests: `backend/tests/test_chat_send_errors.py`
 
 Quelle: `backend/app/tools.py:452`, `backend/app/tools.py:476`, `backend/app/tools.py:434`, `backend/app/llm_providers.py:124`
 
@@ -176,7 +184,7 @@ Quelle: `backend/app/tools.py:34`, `backend/app/tools.py:233`, `backend/app/tool
 Das System MUSS als Systemprompt einen festen deutschen Text verwenden (Du-Form, Fachbegriffe
 erklären, erst messen dann fragen, von unten nach oben prüfen, nichts erfinden, keine Zugangsdaten
 erfragen, Messung schlägt Doku), in dem der Name des Zuhauses eingesetzt ist (Fallback „diesem
-Haushalt“). Ist `systemPromptOverride` nicht leer, ersetzt er diesen Text vollständig. In jedem Fall
+Haushalt“). Ist `systemPromptOverride` nicht leer, ersetzt er diesen Text vollständig; darin wird `{home_name}` durch den Namen des Zuhauses ersetzt (Fallback wie oben), andere geschweifte Klammern bleiben wörtlich. Admins pflegen ihn unter Einstellungen → KI-Assistent. In jedem Fall
 MUSS ein je Runde neu erzeugter Zustandsblock angehängt werden: Zeitstempel (UTC), Anzahl Geräte und
 davon erreichbar, ausgewählte Netzwerk-Bereiche (oder „automatisch erkannt“), Gateway-IP (oder „nicht
 ermittelt“), letzter Scan mit Status (oder „noch keiner“). Der Zustandsblock DARF keine Prozesse
@@ -449,8 +457,5 @@ UI-Seite(n): `frontend/src/pages/ChatPage.tsx` (Routen `/assistent`, `/assistent
 ## OFFEN
 
 - > OFFEN: `list_switches` nutzt jeden HA-Zugang unabhängig vom Opt-in „Zum Auslesen verwenden“ und fragt bei jedem Aufruf live alle HA-Instanzen ab. → #121
-- > OFFEN: Scheitert eine Runde (502), bleibt die Benutzernachricht gespeichert; die UI legt sie zurück ins Eingabefeld → beim erneuten Senden doppelt im Verlauf. Umbenennung passiert auch bei gescheiterter Runde. → #150
 - > OFFEN: Keine Gesamtzeitgrenze je Runde: bis zu 8 LLM-Aufrufe à 120 s plus Werkzeuge. → #120
-- > OFFEN: `systemPromptOverride` ist nur per API setzbar (keine UI) und ersetzt den Prompt ohne Platzhalter-Ersetzung (`{home_name}` bliebe wörtlich). → #150
 - > OFFEN: Kein Rate-Limit auf `/api/mcp`; `lastUsedAt` wird bei jeder Anfrage geschrieben. → #120
-- > OFFEN: Eine Nachricht nur aus Leerzeichen erfüllt die Mindestlänge 1 und wird gesendet; als erste Nachricht ergibt sie einen leeren Chat-Titel. → #150
