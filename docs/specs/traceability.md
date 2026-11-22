@@ -155,7 +155,7 @@ Lücken: **0**
 | `DocsPage` | [dokumentation](capabilities/dokumentation/spec.md) |
 | `SettingsPage` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [diagnose](capabilities/diagnose/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md), [monitoring](capabilities/monitoring/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) |
 
-## ADRs in der Constitution (13)
+## ADRs in der Constitution (14)
 
 Quelle links sind die Dateien in `docs/adr/`, rechts die Regeln in [constitution.md](constitution.md),
 die auf das ADR verlinken.
@@ -175,3 +175,4 @@ die auf das ADR verlinken.
 | [ADR-0011](../adr/0011-lese-schreib-trennung-routen-module.md) | Ersetzt durch ADR-0012 | – |  |
 | [ADR-0012](../adr/0012-lesender-websocket-fuer-ha-traces.md) | Ersetzt durch ADR-0013 (ersetzte ADR-0011) | – |  |
 | [ADR-0013](../adr/0013-rollos-per-set-switch.md) | Akzeptiert, ersetzt ADR-0012 und ADR-0004 | L1, L2, L4, L5, L6, K1, K2, K3 |  |
+| [ADR-0014](../adr/0014-lesender-zugriff-klassische-unifi-api.md) | Vorgeschlagen (wird „Akzeptiert“, sobald der Spike unten ausgefüllt und die Auth-Frage entschieden ist) | L8 |  |

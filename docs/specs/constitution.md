@@ -92,6 +92,10 @@
   Erweiterungen brauchen ein neues ADR. ([ADR-0013](../adr/0013-rollos-per-set-switch.md), [ADR-0013](../adr/0013-rollos-per-set-switch.md))
 - **L6 [Impl]** Lese- und Schreibseite sind getrennte Module, die einander nicht importieren;
   gemeinsamer Code wird eher dupliziert als geteilt. ([ADR-0013](../adr/0013-rollos-per-set-switch.md))
+- **L8 [Impl, vorgeschlagen]** Live-Zugriff auf die klassische UniFi-API (geplant, #104) ist streng
+  lesend: ein Modul `unifi_live.py` mit fester GET-Endpunkt-Allowlist, Zeitfenster höchstens 7 Tage,
+  Mengen- und Zeichenlimit, Schwärzung, keine Speicherung. Gilt erst, wenn ADR-0014 akzeptiert ist.
+  ([ADR-0014](../adr/0014-lesender-zugriff-klassische-unifi-api.md))
 - **L7 [Muss, bewusste Abwägung]** SSH-Hostschlüssel werden nicht geprüft (kein Vertrauensspeicher;
   sonst wäre die Funktion im Zielnetz unbrauchbar). Eine Alternative darf das verbessern
   (z. B. Trust-on-first-use), muss es aber nicht.

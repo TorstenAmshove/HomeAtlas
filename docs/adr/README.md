@@ -33,3 +33,4 @@ Menschen und für KI-Agenten, die sonst bewusste Entscheidungen „wegrefaktorie
 | [0011](0011-lese-schreib-trennung-routen-module.md) | Lese-/Schreib-Trennung mit Routen-Modulen | Ersetzt durch ADR-0012 |
 | [0012](0012-lesender-websocket-fuer-ha-traces.md) | Lesender WebSocket für Home-Assistant-Traces | Ersetzt durch ADR-0013 |
 | [0013](0013-rollos-per-set-switch.md) | Rollos per `set_switch`, Tore bleiben gesperrt | Akzeptiert |
+| [0014](0014-lesender-zugriff-klassische-unifi-api.md) | Lesender Live-Zugriff auf die klassische UniFi-API | Vorgeschlagen |
