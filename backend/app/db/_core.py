@@ -419,3 +419,12 @@ def init_db() -> None:
             existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
             if column not in existing:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
+
+        # ADR-0016: the scan reads the classic UniFi API with the `unifi` account's API key; the
+        # former login-based category was never used and is removed, same steps as delete_account.
+        for old in conn.execute("SELECT id FROM accounts WHERE category = 'unifi_classic'").fetchall():
+            conn.execute("DELETE FROM accountAssignments WHERE accountId = ?", (old["id"],))
+            conn.execute("UPDATE networkResources SET active = 0, updatedAt = ? WHERE sourceAccountId = ?",
+                         (_now(), old["id"]))
+            conn.execute("DELETE FROM exposureFacts WHERE sourceAccountId = ?", (old["id"],))
+            conn.execute("DELETE FROM accounts WHERE id = ?", (old["id"],))

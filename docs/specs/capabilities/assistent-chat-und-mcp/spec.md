@@ -294,7 +294,7 @@ eines aktuell verbundenen Clients aus der klassischen UniFi-API anbieten (Signal
 Datenrate, Retries, `roam_count`, Access Point, Uptime, Zufriedenheit). Der Client wird per MAC (jede
 Schreibweise), IP oder Name (auch Inventarname) angegeben; mehrere Treffer ergeben eine Kandidatenliste,
 nie eine Vermutung. Es DARF nur der feste GET-Pfad `stat/sta` mit `X-API-Key` des Zugangs der Kategorie
-`unifi` abgerufen werden ([ADR-0015](../../../adr/0015-lesender-zugriff-klassische-unifi-api.md));
+`unifi` abgerufen werden ([ADR-0016](../../../adr/0016-unifi-scan-nur-mit-api-key.md));
 Antworten MÜSSEN eine Feld-Positivliste durchlaufen, der Key DARF nie in Ergebnis, Fehlertext oder Log
 erscheinen, nichts wird gespeichert. Fehlt Zugang, URL oder Key oder ist der Controller nicht
 erreichbar, MUSS eine feste, verständliche Meldung statt eines Fehlers kommen.

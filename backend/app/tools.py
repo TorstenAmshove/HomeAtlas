@@ -14,7 +14,7 @@ Two rules shape what is exposed here:
   scope (on/off for `switch`/`light`; open/close/stop for allowlisted shutter `device_class`es, ADR-0013).
 * **Live Home Assistant reads** (`get_ha_state/history/logbook/error_log`) go through GET-only,
   bounded and redacted helpers in `probe_auth.py`; the token is decrypted there and never returned.
-* **Live UniFi reads** (`get_unifi_client/device/network/events`) go through `unifi_live.py` (ADR-0015): fixed endpoint
+* **Live UniFi reads** (`get_unifi_client/device/network/events`) go through `unifi_live.py` (ADR-0015/0016): fixed endpoint
   allowlist (GET plus exactly one read-only POST, the event log query), `X-API-Key` only, field
   allowlist, nothing stored. It is the one source module this file
   may import; the API key is decrypted here server-side and never returned.

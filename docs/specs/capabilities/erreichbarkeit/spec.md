@@ -64,22 +64,23 @@ Quelle: `backend/app/traefik_probe.py`, `backend/app/pipeline.py`, Test: `backen
 ### Requirement: UniFi-Portweiterleitungen und WAN-Adresse
 Das System MUSS Portweiterleitungen und die WAN-IP über die klassische UniFi-API lesen, weil die
 Integration-API weder Portweiterleitungen noch eine WAN-Adresse liefert. Das geschieht nur mit einem
-Zugang der Kategorie `unifi_classic` (lokaler Benutzer „View Only“) mit `allowProbe` und solange
-`scanEnableUnifiClassic` (Default an) gesetzt ist. Der einzige POST ist der Login (`/api/auth/login`);
-danach nur GET auf `/self/sites`, `rest/portforward` und `stat/health`. Gespeichert werden je
-Weiterleitung nur Protokoll, Ports, Ziel-IP und „aktiv“ (nie Name, Quellfilter, Passwort, Cookie, CSRF-Token),
-und die WAN-IP als `wan`-Netzwerkressource. Ein erfolgreicher Lauf ohne Weiterleitungen zeigt
+Zugang der Kategorie `unifi` (API-Key) mit `allowProbe` und solange `scanEnableUnifiClassic`
+(Default an) gesetzt ist ([ADR-0016](../../../adr/0016-unifi-scan-nur-mit-api-key.md)). Es gibt keinen
+Login: nur GET mit `X-API-Key` auf `/self/sites`, `rest/portforward` und `stat/health`, ohne Cookie,
+CSRF-Token und ohne Weiterleitungen. Ein früherer Zugang `unifi_classic` wird bei der Migration gelöscht. Gespeichert werden je
+Weiterleitung nur Protokoll, Ports, Ziel-IP und „aktiv“ (nie Name, Quellfilter, Key),
+und die WAN-IP wird an die WAN-Zeile des Zugangs gehängt (Zuordnung nach Reihenfolge, nur bei gleicher Anzahl). Ein erfolgreicher Lauf ohne Weiterleitungen zeigt
 „keine Portweiterleitungen“; die WAN-Tabelle zeigt vorhandene Adressen statt leerer Zeilen. **[Muss]**
 
 #### Szenario: Klassische API nicht lesbar
-- **WENN** Login oder Abruf fehlschlägt
+- **WENN** der Abruf fehlschlägt (Key abgelehnt, Endpunkt nicht verfügbar, Timeout)
 - **DANN** bleiben die alten Fakten als veraltet erhalten, ein Geräte-Fehler-Event entsteht am System des Zugangs und die übrigen Quellen laufen weiter
 
 #### Szenario: Opt-in entfällt
 - **WENN** `allowProbe` oder `scanEnableUnifiClassic` abgeschaltet wird
 - **DANN** werden die Portweiterleitungs-Fakten beim nächsten Scan gelöscht
 
-Quelle: `backend/app/unifi_classic_probe.py`, `backend/app/pipeline.py`, Test: `backend/tests/test_unifi_classic_probe.py`, `backend/tests/test_exposure_boundaries.py`
+Quelle: `backend/app/unifi_classic_probe.py`, `backend/app/pipeline.py`, Test: `backend/tests/test_unifi_classic_probe.py`, `backend/tests/test_pipeline_unifi_classic.py`, `backend/tests/test_exposure_boundaries.py`
 
 ### Requirement: Datei-Quellen per Forced-Command
 Das System MUSS die Konfiguration von cloudflared (Ingress), Caddy (Site-Blöcke, Client-Zertifikat ja/nein)

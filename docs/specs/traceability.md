@@ -18,7 +18,7 @@ Lücken: **0**
 | `PUT /api/accounts/{account_id}/assignments` | [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `POST /api/accounts/{account_id}/deploy` | [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `GET /api/accounts/{account_id}/secret` | [zugangsdaten](capabilities/zugangsdaten/spec.md) |
-| `POST /api/auth/login` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [erreichbarkeit](capabilities/erreichbarkeit/spec.md) |
+| `POST /api/auth/login` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
 | `POST /api/auth/logout` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
 | `GET /api/auth/me` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
 | `POST /api/auth/mfa/confirm` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
@@ -162,7 +162,7 @@ Lücken: **0**
 | `DocsPage` | [dokumentation](capabilities/dokumentation/spec.md) |
 | `SettingsPage` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [diagnose](capabilities/diagnose/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md), [monitoring](capabilities/monitoring/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) |
 
-## ADRs in der Constitution (15)
+## ADRs in der Constitution (16)
 
 Quelle links sind die Dateien in `docs/adr/`, rechts die Regeln in [constitution.md](constitution.md),
 die auf das ADR verlinken.
@@ -183,4 +183,5 @@ die auf das ADR verlinken.
 | [ADR-0012](../adr/0012-lesender-websocket-fuer-ha-traces.md) | Ersetzt durch ADR-0013 (ersetzte ADR-0011) | – |  |
 | [ADR-0013](../adr/0013-rollos-per-set-switch.md) | Ersetzt durch ADR-0014, dieses durch ADR-0015 (ersetzte ADR-0012 und ADR-0004) | – |  |
 | [ADR-0014](../adr/0014-erreichbarkeits-quellen-lesend.md) | Ersetzt durch ADR-0015; ersetzte ADR-0013 | – |  |
-| [ADR-0015](../adr/0015-lesender-zugriff-klassische-unifi-api.md) | Akzeptiert, ersetzt ADR-0014 | P1, L1, L2, L4, L5, L6, L8, K1, K2, K3 |  |
+| [ADR-0015](../adr/0015-lesender-zugriff-klassische-unifi-api.md) | Ersetzt durch ADR-0016; ersetzte ADR-0014 | – |  |
+| [ADR-0016](../adr/0016-unifi-scan-nur-mit-api-key.md) | Akzeptiert, ersetzt ADR-0015 | P1, L1, L2, L4, L5, L6, L8, K1, K2, K3 |  |

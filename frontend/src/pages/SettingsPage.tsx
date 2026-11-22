@@ -406,7 +406,7 @@ export default function SettingsPage() {
             ["scanEnableOmada", "Access Points und Switches über den Omada Controller erfassen"],
             ["scanEnableProxmox", "VMs und LXC-Container über Proxmox erfassen"],
             ["scanEnableAdguard", "DNS-Status und Clients über AdGuard Home erfassen"],
-            ["scanEnableUnifiClassic", "Portweiterleitungen und WAN-Adresse über die klassische UniFi-API lesen"],
+            ["scanEnableUnifiClassic", "Portweiterleitungen und WAN-Adresse über den UniFi-API-Key lesen"],
             ["scanEnableTraefik", "Intern erreichbare Dienste über die Traefik-API erfassen"],
             ["scanEnableExposureFiles", "cloudflared-, Caddy- und ddclient-Konfiguration per SSH-Forced-Command lesen"],
             ["scanEnableCloudflare", "Cloudflare-DNS, Tunnel und Schutzregeln über die Cloudflare-API lesen (Kontakt nach außen)"],
