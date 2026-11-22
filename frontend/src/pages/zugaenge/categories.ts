@@ -14,6 +14,7 @@ export const CATEGORIES = [
   ["exposure_cloudflared", "cloudflared-Konfiguration lesen (SSH-Forced-Command)"],
   ["exposure_caddy", "Caddyfile lesen (SSH-Forced-Command)"],
   ["exposure_ddclient", "ddclient-Konfiguration lesen (SSH-Forced-Command)"],
+  ["firewall_nftables", "nftables-Firewall lesen (SSH-Forced-Command, sudo)"],
   ["wifi", "WLAN-Zugang"],
   ["apikey", "API-Schlüssel"],
   ["other", "Sonstiges"],

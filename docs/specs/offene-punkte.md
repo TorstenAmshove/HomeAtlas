@@ -138,7 +138,7 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 ### [firewall](capabilities/firewall/spec.md) (1)
 
-1. nftables der Hosts (Forced-Command `nft -j list ruleset`), Pfadbewertung (`firewall_eval.py`), Werkzeuge `check_firewall_path`/`list_firewall_rules`, Kapitel „Wer darf mit wem sprechen“ und die Verknüpfung mit den Erreichbarkeits-Ketten (Issue #106, Teile B–D).
+1. Pfadbewertung (`firewall_eval.py`), Werkzeuge `check_firewall_path`/`list_firewall_rules`, Kapitel „Wer darf mit wem sprechen“ und die Verknüpfung mit den Erreichbarkeits-Ketten (Issue #106, Teile C–D).
 
 ### [inventar](capabilities/inventar/spec.md) (9)
 

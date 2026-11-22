@@ -297,8 +297,30 @@ standardmäßig **aus** (`scanEnableFirewallUnifi`) und braucht denselben Zugang
 Weiterleitungen. Minimal nötige Rechte: wie oben, der Key hat die Rechte seines Erstellers (ADR-0017).
 Gespeichert werden nur Zonen, Regelname, Reihenfolge, Aktion, Protokoll, Ports und IPs, nie Kommentare,
 Trefferzähler oder Schlüssel. Ist die Quelle nicht lesbar, bleiben die alten Regeln als veraltet markiert.
-Die Auswertung, das Kapitel „Wer darf mit wem sprechen“ und nftables der Hosts folgen in weiteren Schritten
-(Issue #106).
+Die Auswertung und das Kapitel „Wer darf mit wem sprechen“ folgen in weiteren Schritten (Issue #106).
+
+**Firewall-Regeln (nftables der Hosts).** Optional liest HomeAtlas den live geladenen nftables-Regelsatz
+einzelner Hosts, weil nur er zeigt, was tatsächlich gilt. Standardmäßig **aus** (`scanEnableFirewallNft`)
+und zusätzlich je Host opt-in: Zugang der Kategorie „nftables-Firewall lesen“ (Zielsystem, Benutzername,
+Port, privater Schlüssel) mit „Zum Auslesen verwenden“. HomeAtlas sendet genau einen im Code festen Befehl
+(`nft -j list ruleset`); was wirklich läuft, bestimmt der Zielhost. Dafür braucht er einen eigenen Nutzer
+ohne Shell-Rechte, einen `authorized_keys`-Eintrag und eine sudoers-Zeile nur für diesen einen Befehl
+(Pfad der Binärdatei je Distribution anpassen, `which nft`):
+
+```
+# ~homeatlas/.ssh/authorized_keys
+restrict,from="<HomeAtlas-IP>",command="sudo /usr/sbin/nft -j list ruleset" ssh-ed25519 AAAA… homeatlas
+# /etc/sudoers.d/homeatlas-nft
+homeatlas ALL=(root) NOPASSWD: /usr/sbin/nft -j list ruleset
+```
+
+Die Firewall des Zielhosts lässt SSH nur von der HomeAtlas-IP zu (bei `policy drop` auf `input` eine
+Regel dafür ergänzen). Gespeichert werden nur Hook, Priorität, Policy und je Regel Quell-/Ziel-IP, Port,
+Verbindungsstatus, Schnittstelle und Urteil (accept/drop/reject), nie Kommentare oder die Rohausgabe.
+Alles, was HomeAtlas nicht sicher beurteilen kann (`jump`/`goto`, NAT, Raten-Begrenzung, Negation), wird
+als „nicht auswertbar“ vermerkt. Ist ein Host nicht lesbar (sudo verweigert, Zeitüberschreitung, Ausgabe über
+512 KiB), bleiben die alten Regeln als veraltet markiert. Docker-eigene Regeln und IPv6 werden in v1 nicht
+ausgewertet.
 
 **Cloudflare und öffentliches DNS (Erreichbarkeit, Kontakt nach außen).** Beides ist standardmäßig
 **aus** (`scanEnableCloudflare`, `scanEnablePublicDns`), weil es das einzige ist, was HomeAtlas außerhalb

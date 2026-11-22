@@ -22,8 +22,8 @@ def test_pipeline_imports_no_writing_module():
 
 
 def test_tools_does_not_import_firewall_sources():
-    assert not _imports("tools") & {"firewall_unifi"}
-    assert not _imports("mcp_server") & {"firewall_unifi"}
+    assert not _imports("tools") & {"firewall_unifi", "firewall_nft"}
+    assert not _imports("mcp_server") & {"firewall_unifi", "firewall_nft"}
 
 
 def test_constitution_links_no_superseded_adr():
@@ -33,3 +33,11 @@ def test_constitution_links_no_superseded_adr():
     assert "0018-wan-status-und-lesepfade" in text
 
 
+
+
+def test_firewall_nft_runs_only_the_fixed_command():
+    src = (APP / "firewall_nft.py").read_text()
+    assert src.count("connection.run(") == 1 and "connection.run(_NFT_COMMAND," in src
+    assert _imports("firewall_nft").isdisjoint(FORBIDDEN_IN_SOURCES | {"remote_admin", "probe_auth"})
+    for verb in ("create_process", "start_sftp_client", "open_session", "subprocess"):
+        assert verb not in src
