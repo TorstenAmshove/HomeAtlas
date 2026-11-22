@@ -94,7 +94,7 @@ export default function TechnikTab({ system, monitorPorts, aliases, isAdmin, can
             ["Image", docker.image],
             ["Zustand", docker.status || docker.state],
             ["Compose-Projekt", docker.composeProject],
-            ["Port-Weiterleitungen", docker.portMappings?.length > 0 ? docker.portMappings.join(", ") : ""],
+            ["Port-Zuordnungen (Docker)", docker.portMappings?.length > 0 ? docker.portMappings.join(", ") : ""],
             ["Datenablagen", docker.volumes?.length > 0 ? docker.volumes.join(", ") : ""],
           ]} />
         </Section>

@@ -111,6 +111,12 @@ from .network_resources import (  # noqa: E402
     sync_network_resources,
     update_network_resource_manual,
 )
+from .exposure import (  # noqa: E402
+    delete_exposure_facts,
+    list_exposure_facts,
+    mark_exposure_facts_stale,
+    replace_exposure_facts,
+)
 from .accounts import (  # noqa: E402
     _ASSIGNMENT_TARGET_TYPES,
     _assigned_account_ids,
@@ -285,6 +291,9 @@ __all__ = [
     "list_doc_versions",
     "list_monitor_events",
     "list_monitored_systems",
+    "delete_exposure_facts",
+    "list_exposure_facts",
+    "mark_exposure_facts_stale",
     "list_network_resources",
     "list_probe_accounts",
     "list_scans",
@@ -307,6 +316,7 @@ __all__ = [
     "set_user_password",
     "snapshot_doc_page",
     "strip_probe_facts",
+    "replace_exposure_facts",
     "sync_network_resources",
     "touch_api_token",
     "update_account",

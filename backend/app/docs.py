@@ -17,7 +17,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from . import db, discovery, llm_providers, probe_auth, prompts
+from . import db, discovery, exposure, llm_providers, probe_auth, prompts
 
 KIND_LABELS = {
     "router": "Router", "network": "Netzwerk-Gerät", "server": "Server", "nas": "Netzwerkspeicher",
@@ -119,17 +119,24 @@ TOPICS: tuple[Topic, ...] = (
         9,
     ),
     Topic(
+        "erreichbarkeit", "Erreichbarkeit von außen", (),
+        "Welche Dienste aus dem Internet und welche intern per TLS erreichbar sind, und auf welchem Weg.",
+        "Hier steht, welche Dienste von außerhalb des Hauses erreichbar sind und über welchen Weg, "
+        "und welche Dienste im Heimnetz verschlüsselt über einen Reverse Proxy laufen.",
+        10, extra_sections=("exposure",),
+    ),
+    Topic(
         "zugaenge-und-konten", "Zugänge und Konten", (),
         "Wo welche Zugangsdaten hinterlegt sind.",
         "Hier ist vermerkt, für welche Geräte und Dienste Zugangsdaten in HomeAtlas hinterlegt sind. "
         "Die Passwörter selbst stehen bewusst nicht in dieser Dokumentation -- sie sind verschlüsselt "
         "gespeichert und nur in der Geräteansicht sichtbar.",
-        10, include_accounts=True,
+        11, include_accounts=True,
     ),
     Topic(
         "notfall", "Wenn etwas nicht funktioniert", (),
         "Eine Checkliste für den Störungsfall.",
-        "", 11, extra_sections=("emergency",),
+        "", 12, extra_sections=("emergency",),
     ),
 )
 
@@ -318,7 +325,7 @@ def _device_details(systems: list[dict], by_id: dict[str, dict], children_by_par
             if docker.get("composeProject"):
                 docker_facts.append(f"- **Compose-Projekt:** `{docker['composeProject']}`")
             if docker.get("portMappings"):
-                docker_facts.append(f"- **Port-Weiterleitungen:** `{', '.join(docker['portMappings'])}`")
+                docker_facts.append(f"- **Port-Zuordnungen (Docker):** `{', '.join(docker['portMappings'])}`")
             if docker.get("volumes"):
                 docker_facts.append(f"- **Datenablagen (Volumes):** `{', '.join(docker['volumes'][:6])}`")
             parts.append("\n".join(docker_facts) + "\n")
@@ -418,6 +425,70 @@ def _network_resources_section() -> str:
             lines.append("| " + " | ".join(_escape(str(value)) for value in row) + " |")
         sections.append("\n".join(lines))
     return "\n\n".join(sections) + "\n"
+
+
+_EXPOSURE_EMPTY = ("_Noch keine Erreichbarkeits-Daten erfasst. Sobald eine Quelle (Reverse Proxy, Tunnel, "
+                   "Router, DynDNS) eingerichtet ist, erscheinen die Wege hier._\n")
+
+
+def _md(value: object, limit: int = 120) -> str:
+    """Hostnames and names come from third-party configs: escape table syntax and cap the length."""
+    text = _escape(str(value or ""))
+    text = text.replace("`", "'").replace("<", "‹").replace(">", "›")
+    return text[:limit] or "-"
+
+
+def _sys_names(systems: list[dict]) -> str:
+    return ", ".join(_md(s["name"]) for s in systems) or "nicht im Inventar"
+
+
+def _exposure_section() -> str:
+    """Chapter body for reachability; facts only, no secrets ever reach this (ADR-0014)."""
+    wan = next((r.get("facts") or {} for r in db.list_network_resources(kind="wan", active_only=True)
+                if (r.get("facts") or {}).get("ip")), None)
+    data = exposure.build_chains(db.list_exposure_facts(), db.list_systems(), wan)
+    if not data["hasData"]:
+        return _EXPOSURE_EMPTY
+    out: list[str] = []
+    if data["chains"]:
+        out.append("### Von außen erreichbar\n")
+        for chain in data["chains"]:
+            out.append(f"**{_md(chain['host'])}**" + (" (über Cloudflare)" if chain["cloudflare"] else ""))
+            for path in chain["paths"]:
+                steps = " → ".join(f"{_md(s['label'])} ({_sys_names(s['systems'])})" for s in path["steps"]) or "-"
+                guard = ", Client-Zertifikat (mTLS) nötig" if path["mtls"] else ""
+                out.append(f"- {path['sourceLabel']} [{path['status']}{guard}]: Internet → {steps}")
+            out.extend(f"- Hinweis: {_md(h, 300)}" for h in chain["hints"])
+            out.append("")
+    if data["external"]:
+        out.append("### Extern gehostet\n")
+        out += ["| Hostname | Ziel | Anbieter |", "| --- | --- | --- |"]
+        out += [f"| {_md(e['host'])} | {_md(e['target'])} | {_md(e['provider'])} |" for e in data["external"]]
+        out.append("")
+    if data["internal"]:
+        out += ["### Intern per TLS erreichbare Dienste\n", "| Hostname | Ziel | Zertifikat | Schutz |",
+                "| --- | --- | --- | --- |"]
+        out += [f"| {_md(r['host'])} | {_md(r['target'])} ({_sys_names(r['systems'])}) | {_md(r['resolver'])} | "
+                f"{_md(', '.join(r['middlewares']))} |" for r in data["internal"]]
+        out.append("")
+    if data["ddns"]:
+        out += ["### DynDNS\n", "| System | Anbieter | Hostname | IPv4/IPv6 | Zeigt auf WAN-IP |",
+                "| --- | --- | --- | --- | --- |"]
+        for d in data["ddns"]:
+            fam = "/".join(n for n, on in (("IPv4", d["ipv4"]), ("IPv6", d["ipv6"])) if on) or "-"
+            for h in d["hosts"] or [{"host": "", "resolvesToWan": None}]:
+                ok = {True: "ja", False: "nein", None: "unbekannt"}[h["resolvesToWan"]]
+                out.append(f"| {_sys_names(d['system'])} | {_md(d['provider'])} | {_md(h['host'])} | {fam} | {ok} |")
+        out.append("")
+    if data["portforwards"]:
+        out += ["### Portweiterleitungen\n", "| Protokoll | Port außen | Ziel | System |", "| --- | --- | --- | --- |"]
+        out += [f"| {_md(p['proto'])} | {_md(p['wanPort'])} | {_md(p['destIp'])}:{_md(p['destPort'])} | "
+                f"{_sys_names(p['systems'])} |" for p in data["portforwards"]]
+        out.append("")
+    if data["hints"]:
+        out.append("### Hinweise\n")
+        out += [f"- {_md(h, 300)}" for h in data["hints"]]
+    return "\n".join(out) + "\n"
 
 
 def _emergency_section(context: dict) -> str:
@@ -544,7 +615,12 @@ async def generate(settings: dict, use_llm: bool = True, log=None) -> list[str]:
         systems = _systems_for(topic, all_systems)
         sections: list[str] = []
 
-        if "emergency" in topic.extra_sections:
+        if "exposure" in topic.extra_sections:
+            sections.append(topic.fallback + "\n")
+            sections.append(_exposure_section())
+            body = "\n".join(sections)
+            intro = topic.intro_hint
+        elif "emergency" in topic.extra_sections:
             body = _emergency_section(context)
             intro = topic.intro_hint
         else:

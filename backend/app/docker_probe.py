@@ -43,6 +43,13 @@ def _published_ports(container: dict) -> list[int]:
     return sorted(ports)
 
 
+def _restart_policy(container: dict, labels: dict) -> str:
+    """The real policy lives in HostConfig, not in a "restart" label; the label is only a fallback
+    for tools that mirror it there."""
+    policy = ((container.get("HostConfig") or {}).get("RestartPolicy") or {}).get("Name") or ""
+    return policy if policy and policy != "no" else (labels.get("restart", "") or policy)
+
+
 def _port_mappings(container: dict) -> list[str]:
     out = []
     for p in container.get("Ports") or []:
@@ -130,7 +137,7 @@ async def probe(host_ip: str = "") -> dict:
                     "status": container.get("Status", ""),
                     "composeProject": project,
                     "composeService": service,
-                    "restartPolicy": labels.get("restart", ""),
+                    "restartPolicy": _restart_policy(container, labels),
                     "portMappings": _port_mappings(container),
                     "volumes": mounts,
                     "networks": sorted((container.get("NetworkSettings") or {}).get("Networks", {}).keys()),

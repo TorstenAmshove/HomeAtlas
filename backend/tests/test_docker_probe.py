@@ -41,3 +41,10 @@ def test_container_names(monkeypatch):
     assert systems[0]["discoveryKey"] == "docker:immich:postgres"
     assert systems[2]["discoveryKey"] == "docker:standalone"
     assert systems[3]["discoveryKey"] == "docker:only-project"
+
+
+def test_restart_policy_comes_from_host_config():
+    from app import docker_probe
+    assert docker_probe._restart_policy({"HostConfig": {"RestartPolicy": {"Name": "unless-stopped"}}}, {}) == "unless-stopped"
+    assert docker_probe._restart_policy({"HostConfig": {"RestartPolicy": {"Name": "no"}}}, {}) == "no"
+    assert docker_probe._restart_policy({}, {"restart": "always"}) == "always"

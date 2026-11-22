@@ -16,7 +16,7 @@ from typing import Any, Iterator
 
 # Columns stored as JSON text. Kept in one place so `_row` and the writers can't drift apart.
 _JSON_COLUMNS = {"openPorts", "services", "extra", "summary", "toolCalls", "tags", "answers",
-                  "providerRaw", "monitorPorts", "facts"}
+                  "providerRaw", "monitorPorts", "facts", "data"}
 
 
 def _now() -> str:
@@ -250,6 +250,24 @@ CREATE TABLE IF NOT EXISTS networkResources (
 );
 CREATE INDEX IF NOT EXISTS idx_networkresources_kind ON networkResources(kind, active);
 CREATE INDEX IF NOT EXISTS idx_networkresources_account ON networkResources(sourceAccountId);
+
+-- Normalised reachability facts (ADR-0014): one row per fact read from one source/account. `data`
+-- holds only the allowlisted, non-secret fields of the fact's kind (see exposure.py); raw files and
+-- API answers are never stored. `stale = 1` means the last read of that source failed and the row
+-- is older data, never silently deleted.
+CREATE TABLE IF NOT EXISTS exposureFacts (
+    id TEXT PRIMARY KEY,
+    source TEXT NOT NULL,
+    sourceAccountId TEXT NOT NULL DEFAULT '',
+    kind TEXT NOT NULL,
+    key TEXT NOT NULL,
+    data TEXT,
+    active INTEGER NOT NULL DEFAULT 1,
+    stale INTEGER NOT NULL DEFAULT 0,
+    firstSeen TEXT NOT NULL,
+    lastSeen TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_exposurefacts_source ON exposureFacts(source, sourceAccountId);
 
 -- Lets one credential profile (an `accounts` row) additionally apply to more than the single
 -- device its own `systemId` points at -- a whole device kind ("every switch"), a subnet ("every
