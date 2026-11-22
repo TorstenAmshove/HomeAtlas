@@ -389,7 +389,7 @@ export default function AccountFormPage({ mode }: { mode: "new" | "edit" }) {
 
           <div className="field">
             <label htmlFor="zg-url">
-              Adresse{["omada", "homeassistant", "proxmox", "adguard"].includes(form.category) ? "" : " (optional)"}
+              Adresse{["omada", "homeassistant", "proxmox", "adguard", "traefik"].includes(form.category) ? "" : " (optional)"}
             </label>
             <input id="zg-url" placeholder="https://…" value={form.url} onChange={(e) => update({ url: e.target.value })} />
             {form.category === "omada" && (
@@ -407,6 +407,12 @@ export default function AccountFormPage({ mode }: { mode: "new" | "edit" }) {
             )}
             {form.category === "homeassistant" && (
               <div className="field-hint">Basis-Adresse von Home Assistant, z. B. http://192.168.1.5:8123.</div>
+            )}
+            {form.category === "traefik" && (
+              <div className="field-hint">
+                Adresse der Traefik-API, z. B. https://traefik.lan.example.org. Benutzername und Passwort
+                eines eigenen BasicAuth-Nutzers nur für die API (lesend, nur GET).
+              </div>
             )}
             {form.category === "adguard" && (
               <div className="field-hint">

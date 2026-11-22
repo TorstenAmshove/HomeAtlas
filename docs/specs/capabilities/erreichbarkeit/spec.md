@@ -1,7 +1,7 @@
 # Erreichbarkeit von außen
 
-> Status: neu (Issue #102, Teil 1 von 6: Datenmodell, Kettenlogik, Kapitel). Die Quellen (Traefik,
-> Caddy/cloudflared/ddclient, UniFi, Cloudflare, öffentliches DNS) folgen in den nächsten Teilen.
+> Status: neu (Issue #102, Teil 2 von 6: Datenmodell, Kettenlogik, Kapitel, Traefik). Die weiteren Quellen
+> (Caddy/cloudflared/ddclient, UniFi, Cloudflare, öffentliches DNS) folgen in den nächsten Teilen.
 
 ## Zweck
 
@@ -43,3 +43,20 @@ Das System MUSS das Kapitel `erreichbarkeit` erzeugen, bei fehlenden Quellen mit
 Texte aus Fremdquellen escapen und kürzen. **[Muss]**
 
 Quelle: `backend/app/docs.py`, Test: `backend/tests/test_docs_exposure.py`
+
+### Requirement: Traefik als Quelle
+Das System MUSS die Routen eines internen Traefik per GET auf die festen Pfade `/api/http/routers`,
+`/api/http/services` und `/api/entrypoints` lesen, nur mit einem Zugang der Kategorie `traefik` mit
+`allowProbe` und solange `scanEnableTraefik` (Default an) gesetzt ist. Es speichert je Router nur Hosts,
+Ziel-URL, Zertifikats-Resolver, Middleware-Namen und Entrypoints (nie Regel im Rohformat, Hashes,
+Antwortkörper). Router ohne `Host(...)` werden ohne Host aufgeführt. **[Muss]**
+
+#### Szenario: Traefik nicht lesbar
+- **WENN** die Traefik-API fehlschlägt
+- **DANN** bleiben die alten Fakten als veraltet erhalten, ein Geräte-Fehler-Event entsteht am System des Zugangs und die übrigen Quellen laufen weiter
+
+#### Szenario: Opt-in entfällt
+- **WENN** `allowProbe` oder `scanEnableTraefik` abgeschaltet wird
+- **DANN** werden die Traefik-Fakten beim nächsten Scan gelöscht
+
+Quelle: `backend/app/traefik_probe.py`, `backend/app/pipeline.py`, Test: `backend/tests/test_traefik_probe.py`, `backend/tests/test_exposure_boundaries.py`

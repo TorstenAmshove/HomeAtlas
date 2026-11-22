@@ -18,7 +18,7 @@ from datetime import datetime, timedelta, timezone
 
 from . import (
     adguard_probe, classify, crypto, db, discovery, docker_probe, docs, omada_probe, oui, probe_auth,
-    proxmox_probe, unifi_probe,
+    proxmox_probe, traefik_probe, unifi_probe,
 )
 
 
@@ -494,6 +494,31 @@ async def run_full_scan(scan_id: str) -> None:
                     warnings.append(f"AdGuard Home ({account['label']}): {adguard_result['error']}")
                     if account.get("systemId"):
                         db.add_device_error_event(account["systemId"], "error", adguard_result["error"])
+
+        if settings.get("scanEnableTraefik", True):
+            traefik_accounts = [a for a in db.list_accounts()
+                                if a.get("category") == "traefik" and a.get("allowProbe")]
+            if traefik_accounts:
+                progress("Traefik erfassen", 88, "Frage Traefik-API ab")
+            for account in traefik_accounts:
+                username = account.get("username") or ""
+                password = crypto.decrypt(account.get("secretEnc") or "")
+                try:
+                    traefik_result = await asyncio.wait_for(
+                        traefik_probe.probe(account.get("url") or "", username, password), timeout=60)
+                except Exception as exc:  # one failing source must never stop the scan
+                    traefik_result = {"ok": False, "facts": [], "error": f"Traefik: {type(exc).__name__}"}
+                if traefik_result["ok"]:
+                    db.replace_exposure_facts("traefik", account["id"], traefik_result["facts"])
+                    log(f"Traefik ({account['label']}): {len(traefik_result['facts'])} Route(n) gelesen")
+                else:
+                    db.mark_exposure_facts_stale("traefik", account["id"])
+                    warnings.append(f"Traefik ({account['label']}): {traefik_result['error']}")
+                    if account.get("systemId"):
+                        db.add_device_error_event(account["systemId"], "error", traefik_result["error"])
+            db.prune_exposure_facts("traefik", [a["id"] for a in traefik_accounts])
+        else:
+            db.delete_exposure_facts(source="traefik")
 
         if settings.get("scanUseLlm", True):
             progress("Geräte einordnen (KI)", 89, "KI-Einordnung unbekannter Geräte")

@@ -253,6 +253,14 @@ feste Zahl an Einträgen. Texte werden vor der Ausgabe von Tokens, Passwörtern 
 Zugriffstoken bleibt auf dem Server. Das Opt-in „Zum Auslesen verwenden“ gilt für diese
 Abfragen nicht (wie bei `list_switches`), und sie stehen allen Rollen und MCP-Clients offen.
 
+**Traefik lesen (Erreichbarkeit).** Für „Intern per TLS erreichbare Dienste“ liest HomeAtlas die
+Traefik-API, ausschließlich per GET auf `/api/http/routers`, `/api/http/services` und
+`/api/entrypoints` (nie die Middleware-Liste, weil dort BasicAuth-Hashes stehen können). Minimal
+nötige Rechte: ein eigener BasicAuth-Nutzer nur für den API-Entrypoint, den Traefik nur im LAN
+erreichbar macht. Der Zugang (Kategorie „Traefik API“) braucht „Zum Auslesen verwenden“; die Quelle
+ist in den Einstellungen abschaltbar (`scanEnableTraefik`). Gespeichert werden nur Hostname,
+Ziel-URL, Zertifikats-Resolver und Middleware-Namen, nie die Regel im Rohformat oder Zugangsdaten.
+
 **Passwörter verlassen den Server einzeln.** API-Schlüssel kommen maskiert zurück, ein
 gespeichertes Passwort nur über `GET /api/accounts/{id}/secret` — genau eines, nur für
 Administratoren. Es gibt keine Route, die den Zugangsspeicher im Klartext ausgibt.

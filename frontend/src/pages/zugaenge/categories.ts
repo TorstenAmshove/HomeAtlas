@@ -9,6 +9,7 @@ export const CATEGORIES: [string, string][] = [
   ["homeassistant", "Home Assistant (Long-Lived Access Token)"],
   ["proxmox", "Proxmox VE (API-Token)"],
   ["adguard", "AdGuard Home (Basic Auth)"],
+  ["traefik", "Traefik API (Basic Auth)"],
   ["wifi", "WLAN-Zugang"],
   ["apikey", "API-Schlüssel"],
   ["other", "Sonstiges"],
