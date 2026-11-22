@@ -22,8 +22,9 @@ import "./geraete.css";
  * - DNS test, speedtest and "Jetzt prüfen" stay as actions under "Diagnose".
  */
 
-/** Same grouping as topology.py: everything the plan does not draw. */
+/** Same grouping as topology.py: everything the physical plan does not draw. */
 const DEVICE_GROUPS: [string, string[]][] = [
+  ["Router & Verteilung", ["router", "network"]],
   ["Server & Speicher", ["server", "nas"]],
   ["Container & VMs", ["container", "vm"]],
   ["Computer & Mobilgeräte", ["pc", "mobile"]],
@@ -93,6 +94,8 @@ export default function PlanPage() {
   const layer3 = view === "layer3";
   const [svg, setSvg] = useState("");
   const [svgError, setSvgError] = useState("");
+  // Ids of every device the physical plan draws; the list below the plan is "everything else".
+  const [drawnIds, setDrawnIds] = useState<Set<string> | null>(null);
   const [systems, setSystems] = useState<System[] | null>(null);
   const [monitor, setMonitor] = useState<MonitorState | null>(null);
   const [dns, setDns] = useState<{ result: DnsResult; at: Date } | null>(null);
@@ -131,6 +134,26 @@ export default function PlanPage() {
       .catch((e) => { if (!cancelled) setSvgError(e instanceof Error ? e.message : String(e)); });
     return () => { cancelled = true; };
   }, [layer3]);
+
+  // The physical plan is the reference for "drawn" in both views, so the list below stays the same
+  // when switching. Until it is loaded (or if it fails) the list is hidden: better none than a wrong one.
+  useEffect(() => {
+    let cancelled = false;
+    const collect = (text: string) => {
+      const ids = new Set<string>();
+      for (const m of text.matchAll(/data-system-id="([^"]+)"/g)) ids.add(m[1]);
+      return ids;
+    };
+    if (!layer3 && svg) {
+      setDrawnIds(collect(svg));
+      return;
+    }
+    fetch("/api/topology.svg", { credentials: "same-origin" })
+      .then((r) => (r.ok ? r.text() : Promise.reject(new Error("Plan nicht verfügbar"))))
+      .then((text) => { if (!cancelled) setDrawnIds(collect(text)); })
+      .catch(() => { if (!cancelled) setDrawnIds(null); });
+    return () => { cancelled = true; };
+  }, [layer3, svg]);
 
   useEffect(() => {
     api.listSystems().then((r) => setSystems(r.systems)).catch((e) => setError(e.message));
@@ -186,7 +209,7 @@ export default function PlanPage() {
 
   const groupedSystems = DEVICE_GROUPS.map(([label, kinds]) => ({
     label,
-    members: (systems ?? []).filter((s) => kinds.includes(s.kind) && s.importance !== "critical"),
+    members: drawnIds ? (systems ?? []).filter((s) => kinds.includes(s.kind) && !drawnIds.has(s.id)) : [],
   })).filter((g) => g.members.length > 0);
 
 

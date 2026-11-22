@@ -10,8 +10,11 @@ Readability decisions, since this is meant for someone who does not read network
   Everything else is grouped and counted ("14 Computer & Mobilgeräte"), because forty labelled
   boxes is a picture nobody looks at twice.
 * Containers are drawn inside their host, not as peers, which is where they actually live.
-* Colour carries status (reachable / not reachable), and is never the only signal -- the box also
-  says so in words.
+* Colour carries status (reachable / not reachable), and is never the only signal -- every device
+  box also says so in words ("erreichbar" / "nicht erreichbar" / "unbekannt"), and both plans carry
+  the same legend.
+* A box is never narrower than `_MIN_BOX_W`; a row with more boxes widens the canvas (viewBox)
+  instead of squeezing them further.
 """
 from __future__ import annotations
 
@@ -22,11 +25,14 @@ import re
 from . import db
 
 _W = 1000
-_BOX_H = 52
+_BOX_H = 64
 _GAP_X = 16
-_LAYER_GAP = 78
-# At _W's own width, a row this size still keeps each box legible (_row shrinks box width to fit
-# the count, down to its own readability floor) -- see the "Wichtige Geräte" row below.
+_LAYER_GAP = 90
+_MIN_BOX_W = 90
+# Caps per row. Devices beyond them are not drawn; PlanPage.tsx lists everything the SVG does not
+# contain ("Nicht im Plan gezeichnet"), so nothing disappears.
+_MAX_ROUTERS = 6
+_MAX_NETWORK = 10
 _MAX_CRITICAL_BOXES = 10
 
 _COLORS = {
@@ -213,17 +219,36 @@ def _resolve_system_links(systems: list[dict]) -> dict[str, set[str]]:
     return links
 
 
+_STATUS_WORD = {"online": "erreichbar", "offline": "nicht erreichbar"}
+
+
+def _canvas_width(max_items: int) -> int:
+    """Canvas width that keeps `max_items` boxes in one row at least `_MIN_BOX_W` wide."""
+    return max(_W, 80 + max_items * _MIN_BOX_W + max(0, max_items - 1) * _GAP_X)
+
+
 def _box(x: float, y: float, w: float, h: float, title: str, subtitle: str = "",
          status: str = "", fill: str | None = None, system_id: str | None = None,
-         expandable: bool = False) -> str:
+         expandable: bool = False, show_status: bool = False) -> str:
     accent = _COLORS["ok"] if status == "online" else _COLORS["down"] if status == "offline" else _COLORS["border"]
     chars = max(6, int(w / 7.2))
+    if show_status:
+        title_y = y + (20 if subtitle else 26)
+    else:
+        title_y = y + (20 if subtitle else h / 2 + 4)
     parts = [
         f'<rect x="{x:.0f}" y="{y:.0f}" width="{w:.0f}" height="{h:.0f}" rx="10" '
         f'fill="{fill or _COLORS["box"]}" stroke="{accent}" stroke-width="1.5"/>',
-        f'<text x="{x + w / 2:.0f}" y="{y + (20 if subtitle else h / 2 + 4):.0f}" text-anchor="middle" '
+        f'<text x="{x + w / 2:.0f}" y="{title_y:.0f}" text-anchor="middle" '
         f'fill="{_COLORS["text"]}" font-size="13" font-weight="600">{_esc(_truncate(title, chars))}</text>',
     ]
+    if show_status:
+        word = _STATUS_WORD.get(status, "unbekannt")
+        color = accent if status in _STATUS_WORD else _COLORS["muted"]
+        parts.append(
+            f'<text x="{x + w / 2:.0f}" y="{y + (54 if subtitle else 48):.0f}" text-anchor="middle" '
+            f'fill="{color}" font-size="11">● {word}</text>'
+        )
     if subtitle:
         parts.append(
             f'<text x="{x + w / 2:.0f}" y="{y + 37:.0f}" text-anchor="middle" '
@@ -243,19 +268,25 @@ def _box(x: float, y: float, w: float, h: float, title: str, subtitle: str = "",
     return f'<g {attrs}>{body}</g>'
 
 
-def _row(items: list[dict], y: float, box_w_max: float = 200) -> tuple[str, list[tuple[float, float]]]:
-    """Lays out one centred row. Returns (svg, [(centre_x, y) …]) so the caller can draw edges."""
+def _row(items: list[dict], y: float, box_w_max: float = 200,
+         width: int = _W) -> tuple[str, list[tuple[float, float]]]:
+    """Lays out one centred row. Returns (svg, [(centre_x, y) …]) so the caller can draw edges.
+    Boxes shrink to fit `width` but never below `_MIN_BOX_W` (the caller widens the canvas via
+    `_canvas_width`). An item with `link: False` is drawn but not clickable; an item with a
+    `status` key gets the status word."""
     if not items:
         return "", []
     count = len(items)
-    box_w = min(box_w_max, (_W - 80 - _GAP_X * (count - 1)) / count)
+    box_w = max(_MIN_BOX_W, min(box_w_max, (width - 80 - _GAP_X * (count - 1)) / count))
     total = count * box_w + _GAP_X * (count - 1)
-    start = (_W - total) / 2
+    start = (width - total) / 2
     svg, anchors = [], []
     for index, item in enumerate(items):
         x = start + index * (box_w + _GAP_X)
         svg.append(_box(x, y, box_w, _BOX_H, item["title"], item.get("subtitle", ""),
-                        item.get("status", ""), item.get("fill"), item.get("id"), item.get("expand", False)))
+                        item.get("status") or "", item.get("fill"),
+                        item.get("id") if item.get("link", True) else None,
+                        item.get("expand", False), show_status="status" in item))
         anchors.append((x + box_w / 2, y))
     return "".join(svg), anchors
 
@@ -328,6 +359,16 @@ def _label(x: float, y: float, text: str) -> str:
             f'letter-spacing="0.08em" font-weight="700">{_esc(text.upper())}</text>')
 
 
+def _legend(height: float) -> str:
+    legend_y = height - 26
+    return (
+        f'<circle cx="44" cy="{legend_y - 4:.0f}" r="5" fill="{_COLORS["ok"]}"/>'
+        f'<text x="56" y="{legend_y:.0f}" fill="{_COLORS["muted"]}" font-size="11">erreichbar</text>'
+        f'<circle cx="150" cy="{legend_y - 4:.0f}" r="5" fill="{_COLORS["down"]}"/>'
+        f'<text x="162" y="{legend_y:.0f}" fill="{_COLORS["muted"]}" font-size="11">nicht erreichbar</text>'
+    )
+
+
 def _midpoint(anchors: list[tuple[float, float]]) -> tuple[float, float]:
     return (sum(x for x, _ in anchors) / len(anchors), anchors[0][1])
 
@@ -341,6 +382,20 @@ def render(settings: dict | None = None) -> str:
 
     routers = by_kind.get("router", [])
     network = by_kind.get("network", [])
+    drawn_routers = routers[:_MAX_ROUTERS]
+    drawn_network = network[:_MAX_NETWORK]
+    backbone_ids = {r["id"] for r in drawn_routers} | {n["id"] for n in drawn_network}
+    # A critical router/switch is already drawn in its backbone row; only the rest gets a box in
+    # "Wichtige Geräte" (including a critical router/switch the backbone cap cut off). The cap is
+    # applied after that filter so nothing drawn twice and nothing silently lost to the wrong list.
+    critical_all = [s for s in systems if s.get("importance") == "critical"]
+    critical_ids = {s["id"] for s in critical_all}
+    critical = [s for s in critical_all if s["id"] not in backbone_ids][:_MAX_CRITICAL_BOXES]
+    width = _canvas_width(max(
+        [len(layer) for layer in _chain_layers(drawn_routers)]
+        + [len(layer) for layer in _chain_layers(drawn_network)]
+        + [len(critical), 1]
+    ))
 
     svg: list[str] = []
     y = 40
@@ -355,7 +410,7 @@ def render(settings: dict | None = None) -> str:
         "title": "Internet",
         "subtitle": settings.get("homeName") and f"Zugang für {settings['homeName']}" or "",
         "fill": _COLORS["boxAlt"],
-    }], y, box_w_max=220)
+    }], y, box_w_max=220, width=width)
     svg.append(internet_svg)
     previous = internet_anchor[0]
     y += _LAYER_GAP
@@ -364,10 +419,10 @@ def render(settings: dict | None = None) -> str:
     if routers:
         svg.append(_label(40, y - 12, "Router"))
         leaf_anchors: list[tuple[float, float]] = []
-        for depth, layer in enumerate(_chain_layers(routers[:6])):
+        for depth, layer in enumerate(_chain_layers(drawn_routers)):
             items = [{"id": r["id"], "title": r["name"], "subtitle": r["ip"], "status": r["status"]}
                      for r in layer]
-            row_svg, anchors = _row(items, y, box_w_max=260)
+            row_svg, anchors = _row(items, y, box_w_max=260, width=width)
             svg.append(_edges(previous, anchors) if depth == 0
                       else _edges_by_parent(anchor_by_id, layer, anchors, previous))
             svg.append(row_svg)
@@ -386,10 +441,10 @@ def render(settings: dict | None = None) -> str:
     if network:
         svg.append(_label(40, y - 12, "Verteilung (Switche, WLAN)"))
         leaf_anchors: list[tuple[float, float]] = []
-        for depth, layer in enumerate(_chain_layers(network[:10])):
+        for depth, layer in enumerate(_chain_layers(drawn_network)):
             items = [{"id": n["id"], "parentId": n.get("parentId"), "title": n["name"],
                      "subtitle": n["ip"], "status": n["status"]} for n in layer]
-            row_svg, anchors = _row(items, y)
+            row_svg, anchors = _row(items, y, width=width)
             svg.append(_edges(previous, anchors) if depth == 0
                       else _edges_by_parent(anchor_by_id, layer, anchors, previous))
             svg.append(row_svg)
@@ -405,8 +460,6 @@ def render(settings: dict | None = None) -> str:
     # container/VM used to be excluded here and only ever showed up folded into its host's
     # collapsed "N Container/VM" count -- exactly the kind of thing marking it critical was
     # supposed to prevent -- so it now gets its own box here like any other critical device.
-    critical = [s for s in systems if s.get("importance") == "critical"]
-    critical_ids = {s["id"] for s in critical}
     host_ids = {s["id"] for s in systems if s["kind"] in ("server", "nas")}
     children_by_host: dict[str, list[dict]] = {}
     for kind in ("container", "vm"):
@@ -424,7 +477,7 @@ def render(settings: dict | None = None) -> str:
         # plain trunk connection below, so a parsing miss loses a specific line, never the device.
         links = _resolve_system_links(systems)
         items = []
-        for s in critical[:_MAX_CRITICAL_BOXES]:
+        for s in critical:
             subtitle = s["ip"]
             expand = False
             if s["id"] in host_ids:
@@ -442,33 +495,27 @@ def render(settings: dict | None = None) -> str:
                 resolved_parent = next((nid for nid in links.get(s["id"], ()) if nid in anchor_by_id), None)
             items.append({"id": s["id"], "parentId": resolved_parent, "title": s["name"],
                          "subtitle": subtitle, "status": s["status"], "expand": expand})
-        row_svg, anchors = _row(items, y)
+        row_svg, anchors = _row(items, y, width=width)
         svg.append(_edges_by_parent(anchor_by_id, items, anchors, previous))
         svg.append(row_svg)
-        anchor_by_id.update(zip((s["id"] for s in critical[:_MAX_CRITICAL_BOXES]), anchors))
+        anchor_by_id.update(zip((s["id"] for s in critical), anchors))
         y += _LAYER_GAP
 
     if len(systems) == 0:
         svg.append(
-            f'<text x="{_W / 2:.0f}" y="{y:.0f}" text-anchor="middle" fill="{_COLORS["muted"]}" '
+            f'<text x="{width / 2:.0f}" y="{y:.0f}" text-anchor="middle" fill="{_COLORS["muted"]}" '
             f'font-size="14">Noch keine Geräte erfasst — ein Netzwerk-Scan füllt diesen Plan.</text>'
         )
         y += 40
 
     height = y + 20
-    legend_y = height - 26
-    legend = (
-        f'<circle cx="44" cy="{legend_y - 4:.0f}" r="5" fill="{_COLORS["ok"]}"/>'
-        f'<text x="56" y="{legend_y:.0f}" fill="{_COLORS["muted"]}" font-size="11">erreichbar</text>'
-        f'<circle cx="150" cy="{legend_y - 4:.0f}" r="5" fill="{_COLORS["down"]}"/>'
-        f'<text x="162" y="{legend_y:.0f}" fill="{_COLORS["muted"]}" font-size="11">nicht erreichbar</text>'
-    )
+    legend = _legend(height)
 
     return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {_W} {height:.0f}" '
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height:.0f}" '
         f'width="100%" role="img" aria-label="Übersichtsplan des Heimnetzes" '
         f'font-family="Segoe UI, system-ui, sans-serif">'
-        f'<rect width="{_W}" height="{height:.0f}" fill="{_COLORS["bg"]}"/>'
+        f'<rect width="{width}" height="{height:.0f}" fill="{_COLORS["bg"]}"/>'
         f'{"".join(svg)}{legend}</svg>'
     )
 
@@ -479,9 +526,13 @@ def _subnet_of(ip: str) -> str:
 
 
 def _subnet_sort_key(subnet: str) -> tuple:
+    """Numeric order (10.0.0.0/24 before 192.168.2.0/24 before 192.168.10.0/24), shorter prefix
+    first on the same address, "unbekanntes Netz" last. Same tuple shape for every input so keys
+    always compare."""
     if subnet == "unbekanntes Netz":
-        return (1, ())
-    return (0, tuple(int(p) for p in subnet.split("/")[0].split(".")))
+        return (1, (), 0)
+    address, _, prefix = subnet.partition("/")
+    return (0, tuple(int(p) for p in address.split(".")), int(prefix) if prefix.isdigit() else 0)
 
 
 # Any dotted-quad that is itself a plausible subnet mask (255.255.255.0, 255.255.0.0, ...) rather
@@ -722,7 +773,7 @@ def render_layer3(settings: dict | None = None) -> str:
             subnet_owner.setdefault(subnet, r["id"])
 
     subnet_nodes: dict[str, dict] = {}
-    for subnet in set(others_by_subnet) | set(subnet_owner):
+    for subnet in sorted(set(others_by_subnet) | set(subnet_owner), key=_subnet_sort_key):
         owner_id = subnet_owner.get(subnet)
         members = others_by_subnet.get(subnet, [])
         # The owning router itself holds an active address in this subnet too -- counted here even
@@ -740,6 +791,8 @@ def render_layer3(settings: dict | None = None) -> str:
         subnet_nodes[subnet] = {
             "id": f"subnet:{subnet}", "parentId": owner_id, "title": subnet,
             "subtitle": " · ".join(subtitle_parts), "fill": _COLORS["boxAlt"],
+            # No device page behind a subnet; the id only wires up the edges.
+            "link": False,
         }
 
     # Routers and kept subnets share one chain: a subnet node's `parentId` is the router that owns
@@ -753,6 +806,9 @@ def render_layer3(settings: dict | None = None) -> str:
         for r in routers
     ] + list(subnet_nodes.values())
 
+    layers = _chain_layers(chain_items)
+    width = _canvas_width(max([len(layer) for layer in layers] + [1]))
+
     svg: list[str] = []
     y = 40
     svg.append(_label(40, y - 12, "Internet"))
@@ -760,14 +816,14 @@ def render_layer3(settings: dict | None = None) -> str:
         "title": "Internet",
         "subtitle": settings.get("homeName") and f"Zugang für {settings['homeName']}" or "",
         "fill": _COLORS["boxAlt"],
-    }], y, box_w_max=220)
+    }], y, box_w_max=220, width=width)
     svg.append(internet_svg)
     previous = internet_anchor[0]
     y += _LAYER_GAP
 
     anchor_by_id: dict[str, tuple[float, float]] = {}
-    for depth, layer in enumerate(_chain_layers(chain_items)):
-        row_svg, anchors = _row(layer, y, box_w_max=220)
+    for depth, layer in enumerate(layers):
+        row_svg, anchors = _row(layer, y, box_w_max=220, width=width)
         svg.append(_edges(previous, anchors) if depth == 0
                   else _edges_by_parent(anchor_by_id, layer, anchors, previous))
         svg.append(row_svg)
@@ -779,16 +835,16 @@ def render_layer3(settings: dict | None = None) -> str:
                    f"Nur Netze mit weniger als {_MIN_SUBNET_DEVICES} Geräten gefunden — zur "
                    "Übersichtlichkeit ausgeblendet.")
         svg.append(
-            f'<text x="{_W / 2:.0f}" y="{y:.0f}" text-anchor="middle" fill="{_COLORS["muted"]}" '
+            f'<text x="{width / 2:.0f}" y="{y:.0f}" text-anchor="middle" fill="{_COLORS["muted"]}" '
             f'font-size="14">{_esc(message)}</text>'
         )
         y += 40
 
     height = y + 20
     return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {_W} {height:.0f}" '
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height:.0f}" '
         f'width="100%" role="img" aria-label="Netzplan nach Subnetzen (Layer 3)" '
         f'font-family="Segoe UI, system-ui, sans-serif">'
-        f'<rect width="{_W}" height="{height:.0f}" fill="{_COLORS["bg"]}"/>'
-        f'{"".join(svg)}</svg>'
+        f'<rect width="{width}" height="{height:.0f}" fill="{_COLORS["bg"]}"/>'
+        f'{"".join(svg)}{_legend(height)}</svg>'
     )

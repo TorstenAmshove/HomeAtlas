@@ -33,12 +33,11 @@ Bereinigt in #50: README (Docker-Socket, Ausnahme `set_switch`), `CLAUDE.md` (Sc
 Netzplan-Ebenen, `set_switch`), ADR-0009 für die Netzplan-Ebenen. Behoben in #39 (PR #61): Der
 KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben:
 
-- Farbe ist im Netzplan-Kasten das einzige Statussignal (topologie) → #143.
 - Netzwerkressourcen kommen nur von UniFi, nicht von Omada (netzwerkressourcen-vlans).
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (130)
+## Alle Punkte je Fähigkeit (122)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (3)
 
@@ -189,20 +188,14 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 6. Art→Wichtigkeit (`router/server/nas/heating` → kritisch) ist hart verdrahtet; `network` (Switch/AP) wird nicht kritisch – Absicht? → #149
 7. Kein Duplikatabgleich mit bereits gescannten Geräten gleicher IP; ein späterer Scan muss das zusammenführen (siehe [inventar](../inventar/spec.md)). → #149
 
-### [topologie](capabilities/topologie/spec.md) (12)
+### [topologie](capabilities/topologie/spec.md) (6)
 
 1. ADR-0008 und CLAUDE.md beschreiben die Ebenen „Server → Endgeräte“ und „Container innerhalb ihres Hosts“; das Bild zeichnet aber nur „Wichtige Geräte“, Server/Endgeräte stehen als HTML-Listen darunter, Container nur als Zähler bei kritischen Hosts. Spec folgt dem Code; ADR-0009 hält diesen Stand fest. → kein Issue, ADR-0009 hält den Stand fest
-2. Farbe ist im Kasten das einzige Statussignal (kein Wort wie „nicht erreichbar“), entgegen ADR-0008 und Modul-Docstring; der Layer-3-Plan hat zudem keine Legende. → #143
-3. Router über 6, Verteiler über 10 und kritische Geräte über 10 verschwinden ersatzlos – die Listen unter dem Plan enthalten weder Router/Verteiler noch kritische Geräte. → #143
-4. Ein kritischer Router oder Verteiler erscheint doppelt (Backbone-Ebene und „Wichtige Geräte“). → #143
-5. Layer-3-Subnetzkästen tragen `data-system-id="subnet:<cidr>"`; ein Klick navigiert zu `/geraete/subnet:<cidr>` (enthält „/“), also zu keiner gültigen Geräteseite (`backend/app/topology.py:741`). → #143
-6. Reihenfolge der Subnetzkästen kommt aus einer Mengen-Iteration (hash-abhängig, kann zwischen Prozessstarts wechseln); `_subnet_sort_key` ist definiert, aber unbenutzt (`backend/app/topology.py:481`, `backend/app/topology.py:725`). → #143
-7. Router-Geräte ohne IP-Endung .1/.254 fehlen im Layer-3-Plan komplett (weder als Router noch im Gerätezähler). → #144
-8. Layer-3-Gerätezahlen enthalten Container (gleiche IP wie Host) und lange offline Geräte. → #144
-9. Omada-/UniFi-Verknüpfung überschreibt ein vorhandenes Elterngerät, auch ein manuell per API gesetztes; Docker-Verknüpfung dagegen nie. Proxmox-Elterngerät wird nur bei Neuanlage gesetzt, eine migrierte VM wandert nicht mit. → #144
-10. Erweiterbar-Markierung nur für Hosts der Art server/nas; ein Docker-Host der Art `pc` bekommt Container zugeordnet, aber keinen Zähler. → #144
-11. Kommentar an `_MAX_CRITICAL_BOXES` nennt eine „readability floor“ der Kastenbreite; `_row` hat keine Untergrenze, bei vielen Layer-3-Knoten werden Kästen beliebig schmal. → #143
-12. Mischt ein Router /24-Näherungen aus Probe-Fakten mit exakten Controller-CIDRs (z. B. /26), können beide als getrennte Subnetze in die Ketteninferenz eingehen. → #144
+2. Router-Geräte ohne IP-Endung .1/.254 fehlen im Layer-3-Plan komplett (weder als Router noch im Gerätezähler). → #144
+3. Layer-3-Gerätezahlen enthalten Container (gleiche IP wie Host) und lange offline Geräte. → #144
+4. Omada-/UniFi-Verknüpfung überschreibt ein vorhandenes Elterngerät, auch ein manuell per API gesetztes; Docker-Verknüpfung dagegen nie. Proxmox-Elterngerät wird nur bei Neuanlage gesetzt, eine migrierte VM wandert nicht mit. → #144
+5. Erweiterbar-Markierung nur für Hosts der Art server/nas; ein Docker-Host der Art `pc` bekommt Container zugeordnet, aber keinen Zähler. → #144
+6. Mischt ein Router /24-Näherungen aus Probe-Fakten mit exakten Controller-CIDRs (z. B. /26), können beide als getrennte Subnetze in die Ketteninferenz eingehen. → #144
 
 ### [zugangsdaten](capabilities/zugangsdaten/spec.md) (9)
 
