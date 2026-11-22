@@ -78,8 +78,6 @@
 - **L3 [Muss]** Ein Zugang wird nur benutzt, wenn er **ausdrücklich zum Auslesen freigegeben**
   ist (Opt-in je Zugang, Default aus). Das Auslesen pro Gerät lässt sich global abschalten
   (`scanUseCredentials`); Controller-Abfragen (UniFi, Omada, Proxmox, AdGuard) haben eigene Schalter.
-  > OFFEN: Die README verspricht „komplett abschaltbar“; heute schaltet `scanUseCredentials` die
-  > Controller-Abfragen nicht mit ab.
   > OFFEN: Die Live-Abfragen des Assistenten an Home Assistant und UniFi (`get_ha_*`, `get_unifi_*`)
   > prüfen das Opt-in nicht.
 - **L3a [Muss]** Manche Plattformen brauchen zum Lesen einen Befehl, der formal in einen
