@@ -451,7 +451,7 @@
     "name": "internet_check"
   },
   {
-    "description": "Prüft, ob ein Gerät im Netzwerk antwortet, und wie stabil die Verbindung ist.",
+    "description": "Prüft, ob ein Gerät im Netzwerk antwortet, und wie stabil die Verbindung ist. Misst nur vom HomeAtlas-Host aus, nie von einem anderen Gerät.",
     "inputSchema": {
       "properties": {
         "count": {
@@ -471,7 +471,7 @@
     "name": "ping_host"
   },
   {
-    "description": "Prüft, ob ein bestimmter Dienst auf einem Gerät erreichbar ist, z. B. 80/443 für eine Weboberfläche, 445 für Dateifreigaben, 9100 für Drucker.",
+    "description": "Prüft, ob ein bestimmter Dienst auf einem Gerät erreichbar ist, z. B. 80/443 für eine Weboberfläche, 445 für Dateifreigaben, 9100 für Drucker. Misst nur vom HomeAtlas-Host aus, nie von einem anderen Gerät.",
     "inputSchema": {
       "properties": {
         "host": {
@@ -524,7 +524,7 @@
     "name": "reverse_dns"
   },
   {
-    "description": "Ruft eine Weboberfläche auf und meldet Statuscode, Titel und Antwortzeit.",
+    "description": "Ruft eine Weboberfläche auf und meldet Statuscode, Titel und Antwortzeit. Misst nur vom HomeAtlas-Host aus, nie von einem anderen Gerät.",
     "inputSchema": {
       "properties": {
         "url": {
@@ -540,7 +540,7 @@
     "name": "http_check"
   },
   {
-    "description": "Zeigt den Weg zu einem Ziel über die Zwischenstationen. Nützlich, um zu unterscheiden, ob ein Problem im Heimnetz oder beim Internetanbieter liegt.",
+    "description": "Zeigt den Weg zu einem Ziel über die Zwischenstationen. Nützlich, um zu unterscheiden, ob ein Problem im Heimnetz oder beim Internetanbieter liegt. Misst nur vom HomeAtlas-Host aus, nie von einem anderen Gerät.",
     "inputSchema": {
       "properties": {
         "host": {
