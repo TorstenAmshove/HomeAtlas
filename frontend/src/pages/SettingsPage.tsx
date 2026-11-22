@@ -102,6 +102,7 @@ export default function SettingsPage() {
 
   function discardChanges() {
     setForm(saved);
+    setClearSecrets([]);
     setEditedTab(null);
     setAccountKey((k) => k + 1);
     setAccountDirty(false);
@@ -162,12 +163,16 @@ export default function SettingsPage() {
   async function save(patch: Record<string, any>) {
     setBusy("save");
     try {
-      const body = clearSecrets.length ? { ...patch, clearSecrets } : patch;
+      // Only removals whose field is part of this save go along: a partial save (e.g. just the
+      // home name or the system prompt) must never delete a key marked elsewhere.
+      const clearing = clearSecrets.filter((name) => name in patch);
+      const body = clearing.length ? { ...patch, clearSecrets: clearing } : patch;
       const { settings } = await api.updateSettings(body);
-      setClearSecrets([]);
-      setForm(settings);
+      const pending = clearSecrets.filter((name) => !clearing.includes(name));
+      setClearSecrets(pending);
+      setForm(pending.length ? { ...settings, ...Object.fromEntries(pending.map((name) => [name, ""])) } : settings);
       setSaved(settings);
-      setEditedTab(null);
+      if (!pending.length) setEditedTab(null);
       setNotice({ kind: "ok", text: "Gespeichert." });
     } catch (e) {
       setNotice({ kind: "error", text: e instanceof Error ? e.message : String(e) });
