@@ -398,7 +398,13 @@ test("login, MFA enrollment, setup and main routes render without errors", async
       // Text typed on /assistent/neu stays out of an existing conversation.
       await page.goto("/assistent/neu");
       await page.getByLabel("Frage an den Assistenten").fill("nur-neu");
+      // Wait for the message fetch of this page before the finally-delete: otherwise the delete
+      // can win the race and the fetch returns 404, which Chromium logs as a console error.
+      const messagesLoaded = page.waitForResponse(
+        (r) => r.url().includes(`/api/chats/${chatId}/messages`) && r.request().method() === "GET",
+      );
       await page.goto(`/assistent/${chatId}`);
+      await messagesLoaded;
       await expect(page.getByLabel("Frage an den Assistenten")).not.toHaveValue("nur-neu");
     } finally {
       await page.unroute("**/api/chats").catch(() => {});
