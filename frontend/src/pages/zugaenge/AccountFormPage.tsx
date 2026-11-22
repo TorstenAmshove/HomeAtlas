@@ -6,6 +6,7 @@ import { Skeleton, SkeletonText } from "../../components/Skeleton";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import { usePageTitle } from "../../shell/pageTitle";
 import { CATEGORIES } from "./categories";
+import { fieldsFor, validateAccountForm } from "./categoryFields";
 import {
   NEW_ACCOUNT, clearAccountDraft, emptyForm, formOfAccount, readAccountDraft, sameForm, setAccountsFlash,
   storeAccountDraft, type AccountForm,
@@ -25,22 +26,6 @@ import "../mehr/mehr.css";
 
 function errorText(e: unknown) {
   return e instanceof Error ? e.message : String(e);
-}
-
-function secretLabel(category: string): string {
-  return category === "snmp" ? "Community-Zeichenkette"
-    : category === "omada" ? "Client Secret"
-    : category === "homeassistant" ? "Zugriffstoken (Long-Lived Access Token)"
-    : category === "proxmox" ? "Token-Secret (UUID)"
-    : "Passwort";
-}
-
-function keepHint(category: string): string {
-  return `Leer lassen, um ${category === "snmp" ? "die gespeicherte Community-Zeichenkette"
-    : category === "omada" ? "das gespeicherte Client Secret"
-    : category === "homeassistant" ? "das gespeicherte Zugriffstoken"
-    : category === "proxmox" ? "das gespeicherte Token-Secret"
-    : "das gespeicherte Passwort"} beizubehalten.`;
 }
 
 export default function AccountFormPage({ mode }: { mode: "new" | "edit" }) {
@@ -120,6 +105,15 @@ export default function AccountFormPage({ mode }: { mode: "new" | "edit" }) {
   function update(patch: Partial<AccountForm>) {
     if (!form) return;
     const next = { ...form, ...patch };
+    // New account: values of fields the new category hides are reset. Editing leaves them untouched
+    // (they stay stored and are not sent on save).
+    if (mode === "new" && patch.category !== undefined) {
+      const f = fieldsFor(next.category);
+      if (!f.username.visible) next.username = "";
+      if (!f.url.visible) next.url = "";
+      if (!f.port.visible) next.port = 0;
+      if (!f.allowProbe.visible) next.allowProbe = false;
+    }
     setForm(next);
     storeAccountDraft(draftId, next, base, secretTyped);
   }
@@ -148,21 +142,29 @@ export default function AccountFormPage({ mode }: { mode: "new" | "edit" }) {
 
   async function save() {
     if (!form || !form.label.trim()) return;
+    const problem = validateAccountForm(form);
+    if (problem) { setError(problem); return; }
     setSaving(true);
     setError("");
     try {
-      const body = {
+      const fields = fieldsFor(form.category);
+      const body: Record<string, any> = {
         systemId: form.systemId || null,
         label: form.label.trim(),
         category: form.category,
-        username: form.username,
         secret,
         passphrase,
-        url: form.url,
         notes: form.notes,
-        allowProbe: form.allowProbe,
-        port: Number(form.port) || 0,
       };
+      // Hidden fields are not sent when editing (stored values stay); a new account gets empty values.
+      if (fields.username.visible) body.username = form.category === "cloudflare" ? form.username.trim() : form.username;
+      else if (mode === "new") body.username = "";
+      if (fields.url.visible) body.url = form.category === "cloudflare" ? form.url.trim() : form.url;
+      else if (mode === "new") body.url = "";
+      if (fields.port.visible) body.port = Number(form.port) || 0;
+      else if (mode === "new") body.port = 0;
+      if (fields.allowProbe.visible) body.allowProbe = form.allowProbe;
+      else if (mode === "new") body.allowProbe = false;
       if (mode === "edit") await api.updateAccount(id, body);
       else await api.createAccount(body);
       clearAccountDraft(draftId);
@@ -258,6 +260,7 @@ export default function AccountFormPage({ mode }: { mode: "new" | "edit" }) {
   }
 
   const isNew = mode === "new";
+  const fields = fieldsFor(form.category);
   const editingSecret = !isNew && Boolean(account?.hasSecret);
 
   return (
@@ -301,7 +304,7 @@ export default function AccountFormPage({ mode }: { mode: "new" | "edit" }) {
         <div className="m-note" role="status">
           Ungespeicherte Änderungen aus diesem Browser-Tab wiederhergestellt.
           {restored.secretTyped && (
-            <> {secretLabel(form.category)} und Passphrase werden aus Sicherheitsgründen nie zwischengespeichert; bitte noch einmal eingeben.</>
+            <> {fieldsFor(form.category).secret.label} und Passphrase werden aus Sicherheitsgründen nie zwischengespeichert; bitte noch einmal eingeben.</>
           )}
         </div>
       )}
@@ -310,15 +313,15 @@ export default function AccountFormPage({ mode }: { mode: "new" | "edit" }) {
       <form className="m-form" onSubmit={(e) => { e.preventDefault(); void save(); }}>
         <div className="grid cols-2">
           <div className="field">
-            <label htmlFor="zg-label">Bezeichnung</label>
-            <input id="zg-label" autoFocus={isNew} placeholder="z. B. Telekom Kundenkonto" value={form.label}
-                   onChange={(e) => update({ label: e.target.value })} />
-          </div>
-          <div className="field">
             <label htmlFor="zg-category">Art</label>
             <select id="zg-category" value={form.category} onChange={(e) => update({ category: e.target.value })}>
               {CATEGORIES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
+          </div>
+          <div className="field">
+            <label htmlFor="zg-label">Bezeichnung</label>
+            <input id="zg-label" placeholder="z. B. Telekom Kundenkonto" value={form.label}
+                   onChange={(e) => update({ label: e.target.value })} />
           </div>
           <div className="field">
             <label htmlFor="zg-system">Gehört zu welchem Gerät?</label>
@@ -328,15 +331,14 @@ export default function AccountFormPage({ mode }: { mode: "new" | "edit" }) {
             </select>
             <div className="field-hint">Verträge und Online-Konten brauchen das nicht.</div>
           </div>
-          <div className="field">
-            <label htmlFor="zg-username">
-              {form.category === "omada" ? "Client-ID"
-                : form.category === "proxmox" ? "Token-ID (z. B. root@pam!homeatlas)"
-                : "Benutzername / Kundennummer"}
-            </label>
-            <input id="zg-username" value={form.username} autoComplete="off"
-                   onChange={(e) => update({ username: e.target.value })} />
-          </div>
+          {fields.username.visible && (
+            <div className="field">
+              <label htmlFor="zg-username">{fields.username.label}</label>
+              <input id="zg-username" value={form.username} autoComplete="off" placeholder={fields.username.placeholder}
+                     onChange={(e) => update({ username: e.target.value })} />
+              {fields.username.hint && <div className="field-hint">{fields.username.hint}</div>}
+            </div>
+          )}
 
           {form.category === "sshkey" ? (
             <>
@@ -352,7 +354,7 @@ export default function AccountFormPage({ mode }: { mode: "new" | "edit" }) {
                 </div>
               )}
               <div className="field" style={{ gridColumn: "1 / -1" }}>
-                <label htmlFor="zg-secret">Privater SSH-Schlüssel (von Hand eintragen, falls schon vorhanden)</label>
+                <label htmlFor="zg-secret">{fields.secret.label}</label>
                 <textarea id="zg-secret" data-secret="true" style={{ minHeight: 150 }} spellCheck={false} autoComplete="off"
                           value={secret}
                           placeholder={editingSecret ? "unverändert lassen" : "-----BEGIN OPENSSH PRIVATE KEY-----\n…\n-----END OPENSSH PRIVATE KEY-----"}
@@ -371,67 +373,29 @@ export default function AccountFormPage({ mode }: { mode: "new" | "edit" }) {
             </>
           ) : (
             <div className="field">
-              <label htmlFor="zg-secret">{secretLabel(form.category)}</label>
+              <label htmlFor="zg-secret">{fields.secret.label}</label>
               <input id="zg-secret" data-secret="true" type="password" autoComplete="new-password" value={secret}
                      placeholder={editingSecret ? "unverändert lassen" : ""}
                      onChange={(e) => updateSecret(e.target.value, "secret")} />
               <div className="field-hint">
-                {editingSecret
-                  ? keepHint(form.category)
-                  : form.category === "homeassistant"
-                    ? "Wird verschlüsselt gespeichert. Erzeugt im Profil des HA-Benutzers unter „Long-Lived Access Tokens“."
-                    : form.category === "proxmox"
-                      ? "Wird verschlüsselt gespeichert. Erzeugt unter Datacenter → Berechtigungen → API-Tokens."
-                      : "Wird verschlüsselt gespeichert."}
+                {editingSecret ? `Leer lassen, um ${fields.secret.keepLabel} beizubehalten.` : fields.secret.hint}
               </div>
             </div>
           )}
 
-          <div className="field">
-            <label htmlFor="zg-url">
-              Adresse{["omada", "homeassistant", "proxmox", "adguard", "traefik"].includes(form.category) ? "" : " (optional)"}
-            </label>
-            <input id="zg-url" placeholder="https://…" value={form.url} onChange={(e) => update({ url: e.target.value })} />
-            {form.category === "omada" && (
-              <div className="field-hint">
-                Basis-Adresse des Controllers, z. B. https://192.168.1.10:8043. Client-ID und Client Secret
-                werden unter Einstellungen → Plattform-Integration → Open API im Controller selbst angelegt.
-              </div>
-            )}
-            {form.category === "proxmox" && (
-              <div className="field-hint">
-                Basis-Adresse des Proxmox-Hosts, z. B. https://192.168.1.20:8006. Dieser Zugang sollte am
-                Proxmox-Host selbst (als „Gehört zu welchem Gerät?“) hängen, damit gefundene VMs/Container dort
-                eingeordnet werden.
-              </div>
-            )}
-            {form.category === "homeassistant" && (
-              <div className="field-hint">Basis-Adresse von Home Assistant, z. B. http://192.168.1.5:8123.</div>
-            )}
-            {form.category === "traefik" && (
-              <div className="field-hint">
-                Adresse der Traefik-API, z. B. https://traefik.lan.example.org. Benutzername und Passwort
-                eines eigenen BasicAuth-Nutzers nur für die API (lesend, nur GET).
-              </div>
-            )}
-            {form.category === "unifi" && (
-              <div className="field-hint">
-                „Zum Auslesen verwenden“ liest auch Portweiterleitungen und die WAN-Adresse (nur GET). Der Key
-                hat die Rechte seines Erstellers.
-              </div>
-            )}
-            {form.category === "adguard" && (
-              <div className="field-hint">
-                Basis-Adresse von AdGuard Home, z. B. http://192.168.1.2:3000. Benutzername und Passwort sind
-                die des AdGuard-Administrators (dieselben wie für die Weboberfläche).
-              </div>
-            )}
-          </div>
-          {(form.category === "sshkey" || form.category === "login" || form.category === "snmp") && (
+          {fields.url.visible && (
             <div className="field">
-              <label htmlFor="zg-port">Abweichender Port (optional)</label>
+              <label htmlFor="zg-url">{fields.url.label}</label>
+              <input id="zg-url" placeholder={fields.url.placeholder} value={form.url}
+                     onChange={(e) => update({ url: e.target.value })} />
+              {fields.url.hint && <div className="field-hint">{fields.url.hint}</div>}
+            </div>
+          )}
+          {fields.port.visible && (
+            <div className="field">
+              <label htmlFor="zg-port">{fields.port.label}</label>
               <input id="zg-port" type="number" min={0} max={65535} value={form.port || ""}
-                     placeholder={form.category === "snmp" ? "Standard (SNMP: 161)" : "Standard (SSH: 22)"}
+                     placeholder={fields.port.placeholder}
                      onChange={(e) => update({ port: Number(e.target.value) })} />
             </div>
           )}
@@ -442,6 +406,8 @@ export default function AccountFormPage({ mode }: { mode: "new" | "edit" }) {
           </div>
         </div>
 
+        {fields.allowProbe.visible && (
+          <>
         <label className="m-check">
           <input type="checkbox" checked={form.allowProbe} onChange={(e) => update({ allowProbe: e.target.checked })} />
           Diesen Zugang zum Auslesen des Geräts verwenden
@@ -452,6 +418,9 @@ export default function AccountFormPage({ mode }: { mode: "new" | "edit" }) {
           werden <strong>ausschließlich</strong> fest einprogrammierte Lesebefehle ausgeführt; nichts wird
           geändert, installiert oder neu gestartet. Ohne diesen Haken bleibt der Zugang reine Ablage.
         </p>
+            {fields.allowProbe.hint && <p className="m-hint">{fields.allowProbe.hint}</p>}
+          </>
+        )}
 
         <h2 className="m-sec">Gilt zusätzlich für</h2>
         {isNew ? (

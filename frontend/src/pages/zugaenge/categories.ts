@@ -1,5 +1,5 @@
 /** Account categories, shared by the list and the form. */
-export const CATEGORIES: [string, string][] = [
+export const CATEGORIES = [
   ["contract", "Vertrag / Kundenkonto"],
   ["login", "Anmeldung an Gerät oder Dienst"],
   ["sshkey", "SSH-Schlüssel"],
@@ -17,6 +17,8 @@ export const CATEGORIES: [string, string][] = [
   ["wifi", "WLAN-Zugang"],
   ["apikey", "API-Schlüssel"],
   ["other", "Sonstiges"],
-];
+] as const;
+
+export type CategoryId = (typeof CATEGORIES)[number][0];
 
 export const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(CATEGORIES);

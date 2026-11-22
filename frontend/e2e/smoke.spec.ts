@@ -229,6 +229,30 @@ test("login, MFA enrollment, setup and main routes render without errors", async
     await expect(page).toHaveURL(/\/geraete$/);
   });
 
+  await test.step("account form follows the category (Art first, Cloudflare ID check)", async () => {
+    let posts = 0;
+    await page.route("**/api/accounts", (route) => {
+      if (route.request().method() === "POST") posts += 1;
+      return route.continue();
+    });
+    await page.goto("/zugaenge/neu");
+    const labels = page.locator("form .field > label");
+    await expect(labels.first()).toHaveText("Art");
+    await page.getByLabel("Art", { exact: true }).selectOption("cloudflare");
+    await expect(page.getByLabel("Zone-ID")).toBeVisible();
+    await expect(page.getByLabel("Account-ID (optional)")).toBeVisible();
+    await expect(page.getByLabel("API-Token")).toBeVisible();
+    await expect(page.locator("#zg-port")).toHaveCount(0);
+    await page.getByLabel("Bezeichnung").fill("Smoke Cloudflare");
+    await page.getByLabel("Zone-ID").fill("not-an-id");
+    await page.getByRole("button", { name: "Zugang anlegen" }).click();
+    await expect(page.getByRole("alert")).toContainText("Zone-ID");
+    expect(posts).toBe(0);
+    await page.getByLabel("Art", { exact: true }).selectOption("sshkey");
+    await expect(page.locator("#zg-port")).toBeVisible();
+    await page.unroute("**/api/accounts");
+  });
+
   await test.step("Hilfe opens the assistant first", async () => {
     await page.goto("/");
     await page.locator(".shell-side").getByRole("link", { name: "Hilfe", exact: true }).click();
