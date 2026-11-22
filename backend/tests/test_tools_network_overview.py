@@ -62,8 +62,9 @@ def test_overview_stale_id_is_automatic(temp_db, monkeypatch):
 def test_overview_inactive_network_is_automatic(temp_db, monkeypatch):
     resources = _setup(monkeypatch, selected=True)
     # a complete controller listing without the network marks it inactive
-    db.sync_network_resources(db.get_network_resource(resources[0]["id"])["sourceAccountId"], [],
-                              [("default", "network")])
+    account = db.get_network_resource(resources[0]["id"])["sourceAccountId"]
+    for _ in range(2):  # a single empty read could be transient (#139)
+        db.sync_network_resources(account, [], [("default", "network")])
     assert _overview()["configuredSubnets"] == "automatisch erkannt"
 
 

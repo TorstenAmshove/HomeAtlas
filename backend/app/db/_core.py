@@ -242,6 +242,7 @@ CREATE TABLE IF NOT EXISTS networkResources (
     name TEXT NOT NULL,
     enabled INTEGER NOT NULL DEFAULT 1,
     active INTEGER NOT NULL DEFAULT 1,
+    emptyScans INTEGER NOT NULL DEFAULT 0,
     facts TEXT,
     manualMd TEXT NOT NULL DEFAULT '',
     firstSeen TEXT NOT NULL,
@@ -423,6 +424,8 @@ _ADDED_COLUMNS: tuple[tuple[str, str, str], ...] = (
     ("systems", "monitorPorts", "TEXT"),
     ("systems", "docLink", "TEXT NOT NULL DEFAULT ''"),
     ("chatMessages", "durationMs", "INTEGER"),
+    # Consecutive complete-but-empty controller reads of a resource's scope (#139).
+    ("networkResources", "emptyScans", "INTEGER NOT NULL DEFAULT 0"),
 )
 
 

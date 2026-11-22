@@ -59,3 +59,69 @@ def test_delete_account_keeps_network_resource_and_marks_it_inactive(temp_db):
     assert stored is not None
     assert stored["active"] == 0
     assert stored["manualMd"] == ""
+
+
+def _active(temp_db) -> dict[str, int]:
+    return {r["name"]: r["active"] for r in temp_db.list_network_resources()}
+
+
+def test_empty_complete_scope_deactivates_only_after_two_scans(temp_db):
+    temp_db.sync_network_resources("account-1", [_network("LAN")], [("site-1", "network")])
+    temp_db.sync_network_resources("account-1", [], [("site-1", "network")])
+    assert _active(temp_db) == {"LAN": 1}
+    temp_db.sync_network_resources("account-1", [], [("site-1", "network")])
+    assert _active(temp_db) == {"LAN": 0}
+
+
+def test_non_empty_scan_resets_empty_counter(temp_db):
+    temp_db.sync_network_resources("account-1", [_network("LAN")], [("site-1", "network")])
+    temp_db.sync_network_resources("account-1", [], [("site-1", "network")])
+    temp_db.sync_network_resources("account-1", [_network("LAN")], [("site-1", "network")])
+    temp_db.sync_network_resources("account-1", [], [("site-1", "network")])
+    assert _active(temp_db) == {"LAN": 1}
+
+
+def test_failed_scope_between_empty_scans_keeps_counter(temp_db):
+    temp_db.sync_network_resources("account-1", [_network("LAN")], [("site-1", "network")])
+    temp_db.sync_network_resources("account-1", [], [("site-1", "network")])
+    temp_db.sync_network_resources("account-1", [], [])
+    assert _active(temp_db) == {"LAN": 1}
+    temp_db.sync_network_resources("account-1", [], [("site-1", "network")])
+    assert _active(temp_db) == {"LAN": 0}
+
+
+def test_three_empty_scans_stay_inactive(temp_db):
+    temp_db.sync_network_resources("account-1", [_network("LAN")], [("site-1", "network")])
+    for _ in range(3):
+        temp_db.sync_network_resources("account-1", [], [("site-1", "network")])
+    assert _active(temp_db) == {"LAN": 0}
+
+
+def test_only_empty_scope_is_counted_when_two_scopes_synced(temp_db):
+    wlan = {**_network("WLAN", "wlan-1"), "kind": "wifi"}
+    temp_db.sync_network_resources("account-1", [_network("LAN"), wlan],
+                                   [("site-1", "network"), ("site-1", "wifi")])
+    scopes = [("site-1", "network"), ("site-1", "wifi")]
+    for _ in range(2):
+        temp_db.sync_network_resources("account-1", [_network("LAN")], scopes)
+    assert _active(temp_db) == {"LAN": 1, "WLAN": 0}
+
+
+def test_reactivation_resets_counter(temp_db):
+    temp_db.sync_network_resources("account-1", [_network("LAN")], [("site-1", "network")])
+    for _ in range(2):
+        temp_db.sync_network_resources("account-1", [], [("site-1", "network")])
+    temp_db.sync_network_resources("account-1", [_network("LAN")], [("site-1", "network")])
+    assert _active(temp_db) == {"LAN": 1}
+    temp_db.sync_network_resources("account-1", [], [("site-1", "network")])
+    assert _active(temp_db) == {"LAN": 1}
+
+
+def test_existing_db_gets_empty_scans_column(temp_db):
+    import sqlite3
+    with sqlite3.connect(temp_db.DB_PATH) as conn:
+        conn.execute("ALTER TABLE networkResources DROP COLUMN emptyScans")
+    temp_db.init_db()
+    with sqlite3.connect(temp_db.DB_PATH) as conn:
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(networkResources)")}
+    assert "emptyScans" in cols

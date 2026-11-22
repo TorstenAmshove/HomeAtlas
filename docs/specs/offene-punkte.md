@@ -38,7 +38,7 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (130)
+## Alle Punkte je Fähigkeit (126)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (3)
 
@@ -89,7 +89,7 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 2. Die Latenz des Speedtests ist die erste Anfrage auf einer neuen Verbindung und enthält TCP- und TLS-Aufbau – systematisch zu hoch. → #151
 3. REST-Tool-Namen weichen von den LLM-Werkzeugnamen ab (`ping` vs. `ping_host`); Alternative vereinheitlichen? → #151
 
-### [discovery-und-scan](capabilities/discovery-und-scan/spec.md) (9)
+### [discovery-und-scan](capabilities/discovery-und-scan/spec.md) (8)
 
 1. Fortschritt springt rückwärts (94 % „Inventar aktualisieren“, dann 93 % Zugangs-Abfrage, `pipeline.py:480`/`:522`). → #138
 2. Einzelziele umfassen IPs *aller* Inventar-Geräte außerhalb der Bereiche (auch entdeckte Controller-Clients/Proxmox-Gäste), nicht nur „von Hand eingetragene“ wie der Docstring sagt (`pipeline.py:42`). Kann viele geroutete Ziele erzeugen. → #138
@@ -99,7 +99,6 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 6. MEMBER darf `GET /api/scans*` inkl. Protokoll lesen (Gerätenamen, Fehlertexte der Zugangs-Abfrage), obwohl die Scan-Seite admin-only ist. Absicht? → #119
 7. Start-Prüfung „läuft schon ein Scan“ und Anlegen sind nicht atomar (Rennen Zeitplan/manuell theoretisch möglich). → #129
 8. Namensvergabe für Nicht-Container ohne IP bei Duplikaten: kein Suffix, Duplikat bleibt. → #138
-9. Abgeschaltete Quelle (`scanEnableDocker=false`, Controller aus) setzt alle bisher aus dieser Quelle entdeckten Geräte beim nächsten Scan auf `offline`. → #139
 
 ### [dokumentation](capabilities/dokumentation/spec.md) (10)
 
@@ -157,14 +156,13 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 6. `intervalSeconds` in `GET /api/monitor` ist der ungeklemmte Einstellungswert, nicht das tatsächlich verwendete Intervall; `monitorTimeoutMs` hat serverseitig keine Obergrenze. → #130
 7. Für Docker-Container (Art `container`, teilen die Host-IP) gibt es keine typischen Ports; ohne offene Ports prüft der Monitor per Ping effektiv nur den Host. → #130
 
-### [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) (6)
+### [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) (5)
 
 1. Seite „Netze & WLAN“ zeigt bei WLAN `facts.networkName` und bei WAN `facts.type`/`facts.ip`; der Abgleich liefert diese Felder nie (WLAN hat nur `networkExternalId`, WAN `{}`). WAN-Details sind daher immer „-“, das zugehörige Netz eines WLANs wird nie angezeigt (`frontend/src/pages/geraete/NetworksPage.tsx`). Dasselbe gilt für die WAN-Tabelle der Dokumentation (`backend/app/docs.py:380`). → #145
 2. Fähigkeitsbeschreibung nennt Omada und Discovery-Subnetze als Quelle; im Code liefert nur UniFi Netzwerkressourcen. Soll eine Alternative Omada-Netze übernehmen?
 3. Feld heißt `manualMd`, wird aber weder auf der Seite noch sonst als Markdown gerendert; Eingabe ist einzeilig. → #145
 4. Inaktive Ressourcen sind in der UI nirgends sichtbar (nur über die API), ihre Notizen also faktisch versteckt; gewollt? → #145
-5. Ein vollständig gelesener Bereich mit 0 Einträgen deaktiviert alle Ressourcen dieses Bereichs; bei einer kurzzeitig leeren Controller-Antwort gehen sie (reversibel) aus Scan-Auswahl, Doku und Layer-3-Plan verloren. → #139
-6. Notiz-Änderung erzeugt keinen Eintrag im Zugriffsprotokoll und hat keine Längenbegrenzung. → #122, #145
+5. Notiz-Änderung erzeugt keinen Eintrag im Zugriffsprotokoll und hat keine Längenbegrenzung. → #122, #145
 
 ### [remote-admin](capabilities/remote-admin/spec.md) (10)
 

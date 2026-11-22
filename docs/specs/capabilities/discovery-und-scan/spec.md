@@ -473,13 +473,27 @@ Test: `backend/tests/test_pipeline_probe_warnings.py::test_pipeline_logs_discove
 
 ### Requirement: Offline-Markierung
 Jedes zuvor entdeckte Gerät (`discovered=1`), das in keinem Fund dieses Scans auftaucht, MUSS auf
-`offline` gesetzt werden; manuell angelegte Geräte bleiben unberührt. **[Muss]**
+`offline` gesetzt werden; manuell angelegte Geräte bleiben unberührt. Ausgenommen sind Geräte,
+deren `discoverySource` (Tokens, getrennt durch „+“) eine Quelle enthält, die in diesem Scan
+abgeschaltet oder nicht vollständig gelesen wurde (Docker, UniFi, Omada, Proxmox, AdGuard): ihr
+Status bleibt unverändert, und das Scan-Protokoll nennt die Quelle. Als nicht gelesen gilt eine
+aktive Quelle, wenn ein abgefragter Zugang scheitert, kein Zugang mit `allowProbe` existiert oder
+der Docker-Socket fehlt. Eine erfolgreich gelesene Quelle ohne Funde zählt als gelesen. **[Muss]**
 
 #### Szenario: Gerät ausgeschaltet
 - **WENN** ein entdecktes Gerät beim nächsten Scan fehlt
 - **DANN** Status `offline`
 
-Quelle: `backend/app/db.py:1243`, `backend/app/pipeline.py:487`
+#### Szenario: Quelle abgeschaltet
+- **WENN** `scanEnableDocker=false` und ein Container bisher `online` war
+- **DANN** bleibt sein Status `online`
+
+#### Szenario: Quelle fehlgeschlagen
+- **WENN** der Docker-Zugriff oder ein UniFi-Zugang im Scan scheitert
+- **DANN** behalten die Geräte dieser Quelle ihren Status; bei erfolgreicher, leerer Antwort gehen sie `offline`
+
+Quelle: `backend/app/db/systems.py` (`mark_systems_offline`), `backend/app/pipeline.py`;
+Tests: `backend/tests/test_db_systems_templates.py`, `backend/tests/test_pipeline_skipped_sources.py`
 
 ### Requirement: Probe-Warnungen pro Zugang
 Scheitert bei der Zugangs-Abfrage ein einzelner Zugang eines Geräts, MUSS das als Scan-Warnung
@@ -618,5 +632,3 @@ solange der Scan läuft und der Tab sichtbar ist). Scan-Einstellungen in `fronte
 - > OFFEN: Start-Prüfung „läuft schon ein Scan“ und Anlegen sind nicht atomar (Rennen
   Zeitplan/manuell theoretisch möglich). → #129
 - > OFFEN: Namensvergabe für Nicht-Container ohne IP bei Duplikaten: kein Suffix, Duplikat bleibt. → #138
-- > OFFEN: Abgeschaltete Quelle (`scanEnableDocker=false`, Controller aus) setzt alle bisher aus
-  dieser Quelle entdeckten Geräte beim nächsten Scan auf `offline`. → #139
