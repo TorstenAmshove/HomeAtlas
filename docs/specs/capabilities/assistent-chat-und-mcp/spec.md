@@ -202,6 +202,7 @@ Werkzeuggruppen (Details, Schemas und Grenzen: [llm-tools](../../contracts/llm-t
 - Zugänge: `list_accounts` (ohne Passwörter)
 - Schalten: `list_switches`, `set_switch`
 - Home Assistant live (nur lesend): `get_ha_state`, `get_ha_history`, `get_ha_logbook`, `get_ha_error_log`, `list_ha_traces`, `get_ha_trace`
+- UniFi live (nur lesend): `get_unifi_client`
 - Diagnose: `internet_check`, `ping_host` (1–10 Versuche, Standard 3), `check_port`, `dns_lookup`, `reverse_dns`, `http_check`, `traceroute` (1–30 Hops, Standard 15); Ausführung siehe [diagnose](../diagnose/spec.md)
 
 #### Szenario: Kein Schreibwerkzeug
@@ -285,6 +286,28 @@ HA-Entities der Domänen switch/light und erlaubte Rollos. **[Muss]** (Produkten
 
 Quelle: `backend/app/tools.py:335`, `backend/app/tools.py:352`, `backend/app/switch_admin.py:24`, `backend/app/switch_admin.py:27`, `backend/app/switch_admin.py:53`,
 `switch_admin.is_shelly`, `tools.current_actor`, Tests: `backend/tests/test_chat_owner_and_switch.py`
+
+### Requirement: Live-Lesen von UniFi-Clients
+Das System MUSS dem Assistenten (jede Rolle, jeder MCP-Client) mit `get_unifi_client` die Live-Werte
+eines aktuell verbundenen Clients aus der klassischen UniFi-API anbieten (Signal, Rauschen, Kanal,
+Datenrate, Retries, `roam_count`, Access Point, Uptime, Zufriedenheit). Der Client wird per MAC (jede
+Schreibweise), IP oder Name (auch Inventarname) angegeben; mehrere Treffer ergeben eine Kandidatenliste,
+nie eine Vermutung. Es DARF nur der feste GET-Pfad `stat/sta` mit `X-API-Key` des Zugangs der Kategorie
+`unifi` abgerufen werden ([ADR-0015](../../../adr/0015-lesender-zugriff-klassische-unifi-api.md));
+Antworten MÜSSEN eine Feld-Positivliste durchlaufen, der Key DARF nie in Ergebnis, Fehlertext oder Log
+erscheinen, nichts wird gespeichert. Fehlt Zugang, URL oder Key oder ist der Controller nicht
+erreichbar, MUSS eine feste, verständliche Meldung statt eines Fehlers kommen.
+
+> OFFEN: Das Opt-in „Zum Auslesen verwenden“ des Zugangs wird (wie bei Home Assistant) nicht geprüft.
+> OFFEN: `get_unifi_device`, `get_unifi_network` und `get_unifi_events` (Issue #104) folgen.
+
+#### Szenario: Verbundener WLAN-Client
+- **WENN** der Assistent `get_unifi_client` mit der MAC eines WLAN-Clients aufruft
+- **DANN** enthält das Ergebnis Signal, Retries und Roaming-Zähler, aber keine Geheimnisse
+
+#### Szenario: Kein UniFi-Zugang
+- **WENN** kein Zugang der Kategorie `unifi` existiert
+- **DANN** nennt die Antwort das und verweist auf das Inventar des letzten Scans
 
 ### Requirement: Live-Lesen von Home Assistant
 Das System MUSS dem Assistenten (jede Rolle, jeder MCP-Client) lesende Live-Abfragen an Home

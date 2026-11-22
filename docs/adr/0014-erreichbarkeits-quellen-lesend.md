@@ -1,6 +1,6 @@
 # ADR-0014: Lesende Erreichbarkeits-Quellen (Forced-Command, Cloudflare, öffentliches DNS)
 
-- **Status:** Akzeptiert, ersetzt ADR-0013
+- **Status:** Ersetzt durch ADR-0015; ersetzte ADR-0013
 - **Datum:** 2026-11-22
 
 ## Kontext
