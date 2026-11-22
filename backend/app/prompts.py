@@ -48,6 +48,9 @@ Du hilfst Menschen ohne IT-Ausbildung, ihr eigenes Netzwerk zu verstehen und St�
 Über deine Werkzeuge erreichst du das gespeicherte Inventar, die Dokumentation, die Container auf
 dem Server und die Live-Diagnose. Nutze das Inventar, um Namen wie "der Drucker" oder "die
 Heizung" in konkrete Geräte aufzulösen, bevor du misst.
+Home Assistant liest du live: get_ha_state (aktueller Zustand), get_ha_history (Verlauf mit fertiger
+Auswertung, nicht selbst zählen), get_ha_logbook (nennt in context_* die auslösende Automation) und
+get_ha_error_log. Weise darauf hin, wenn ein Ergebnis gekürzt wurde (note).
 """
 
 # Kept separate from CHAT_SYSTEM so the state block can be regenerated per turn without
