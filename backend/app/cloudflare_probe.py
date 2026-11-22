@@ -24,7 +24,7 @@ _TIMEOUT = httpx.Timeout(15.0, connect=5.0)
 _ID = re.compile(r"^[0-9a-f]{32}$")
 HOSTNAME = re.compile(r"^(\*\.)?([a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9_])?\.)+[a-z0-9-]{2,63}$")
 _MAX_PAGES = 20
-_PER_PAGE = 100
+_PER_PAGE = 50  # the rulesets endpoint answers HTTP 400 above 50; the same size works for all paths
 _HOST_IN_EXPR = re.compile(r'http\.host\s+(?:eq\s+"([^"]+)"|in\s+\{([^}]*)\})')
 
 
@@ -105,7 +105,12 @@ async def _waf_facts(client: httpx.AsyncClient, zone: str) -> list[dict]:
 
 
 async def probe(zone_id: str, account_id: str, token: str) -> dict:
-    """Returns {"ok", "error", "facts": [{kind, key, data}]}."""
+    """Returns {"ok", "error", "facts": [{kind, key, data}], "warnings": [str]}.
+
+    Tunnel and WAF reads are optional, but a failed one is reported: without it, "no mTLS rule" and
+    "could not read the rules" would look the same in the documentation.
+    """
+    warnings: list[str] = []
     zone_id, account_id = (zone_id or "").strip().lower(), (account_id or "").strip().lower()
     if not _ID.match(zone_id):
         return {"ok": False, "facts": [], "error": "Zone-ID fehlt oder ist ungültig (32 Hex-Zeichen im Feld Adresse)."}
@@ -120,16 +125,17 @@ async def probe(zone_id: str, account_id: str, token: str) -> dict:
                 try:
                     facts += _tunnel_facts(await _paged(client, f"/accounts/{account_id}/cfd_tunnel",
                                                         {"is_deleted": "false"}))
-                except (httpx.HTTPError, ValueError, PermissionError):
-                    pass  # tunnel status is optional; DNS alone still answers the main question
+                except (httpx.HTTPError, ValueError, PermissionError) as exc:
+                    # tunnel status is optional; DNS alone still answers the main question
+                    warnings.append(f"Tunnel-Status nicht lesbar ({type(exc).__name__}).")
             try:
                 facts += await _waf_facts(client, zone_id)
-            except (httpx.HTTPError, ValueError, PermissionError):
-                pass
+            except (httpx.HTTPError, ValueError, PermissionError) as exc:
+                warnings.append(f"WAF-Regeln nicht lesbar, mTLS unbekannt ({type(exc).__name__}).")
     except PermissionError:
         return {"ok": False, "facts": [], "error": "Cloudflare hat den Token abgelehnt – Token und Zone prüfen."}
     except httpx.HTTPStatusError as exc:
         return {"ok": False, "facts": [], "error": f"Cloudflare antwortete mit HTTP {exc.response.status_code}."}
     except (httpx.HTTPError, ValueError) as exc:
         return {"ok": False, "facts": [], "error": f"Cloudflare nicht erreichbar ({type(exc).__name__})."}
-    return {"ok": True, "error": "", "facts": facts}
+    return {"ok": True, "error": "", "facts": facts, "warnings": warnings}

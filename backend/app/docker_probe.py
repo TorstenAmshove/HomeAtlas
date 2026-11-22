@@ -26,7 +26,7 @@ _DDNS_IMAGES = {
     "favonia/cloudflare-ddns": "Cloudflare", "cloudflare-ddns": "Cloudflare", "ddclient": "ddclient",
     "ddns-updater": "ddns-updater", "inadyn": "inadyn", "ddnss": "DDNSS",
 }
-_DDNS_HOST_KEYS = ("DOMAINS", "DOMAIN", "HOSTNAME", "HOSTS")
+_DDNS_HOST_KEYS = ("DOMAINS", "DOMAIN", "DOMAIN_DDNSS", "HOSTNAME", "HOSTS")
 _HOSTNAME = re.compile(r"^([a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9_])?\.)+[a-z0-9-]{2,63}$")
 
 
@@ -192,6 +192,10 @@ async def probe(host_ip: str = "") -> dict:
                     "portMappings": _port_mappings(container),
                     "volumes": mounts,
                     "networks": sorted((container.get("NetworkSettings") or {}).get("Networks", {}).keys()),
+                    # Reverse proxies on the same Docker network target these addresses, not the host.
+                    "networkIps": sorted({n.get("IPAddress") for n in
+                                          ((container.get("NetworkSettings") or {}).get("Networks") or {}).values()
+                                          if isinstance(n, dict) and n.get("IPAddress")}),
                     "created": container.get("Created"),
                 }
             },

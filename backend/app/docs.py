@@ -471,7 +471,9 @@ def _exposure_section() -> str:
     if data["internal"]:
         out += ["### Intern per TLS erreichbare Dienste\n", "| Hostname | Ziel | Zertifikat | Schutz |",
                 "| --- | --- | --- | --- |"]
-        out += [f"| {_md(r['host'])} | {_md(r['target'])} ({_sys_names(r['systems'])}) | {_md(r['resolver'])} | "
+        # A TLS router without its own resolver uses Traefik's default certificate store.
+        out += [f"| {_md(r['host'])} | {_md(r['target'])} ({_sys_names(r['systems'])}) | "
+                f"{_md(r['resolver'] or ('TLS, Standardzertifikat' if r.get('tls') else ''))} | "
                 f"{_md(', '.join(r['middlewares']))} |" for r in data["internal"]]
         out.append("")
     if data["ddns"]:
