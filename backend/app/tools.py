@@ -725,11 +725,14 @@ async def _dispatch(name: str, args: dict) -> object:
                 out["truncated"] = f"{key}: nur die ersten {limit} von {len(rows)} -- bitte mit `host` eingrenzen."
         firewall_eval.annotate_chains(out["chains"], db.list_firewall_facts(), db.list_systems(),
                                       db.list_network_resources(kind="network", active_only=True))
-        for chain in out["chains"]:  # keep the result small: verdict only, the reason only for a block
+        for chain in out["chains"]:  # keep the result small: the reason only for a block or a known gateway allow
             for path in chain["paths"]:
+                path.pop("via", None)
                 for step in path["steps"]:
+                    step.pop("fromVia", None)
                     fw = step["firewall"]
-                    step["firewall"] = f"blockiert: {fw['reason'][:80]}" if fw["verdict"] == "blockiert" else fw["verdict"]
+                    useful = fw["verdict"] == "blockiert" or fw["reason"].startswith("UniFi erlaubt")
+                    step["firewall"] = f"{fw['verdict']}: {fw['reason'][:80]}" if useful else fw["verdict"]
         out["hints"] = out["hints"][:limit]
         return out
 

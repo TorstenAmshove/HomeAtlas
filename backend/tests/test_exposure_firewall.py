@@ -43,3 +43,21 @@ def test_blocked_configured_path_gets_hint():
 def test_blocked_but_orphan_path_has_no_hint():
     chains = ev.annotate_chains(_chain("verwaist"), _facts(), SYSTEMS, NETRES)
     assert chains[0]["hints"] == []
+
+
+def _via_chain(label="192.0.2.70:8080"):
+    return [{"host": "x.example.net", "hints": [], "paths": [{"status": "aktiv", "via": "192.0.2.10", "steps": [
+        {"label": label, "systems": [{"id": "b", "name": "backend"}], "fromVia": True}]}]}]
+
+
+def test_single_step_is_judged_from_the_proxy():
+    chains = ev.annotate_chains(_via_chain(), _facts(), SYSTEMS, NETRES)
+    assert chains[0]["paths"][0]["steps"][0]["firewall"]["verdict"] == "blockiert"
+    assert any("Firewall blockiert" in h for h in chains[0]["hints"])
+
+
+def test_gateway_allow_is_named_while_host_firewall_is_unknown():
+    facts = _facts()
+    facts[-1]["data"]["action"] = "ALLOW"
+    fw = ev.annotate_chains(_via_chain(), facts, SYSTEMS, NETRES)[0]["paths"][0]["steps"][0]["firewall"]
+    assert fw["verdict"] == "unklar" and fw["reason"].startswith("UniFi erlaubt") and "nftables" in fw["reason"]

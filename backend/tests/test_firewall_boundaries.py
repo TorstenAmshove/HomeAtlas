@@ -30,7 +30,8 @@ def test_constitution_links_no_superseded_adr():
     text = (ROOT / "docs/specs/constitution.md").read_text()
     assert "0016-unifi-scan-nur-mit-api-key" not in text
     assert "0017-firewall-quellen-und-pfadbewertung" not in text
-    assert "0018-wan-status-und-lesepfade" in text
+    assert "0018-wan-status-und-lesepfade" not in text
+    assert "0019-firewall-zonen-subnetze" in text
 
 
 

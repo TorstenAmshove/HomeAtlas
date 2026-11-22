@@ -23,9 +23,9 @@ des UniFi-Gateways sowie den live geladenen nftables-Regelsatz freigegebener Hos
 Das System MUSS Firewall-Zonen, -Policies und Adress-/Port-Gruppen des UniFi-Gateways nur lesend
 erfassen, nur mit einem Zugang der Kategorie `unifi` (API-Key) mit `allowProbe` und nur solange
 `scanEnableFirewallUnifi` (Default **aus**) gesetzt ist
-([ADR-0017](../../../adr/0017-firewall-quellen-und-pfadbewertung.md)). Je Site gibt es drei feste GET-Pfade
+([ADR-0019](../../../adr/0019-firewall-zonen-subnetze.md)). Je Site gibt es vier feste GET-Pfade
 (`v2/api/site/<site>/firewall/zone`, `v2/api/site/<site>/firewall-policies`,
-`api/s/<site>/rest/firewallgroup`) mit `X-API-Key`, ohne Login, Cookie, CSRF-Token und Weiterleitungen.
+`api/s/<site>/rest/firewallgroup`, `api/s/<site>/rest/networkconf`; aus Letzterem nur `_id` und `ip_subnet`) mit `X-API-Key`, ohne Login, Cookie, CSRF-Token und Weiterleitungen.
 **[Muss]**
 
 #### Szenario: Erfolgreicher Scan
@@ -64,11 +64,11 @@ wird als `unsupported` an der Regel vermerkt. **[Muss]**
 Quelle: `backend/app/firewall_nft.py`, `backend/app/pipeline.py`, Test: `backend/tests/test_firewall_nft.py`, `backend/tests/test_pipeline_firewall.py`, `backend/tests/test_firewall_boundaries.py`
 
 ### Requirement: Nur Positivliste, keine Geheimnisse
-Das System MUSS je Fakt nur eine Positivliste von Feldern speichern (Zonen-ID/-Name/Netz-IDs, Regel-ID,
+Das System MUSS je Fakt nur eine Positivliste von Feldern speichern (Zonen-ID/-Name/Netz-IDs/Subnetze, Regel-ID,
 Name, Index, aktiv, vordefiniert, Aktion, Protokoll, Zonen, IPs/Gruppen, Ports, Verbindungsstatus) und
 nie Rohantworten, Kommentare, Trefferzähler oder Schlüssel (bei nftables ebenso keine Rohausgabe und keine Kommentare). Namen werden von Steuerzeichen befreit und auf
 80 Zeichen gekürzt. Was die spätere Bewertung nicht sicher beurteilen kann (Zeitplan, IPsec, benutzerdefinierter
-Verbindungsstatus, negierte Zuordnung, unbekannte Formate), wird als `unsupported` an der Regel vermerkt. **[Muss]**
+Verbindungsstatus, der neue Verbindungen einschließt, negierte Zuordnung, unbekannte Formate), wird als `unsupported` an der Regel vermerkt. **[Muss]**
 
 #### Szenario: Zu viele Regeln
 - **WENN** mehr als 500 Policies gelesen werden
@@ -91,6 +91,9 @@ blockiert; sonst „unklar“, wenn eine Station unklar ist; nur „erlaubt“, 
 #### Szenario: Nicht auswertbar
 - **WENN** die Quelle fehlt oder veraltet ist, die Zone nicht zuordenbar ist, eine Regel als `unsupported` vermerkt ist, eine Gruppe fehlt, ICMP/IPv6 gefragt ist, Schnittstellen-Treffer ohne Schnittstellenkenntnis oder gleiche Priorität/gleicher Index vorliegen
 - **DANN** ist die Station „unklar“ mit Grund, nie „erlaubt“
+
+Die Zone einer Adresse folgt aus den an der Zone gespeicherten Subnetzen (längstes Präfix). Regeln, die nur `ESTABLISHED`,
+`RELATED` oder `INVALID` treffen, entscheiden nie über eine neue Verbindung und werden übersprungen.
 
 Fest ausgewiesen und nicht ausgewertet: Proxmox-Firewall, nftables-`forward`, NAT/Portweiterleitung, IPv6.
 
@@ -122,12 +125,12 @@ Keine eigenen Routen; der Schalter läuft über die Einstellungs-API.
 UI-Seite(n): `frontend/src/pages/SettingsPage.tsx` (Route `/einstellungen`).
 
 ### Requirement: Kapitel „Wer darf mit wem sprechen“
-Das System MUSS aus den gespeicherten Fakten ein Kapitel `wer-darf-mit-wem` erzeugen: Zonenmatrix (Zellen „erlaubt“, „gesperrt“, „teilweise (n)“, „unklar“; „unklar“ bei fehlendem Standard oder nicht auswertbarer Regel), Ausnahmen je Zonenpaar, Freigaben je kritischem System, Host-Firewalls und Hinweise. Ohne Fakten erscheint ein Leerzustand. **[Muss]**
+Das System MUSS aus den gespeicherten Fakten ein Kapitel `wer-darf-mit-wem` erzeugen: Zonenmatrix (Zellen „erlaubt“, „gesperrt“, „teilweise (n)“, „unklar“; „unklar“ bei fehlendem Standard oder nicht auswertbarer Regel vor dem Standard). Maßgeblich ist die Reihenfolge: Die erste Regel ohne Einschränkung bestimmt den wirksamen Standard des Zonenpaars, Regeln dahinter greifen nie. Dazu Ausnahmen je Zonenpaar, Freigaben je kritischem System, Host-Firewalls und Hinweise. Ohne Fakten erscheint ein Leerzustand. **[Muss]**
 
 Quelle: `backend/app/docs.py` (`_firewall_section`), `backend/app/firewall_eval.py` (`zone_matrix`, `host_firewalls`), Test: `backend/tests/test_docs_firewall.py::test_matrix_exceptions_hints_and_escaping`
 
 ### Requirement: Firewall-Ergebnis je Kettenschritt
-Das System MUSS jeden Schritt einer Erreichbarkeits-Kette (Schritt n-1 → Schritt n) mit „erlaubt“, „blockiert“ oder „unklar“ versehen; der erste Schritt (Internet, Portweiterleitung/Tunnel) ist „unklar“. Blockiert die Firewall einen als aktiv konfigurierten Pfad, steht ein Hinweis an der Kette. **[Muss]**
+Das System MUSS jeden Schritt einer Erreichbarkeits-Kette (Schritt n-1 → Schritt n) mit „erlaubt“, „blockiert“ oder „unklar“ versehen. Einen Schritt, den Proxy oder Tunnel direkt ansprechen, bewertet es vom System aus, auf dem Proxy oder Tunnel laufen; ist das unbekannt, bleibt er „unklar“. Der Weg aus dem Internet zum Proxy wird nicht bewertet. Bei „unklar“ steht der Grund dabei, auch wenn das Gateway bereits erlaubt. Blockiert die Firewall einen als aktiv konfigurierten Pfad, steht ein Hinweis an der Kette. **[Muss]**
 
 Quelle: `backend/app/firewall_eval.py` (`annotate_chains`), Test: `backend/tests/test_exposure_firewall.py::test_blocked_configured_path_gets_hint`
 
@@ -135,7 +138,3 @@ Quelle: `backend/app/firewall_eval.py` (`annotate_chains`), Test: `backend/tests
 
 Keine Änderung von Firewall-Regeln; keine Proxmox-Firewall in v1; keine Docker-iptables-Regeln; nftables nur `inet`/`ip`, kein IPv6.
 
-## OFFEN
-
-- > OFFEN: Die Zuordnung Netz -> Zone setzt voraus, dass `networkResources.externalId` der UniFi-Netz-ID in `zone.network_ids`
-  > entspricht; am echten Gateway noch nicht bestätigt (sonst „unklar: Zone nicht zuordenbar“).

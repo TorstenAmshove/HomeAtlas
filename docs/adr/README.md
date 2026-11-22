@@ -37,4 +37,5 @@ Menschen und für KI-Agenten, die sonst bewusste Entscheidungen „wegrefaktorie
 | [0015](0015-lesender-zugriff-klassische-unifi-api.md) | Lesender Live-Zugriff auf die klassische UniFi-API | Ersetzt durch ADR-0016 |
 | [0016](0016-unifi-scan-nur-mit-api-key.md) | Scan der klassischen UniFi-API nur mit API-Key | Ersetzt durch ADR-0017 |
 | [0017](0017-firewall-quellen-und-pfadbewertung.md) | Firewall-Quellen lesen und Pfade von HomeAtlas bewerten | Ersetzt durch ADR-0018 |
-| [0018](0018-wan-status-und-lesepfade.md) | WAN-Status lesen, HA-Systemprotokoll, Dachfenster gesperrt | Akzeptiert |
+| [0018](0018-wan-status-und-lesepfade.md) | WAN-Status lesen, HA-Systemprotokoll, Dachfenster gesperrt | Ersetzt durch ADR-0019 |
+| [0019](0019-firewall-zonen-subnetze.md) | Firewall-Zonen über die Subnetze aus `networkconf` zuordnen | Akzeptiert |
