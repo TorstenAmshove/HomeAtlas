@@ -41,16 +41,13 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (136)
+## Alle Punkte je Fähigkeit (133)
 
-### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (6)
+### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (3)
 
 1. `list_switches` nutzt jeden HA-Zugang unabhängig vom Opt-in „Zum Auslesen verwenden“ und fragt bei jedem Aufruf live alle HA-Instanzen ab. → #121
-2. Scheitert eine Runde (502), bleibt die Benutzernachricht gespeichert; die UI legt sie zurück ins Eingabefeld → beim erneuten Senden doppelt im Verlauf. Umbenennung passiert auch bei gescheiterter Runde. → #150
-3. Keine Gesamtzeitgrenze je Runde: bis zu 8 LLM-Aufrufe à 120 s plus Werkzeuge. → #120
-4. `systemPromptOverride` ist nur per API setzbar (keine UI) und ersetzt den Prompt ohne Platzhalter-Ersetzung (`{home_name}` bliebe wörtlich). → #150
-5. Kein Rate-Limit auf `/api/mcp`; `lastUsedAt` wird bei jeder Anfrage geschrieben. → #120
-6. Eine Nachricht nur aus Leerzeichen erfüllt die Mindestlänge 1 und wird gesendet; als erste Nachricht ergibt sie einen leeren Chat-Titel. → #150
+2. Keine Gesamtzeitgrenze je Runde: bis zu 8 LLM-Aufrufe à 120 s plus Werkzeuge. → #120
+3. Kein Rate-Limit auf `/api/mcp`; `lastUsedAt` wird bei jeder Anfrage geschrieben. → #120
 
 ### [auth-und-rollen](capabilities/auth-und-rollen/spec.md) (16)
 

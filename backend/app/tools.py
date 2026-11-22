@@ -868,7 +868,9 @@ def _state_block(settings: dict) -> str:
 
 def build_system_prompt(settings: dict) -> str:
     override = (settings.get("systemPromptOverride") or "").strip()
-    base = override or prompts.CHAT_SYSTEM.format(home_name=settings.get("homeName") or "diesem Haushalt")
+    home = settings.get("homeName") or "diesem Haushalt"
+    # Plain replace, not str.format: the override is free text and any other `{...}` must stay literal.
+    base = override.replace("{home_name}", home) if override else prompts.CHAT_SYSTEM.format(home_name=home)
     return base + _state_block(settings)
 
 

@@ -61,3 +61,15 @@ def add_chat_message(chat_id: str, role: str, content: str = "", tool_calls: lis
 def list_chat_messages(chat_id: str) -> list[dict]:
     with _conn() as conn:
         return _rows(conn.execute("SELECT * FROM chatMessages WHERE chatId = ? ORDER BY createdAt, rowid", (chat_id,)))
+
+
+def last_chat_message_rowid(chat_id: str) -> int:
+    """Highest rowid of the chat's messages (0 for an empty chat); anchor for rolling back a round."""
+    with _conn() as conn:
+        return conn.execute("SELECT COALESCE(MAX(rowid), 0) FROM chatMessages WHERE chatId = ?",
+                            (chat_id,)).fetchone()[0]
+
+
+def delete_chat_messages_after(chat_id: str, rowid: int) -> None:
+    with _conn() as conn:
+        conn.execute("DELETE FROM chatMessages WHERE chatId = ? AND rowid > ?", (chat_id, rowid))
