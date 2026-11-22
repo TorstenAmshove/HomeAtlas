@@ -32,4 +32,5 @@ Menschen und für KI-Agenten, die sonst bewusste Entscheidungen „wegrefaktorie
 | [0010](0010-db-als-paket.md) | `db` als Paket je Entität, SQL weiterhin nur dort | Akzeptiert |
 | [0011](0011-lese-schreib-trennung-routen-module.md) | Lese-/Schreib-Trennung mit Routen-Modulen | Ersetzt durch ADR-0012 |
 | [0012](0012-lesender-websocket-fuer-ha-traces.md) | Lesender WebSocket für Home-Assistant-Traces | Ersetzt durch ADR-0013 |
-| [0013](0013-rollos-per-set-switch.md) | Rollos per `set_switch`, Tore bleiben gesperrt | Akzeptiert |
+| [0013](0013-rollos-per-set-switch.md) | Rollos per `set_switch`, Tore bleiben gesperrt | Ersetzt durch ADR-0014 |
+| [0014](0014-erreichbarkeits-quellen-lesend.md) | Lesende Erreichbarkeits-Quellen (Forced-Command, Cloudflare, öffentliches DNS) | Akzeptiert |
