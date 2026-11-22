@@ -41,3 +41,7 @@ def test_firewall_nft_runs_only_the_fixed_command():
     assert _imports("firewall_nft").isdisjoint(FORBIDDEN_IN_SOURCES | {"remote_admin", "probe_auth"})
     for verb in ("create_process", "start_sftp_client", "open_session", "subprocess"):
         assert verb not in src
+
+
+def test_firewall_eval_is_pure():
+    assert _imports("firewall_eval") <= {"__future__", "annotations", "ipaddress", "re"}

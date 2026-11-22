@@ -297,7 +297,11 @@ standardmäßig **aus** (`scanEnableFirewallUnifi`) und braucht denselben Zugang
 Weiterleitungen. Minimal nötige Rechte: wie oben, der Key hat die Rechte seines Erstellers (ADR-0017).
 Gespeichert werden nur Zonen, Regelname, Reihenfolge, Aktion, Protokoll, Ports und IPs, nie Kommentare,
 Trefferzähler oder Schlüssel. Ist die Quelle nicht lesbar, bleiben die alten Regeln als veraltet markiert.
-Die Auswertung und das Kapitel „Wer darf mit wem sprechen“ folgen in weiteren Schritten (Issue #106).
+Der Assistent bewertet damit Wege: `check_firewall_path` (von, nach, Port, Protokoll) liefert je Station (UniFi-Gateway,
+Host-Firewall) „erlaubt“, „blockiert“ oder „unklar“ mit auslösender Regel, `list_firewall_rules` listet die gespeicherten
+Regeln. HomeAtlas wertet aus, der Assistent erklärt nur; „unklar“ heißt nicht auswertbar (Quelle fehlt oder veraltet,
+Zeitplan, Gruppen, IPv6, ICMP …), nie „erlaubt“. Nicht ausgewertet werden Proxmox-Firewall, nftables-`forward` und
+NAT/Portweiterleitung. Das Kapitel „Wer darf mit wem sprechen“ folgt in einem weiteren Schritt (Issue #106).
 
 **Firewall-Regeln (nftables der Hosts).** Optional liest HomeAtlas den live geladenen nftables-Regelsatz
 einzelner Hosts, weil nur er zeigt, was tatsächlich gilt. Standardmäßig **aus** (`scanEnableFirewallNft`)
