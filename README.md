@@ -90,7 +90,7 @@ docker compose logs backend | grep -A4 Anmeldedaten
 ```
 
 Ein eigenes Passwort lässt sich stattdessen in `docker-compose.yml` über `ADMIN_USERNAME` /
-`ADMIN_PASSWORD` vorgeben (wirkt nur, solange noch kein Benutzer existiert).
+`ADMIN_PASSWORD` vorgeben (wirkt nur, solange noch kein Benutzer existiert; es muss die Passwortrichtlinie erfüllen, sonst wird eines generiert).
 
 Direkt nach der ersten Anmeldung verlangt HomeAtlas die Einrichtung der Zwei-Faktor-Anmeldung:
 QR-Code mit einer Authenticator-App (z. B. Aegis, Google Authenticator, 1Password) scannen und den
@@ -381,7 +381,9 @@ wird, ist eine Eigenschaft des Codes, keine Zusicherung im Text:
 - HTTP wird ausschließlich mit **GET** aufgerufen; bei TR-064 werden nur `GetInfo`-Aktionen
   gebaut — die `Set*`-Hälfte dieser Schnittstelle kommt im Quelltext nicht vor.
 - **Opt-in pro Zugang.** Ohne den Haken „Zum Auslesen verwenden“ passiert nichts, und das
-  Verfahren lässt sich unter *Einstellungen → Netzwerk-Scan* komplett abschalten.
+  Auslesen einzelner Geräte lässt sich unter *Einstellungen → Netzwerk-Scan* mit einem Schalter
+  abschalten. Die Abfragen der Controller (UniFi, Omada, Proxmox, AdGuard) und weiterer Quellen haben
+  jeweils eigene Schalter und melden sich mit ihrem Zugang an, solange diese aktiv sind.
 
 Bewusste Abwägung: SSH-Hostschlüssel werden **nicht** geprüft. HomeAtlas hat keinen Vertrauensspeicher,
 und die Alternative — die Verbindung zu jedem Gerät beim ersten Kontakt zu verweigern — würde die
@@ -483,7 +485,7 @@ Inventar über die Auswahl mehrerer Geräte. Konten, Verlauf und Monitoring wand
 | `HOMEATLAS_DB_PATH` | `/data/homeatlas.db` | SQLite-Datenbank |
 | `HOMEATLAS_KEY_PATH` | `/data/secret.key` | Verschlüsselungsschlüssel (wird automatisch erzeugt) |
 | `HOMEATLAS_OUI_PATH` | `/data/oui.json` | Zwischenspeicher der IEEE-Herstellerdatenbank |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | — | Erstes Konto vorgeben statt generieren lassen |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | — | Erstes Konto vorgeben statt generieren lassen (Passwort muss die Richtlinie erfüllen, sonst wird eines generiert) |
 | `TZ` | `Europe/Berlin` | Zeitzone für Anzeigen und Protokolle |
 
 Scan-Verhalten (Bereiche, Ausnahmen, Timeouts, welche Quellen aktiv sind, ob die KI mitarbeitet)
@@ -506,7 +508,7 @@ als Warnung im Scan-Log.
 # Backend
 cd backend
 pip install -r requirements.txt
-HOMEATLAS_DB_PATH=./dev.db HOMEATLAS_KEY_PATH=./dev.key ADMIN_PASSWORD=devpass123 \
+HOMEATLAS_DB_PATH=./dev.db HOMEATLAS_KEY_PATH=./dev.key ADMIN_PASSWORD=Dev-Passwort-2024 \
   uvicorn app.main:app --reload --port 8000
 
 # Frontend (proxyt /api automatisch auf :8000)
@@ -533,7 +535,7 @@ sind dort eingeschränkt, die Oberfläche und alles andere funktionieren.
 
 ## Bekannte Grenzen
 
-- **Nur IPv4.** IPv6-Geräte tauchen auf, wenn sie sich per mDNS/SSDP melden, werden aber nicht
+- **Nur IPv4.** IPv6-Adressen, die sich per mDNS/SSDP melden, werden verworfen und nicht
   aktiv gescannt.
 - **Netzbereiche bis /22.** Ein größerer Bereich wird auf die ersten 1024 Adressen begrenzt —
   ein versehentliches /16 wären 65.000 Hosts und ein praktisch endloser Scan.
