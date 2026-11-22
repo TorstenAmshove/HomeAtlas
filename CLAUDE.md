@@ -119,7 +119,7 @@ that a source supplied (manual, UniFi, Docker, Proxmox, Omada), nor a self-repor
 **`pipeline.py`** orchestrates a full scan (discovery → Docker → controller APIs (UniFi, Omada,
 Proxmox, AdGuard) → classification → inventory merge → credentialed probing → doc regeneration; classification runs
 before probing, so probe facts only inform the next scan's classification) and owns the scan `Scheduler`. **`docs.py`** renders the
-12-chapter Markdown documentation from the inventory; each doc page has a separate
+14-chapter Markdown documentation from the inventory; each doc page has a separate
 never-auto-touched "manual notes" field (`db.set_doc_page_manual`) plus an independent
 whole-page-manual-override mode — know which one an edit is supposed to affect.
 

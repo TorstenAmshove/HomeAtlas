@@ -28,7 +28,7 @@ Alle Routen setzen eine angemeldete Sitzung mit eingerichteter Zwei-Faktor-Anmel
 ## Anforderungen
 
 ### Requirement: Feste Kapitelstruktur
-Das System MUSS genau 13 Kapitel mit festen Kürzeln, Titeln und fester Reihenfolge erzeugen; Geräte
+Das System MUSS genau 14 Kapitel mit festen Kürzeln, Titeln und fester Reihenfolge erzeugen; Geräte
 werden über ihre Kategorie (`kind`) genau einem Kapitel zugeordnet. **[Muss]**
 
 | # | Slug | Titel | Kategorien | Inhalt |
@@ -46,6 +46,7 @@ werden über ihre Kategorie (`kind`) genau einem Kapitel zugeordnet. **[Muss]**
 | 10 | `erreichbarkeit` | Erreichbarkeit von außen | – | Einleitung, Ketten je öffentlichem Hostnamen (aktiv/verwaist/unklar), „Extern gehostet“, „Intern per TLS erreichbare Dienste“, DynDNS, Portweiterleitungen, Hinweise; Leerzustand ohne Quellen. Siehe [erreichbarkeit](../erreichbarkeit/spec.md) |
 | 11 | `zugaenge-und-konten` | Zugänge und Konten | – | Einleitung, „Hinterlegte Zugänge“ |
 | 12 | `notfall` | Wenn etwas nicht funktioniert | – | Notfall-Checkliste |
+| 13 | `wer-darf-mit-wem` | Wer darf mit wem sprechen | – | Zonenmatrix (Quelle × Ziel: erlaubt/gesperrt/teilweise/unklar, höchstens 12 Zonen), Ausnahmen je Zonenpaar (höchstens 10 je Paar), Freigaben je kritischem System, Host-Firewalls (nftables), Hinweise (deaktivierte Regeln, nicht ausgewertete Quellen); Leerzustand ohne Daten. Siehe [firewall](../firewall/spec.md) |
 
 Jedes Kapitel hat einen festen, handgeschriebenen Einleitungstext (Fallback) und eine Kurzbeschreibung
 (`intro`), die als Metadatum gespeichert wird. Kategorielabels (deutsch) und Zustandslabels
@@ -54,6 +55,10 @@ Jedes Kapitel hat einen festen, handgeschriebenen Einleitungstext (Fallback) und
 #### Szenario: Kapitelzuordnung
 - **WENN** ein Gerät mit `kind = vm` existiert und die Doku erzeugt wird
 - **DANN** erscheint es im Kapitel `container-und-vms` und in keinem anderen Kapitel
+
+#### Szenario: Firewall-Kapitel
+- **WENN** Firewall-Fakten gespeichert sind
+- **DANN** zeigt `wer-darf-mit-wem` die Zonenmatrix in Klartext; Regelnamen sind Fremdtext und werden escaped und gekürzt, Secrets kommen nie vor
 
 Quelle: `backend/app/docs.py:21`, `backend/app/docs.py:44`, `backend/app/docs.py:504`, Test: `backend/tests/test_docs_compose_groups.py::test_container_chapter_groups_by_stack`
 

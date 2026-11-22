@@ -1,7 +1,7 @@
 # Firewall-Regeln
 
-> Status: Teile A bis C umgesetzt (UniFi und nftables lesen und speichern, Pfadbewertung, Assistenten-Werkzeuge, #106). Das
-> Doku-Kapitel und die Verknüpfung mit den Erreichbarkeits-Ketten folgen (Teil D, siehe OFFEN).
+> Status: Teile A bis D umgesetzt (UniFi und nftables lesen und speichern, Pfadbewertung, Assistenten-Werkzeuge, #106). Das
+> Doku-Kapitel `wer-darf-mit-wem` und die Firewall-Ergebnisse in den Erreichbarkeits-Ketten sind dabei.
 
 ## Zweck
 
@@ -121,12 +121,21 @@ Keine eigenen Routen; der Schalter läuft über die Einstellungs-API.
 
 UI-Seite(n): `frontend/src/pages/SettingsPage.tsx` (Route `/einstellungen`).
 
+### Requirement: Kapitel „Wer darf mit wem sprechen“
+Das System MUSS aus den gespeicherten Fakten ein Kapitel `wer-darf-mit-wem` erzeugen: Zonenmatrix (Zellen „erlaubt“, „gesperrt“, „teilweise (n)“, „unklar“; „unklar“ bei fehlendem Standard oder nicht auswertbarer Regel), Ausnahmen je Zonenpaar, Freigaben je kritischem System, Host-Firewalls und Hinweise. Ohne Fakten erscheint ein Leerzustand. **[Muss]**
+
+Quelle: `backend/app/docs.py` (`_firewall_section`), `backend/app/firewall_eval.py` (`zone_matrix`, `host_firewalls`), Test: `backend/tests/test_docs_firewall.py::test_matrix_exceptions_hints_and_escaping`
+
+### Requirement: Firewall-Ergebnis je Kettenschritt
+Das System MUSS jeden Schritt einer Erreichbarkeits-Kette (Schritt n-1 → Schritt n) mit „erlaubt“, „blockiert“ oder „unklar“ versehen; der erste Schritt (Internet, Portweiterleitung/Tunnel) ist „unklar“. Blockiert die Firewall einen als aktiv konfigurierten Pfad, steht ein Hinweis an der Kette. **[Muss]**
+
+Quelle: `backend/app/firewall_eval.py` (`annotate_chains`), Test: `backend/tests/test_exposure_firewall.py::test_blocked_configured_path_gets_hint`
+
 ## Nicht-Ziele und Grenzen
 
 Keine Änderung von Firewall-Regeln; keine Proxmox-Firewall in v1; keine Docker-iptables-Regeln; nftables nur `inet`/`ip`, kein IPv6.
 
 ## OFFEN
 
-- > OFFEN: Kapitel „Wer darf mit wem sprechen“ und die Verknüpfung mit den Erreichbarkeits-Ketten (Issue #106, Teil D).
 - > OFFEN: Die Zuordnung Netz -> Zone setzt voraus, dass `networkResources.externalId` der UniFi-Netz-ID in `zone.network_ids`
   > entspricht; am echten Gateway noch nicht bestätigt (sonst „unklar: Zone nicht zuordenbar“).

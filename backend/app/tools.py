@@ -723,6 +723,13 @@ async def _dispatch(name: str, args: dict) -> object:
             out[key] = rows[:limit]
             if len(rows) > limit:
                 out["truncated"] = f"{key}: nur die ersten {limit} von {len(rows)} -- bitte mit `host` eingrenzen."
+        firewall_eval.annotate_chains(out["chains"], db.list_firewall_facts(), db.list_systems(),
+                                      db.list_network_resources(kind="network", active_only=True))
+        for chain in out["chains"]:  # keep the result small: verdict only, the reason only for a block
+            for path in chain["paths"]:
+                for step in path["steps"]:
+                    fw = step["firewall"]
+                    step["firewall"] = f"blockiert: {fw['reason'][:80]}" if fw["verdict"] == "blockiert" else fw["verdict"]
         out["hints"] = out["hints"][:limit]
         return out
 
