@@ -151,6 +151,7 @@ export const ACCOUNT_FIELDS: Record<CategoryId, CategoryFields> = {
   exposure_cloudflared: exposure("die cloudflared-Konfiguration"),
   exposure_caddy: exposure("das Caddyfile"),
   exposure_ddclient: exposure("die ddclient-Konfiguration"),
+  firewall_nftables: exposure("den nftables-Regelsatz (sudo nft -j list ruleset)"),
   wifi: {
     username: { visible: true, label: "Netzwerkname (SSID)" },
     url: HIDDEN,

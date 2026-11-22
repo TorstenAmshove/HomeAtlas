@@ -97,3 +97,86 @@ def test_source_failure_does_not_stop_others(temp_db, monkeypatch):
     _scan(temp_db, monkeypatch)
     assert set(seen) == {first["id"], other["id"]}
     assert [r["sourceAccountId"] for r in temp_db.list_firewall_facts()] == [other["id"]]
+
+
+# ---- nftables --------------------------------------------------------------------------------
+
+NFT_FACTS = [{"kind": "nft_host", "key": "nft:s", "data": {"systemId": "s", "chains": 0, "rules": 0}}]
+
+
+def _nft_account(db, ip="192.0.2.5", label="Host"):
+    system = db.create_system({"name": label, "ip": ip, "kind": "server"})
+    account = db.create_account({"label": label, "category": "firewall_nftables", "systemId": system["id"],
+                                 "allowProbe": 1})
+    return account, system
+
+
+def _nft_scan(db, monkeypatch, probe, on=True, unifi=False):
+    monkeypatch.setattr(pipeline.firewall_nft, "probe", probe)
+    db.update_settings({"scanEnableFirewallNft": on})  # _scan only touches the UniFi switch
+    _scan(db, monkeypatch, firewall=unifi)
+
+
+async def _nft_ok(host, acct):
+    return {"ok": True, "error": "", "facts": NFT_FACTS}
+
+
+async def _nft_boom(host, acct):
+    raise RuntimeError(KEY)
+
+
+def test_nft_default_is_off(temp_db):
+    assert temp_db.get_settings()["scanEnableFirewallNft"] is False
+
+
+def test_nft_success_replaces_facts(temp_db, monkeypatch):
+    account, _ = _nft_account(temp_db)
+    _nft_scan(temp_db, monkeypatch, _nft_ok)
+    rows = temp_db.list_firewall_facts()
+    assert [(r["source"], r["sourceAccountId"], r["stale"]) for r in rows] == [("nftables", account["id"], 0)]
+
+
+def test_nft_failure_marks_stale(temp_db, monkeypatch):
+    _, system = _nft_account(temp_db)
+    _nft_scan(temp_db, monkeypatch, _nft_ok)
+    _nft_scan(temp_db, monkeypatch, _nft_boom)
+    rows = temp_db.list_firewall_facts()
+    assert len(rows) == 1 and rows[0]["stale"] == 1
+    assert all(KEY not in e["message"] for e in temp_db.list_device_error_events(system["id"]))
+
+
+def test_nft_switch_off_deletes_facts(temp_db, monkeypatch):
+    _nft_account(temp_db)
+    _nft_scan(temp_db, monkeypatch, _nft_ok)
+    assert temp_db.list_firewall_facts()
+    _nft_scan(temp_db, monkeypatch, _nft_ok, on=False)
+    assert temp_db.list_firewall_facts() == []
+
+
+def test_nft_allow_probe_revoked_deletes_facts(temp_db, monkeypatch):
+    account, _ = _nft_account(temp_db)
+    _nft_scan(temp_db, monkeypatch, _nft_ok)
+    temp_db.update_account(account["id"], {"allowProbe": 0})
+    _nft_scan(temp_db, monkeypatch, _nft_ok)
+    assert temp_db.list_firewall_facts() == []
+
+
+def test_one_nft_host_failure_does_not_stop_others(temp_db, monkeypatch):
+    _nft_account(temp_db, "192.0.2.5", "Bad")
+    good, _ = _nft_account(temp_db, "192.0.2.6", "Good")
+
+    async def probe(host, acct):
+        if host == "192.0.2.5":
+            raise RuntimeError("x")
+        return {"ok": True, "error": "", "facts": NFT_FACTS}
+
+    _nft_scan(temp_db, monkeypatch, probe)
+    assert {r["sourceAccountId"] for r in temp_db.list_firewall_facts()} == {good["id"]}
+
+
+def test_nft_source_failure_does_not_stop_unifi(temp_db, monkeypatch):
+    _account(temp_db)
+    _nft_account(temp_db)
+    monkeypatch.setattr(pipeline.firewall_unifi, "probe", _ok([]))
+    _nft_scan(temp_db, monkeypatch, _nft_boom, unifi=True)
+    assert {r["source"] for r in temp_db.list_firewall_facts()} == {"unifi"}

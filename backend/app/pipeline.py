@@ -19,7 +19,7 @@ from datetime import datetime, timedelta, timezone
 from . import (
     fritz_wan,
     adguard_probe, classify, cloudflare_probe, crypto, db, diagnostics, discovery, docker_probe, docs,
-    exposure_files, firewall_unifi, omada_probe, oui, probe_auth, proxmox_probe, public_dns, traefik_probe,
+    exposure_files, firewall_nft, firewall_unifi, omada_probe, oui, probe_auth, proxmox_probe, public_dns, traefik_probe,
     unifi_classic_probe, unifi_probe,
 )
 
@@ -594,6 +594,31 @@ async def run_full_scan(scan_id: str) -> None:
             db.prune_firewall_facts("unifi", [a["id"] for a in fw_accounts])
         else:
             db.delete_firewall_facts(source="unifi")
+
+        # nftables of released hosts (ADR-0017): off by default, one fixed sudo command per host.
+        if settings.get("scanEnableFirewallNft", False):
+            nft_accounts = [a for a in db.list_accounts()
+                            if a.get("category") == firewall_nft.CATEGORY and a.get("allowProbe")]
+            if nft_accounts:
+                progress("Host-Firewalls erfassen", 89, "Lese nftables-Regelsätze")
+            for account in nft_accounts:
+                target = db.get_system(account["systemId"]) if account.get("systemId") else None
+                host = ((target or {}).get("ip") or "").strip()
+                try:
+                    nft = await asyncio.wait_for(firewall_nft.probe(host, account), timeout=60)
+                except Exception as exc:  # one failing host must never stop the scan
+                    nft = {"ok": False, "facts": [], "error": f"nftables: {type(exc).__name__}"}
+                if nft["ok"]:
+                    db.replace_firewall_facts(firewall_nft.SOURCE, account["id"], nft["facts"])
+                    log(f"nftables ({account['label']}): {max(len(nft['facts']) - 1, 0)} Kette(n) gelesen")
+                else:
+                    db.mark_firewall_facts_stale(firewall_nft.SOURCE, account["id"])
+                    warnings.append(f"nftables ({account['label']}): {nft['error']}")
+                    if account.get("systemId"):
+                        db.add_device_error_event(account["systemId"], "error", nft["error"])
+            db.prune_firewall_facts(firewall_nft.SOURCE, [a["id"] for a in nft_accounts])
+        else:
+            db.delete_firewall_facts(source=firewall_nft.SOURCE)
 
         if settings.get("scanEnableTraefik", True):
             traefik_accounts = [a for a in db.list_accounts()

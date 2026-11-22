@@ -44,6 +44,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "scanEnablePublicDns": False,
     # Firewall rules (ADR-0017): off until switched on deliberately, on top of the per-account opt-in.
     "scanEnableFirewallUnifi": False,
+    "scanEnableFirewallNft": False,
     "scanEnableHttpBanner": True,
     "scanUseLlm": True,
     "scanExcludeIps": [],
