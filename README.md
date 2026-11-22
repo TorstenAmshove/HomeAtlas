@@ -253,6 +253,12 @@ feste Zahl an Einträgen. Texte werden vor der Ausgabe von Tokens, Passwörtern 
 Zugriffstoken bleibt auf dem Server. Das Opt-in „Zum Auslesen verwenden“ gilt für diese
 Abfragen nicht (wie bei `list_switches`), und sie stehen allen Rollen und MCP-Clients offen.
 
+**Erreichbarkeit im Assistenten und auf der Geräteseite.** Das Werkzeug `list_exposure` beantwortet
+Fragen wie „warum ist app2.example.net nicht erreichbar?“. Es liest nur die beim letzten Scan
+gespeicherten Fakten (kein Live-DNS, keine Geheimnisse, höchstens 15 Zeilen je Liste mit Hinweis auf
+Kürzung) und ist für Administratoren und Mitglieder gleich. Auf der Geräteseite (Tab „Technik“) steht
+„Erreichbar über …“, wenn das Gerät Ziel einer Kette, einer Traefik-Route oder einer Portweiterleitung ist.
+
 **Traefik lesen (Erreichbarkeit).** Für „Intern per TLS erreichbare Dienste“ liest HomeAtlas die
 Traefik-API, ausschließlich per GET auf `/api/http/routers`, `/api/http/services` und
 `/api/entrypoints` (nie die Middleware-Liste, weil dort BasicAuth-Hashes stehen können). Minimal

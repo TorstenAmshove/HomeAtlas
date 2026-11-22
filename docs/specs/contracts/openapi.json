@@ -4095,6 +4095,63 @@
         "summary": "List System Errors"
       }
     },
+    "/api/systems/{system_id}/exposure": {
+      "get": {
+        "operationId": "system_exposure_api_systems__system_id__exposure_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "system_id",
+            "required": true,
+            "schema": {
+              "title": "System Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "homeatlas_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Homeatlas Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response System Exposure Api Systems  System Id  Exposure Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "System Exposure"
+      }
+    },
     "/api/systems/{system_id}/ha-switch/{action}": {
       "post": {
         "operationId": "ha_switch_api_systems__system_id__ha_switch__action__post",

@@ -407,6 +407,14 @@ export interface DuplicateCandidate {
 }
 export interface SystemAlias { aliasKey: string; ip: string; mac: string; createdAt: string }
 
+export interface ExposureEntry {
+  host: string;
+  scope: "extern" | "intern" | "portforward";
+  via: string;
+  status: string;
+  mtls: boolean;
+}
+
 export const DUPLICATE_REASON_LABEL: Record<DuplicateReason, string> = {
   hostname: "gleicher Hostname",
   selfName: "gleicher selbstgemeldeter Name",
@@ -467,6 +475,7 @@ export const api = {
   mergeSystems: (keepId: string, removeId: string) =>
     post<{ system: System }>(`/systems/${keepId}/merge`, { removeId }),
   getDuplicateCandidates: () => get<{ candidates: DuplicateCandidate[] }>("/systems/duplicates"),
+  getSystemExposure: (id: string) => get<{ entries: ExposureEntry[] }>(`/systems/${id}/exposure`),
   getSystemAliases: (id: string) => get<{ aliases: SystemAlias[] }>(`/systems/${id}/aliases`),
   markNotDuplicate: (id: string, otherId: string) =>
     post<{ ok: boolean }>(`/systems/${id}/not-duplicate`, { otherId }),

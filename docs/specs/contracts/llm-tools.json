@@ -90,6 +90,19 @@
     "name": "list_containers"
   },
   {
+    "description": "Zeigt, welche Dienste von außen (Internet) und intern per TLS erreichbar sind: je öffentlichem Hostnamen die Kette bis zum Gerät/Container, Pfadstatus (aktiv/verwaist/unklar), mTLS, Hinweise auf Abweichungen, DynDNS und Portweiterleitungen. Stand des letzten Scans, ohne Geheimnisse. Mit `host` nur zu einem Hostnamen.",
+    "inputSchema": {
+      "properties": {
+        "host": {
+          "description": "Optional: Hostname, z. B. app2.example.net.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_exposure"
+  },
+  {
     "description": "Listet schaltbare Shelly-Geräte und Home-Assistant-Entities (switch/light und Rollos) mit den IDs, die set_switch braucht. Immer zuerst aufrufen, um einen umgangssprachlichen Namen wie 'das Wohnzimmerlicht' einem konkreten Ziel zuzuordnen, bevor geschaltet wird.",
     "inputSchema": {
       "properties": {},
