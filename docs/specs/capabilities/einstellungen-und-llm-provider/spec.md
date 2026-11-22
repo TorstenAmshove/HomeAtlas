@@ -28,7 +28,7 @@ verlinkten Fähigkeiten. Quelle Defaults: `backend/app/db.py:408`.
 | Schlüssel | Default | Bedeutung | Gelesen von |
 |---|---|---|---|
 | `homeName` (M) | „Mein Zuhause“ | Name des Zuhauses (Überschrift, Prompts, Topologie) | tools, main (Dashboard), topology |
-| `setupCompleted` (M) | false | Ersteinrichtung abgeschlossen; regulär durch [setup-wizard](../setup-wizard/spec.md) gesetzt (`main.py:1692`), aber auch per `PATCH /api/settings` beliebig setz- und rücksetzbar (`main.py:434`, siehe OFFEN) | main (`/api/health`, Dashboard) |
+| `setupCompleted` (M) | false | Ersteinrichtung abgeschlossen; ausschließlich durch [setup-wizard](../setup-wizard/spec.md) gesetzt; per `PATCH /api/settings` nicht änderbar (wird verworfen) | main (`/api/health`, Dashboard) |
 | `llmProvider` | `DEEPSEEK` | Gewählter Anbieter: `CLAUDE`, `OPENAI`, `GEMINI`, `DEEPSEEK`, `OLLAMA` | tools, docs, classify, main |
 | `claudeApiKey` | „“ | Geheimnis, maskiert | llm_providers |
 | `claudeModel` | `auto` | Modell-ID oder `auto` | llm_providers |
@@ -36,8 +36,8 @@ verlinkten Fähigkeiten. Quelle Defaults: `backend/app/db.py:408`.
 | `openAiApiKey` / `openAiModel` / `openAiBaseUrl` | „“ / `auto` / „“ | leer = `https://api.openai.com/v1` (auch OpenRouter u. ä.) | llm_providers |
 | `geminiApiKey` / `geminiModel` | „“ / `auto` | Gemini; Adresse nicht konfigurierbar | llm_providers |
 | `deepseekApiKey` / `deepseekModel` | „“ / `auto` | DeepSeek | llm_providers |
-| `deepseekBaseUrl` | (fehlt in Defaults) | leer = `https://api.deepseek.com/v1` | llm_providers |
-| `ollamaApiKey` / `ollamaModel` / `ollamaBaseUrl` | (fehlen in Defaults) | Ollama; Schlüssel optional; leer = `http://localhost:11434/v1` | llm_providers |
+| `deepseekBaseUrl` | „“ | leer = `https://api.deepseek.com/v1` | llm_providers |
+| `ollamaApiKey` / `ollamaModel` / `ollamaBaseUrl` | „“ / `auto` / „“ | Ollama; Schlüssel optional; leer = `http://localhost:11434/v1` | llm_providers |
 | `providerModelCache` | `{}` | Je Anbieter `{models: [{id, label}]}` aus „Modelle laden“ | llm_providers, main |
 | `systemPromptOverride` | „“ | Ersetzt den Chat-Systemprompt; `{home_name}` wird ersetzt (Einstellungen → KI-Assistent) | tools, siehe [assistent-chat-und-mcp](../assistent-chat-und-mcp/spec.md) |
 | `scanSubnets` | `[]` | Freitext-Netze für Scans | discovery |
@@ -131,19 +131,35 @@ werden verschlüsselt gespeichert und nur im Moment eines Anbieter-Aufrufs entsc
 Quelle: `backend/app/main.py:383`, `backend/app/main.py:386`, `backend/app/main.py:393`
 
 ### Requirement: Maskierte Werte beim Zurückschreiben
-Das System MUSS beim Speichern den Maskenwert `********` eines API-Schlüssels als „unverändert“
-behandeln. Für den Standard-Zugang nimmt es Klartext unter dem Namen ohne `Enc`
-(`defaultCredentialSecret`, `defaultCredentialPassphrase`) entgegen, speichert ihn verschlüsselt und
-behandelt einen leeren Wert als „unverändert“; mitgeschickte `has…`-Felder werden verworfen. Die
-Antwort ist das zusammengeführte, maskierte Dokument. **[Muss]**
+Das System MUSS beim Speichern für jedes Geheimnis (die fünf API-Schlüssel, Standard-Zugang: Geheimnis
+und Passphrase) dieselbe Regel anwenden: ein leerer Wert oder der Maskenwert `********` heißt
+„unverändert“. Für den Standard-Zugang nimmt es Klartext unter dem Namen ohne `Enc`
+(`defaultCredentialSecret`, `defaultCredentialPassphrase`) entgegen und speichert ihn verschlüsselt.
+Löschen geht nur über `clearSecrets` (Liste der sieben Geheimnisnamen); beim Standard-Zugang wird nur das
+jeweilige `…Enc` geleert. Steht ein Name in `clearSecrets` und kommt zugleich ein neuer Wert, antwortet
+das System mit 422; Löschen eines nie gesetzten Felds ist idempotent. Mitgeschickte nur lesbare Felder
+(`setupCompleted`, `has…`, `providerModelCache`) werden verworfen. Die Antwort ist das zusammengeführte,
+maskierte Dokument. **[Muss]**
 
 #### Szenario: Anderes Feld ändern
 - **WENN** die UI das ganze Formular mit `"claudeApiKey": "********"` und geändertem `homeName` speichert
 - **DANN** bleibt der echte Claude-Schlüssel erhalten
 
+#### Szenario: Leerer API-Schlüssel bleibt
+- **WENN** `claudeApiKey: ""` gesendet wird
+- **DANN** bleibt der gespeicherte Schlüssel unverändert
+
 #### Szenario: Passwort leer gelassen
 - **WENN** `defaultCredentialSecret: ""` gesendet wird
 - **DANN** bleibt das gespeicherte Geheimnis unverändert
+
+#### Szenario: clearSecrets löscht
+- **WENN** `clearSecrets: ["claudeApiKey"]` gesendet wird
+- **DANN** ist der Schlüssel danach leer
+
+#### Szenario: Unbekannter Schlüssel
+- **WENN** `PATCH /api/settings` einen unbekannten Schlüssel, ein rohes `…Enc`-Feld oder einen falschen Typ enthält
+- **DANN** antwortet das System mit 422 und ändert nichts
 
 Quelle: `backend/app/main.py:404`, `backend/app/main.py:435`
 
@@ -285,7 +301,7 @@ Siehe [data-model](../../contracts/data-model.md).
 |---|---|---|---|
 | GET | /api/settings | MEMBER | Einstellungen (rollenabhängig gefiltert, maskiert) + `providers`, `catalog`, `ouiLoaded`, `ouiEntries`, `dockerAvailable` |
 | GET | /api/version | MEMBER | `{version}` des laufenden Servers (Reiter „Über“) |
-| PATCH | /api/settings | ADMIN | Teil-Update (beliebige Schlüssel) → `{settings}` maskiert |
+| PATCH | /api/settings | ADMIN | Teil-Update (nur bekannte Schlüssel mit passendem Typ, sonst 422; `clearSecrets` löscht Geheimnisse) → `{settings}` maskiert |
 | POST | /api/settings/llm/models | ADMIN | `{provider, settings}` → `{ok, message, models}`; speichert Cache |
 | POST | /api/settings/llm/test | ADMIN | `{provider, settings}` → `{ok, message, model}` |
 
@@ -302,7 +318,7 @@ Admins; Konto und Über für alle; Darstellung (System · Hell · Dunkel, pro Br
 - Keine Einstellungen pro Benutzer; keine Umgebungsvariablen für diese Werte. Der Hell/Dunkel-Modus gilt pro Browser
   (`localStorage`), nicht pro Konto.
 - Kein Änderungsverlauf und kein Zugriffsprotokoll für Einstellungsänderungen.
-- Keine serverseitige Validierung von Typen, Wertebereichen oder erlaubten Schlüsseln (siehe OFFEN).
+- Typen und erlaubte Schlüssel werden per PATCH geprüft (422); Wertebereiche (z. B. `scanConcurrency`) werden weiter erst beim Lesen geklemmt.
 - Kein Streaming, kein Prompt-Caching, keine Kostenanzeige.
 
 ## Ist-Implementierung (nur Referenz, [Impl])
@@ -314,12 +330,9 @@ Admins; Konto und Über für alle; Darstellung (System · Hell · Dunkel, pro Br
 
 ## OFFEN
 
-- > OFFEN: Ein leer gesendeter API-Schlüssel löscht ihn, ein leer gesendetes Standard-Zugang-Geheimnis bleibt erhalten — uneinheitliche Semantik. → #124
-- > OFFEN: `PATCH /api/settings` akzeptiert beliebige Schlüssel und Typen, auch `setupCompleted` oder ein rohes `defaultCredentialSecretEnc`. → #124
 - > OFFEN: UI-Fehler: Nach „Modelle laden“ wird nur `data`, nicht `form` aktualisiert; die neue Liste erscheint erst nach Neuladen, und ein anschließendes „Speichern“ schreibt den alten `providerModelCache` zurück. → #125
 - > OFFEN: Die Live-Liste wird nach ID sortiert gespeichert; der Fallback „erster/letzter Eintrag“ in `resolve` wählt dadurch alphabetisch, nicht nach Anbieter-Reihenfolge (Docstring geht von Anbieterreihenfolge aus). → #125
 - > OFFEN: `providerModelCache` wird bei Wechsel von Schlüssel oder Server-Adresse nicht verworfen. → #125
 - > OFFEN: Claude-Modellabruf holt höchstens 100 Modelle, ohne Paginierung. → #125
-- > OFFEN: Ollama-, `deepseekBaseUrl`-Schlüssel fehlen in den Defaults (funktional egal, aber unvollständig dokumentiert). → #124
 - > OFFEN: Test/Modelle-Laden schicken Anfragen an eine frei eingebbare Server-Adresse (Admin-only, aber serverseitige Anfrage an beliebige URL). → #114
 - > OFFEN: Gemini-Schlüssel steht als Query-Parameter in der URL (kann in Proxy-Logs landen). → #125
