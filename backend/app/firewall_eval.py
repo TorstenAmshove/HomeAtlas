@@ -400,3 +400,119 @@ def list_rules(von: str, nach: str, system: str, facts: list[dict], systems: lis
     if not (von and nach) and not system:
         out["error"] = "Bitte `von` und `nach` (Zonen/Systeme) und/oder `system` angeben."
     return out
+
+
+# --- reachability chains (#102) -----------------------------------------------------------------
+
+def _target_port(label: str) -> int | None:
+    """'10.0.0.5:8080' -> 8080 (chain step labels are 'host:port' or just a host)."""
+    match = re.search(r":(\d{1,5})$", (label or "").strip())
+    port = int(match.group(1)) if match else None
+    return port if port and 1 <= port <= 65535 else None
+
+
+def _summary(result: dict) -> dict:
+    stations = [s for s in result["stations"] if s["verdict"] != NOT_INVOLVED]
+    pick = next((s for s in stations if s["verdict"] == BLOCKED), None) \
+        or next((s for s in stations if s["verdict"] == UNCLEAR), None) or (stations[0] if stations else None)
+    reason = ""
+    if pick:
+        rule = pick.get("rule") or {}
+        reason = pick["reason"] or clean(rule.get("name"))
+    return {"verdict": result["verdict"], "station": pick["station"] if pick else "", "reason": reason}
+
+
+def annotate_chains(chains: list[dict], facts: list[dict], systems: list[dict], netres: list[dict]) -> list[dict]:
+    """Adds `firewall: {verdict, station, reason}` to every step of every chain path (in place) and a hint to the
+    chain when a path that is configured as active is blocked. Step n is judged as previous step -> step n.
+    The first step comes from the Internet (port forwarding/tunnel is not evaluated): always "unklar"."""
+    for chain in chains:
+        for path in chain.get("paths") or []:
+            prev: dict | None = None
+            for step in path.get("steps") or []:
+                port = _target_port(step.get("label") or "")
+                found = step.get("systems") or []
+                if prev is None:
+                    fw = {"verdict": UNCLEAR, "station": "", "reason": "Portweiterleitung/Tunnel nicht ausgewertet"}
+                elif port is None:
+                    fw = {"verdict": UNCLEAR, "station": "", "reason": "kein Port bekannt"}
+                elif len(found) != 1 or len(prev) != 1:
+                    fw = {"verdict": UNCLEAR, "station": "", "reason": "System nicht eindeutig im Inventar"}
+                else:
+                    src = resolve_endpoint(prev[0]["id"], systems)
+                    dst = resolve_endpoint(found[0]["id"], systems)
+                    if "error" in src or "error" in dst:
+                        fw = {"verdict": UNCLEAR, "station": "", "reason": clean(src.get("error") or dst.get("error"))}
+                    else:
+                        fw = _summary(evaluate_path(src, dst, port, "tcp", facts, netres))
+                step["firewall"] = fw
+                if fw["verdict"] == BLOCKED and path.get("status") == "aktiv":
+                    note = f"Firewall blockiert den Schritt zu {clean(step.get('label'))}: {clean(fw['reason'], 120)}"
+                    chain.setdefault("hints", [])
+                    if note not in chain["hints"]:
+                        chain["hints"].append(note)
+                prev = found
+    return chains
+
+
+# --- chapter "Wer darf mit wem sprechen" --------------------------------------------------------
+
+_MAX_ZONES, _MAX_EXCEPTIONS = 12, 10
+
+
+def _describe(policy: dict) -> str:
+    dest = policy.get("destination") or {}
+    port = dest.get("port") or ("Gruppe" if dest.get("portType") == "OBJECT" else "alle Ports")
+    return f"{clean(policy.get('name')) or '(ohne Name)'} ({clean(policy.get('protocol'), 20)}, {clean(port, 40)})"
+
+
+def zone_matrix(facts: list[dict]) -> dict:
+    """Zone x zone summary of the stored UniFi policies for the documentation.
+
+    `{zones, extraZones, cells: {src: {dst: {state, exceptions: [text]}}}, disabled: [names], sources}`;
+    state is "erlaubt" / "gesperrt" / "teilweise" / "unklar". Only rules that deviate from the pair's default
+    count as exceptions; answers to existing connections (RESPOND_ONLY) are ignored."""
+    unifi = [f for f in facts if f["source"] == "unifi"]
+    zones = sorted((f["data"] for f in unifi if f["kind"] == "zone"), key=lambda z: clean(z.get("name")).lower())
+    policies = [f["data"] for f in unifi if f["kind"] == "policy"]
+    shown = zones[:_MAX_ZONES]
+    cells: dict = {}
+    for a in shown:
+        for b in shown:
+            if a["id"] == b["id"]:
+                continue
+            pair = sorted((p for p in policies if p["source"]["zoneId"] == a["id"]
+                           and p["destination"]["zoneId"] == b["id"] and p.get("enabled")), key=lambda p: p["index"])
+            live = [p for p in pair if p.get("connectionState") != "RESPOND_ONLY" and p.get("ipVersion") != "IPV6"]
+            default = next((p for p in live if p["index"] >= _DEFAULT_INDEX), None)
+            others = [p for p in live if p is not default]
+            if default is None or default.get("action") not in ("ALLOW", "BLOCK") or any(p.get("unsupported") for p in others):
+                cells.setdefault(a["id"], {})[b["id"]] = {"state": UNCLEAR, "exceptions": []}
+                continue
+            deviating = [p for p in others if p.get("action") != default["action"]]
+            if not deviating:
+                state = "erlaubt" if default["action"] == "ALLOW" else "gesperrt"
+            else:
+                state = "teilweise"
+            cells.setdefault(a["id"], {})[b["id"]] = {
+                "state": state, "default": default["action"], "exceptions": [_describe(p) for p in deviating]}
+    disabled = [clean(p.get("name")) or "(ohne Name)" for p in policies
+                if not p.get("enabled") and not p.get("predefined")]
+    stale = sorted({f["source"] for f in facts if f.get("stale")})
+    return {"zones": shown, "extraZones": max(0, len(zones) - _MAX_ZONES), "cells": cells,
+            "disabled": disabled, "stale": stale, "maxExceptions": _MAX_EXCEPTIONS}
+
+
+def host_firewalls(facts: list[dict]) -> list[dict]:
+    """Per host with a read nftables ruleset: `{systemId, stale, chains: [{kette, hook, policy, rules, unsupported}]}`."""
+    out = []
+    for host in (f for f in facts if f["source"] == "nftables" and f["kind"] == "nft_host"):
+        sid = (host["data"] or {}).get("systemId")
+        chains = [f for f in facts if f["source"] == "nftables" and f["kind"] == "nft_chain"
+                  and (f["data"] or {}).get("systemId") == sid]
+        out.append({"systemId": sid, "stale": bool(host.get("stale")) or any(c.get("stale") for c in chains),
+                    "chains": [{"kette": f"{c['data']['table']}/{c['data']['chain']}", "hook": c["data"].get("hook"),
+                                "policy": c["data"].get("policy") or "accept", "rules": len(c["data"].get("rules") or []),
+                                "unsupported": sum(1 for r in c["data"].get("rules") or [] if r.get("unsupported"))}
+                               for c in sorted(chains, key=lambda f: (f["data"].get("hook") or "", f["data"].get("prio", 0)))]})
+    return out

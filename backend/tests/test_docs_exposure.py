@@ -7,11 +7,11 @@ def _gen():
     asyncio.run(docs.generate(db.get_settings(), use_llm=False))
 
 
-def test_empty_state_and_thirteen_chapters(temp_db):
+def test_empty_state_and_fourteen_chapters(temp_db):
     _gen()
     pages = db.list_doc_pages()
     slugs = [p["slug"] for p in sorted(pages, key=lambda p: p["sortOrder"])]
-    assert len(slugs) == 13 and slugs[-3:] == ["erreichbarkeit", "zugaenge-und-konten", "notfall"]
+    assert len(slugs) == 14 and slugs[-3:] == ["zugaenge-und-konten", "notfall", "wer-darf-mit-wem"]
     assert "Noch keine Erreichbarkeits-Daten" in db.get_doc_page("erreichbarkeit")["bodyMd"]
 
 

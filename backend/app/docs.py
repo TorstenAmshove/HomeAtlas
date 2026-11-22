@@ -17,7 +17,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from . import db, discovery, exposure, llm_providers, probe_auth, prompts
+from . import db, discovery, exposure, firewall_eval, llm_providers, probe_auth, prompts
 
 KIND_LABELS = {
     "router": "Router", "network": "Netzwerk-Gerät", "server": "Server", "nas": "Netzwerkspeicher",
@@ -137,6 +137,13 @@ TOPICS: tuple[Topic, ...] = (
         "notfall", "Wenn etwas nicht funktioniert", (),
         "Eine Checkliste für den Störungsfall.",
         "", 12, extra_sections=("emergency",),
+    ),
+    Topic(
+        "wer-darf-mit-wem", "Wer darf mit wem sprechen", (),
+        "Welche Netze und Geräte laut Firewall miteinander sprechen dürfen.",
+        "Hier steht, welche Netze (Zonen) laut Firewall miteinander sprechen dürfen und wo es Ausnahmen gibt. "
+        "Die Regeln werden nur gelesen, nie verändert.",
+        13, extra_sections=("firewall",),
     ),
 )
 
@@ -452,13 +459,17 @@ def _exposure_section() -> str:
     data = exposure.build_chains(db.list_exposure_facts(), db.list_systems(), wan)
     if not data["hasData"]:
         return _EXPOSURE_EMPTY
+    firewall_eval.annotate_chains(data["chains"], db.list_firewall_facts(), db.list_systems(),
+                                  db.list_network_resources(kind="network", active_only=True))
     out: list[str] = []
     if data["chains"]:
         out.append("### Von außen erreichbar\n")
         for chain in data["chains"]:
             out.append(f"**{_md(chain['host'])}**" + (" (über Cloudflare)" if chain["cloudflare"] else ""))
             for path in chain["paths"]:
-                steps = " → ".join(f"{_md(s['label'])} ({_sys_names(s['systems'])})" for s in path["steps"]) or "-"
+                steps = " → ".join(
+                    f"{_md(s['label'])} ({_sys_names(s['systems'])}) [Firewall: {_md((s.get('firewall') or {}).get('verdict') or 'unklar')}]"
+                    for s in path["steps"]) or "-"
                 guard = ", Client-Zertifikat (mTLS) nötig" if path["mtls"] else ""
                 out.append(f"- {path['sourceLabel']} [{path['status']}{guard}]: Internet → {steps}")
             out.extend(f"- Hinweis: {_md(h, 300)}" for h in chain["hints"])
@@ -507,6 +518,81 @@ def _exposure_section() -> str:
     if data["hints"]:
         out.append("### Hinweise\n")
         out += [f"- {_md(h, 300)}" for h in data["hints"]]
+    return "\n".join(out) + "\n"
+
+
+_FIREWALL_EMPTY = ("_Noch keine Firewall-Daten erfasst. Sobald die UniFi-Firewall oder die nftables-Regeln "
+                   "von Hosts gelesen werden (Einstellungen und Zugänge), erscheint hier, wer mit wem sprechen darf._\n")
+
+
+def _firewall_section() -> str:
+    """Chapter body for firewall rules: zone matrix, exceptions, important systems, host firewalls, hints.
+    Built from stored facts only (ADR-0017); rule names are third-party text and go through `_md`."""
+    facts = db.list_firewall_facts()
+    if not facts:
+        return _FIREWALL_EMPTY
+    systems = db.list_systems()
+    names = {s["id"]: s["name"] for s in systems}
+    data = firewall_eval.zone_matrix(facts)
+    zones = data["zones"]
+    out: list[str] = []
+    if zones:
+        title = lambda z: _md(z.get("name"), 40)  # noqa: E731
+        out += ["### Zonenmatrix (von Zeile nach Spalte)\n", "| Von \\ nach | " + " | ".join(title(z) for z in zones) + " |",
+                "| --- |" + " --- |" * len(zones)]
+        for a in zones:
+            row = []
+            for b in zones:
+                cell = data["cells"].get(a["id"], {}).get(b["id"])
+                row.append("-" if cell is None else f"teilweise ({len(cell['exceptions'])})" if cell["state"] == "teilweise"
+                           else cell["state"])
+            out.append(f"| {title(a)} | " + " | ".join(row) + " |")
+        if data["extraZones"]:
+            out.append(f"\n_und {data['extraZones']} weitere Zonen_")
+        out.append("")
+        lines: list[str] = []
+        for a in zones:
+            for b in zones:
+                cell = data["cells"].get(a["id"], {}).get(b["id"])
+                if not cell or not cell["exceptions"]:
+                    continue
+                base = "gesperrt" if cell["default"] == "BLOCK" else "erlaubt"
+                joiner = "außer" if cell["default"] == "BLOCK" else "aber gesperrt:"
+                keep = cell["exceptions"][:data["maxExceptions"]]
+                text = "; ".join(_md(e, 100) for e in keep)
+                more = len(cell["exceptions"]) - len(keep)
+                lines.append(f"- {title(a)} → {title(b)}: {base}, {joiner} {text}"
+                             + (f" und {more} weitere" if more > 0 else ""))
+        if lines:
+            out += ["### Ausnahmen je Zonenpaar\n", *lines, ""]
+        # important systems: which zones may talk to the zone they sit in
+        important = []
+        for system in (s for s in systems if s.get("importance") == "critical" and s.get("ip")):
+            zone, _ = firewall_eval.zone_of(system["ip"], zones, db.list_network_resources(kind="network", active_only=True))
+            if zone is None:
+                continue
+            states = [(title(a), data["cells"].get(a["id"], {}).get(zone["id"])) for a in zones if a["id"] != zone["id"]]
+            reach = [f"{n} ({c['state']})" for n, c in states if c and c["state"] != "gesperrt"]
+            important.append(f"- {_md(system['name'])} (Zone {title(zone)}): erreichbar aus "
+                             + (", ".join(reach) if reach else "keiner anderen Zone"))
+        if important:
+            out += ["### Freigaben je wichtigem System\n", *important, ""]
+    hosts = firewall_eval.host_firewalls(facts)
+    if hosts:
+        out.append("### Host-Firewalls\n")
+        for host in hosts:
+            out.append(f"**{_md(names.get(host['systemId'], 'unbekanntes System'))}**"
+                       + (" (zuletzt nicht lesbar)" if host["stale"] else ""))
+            out += [f"- {_md(c['kette'])} ({_md(c['hook'])}): Standard {_md(c['policy'])}, {c['rules']} Regeln"
+                    + (f", davon {c['unsupported']} nicht sicher auswertbar" if c["unsupported"] else "")
+                    for c in host["chains"][:10]]
+            out.append("")
+    hints = [f"- {firewall_eval.NOTE.split(' Regelnamen')[0]}"]
+    if data["disabled"]:
+        shown = ", ".join(_md(n, 60) for n in data["disabled"][:10])
+        hints.append(f"- {len(data['disabled'])} deaktivierte Regel(n): {shown}")
+    hints += [f"- Quelle „{_md(src)}“ war beim letzten Scan nicht lesbar – Stand kann veraltet sein." for src in data["stale"]]
+    out += ["### Hinweise\n", *hints]
     return "\n".join(out) + "\n"
 
 
@@ -637,6 +723,11 @@ async def generate(settings: dict, use_llm: bool = True, log=None) -> list[str]:
         if "exposure" in topic.extra_sections:
             sections.append(topic.fallback + "\n")
             sections.append(_exposure_section())
+            body = "\n".join(sections)
+            intro = topic.intro_hint
+        elif "firewall" in topic.extra_sections:
+            sections.append(topic.fallback + "\n")
+            sections.append(_firewall_section())
             body = "\n".join(sections)
             intro = topic.intro_hint
         elif "emergency" in topic.extra_sections:

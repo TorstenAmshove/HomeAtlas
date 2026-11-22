@@ -17,7 +17,7 @@ Läuft als Docker-Container im eigenen Netz. Keine Cloud, keine Registrierung.
 |---|---|
 | **Selbstständige Erkennung** | Ping/ARP-Sweep, Portscan, Reverse-DNS, mDNS/Bonjour, UPnP/SSDP, HTTP-Banner und Docker-API — fünf unabhängige Quellen, weil keine davon allein alles sieht |
 | **Container-Namen & Compose-Stacks** | Docker-Container heißen `<service> · <projekt>` (z. B. `postgres · immich`); die Geräteliste gruppiert sie nach Compose-Projekt (einklappbar, mit Projekt-Filter), die Dokumentation zeigt eine Überschrift je Stack. Die KI-Einordnung benennt nie ein Gerät um, dessen Name aus einer Quelle stammt (UniFi, Docker, Proxmox, Omada) oder vom Gerät selbst gemeldet wird (UPnP, mDNS) |
-| **Verständliche Doku** | 13 Kapitel nach Themen (Internet & Router, Netzwerk, Server, Container, Smart Home, Wärme & Energie, Erreichbarkeit von außen, Zugänge, Notfall …) als Markdown im Browser |
+| **Verständliche Doku** | 14 Kapitel nach Themen (Internet & Router, Netzwerk, Server, Container, Smart Home, Wärme & Energie, Erreichbarkeit von außen, Zugänge, Notfall, Wer darf mit wem sprechen …) als Markdown im Browser |
 | **KI-Assistent** | Kennt das Inventar, misst live nach und führt Schritt für Schritt durch die Fehlersuche |
 | **Zugangsverwaltung** | Passwörter, SSH-Schlüssel und Passphrasen verschlüsselt gespeichert, nie in der Doku, nie beim KI-Anbieter |
 | **Geräte auslesen** | Mit freigegebenen Zugängen anmelden und Eckdaten lesen — streng lesend, feste Befehlsliste (SSH, HTTP, FRITZ!Box TR-064) |
@@ -301,7 +301,7 @@ Der Assistent bewertet damit Wege: `check_firewall_path` (von, nach, Port, Proto
 Host-Firewall) „erlaubt“, „blockiert“ oder „unklar“ mit auslösender Regel, `list_firewall_rules` listet die gespeicherten
 Regeln. HomeAtlas wertet aus, der Assistent erklärt nur; „unklar“ heißt nicht auswertbar (Quelle fehlt oder veraltet,
 Zeitplan, Gruppen, IPv6, ICMP …), nie „erlaubt“. Nicht ausgewertet werden Proxmox-Firewall, nftables-`forward` und
-NAT/Portweiterleitung. Das Kapitel „Wer darf mit wem sprechen“ folgt in einem weiteren Schritt (Issue #106).
+NAT/Portweiterleitung. Das Kapitel „Wer darf mit wem sprechen“ zeigt die Zonenmatrix, Ausnahmen und Host-Firewalls; jede Erreichbarkeits-Kette trägt je Schritt das Firewall-Ergebnis.
 
 **Firewall-Regeln (nftables der Hosts).** Optional liest HomeAtlas den live geladenen nftables-Regelsatz
 einzelner Hosts, weil nur er zeigt, was tatsächlich gilt. Standardmäßig **aus** (`scanEnableFirewallNft`)

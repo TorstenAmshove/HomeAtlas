@@ -41,7 +41,7 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (137)
+## Alle Punkte je Fähigkeit (136)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (6)
 
@@ -136,10 +136,9 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 8. Test/Modelle-Laden schicken Anfragen an eine frei eingebbare Server-Adresse (Admin-only, aber serverseitige Anfrage an beliebige URL). → #114
 9. Gemini-Schlüssel steht als Query-Parameter in der URL (kann in Proxy-Logs landen). → #125
 
-### [firewall](capabilities/firewall/spec.md) (2)
+### [firewall](capabilities/firewall/spec.md) (1)
 
-1. Kapitel „Wer darf mit wem sprechen“ und die Verknüpfung mit den Erreichbarkeits-Ketten (Issue #106, Teil D).
-2. Die Zuordnung Netz -> Zone setzt voraus, dass `networkResources.externalId` der UniFi-Netz-ID in `zone.network_ids` entspricht; am echten Gateway noch nicht bestätigt (sonst „unklar: Zone nicht zuordenbar“).
+1. Die Zuordnung Netz -> Zone setzt voraus, dass `networkResources.externalId` der UniFi-Netz-ID in `zone.network_ids` entspricht; am echten Gateway noch nicht bestätigt (sonst „unklar: Zone nicht zuordenbar“).
 
 ### [inventar](capabilities/inventar/spec.md) (9)
 

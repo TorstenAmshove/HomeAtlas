@@ -44,6 +44,9 @@ Texte aus Fremdquellen escapen und kürzen. **[Muss]**
 
 Quelle: `backend/app/docs.py`, Test: `backend/tests/test_docs_exposure.py`
 
+### Requirement: Firewall-Ergebnis je Schritt
+Die Ketten MÜSSEN je Schritt das Firewall-Ergebnis (erlaubt/blockiert/unklar) tragen, in Kapitel und Werkzeug `list_exposure`. Siehe [firewall](../firewall/spec.md). **[Muss]**
+
 ### Requirement: Traefik als Quelle
 Das System MUSS die Routen eines internen Traefik per GET auf die festen Pfade `/api/http/routers`,
 `/api/http/services` und `/api/entrypoints` lesen, nur mit einem Zugang der Kategorie `traefik` mit
