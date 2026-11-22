@@ -78,6 +78,12 @@ def _mapped_ports(system: dict) -> set[int]:
     return ports
 
 
+def _on_docker_network(system: dict, ip: str) -> bool:
+    """True if `ip` is the container's own address on a Docker network (a proxy's usual target)."""
+    addresses = ((system.get("extra") or {}).get("docker") or {}).get("networkIps") or []
+    return any(_ip_eq(str(a), ip) for a in addresses)
+
+
 def resolve_target(target: str, systems: list[dict], via: str = "") -> dict:
     """Maps one chain target to inventory systems. Several hits are all returned, never guessed."""
     host, port = _split_target(target)
@@ -91,6 +97,7 @@ def resolve_target(target: str, systems: list[dict], via: str = "") -> dict:
         same_ip = [s for s in systems if s.get("ip") and _ip_eq(s["ip"], host)]
         containers = [s for s in same_ip if port and port in _mapped_ports(s)]
         hits = containers or [s for s in same_ip if s.get("kind") != "container"] or same_ip
+        hits = hits or [s for s in systems if _on_docker_network(s, host)]
     else:
         hits = [s for s in systems if norm_host(s.get("name", "")) == host or norm_host(s.get("hostname", "")) == host]
     result["systems"] = [{"id": s["id"], "name": s["name"], "kind": s.get("kind", ""),
@@ -231,7 +238,7 @@ def build_chains(facts: list[dict], systems: list[dict], wan: dict | None = None
         for host in d.get("hosts") or [""]:
             internal.append({"host": norm_host(host), "target": resolved["target"], "systems": resolved["systems"],
                              "inInventory": resolved["inInventory"], "resolver": d.get("resolver", ""),
-                             "middlewares": list(d.get("middlewares") or [])})
+                             "tls": bool(d.get("tls")), "middlewares": list(d.get("middlewares") or [])})
     internal.sort(key=lambda r: r["host"])
 
     ddns = []

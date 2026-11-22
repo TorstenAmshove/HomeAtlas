@@ -49,7 +49,9 @@ Das System MUSS die Routen eines internen Traefik per GET auf die festen Pfade `
 `/api/http/services` und `/api/entrypoints` lesen, nur mit einem Zugang der Kategorie `traefik` mit
 `allowProbe` und solange `scanEnableTraefik` (Default an) gesetzt ist. Es speichert je Router nur Hosts,
 Ziel-URL, Zertifikats-Resolver, Middleware-Namen und Entrypoints (nie Regel im Rohformat, Hashes,
-Antwortkörper). Router ohne `Host(...)` werden ohne Host aufgeführt. **[Muss]**
+Antwortkörper). Router ohne `Host(...)` werden ohne Host aufgeführt. Ein TLS-Router ohne eigenen Resolver
+erscheint als „TLS, Standardzertifikat“. Ziele auf einem Docker-Netz werden über die Netzadresse des
+Containers dem Inventar zugeordnet. **[Muss]**
 
 #### Szenario: Traefik nicht lesbar
 - **WENN** die Traefik-API fehlschlägt
@@ -113,7 +115,12 @@ Das System MUSS Cloudflare-DNS-Einträge, Tunnel-Status und mTLS-WAF-Regeln (nur
 `scanEnablePublicDns`, Standard **aus**) und `allowProbe`-Zugang (Kategorie `cloudflare`: Adresse = Zone-ID,
 Benutzername = Account-ID, Geheimnis = Token). Das Tunnel-Token wird nie abgerufen; das öffentliche DNS fragt nur
 validierte Hostnamen ohne Wildcards, höchstens 200 Abfragen je Scan. DynDNS-Container werden am Image erkannt
-(feste Liste); aus ihrer Umgebung bleiben nur Hostnamen und die IPv4/IPv6-Schalter. **[Muss]**
+(feste Liste); aus ihrer Umgebung bleiben nur Hostnamen und die IPv4/IPv6-Schalter. Sind Tunnel-Status oder
+WAF-Regeln nicht lesbar, läuft der Scan weiter und meldet das als Warnung. **[Muss]**
+
+#### Szenario: WAF-Regeln nicht lesbar
+- **WENN** Cloudflare die WAF-Regeln nicht liefert
+- **DANN** nennt der Scan eine Warnung „mTLS unbekannt“, statt still so zu tun, als gäbe es keine Regel
 
 #### Szenario: Schalter aus
 - **WENN** `scanEnableCloudflare` oder `scanEnablePublicDns` aus ist (Standard)

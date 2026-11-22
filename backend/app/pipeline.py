@@ -638,6 +638,7 @@ async def run_full_scan(scan_id: str) -> None:
                     await _label_providers(cf_result["facts"])
                     db.replace_exposure_facts("cloudflare", account["id"], cf_result["facts"])
                     log(f"Cloudflare ({account['label']}): {len(cf_result['facts'])} Eintrag/Einträge gelesen")
+                    warnings += [f"Cloudflare ({account['label']}): {w}" for w in cf_result.get("warnings") or []]
                 else:
                     db.mark_exposure_facts_stale("cloudflare", account["id"])
                     warnings.append(f"Cloudflare ({account['label']}): {cf_result['error']}")
