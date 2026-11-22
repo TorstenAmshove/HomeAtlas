@@ -6,7 +6,7 @@ import { Skeleton, SkeletonText } from "../../components/Skeleton";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import { usePageTitle } from "../../shell/pageTitle";
 import { CATEGORIES } from "./categories";
-import { fieldsFor, validateAccountForm } from "./categoryFields";
+import { fieldsFor, usesSshKey, validateAccountForm } from "./categoryFields";
 import {
   NEW_ACCOUNT, clearAccountDraft, emptyForm, formOfAccount, readAccountDraft, sameForm, setAccountsFlash,
   storeAccountDraft, type AccountForm,
@@ -340,9 +340,9 @@ export default function AccountFormPage({ mode }: { mode: "new" | "edit" }) {
             </div>
           )}
 
-          {form.category === "sshkey" ? (
+          {usesSshKey(form.category) ? (
             <>
-              {isNew && (
+              {isNew && form.category === "sshkey" && (
                 <div className="field" style={{ gridColumn: "1 / -1" }}>
                   <button className="m-btn" type="button" onClick={() => void generateKey()} disabled={keyBusy || !form.systemId}>
                     {keyBusy ? "Erzeuge …" : "Neuen Schlüssel erzeugen"}
