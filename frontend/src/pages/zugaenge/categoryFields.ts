@@ -173,6 +173,11 @@ export function fieldsFor(category: string): CategoryFields {
   return (ACCOUNT_FIELDS as Record<string, CategoryFields | undefined>)[category] ?? ACCOUNT_FIELDS.other;
 }
 
+/** Categories whose secret is a private key: a single-line input would strip its line breaks. */
+export function usesSshKey(category: string): boolean {
+  return category === "sshkey" || category.startsWith("exposure_");
+}
+
 const CF_ID = /^[0-9a-f]{32}$/;
 
 /** Client-side check before saving; only Cloudflare has a format the backend enforces. Returns an error text or "". */

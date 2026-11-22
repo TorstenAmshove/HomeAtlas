@@ -90,7 +90,12 @@ und ddclient (Protokoll, Server, Hostnamen, IPv4/IPv6) per SSH lesen, nur mit ei
 (`_FILE_COMMANDS`, ohne Pfad, Interpolation oder Parameter); die Datei bestimmt allein das Zielsystem über
 `authorized_keys` (`command=`). Die Parser behalten nur Hostnamen, Ziele, Anbieter und Schalter; Passwörter,
 Tokens, Tunnel-Zugangsdaten und Rohdateien werden verworfen, Fehlertexte enthalten nie Dateiinhalt. Die
-Ausgabe ist auf 256 KB begrenzt, ein `import` anderer Dateien wird nicht verfolgt. **[Muss]**
+Ausgabe ist auf 256 KB begrenzt, ein `import` anderer Dateien wird nicht verfolgt. Das Zugangsformular
+nimmt den privaten Schlüssel dieser Kategorien mehrzeilig entgegen, samt optionaler Passphrase. **[Muss]**
+
+#### Szenario: Schlüssel eintragen
+- **WENN** ein Admin einen privaten SSH-Schlüssel in einen Zugang dieser Kategorien einfügt
+- **DANN** bleiben die Zeilenumbrüche erhalten und der Schlüssel ist beim Scan lesbar
 
 #### Szenario: Eine Quelle fällt aus
 - **WENN** eine Datei-Quelle nicht lesbar ist
