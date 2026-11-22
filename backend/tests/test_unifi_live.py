@@ -101,8 +101,12 @@ def test_unreachable_redirect_json_and_type():
     def boom(request):
         raise httpx.ConnectTimeout("timeout " + KEY)
 
+    def refused(request):
+        raise httpx.ConnectError("refused " + KEY)
+
     for handler, expected in [
         (boom, "nicht rechtzeitig"),
+        (refused, "nicht erreichbar"),
         (lambda r: httpx.Response(302, headers={"location": "http://evil"}), "leitet weiter"),
         (lambda r: httpx.Response(200, text="kein json"), "Unerwartete"),
         (lambda r: httpx.Response(200, json=[1]), "Unerwartete"),
@@ -111,6 +115,20 @@ def test_unreachable_redirect_json_and_type():
         with pytest.raises(unifi_live.UnifiLiveError) as exc:
             _client()
         assert expected in str(exc.value) and KEY not in str(exc.value)
+
+
+def test_size_limits_enforced(monkeypatch):
+    nested = {**WLAN, "essid": "x" * 5000, "radio": {"a": "b" * 5000}, "bssid": ["c" * 5000] * 50}
+    unifi_live._transport = _transport(lambda r: httpx.Response(200, json={"data": [nested]}))
+    client = _client()["client"]
+    assert len(client["essid"]) == unifi_live.MAX_TEXT
+    assert "radio" not in client and "bssid" not in client  # non-scalar values never pass
+    monkeypatch.setattr(unifi_live, "MAX_CHARS", 100)
+    with pytest.raises(unifi_live.UnifiLiveError, match="zu groß"):
+        _client()
+    monkeypatch.setattr(unifi_live, "_MAX_BODY", 10)
+    with pytest.raises(unifi_live.UnifiLiveError, match="zu groß"):
+        _client()
 
 
 def test_missing_or_short_key_makes_no_request():

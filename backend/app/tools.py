@@ -27,6 +27,7 @@ Two rules shape what is exposed here:
 """
 from __future__ import annotations
 
+import ipaddress
 import json
 import time
 from contextvars import ContextVar
@@ -58,8 +59,8 @@ _MAX_RESULT_CHARS = 6000
 _HA_READ_TOOLS = ("get_ha_state", "get_ha_history", "get_ha_logbook", "get_ha_error_log",
                   "list_ha_traces", "get_ha_trace")
 _HA_READ_MAX_RESULT_CHARS = 24000
-# Live UniFi reads are already bounded and shaped by unifi_live (16 000 characters, valid JSON);
-# this limit is only a safety net and is never reached in practice.
+# Live UniFi reads are already bounded and shaped by unifi_live (unifi_live.MAX_CHARS = 16 000
+# characters, valid JSON); this limit is only a safety net and is never reached in practice.
 _UNIFI_LIVE_TOOLS = ("get_unifi_client",)
 _UNIFI_LIVE_MAX_RESULT_CHARS = 20000
 _MAX_ITERATIONS = 8
@@ -455,12 +456,14 @@ def _client_identifiers(text: str) -> tuple[set[str], set[str], set[str]]:
     macs, ips, names = set(), set(), set()
     needle = text.strip().lower()
     mac = unifi_live.normalize_mac(text)
+    try:
+        ips.add(str(ipaddress.ip_address(needle)))
+    except ValueError:
+        # Not an IP. A MAC-looking text may still be a name ("deadbeefcafe"), so it is looked up as
+        # both; a hit on two different clients ends as a candidate list, never a guess.
+        names.add(needle)
     if mac:
         macs.add(mac)
-    elif needle.replace(".", "").replace(":", "").isdigit() or (":" in needle and needle.count(":") > 1):
-        ips.add(needle)
-    else:
-        names.add(needle)
     for system in db.list_systems():
         if needle in (system["name"].lower(), system["hostname"].lower(), system["ip"].lower()) or (
                 mac and unifi_live.normalize_mac(system.get("mac")) == mac):

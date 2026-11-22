@@ -73,7 +73,7 @@
   `2>/dev/null` sind erlaubt);
   Ausnahme: Dateilesen per SSH-Forced-Command aus festen Befehlskonstanten je Quelltyp (kein Pfad,
   kein Parameter; Erreichbarkeits-Quellen); HTTP nur GET (Ausnahmen: Login-POST der klassischen
-  UniFi-API im Scan; im Live-Zugriff `unifi_live.py` genau ein lesender POST für Events, L8); TR-064 nur `Get*`-Aktionen; Docker-API nur GET; Home-Assistant-WebSocket nur
+  UniFi-API im Scan; im Live-Zugriff `unifi_live.py` höchstens ein lesender POST für Events, L8); TR-064 nur `Get*`-Aktionen; Docker-API nur GET; Home-Assistant-WebSocket nur
   `trace/list` und `trace/get`.
   ([ADR-0015](../adr/0015-lesender-zugriff-klassische-unifi-api.md))
 - **L3 [Muss]** Ein Zugang wird nur benutzt, wenn er **ausdrücklich zum Auslesen freigegeben**
@@ -81,6 +81,8 @@
   (`scanUseCredentials`); Controller-Abfragen (UniFi, Omada, Proxmox, AdGuard) haben eigene Schalter.
   > OFFEN: Die README verspricht „komplett abschaltbar“; heute schaltet `scanUseCredentials` die
   > Controller-Abfragen nicht mit ab.
+  > OFFEN: Die Live-Abfragen des Assistenten an Home Assistant und UniFi (`get_ha_*`, `get_unifi_client`)
+  > prüfen das Opt-in nicht.
 - **L3a [Muss]** Manche Plattformen brauchen zum Lesen einen Befehl, der formal in einen
   Konfigurationsmodus wechselt (TP-Link `configure` / `no clipaging` gegen Seitenumbruch). Erlaubt
   ist das nur, um die Ausgabe lesbar zu machen, nie, um etwas zu ändern.
@@ -97,7 +99,7 @@
 - **L6 [Impl]** Lese- und Schreibseite sind getrennte Module, die einander nicht importieren;
   gemeinsamer Code wird eher dupliziert als geteilt. ([ADR-0015](../adr/0015-lesender-zugriff-klassische-unifi-api.md))
 - **L8 [Muss]** Live-Zugriff auf die klassische UniFi-API (`unifi_live.py`) ist nur lesend: Auth
-  allein per `X-API-Key`, feste Endpunkt-Allowlist (GET plus genau ein POST für Events), Feld-Positivliste,
+  allein per `X-API-Key`, feste Endpunkt-Allowlist (GET plus höchstens ein lesender POST für Events, der mit `get_unifi_events` folgt), Feld-Positivliste,
   höchstens 7 Tage, begrenzte Menge, nichts wird gespeichert. Importiert kein `*_admin`-Modul und
   wird nicht von Scan-Modulen importiert. ([ADR-0015](../adr/0015-lesender-zugriff-klassische-unifi-api.md))
 - **L7 [Muss, bewusste Abwägung]** SSH-Hostschlüssel werden nicht geprüft (kein Vertrauensspeicher;

@@ -17,6 +17,7 @@ Rules enforced here:
 """
 from __future__ import annotations
 
+import json
 import re
 
 import httpx
@@ -30,6 +31,8 @@ _ALLOWED: dict[str, tuple[str, str]] = {
 }
 MAX_CHARS = 16000
 MAX_TEXT = 200
+# stat/sta of a home network is a few hundred KB; anything far beyond is not a client list.
+_MAX_BODY = 8_000_000
 _MIN_KEY = 8
 
 # Test hook: an httpx transport replacing the network.
@@ -117,6 +120,8 @@ async def _request(name: str, base_url: str, api_key: str, site: str = "default"
         raise UnifiLiveError("Der UniFi-Controller begrenzt die Abfragen gerade; später erneut versuchen.")
     if status >= 400:
         raise UnifiLiveError("Der UniFi-Controller meldet einen Fehler.")
+    if len(response.content) > _MAX_BODY:
+        raise UnifiLiveError("Die Antwort des UniFi-Controllers ist zu groß.")
     try:
         return response.json()
     except ValueError:
@@ -131,7 +136,18 @@ def _data_list(body: object) -> list[dict]:
 
 
 def _pick(entry: dict, fields: tuple[str, ...], api_key: str) -> dict:
-    return redact({f: entry[f] for f in fields if f in entry}, api_key)  # type: ignore[return-value]
+    """Allowlisted fields with scalar values only (every allowlisted field is a scalar), so each value
+    is at most MAX_TEXT characters and the result stays far below MAX_CHARS."""
+    picked = {f: entry[f] for f in fields
+              if f in entry and (entry[f] is None or isinstance(entry[f], (str, int, float, bool)))}
+    return redact(picked, api_key)  # type: ignore[return-value]
+
+
+def _bounded(result: dict) -> dict:
+    """Enforces MAX_CHARS on the serialized result (valid JSON, never cut mid-object)."""
+    if len(json.dumps(result, ensure_ascii=False)) > MAX_CHARS:
+        raise UnifiLiveError("Die Antwort des UniFi-Controllers ist zu groß.")
+    return result
 
 
 def _matches(entry: dict, macs: set[str], ips: set[str], names: set[str]) -> bool:
@@ -155,13 +171,13 @@ async def client_status(base_url: str, api_key: str, *, macs: set[str], ips: set
                 "hinweis": ("Der Client ist aktuell nicht beim UniFi-Controller verbunden (stat/sta zeigt nur "
                             "verbundene Clients). Mögliche Gründe: ausgeschaltet, außer Reichweite oder falsche Angabe.")}
     if len(found) > 1:
-        return {"verbunden": None, "mehrdeutig": True,
-                "kandidaten": [_pick(e, ("name", "hostname", "mac", "ip"), api_key) for e in found[:10]],
-                "hinweis": "Mehrere Clients passen; bitte die MAC-Adresse angeben."}
+        return _bounded({"verbunden": None, "mehrdeutig": True,
+                         "kandidaten": [_pick(e, ("name", "hostname", "mac", "ip"), api_key) for e in found[:10]],
+                         "hinweis": "Mehrere Clients passen; bitte die MAC-Adresse angeben."})
     entry = found[0]
     result = {"verbunden": True, "client": _pick(entry, CLIENT_FIELDS, api_key)}
     if entry.get("is_wired"):
         result["hinweis"] = "Kabelgebundener Client: keine Funkwerte (Signal, Retries, Roaming) vorhanden."
     elif "signal" not in entry and "rssi" not in entry:
         result["hinweis"] = "Der Controller lieferte für diesen WLAN-Client keine Funkwerte."
-    return result
+    return _bounded(result)

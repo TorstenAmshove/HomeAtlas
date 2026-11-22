@@ -302,6 +302,8 @@ erreichbar, MUSS eine feste, verständliche Meldung statt eines Fehlers kommen.
 > OFFEN: Das Opt-in „Zum Auslesen verwenden“ des Zugangs wird (wie bei Home Assistant) nicht geprüft.
 > OFFEN: `get_unifi_device`, `get_unifi_network` und `get_unifi_events` (Issue #104) folgen.
 
+Quelle: `backend/app/tools.py` (`_dispatch_unifi_live`, `_pick_unifi_account`, `_client_identifiers`), `backend/app/unifi_live.py` (`_request`, `client_status`, `CLIENT_FIELDS`, `redact`, `_bounded`), Tests: `backend/tests/test_unifi_live.py`, `backend/tests/test_tools_unifi_live.py`
+
 #### Szenario: Verbundener WLAN-Client
 - **WENN** der Assistent `get_unifi_client` mit der MAC eines WLAN-Clients aufruft
 - **DANN** enthält das Ergebnis Signal, Retries und Roaming-Zähler, aber keine Geheimnisse

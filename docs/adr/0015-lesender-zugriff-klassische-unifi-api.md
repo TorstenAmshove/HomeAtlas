@@ -36,7 +36,7 @@ Aufgelöst bzw. neu:
   `unifi_probe.py`, `unifi_classic_probe.py` oder `pipeline.py` importiert). Es ist das einzige
   Quellmodul, das `tools.py` importieren darf; der ADR-0014-Satz „Quellmodule werden nicht von
   `tools.py` importiert“ gilt dafür nicht.
-- **Feste Allowlist:** `_get` ist der einzige Netzzugang. Erlaubt sind nur die GET-Pfade der Tabelle
+- **Feste Allowlist:** `_request` ist der einzige Netzzugang. Erlaubt sind nur die GET-Pfade der Tabelle
   und **genau ein** POST (`system-log/all`, Events, nur Lesen; Body nur aus intern berechneten
   Ganzzahlen). Aus Nutzereingabe stammt nur `site` (Muster `^[A-Za-z0-9_-]{1,64}$`). Keine Redirects,
   kein Retry.

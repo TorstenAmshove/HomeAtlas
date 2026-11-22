@@ -81,10 +81,23 @@ def test_controller_error_is_message_not_exception(temp_db):
     assert "Fehler" in result["error"] and KEY not in json.dumps(result)
 
 
-def test_tool_listed_in_chat_and_mcp():
+def test_tool_listed_in_chat_and_mcp(temp_db):
     assert "get_unifi_client" in {d["name"] for d in tools.TOOL_DEFINITIONS}
     assert "get_unifi_client" in tools._UNIFI_LIVE_TOOLS
-    assert "tools.TOOL_DEFINITIONS" in mcp_server.__doc__
+    assert "get_unifi_client" in {t.name for t in asyncio.run(mcp_server._list_tools())}
+    _account()
+    unifi_live._transport = httpx.MockTransport(lambda r: httpx.Response(200, json={"data": [WLAN]}))
+    blocks = asyncio.run(mcp_server._call_tool("get_unifi_client", {"client": "aa:bb:cc:dd:ee:01"}))
+    assert json.loads(blocks[0].text)["client"]["signal"] == -71 and KEY not in blocks[0].text
+
+
+def test_numeric_and_hex_names_are_looked_up_as_names(temp_db):
+    _account()
+    clients = [{**WLAN, "mac": "aa:bb:cc:dd:ee:02", "name": "1234"},
+               {**WLAN, "mac": "aa:bb:cc:dd:ee:03", "name": "deadbeefcafe"}]
+    unifi_live._transport = httpx.MockTransport(lambda r: httpx.Response(200, json={"data": clients}))
+    assert _call({"client": "1234"})["client"]["mac"] == "aa:bb:cc:dd:ee:02"
+    assert _call({"client": "deadbeefcafe"})["client"]["mac"] == "aa:bb:cc:dd:ee:03"
 
 
 def test_own_char_limit_and_other_limits_unchanged():
