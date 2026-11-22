@@ -173,3 +173,21 @@ def test_discover_sources_disabled(monkeypatch):
     _patch_discover(monkeypatch, never, never)
     result = _run_discover({"scanEnableMdns": False, "scanEnableSsdp": False})
     assert result["findings"]
+
+
+@pytest.mark.parametrize("v6", [["fe80::1"], ["2001:db8::5"], ["fe80::1", "2001:db8::5"]])
+def test_ipv6_multicast_hit_is_discarded(monkeypatch, v6):
+    """README „Bekannte Grenzen“: IPv6-Funde aus mDNS/SSDP werden verworfen (nur IPv4)."""
+    async def mdns(*a, **k):
+        return {**{ip: [{"type": "_http._tcp", "name": "v6-mdns"}] for ip in v6},
+                "192.168.42.20": [{"type": "_http._tcp", "name": "v4"}]}, []
+
+    async def ssdp(*a, **k):
+        return {ip: {"friendlyName": "v6-ssdp"} for ip in v6}
+
+    _patch_discover(monkeypatch, mdns, ssdp)
+    result = _run_discover({})
+    ips = {f["ip"] for f in result["findings"]}
+    assert "192.168.42.20" in ips
+    assert not any(":" in ip for ip in ips)
+    assert not any("IPv6" in w or "fe80" in w or "2001" in w for w in result["warnings"])

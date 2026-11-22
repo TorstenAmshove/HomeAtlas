@@ -381,7 +381,9 @@ wird, ist eine Eigenschaft des Codes, keine Zusicherung im Text:
 - HTTP wird ausschließlich mit **GET** aufgerufen; bei TR-064 werden nur `GetInfo`-Aktionen
   gebaut — die `Set*`-Hälfte dieser Schnittstelle kommt im Quelltext nicht vor.
 - **Opt-in pro Zugang.** Ohne den Haken „Zum Auslesen verwenden“ passiert nichts, und das
-  Verfahren lässt sich unter *Einstellungen → Netzwerk-Scan* komplett abschalten.
+  Auslesen einzelner Geräte lässt sich unter *Einstellungen → Netzwerk-Scan* mit einem Schalter
+  abschalten. Die Abfragen der Controller (UniFi, Omada, Proxmox, AdGuard) und weiterer Quellen
+  haben jeweils eigene Schalter und melden sich mit ihrem Zugang an, solange diese aktiv sind.
 
 Bewusste Abwägung: SSH-Hostschlüssel werden **nicht** geprüft. HomeAtlas hat keinen Vertrauensspeicher,
 und die Alternative — die Verbindung zu jedem Gerät beim ersten Kontakt zu verweigern — würde die
@@ -533,7 +535,7 @@ sind dort eingeschränkt, die Oberfläche und alles andere funktionieren.
 
 ## Bekannte Grenzen
 
-- **Nur IPv4.** IPv6-Geräte tauchen auf, wenn sie sich per mDNS/SSDP melden, werden aber nicht
+- **Nur IPv4.** IPv6-Adressen, die sich per mDNS/SSDP melden, werden verworfen und nicht
   aktiv gescannt.
 - **Netzbereiche bis /22.** Ein größerer Bereich wird auf die ersten 1024 Adressen begrenzt —
   ein versehentliches /16 wären 65.000 Hosts und ein praktisch endloser Scan.

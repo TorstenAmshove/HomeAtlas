@@ -34,14 +34,13 @@ Netzplan-Ebenen, `set_switch`), ADR-0009 für die Netzplan-Ebenen. Behoben in #3
 KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben:
 
 - Farbe ist im Netzplan-Kasten das einzige Statussignal (topologie) → #143.
-- README: IPv6-Geräte über mDNS/SSDP. Der Code verwirft sie (discovery-und-scan) → #136.
 - Netzwerkressourcen kommen nur von UniFi, nicht von Omada (netzwerkressourcen-vlans).
 - Passwortrichtlinie 10 Zeichen; die UsersPage zeigt „mindestens 8“, `ADMIN_PASSWORD` und der
   CLI-Reset umgehen die Richtlinie (auth-und-rollen) → #117.
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (132)
+## Alle Punkte je Fähigkeit (130)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (3)
 
@@ -68,7 +67,7 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 15. WebSocket-Check akzeptiert fehlenden `Origin`-Header; Docstring nennt die Bedingung „same bar as current_user“, prüft aber zusätzlich ADMIN. → #115
 16. `GET /api/health` ist unauthentifiziert und verrät `userCount`; das Frontend nutzt das Feld nicht. → #115
 
-### [credentialed-probing](capabilities/credentialed-probing/spec.md) (11)
+### [credentialed-probing](capabilities/credentialed-probing/spec.md) (10)
 
 1. In `probe_system` ist `elif "ssh" not in results` (analog `snmp`, `ha`) immer wahr, weil Schlüssel `ssh:<label>` heißen – fehlgeschlagene Ergebnisse werden stets gespeichert, auch wenn ein anderer Zugang derselben Art erfolgreich war (`backend/app/probe_auth.py:1397`). Absicht unklar. → #133
 2. HTTP- und TR-064-Fehlschläge werden nicht als Ergebnis gespeichert, nur Erfolge – daher kein Fehlerereignis für abgelehnte Web-Logins. → #133
@@ -79,8 +78,7 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 7. Im Vollscan nutzen Controller-Probes alle freigegebenen Zugänge der Kategorie, beim manuellen Auslesen nur die dem Gerät (direkt/per Zuordnung) zugeordneten – uneinheitlich. → #135
 8. `omada_backup` läuft auf jedem Linux-Host und wird Base64-kodiert als Fakt gespeichert; ein Restore ist bewusst nicht vorgesehen, Nutzen der Speicherung ist unklar.
 9. Omada liest nur Seite 1 (Geräte 100, Clients 500); größere Sites werden still abgeschnitten. Ein `errorCode` bei Geräten überspringt auch die Clients der Site.
-10. README „Sicherheit“ sagt, das Verfahren lasse sich unter *Einstellungen → Netzwerk-Scan* „komplett abschalten“. Trifft nur teilweise zu: `scanUseCredentials = false` stoppt nur das Auslesen je Gerät; UniFi/Omada/Proxmox/AdGuard melden sich weiter mit Zugangsdaten an, solange ihr `scanEnable*` an ist (`backend/app/pipeline.py:387`–`:455` vs. `:521`). Doku oder Verhalten anpassen? → #136
-11. Klassisches Aruba braucht ein Konto, das direkt mit Manager-Rechten anmeldet; die UI weist darauf nicht hin. → #134
+10. Klassisches Aruba braucht ein Konto, das direkt mit Manager-Rechten anmeldet; die UI weist darauf nicht hin. → #134
 
 ### [dashboard](capabilities/dashboard/spec.md) (4)
 
@@ -95,18 +93,17 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 2. Die Latenz des Speedtests ist die erste Anfrage auf einer neuen Verbindung und enthält TCP- und TLS-Aufbau – systematisch zu hoch. → #151
 3. REST-Tool-Namen weichen von den LLM-Werkzeugnamen ab (`ping` vs. `ping_host`); Alternative vereinheitlichen? → #151
 
-### [discovery-und-scan](capabilities/discovery-und-scan/spec.md) (10)
+### [discovery-und-scan](capabilities/discovery-und-scan/spec.md) (9)
 
 1. Fortschritt springt rückwärts (94 % „Inventar aktualisieren“, dann 93 % Zugangs-Abfrage, `pipeline.py:480`/`:522`). → #138
 2. Einzelziele umfassen IPs *aller* Inventar-Geräte außerhalb der Bereiche (auch entdeckte Controller-Clients/Proxmox-Gäste), nicht nur „von Hand eingetragene“ wie der Docstring sagt (`pipeline.py:42`). Kann viele geroutete Ziele erzeugen. → #138
 3. Ungültiger Freitext-Bereich (z. B. „bad“) plus ein mDNS/SSDP-Fund außerhalb von `alive` führt in `discovery.py:859` zu `ValueError` aus `ip_network` und lässt den ganzen Scan scheitern. → #137
-4. README behauptet, IPv6-Geräte erscheinen per mDNS/SSDP; der Code nimmt nur IPs in IPv4-Scan-Bereichen auf (`discovery.py:859`), IPv6-Funde werden verworfen. → #136
-5. Port 81 steht in der Banner-Portliste, aber nicht im Port-Katalog, wird also nie als offen erkannt (`discovery.py:341`, `ports.py:12`). → #138
-6. Ohne geladenes OUI-Register versucht jeder Scan erneut den Download (bis 120 s), auch offline. → #138
-7. MEMBER darf `GET /api/scans*` inkl. Protokoll lesen (Gerätenamen, Fehlertexte der Zugangs-Abfrage), obwohl die Scan-Seite admin-only ist. Absicht? → #119
-8. Start-Prüfung „läuft schon ein Scan“ und Anlegen sind nicht atomar (Rennen Zeitplan/manuell theoretisch möglich). → #129
-9. Namensvergabe für Nicht-Container ohne IP bei Duplikaten: kein Suffix, Duplikat bleibt. → #138
-10. Abgeschaltete Quelle (`scanEnableDocker=false`, Controller aus) setzt alle bisher aus dieser Quelle entdeckten Geräte beim nächsten Scan auf `offline`. → #139
+4. Port 81 steht in der Banner-Portliste, aber nicht im Port-Katalog, wird also nie als offen erkannt (`discovery.py:341`, `ports.py:12`). → #138
+5. Ohne geladenes OUI-Register versucht jeder Scan erneut den Download (bis 120 s), auch offline. → #138
+6. MEMBER darf `GET /api/scans*` inkl. Protokoll lesen (Gerätenamen, Fehlertexte der Zugangs-Abfrage), obwohl die Scan-Seite admin-only ist. Absicht? → #119
+7. Start-Prüfung „läuft schon ein Scan“ und Anlegen sind nicht atomar (Rennen Zeitplan/manuell theoretisch möglich). → #129
+8. Namensvergabe für Nicht-Container ohne IP bei Duplikaten: kein Suffix, Duplikat bleibt. → #138
+9. Abgeschaltete Quelle (`scanEnableDocker=false`, Controller aus) setzt alle bisher aus dieser Quelle entdeckten Geräte beim nächsten Scan auf `offline`. → #139
 
 ### [dokumentation](capabilities/dokumentation/spec.md) (10)
 

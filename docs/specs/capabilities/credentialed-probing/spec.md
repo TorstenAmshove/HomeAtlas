@@ -522,9 +522,5 @@ auslesen“, nur Admin und nur wenn ein Zugang `allowProbe` hat).
   ein Restore ist bewusst nicht vorgesehen, Nutzen der Speicherung ist unklar.
 - > OFFEN: Omada liest nur Seite 1 (Geräte 100, Clients 500); größere Sites werden still abgeschnitten.
   Ein `errorCode` bei Geräten überspringt auch die Clients der Site.
-- > OFFEN: README „Sicherheit“ sagt, das Verfahren lasse sich unter *Einstellungen → Netzwerk-Scan*
-  „komplett abschalten“. Trifft nur teilweise zu: `scanUseCredentials = false` stoppt nur das
-  Auslesen je Gerät; UniFi/Omada/Proxmox/AdGuard melden sich weiter mit Zugangsdaten an, solange
-  ihr `scanEnable*` an ist (`backend/app/pipeline.py:387`–`:455` vs. `:521`). Doku oder Verhalten anpassen? → #136
 - > OFFEN: Klassisches Aruba braucht ein Konto, das direkt mit Manager-Rechten anmeldet; die UI
   weist darauf nicht hin. → #134
