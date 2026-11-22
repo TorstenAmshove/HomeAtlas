@@ -214,4 +214,5 @@ def delete_account(account_id: str) -> None:
                      (_now(), account_id))
         # Reachability facts read through this account are no longer current without it.
         conn.execute("DELETE FROM exposureFacts WHERE sourceAccountId = ?", (account_id,))
+        conn.execute("DELETE FROM firewallFacts WHERE sourceAccountId = ?", (account_id,))
         conn.execute("DELETE FROM accounts WHERE id = ?", (account_id,))

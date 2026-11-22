@@ -3,7 +3,8 @@ import ast
 from pathlib import Path
 
 APP = Path(__file__).resolve().parents[1] / "app"
-SOURCES = ["traefik_probe", "exposure_files", "unifi_classic_probe", "cloudflare_probe", "public_dns"]
+SOURCES = ["traefik_probe", "exposure_files", "unifi_classic_probe", "cloudflare_probe", "public_dns",
+           "firewall_unifi"]
 FORBIDDEN_IN_SOURCES = {"remote_admin", "docker_admin", "proxmox_admin", "switch_admin", "probe_auth", "tools"}
 
 

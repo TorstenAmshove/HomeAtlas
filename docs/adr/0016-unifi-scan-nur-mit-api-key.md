@@ -1,6 +1,6 @@
 # ADR-0016: Scan der klassischen UniFi-API nur mit API-Key
 
-- **Status:** Akzeptiert, ersetzt ADR-0015
+- **Status:** Ersetzt durch ADR-0017; ersetzte ADR-0015
 - **Datum:** 2026-11-22
 
 ## Kontext

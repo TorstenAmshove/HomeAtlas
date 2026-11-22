@@ -41,7 +41,7 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (135)
+## Alle Punkte je Fähigkeit (136)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (6)
 
@@ -135,6 +135,10 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 7. Ollama-, `deepseekBaseUrl`-Schlüssel fehlen in den Defaults (funktional egal, aber unvollständig dokumentiert). → #124
 8. Test/Modelle-Laden schicken Anfragen an eine frei eingebbare Server-Adresse (Admin-only, aber serverseitige Anfrage an beliebige URL). → #114
 9. Gemini-Schlüssel steht als Query-Parameter in der URL (kann in Proxy-Logs landen). → #125
+
+### [firewall](capabilities/firewall/spec.md) (1)
+
+1. nftables der Hosts (Forced-Command `nft -j list ruleset`), Pfadbewertung (`firewall_eval.py`), Werkzeuge `check_firewall_path`/`list_firewall_rules`, Kapitel „Wer darf mit wem sprechen“ und die Verknüpfung mit den Erreichbarkeits-Ketten (Issue #106, Teile B–D).
 
 ### [inventar](capabilities/inventar/spec.md) (9)
 
