@@ -120,7 +120,7 @@ Lücken: **0**
 | `systems` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [credentialed-probing](capabilities/credentialed-probing/spec.md), [dashboard](capabilities/dashboard/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [dokumentation](capabilities/dokumentation/spec.md), [inventar](capabilities/inventar/spec.md), [klassifikation-llm](capabilities/klassifikation-llm/spec.md), [monitoring](capabilities/monitoring/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md), [remote-admin](capabilities/remote-admin/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md), [topologie](capabilities/topologie/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `users` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md) |
 
-## KI-Werkzeuge (20)
+## KI-Werkzeuge (22)
 
 | Eintrag | Spec |
 |---|---|
@@ -137,6 +137,8 @@ Lücken: **0**
 | `get_ha_history` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `get_ha_logbook` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `get_ha_error_log` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
+| `list_ha_traces` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
+| `get_ha_trace` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `internet_check` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [dashboard](capabilities/dashboard/spec.md), [diagnose](capabilities/diagnose/spec.md) |
 | `ping_host` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [diagnose](capabilities/diagnose/spec.md) |
 | `check_port` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [diagnose](capabilities/diagnose/spec.md), [monitoring](capabilities/monitoring/spec.md) |
@@ -153,7 +155,7 @@ Lücken: **0**
 | `DocsPage` | [dokumentation](capabilities/dokumentation/spec.md) |
 | `SettingsPage` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [diagnose](capabilities/diagnose/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md), [monitoring](capabilities/monitoring/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) |
 
-## ADRs in der Constitution (11)
+## ADRs in der Constitution (12)
 
 Quelle links sind die Dateien in `docs/adr/`, rechts die Regeln in [constitution.md](constitution.md),
 die auf das ADR verlinken.
@@ -170,4 +172,5 @@ die auf das ADR verlinken.
 | [ADR-0008](../adr/0008-topologie-als-server-svg.md) | Ersetzt durch ADR-0009 (ursprünglich akzeptiert, nachträglich dokumentiert) | – |  |
 | [ADR-0009](../adr/0009-netzplan-ebenen-ist-stand.md) | Akzeptiert, ersetzt ADR-0008 | D4, D5 |  |
 | [ADR-0010](../adr/0010-db-als-paket.md) | Akzeptiert, ersetzt ADR-0005 | D1, D2 |  |
-| [ADR-0011](../adr/0011-lese-schreib-trennung-routen-module.md) | Akzeptiert, ersetzt ADR-0002 | L1, L2, L4, L5, L6 |  |
+| [ADR-0011](../adr/0011-lese-schreib-trennung-routen-module.md) | Ersetzt durch ADR-0012 | – |  |
+| [ADR-0012](../adr/0012-lesender-websocket-fuer-ha-traces.md) | Akzeptiert, ersetzt ADR-0011 | L1, L2, L4, L5, L6 |  |

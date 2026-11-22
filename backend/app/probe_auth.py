@@ -23,7 +23,8 @@ things enforce it:
    one is left exactly as it was, not retried with a guessed or reused secret.
    Failures are expected and swallowed (`2>/dev/null`) so a missing binary never turns into a
    retry with something more aggressive.
-3. **HTTP is GET-only**, TR-064 uses only `GetInfo`-style SOAP actions -- the `Set*` half of that
+3. **HTTP is GET-only** (the one exception: Home Assistant's WebSocket, which only ever sends
+   `trace/list`/`trace/get`, ADR-0012), TR-064 uses only `GetInfo`-style SOAP actions -- the `Set*` half of that
    API is never constructed -- and SNMP (`probe_snmp`) only ever runs `snmpget`/`snmpwalk`, never
    `snmpset`.
 4. **Opt-in per credential.** Nothing here runs unless a human ticked `allowProbe` on that
@@ -42,12 +43,14 @@ by the user. This is stated in the README rather than hidden.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
 import xml.etree.ElementTree as ElementTree
 from datetime import datetime, timedelta, timezone
 
 import httpx
+import websockets
 
 from . import crypto, db
 
@@ -1125,6 +1128,121 @@ async def ha_error_log(url: str, account: dict) -> dict:
         notes.append(f"auf die letzten {_HA_ERROR_LOG_CHARS} Zeichen gekürzt")
         text = text[-_HA_ERROR_LOG_CHARS:]
     return {"ok": True, "error": "", "text": text, "truncated": bool(notes), "note": "; ".join(notes)}
+
+
+# --- Automation traces over the HA WebSocket API (ADR-0012) ------------------------------------
+# The only non-GET channel in this module, and read-only by construction: `_ha_ws_call` refuses
+# every message type except the two below (exact match), so no setting, parameter or tool can
+# make it send a command that changes anything.
+
+_HA_WS_ALLOWED_TYPES = frozenset({"trace/list", "trace/get"})
+_HA_WS_TIMEOUT = 10.0
+_HA_WS_MAX_SIZE = 4 * 1024 * 1024
+_HA_TRACE_RUNS = 10
+_HA_TRACE_CHARS = 16000
+
+
+def _ha_ws_url(base_url: str) -> str:
+    base = base_url.rstrip("/")
+    if base.startswith("https://"):
+        base = "wss://" + base[len("https://"):]
+    elif base.startswith("http://"):
+        base = "ws://" + base[len("http://"):]
+    return f"{base}/api/websocket"
+
+
+async def _ha_ws_call(url: str, account: dict, msg_type: str, payload: dict) -> dict:
+    """One authenticated WebSocket command (`trace/list` or `trace/get` only). Raises ValueError for
+    any other type (a programming error); every runtime failure comes back as {ok: False, error}."""
+    if not isinstance(msg_type, str) or msg_type not in _HA_WS_ALLOWED_TYPES:
+        raise ValueError(f"WebSocket-Befehl nicht erlaubt: {msg_type!r}")
+    token, _ = _decode_secret(account)
+    base_url = (url or "").rstrip("/")
+    if not base_url:
+        return {"ok": False, "error": "Keine Adresse für Home Assistant hinterlegt."}
+    if not token:
+        return {"ok": False, "error": "Kein Zugriffstoken hinterlegt."}
+
+    def _safe(message: str) -> str:
+        return ha_redact(message.replace(token, _HA_REDACTED))
+
+    ssl_context = None
+    if base_url.startswith("https://"):
+        import ssl
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE  # same as the REST clients: self-signed is normal
+    try:
+        async with asyncio.timeout(_HA_WS_TIMEOUT):
+            async with websockets.connect(_ha_ws_url(base_url), max_size=_HA_WS_MAX_SIZE,
+                                          ssl=ssl_context) as ws:
+                first = json.loads(await ws.recv())
+                if first.get("type") != "auth_required":
+                    return {"ok": False, "error": "Home Assistant hat nicht wie erwartet geantwortet."}
+                await ws.send(json.dumps({"type": "auth", "access_token": token}))
+                reply = json.loads(await ws.recv())
+                if reply.get("type") != "auth_ok":
+                    return {"ok": False, "error": "Home Assistant hat das Zugriffstoken abgelehnt."}
+                await ws.send(json.dumps({"id": 1, "type": msg_type, **payload}))
+                while True:
+                    answer = json.loads(await ws.recv())
+                    if answer.get("id") == 1 and answer.get("type") == "result":
+                        break
+    except TimeoutError:
+        return {"ok": False, "error": "Home Assistant (WebSocket) antwortet nicht rechtzeitig."}
+    except (OSError, ValueError, websockets.WebSocketException) as exc:
+        return {"ok": False, "error": _safe(f"Home Assistant (WebSocket) nicht erreichbar: {exc}")}
+    if not answer.get("success"):
+        err = answer.get("error") if isinstance(answer.get("error"), dict) else {}
+        return {"ok": False, "error": _safe(f"Home Assistant lehnt die Abfrage ab: "
+                                            f"{err.get('message') or 'unbekannter Fehler'}")}
+    return {"ok": True, "data": answer.get("result")}
+
+
+def _cut(value: object, limit: int) -> tuple[str, bool]:
+    text = ha_redact(json.dumps(value, ensure_ascii=False, default=str))
+    return (text[:limit], True) if len(text) > limit else (text, False)
+
+
+async def ha_traces(url: str, account: dict, entity_id: str, run_id: str = "") -> dict:
+    """Automation/script traces: without `run_id` the latest runs (newest first, max 10), with it the
+    detail of one run (trigger, condition results, action path, error). Redacted, then bounded."""
+    entity_id = (entity_id or "").strip()
+    domain, _, _name = entity_id.partition(".")
+    if domain not in ("automation", "script") or not _name:
+        return {"ok": False, "error": "entityId muss eine automation.* oder script.* sein."}
+    state = await _ha_get(url, account, f"/api/states/{entity_id}")
+    if not state["ok"]:
+        return state
+    attrs = state["data"].get("attributes") if isinstance(state["data"], dict) else None
+    item_id = (attrs or {}).get("id") if domain == "automation" else _name
+    if not item_id or not isinstance(item_id, str):
+        return {"ok": False, "error": "Diese Automation hat keine id (in YAML definiert) -- Home "
+                                      "Assistant speichert dafür keine Traces."}
+    if not run_id:
+        listed = await _ha_ws_call(url, account, "trace/list", {"domain": domain, "item_id": item_id})
+        if not listed["ok"]:
+            return listed
+        runs = [r for r in (listed["data"] or []) if isinstance(r, dict)]
+        runs.sort(key=lambda r: str((r.get("timestamp") or {}).get("start", "")), reverse=True)
+        out = [{"run_id": r.get("run_id", ""), "timestamp": r.get("timestamp"), "state": r.get("state"),
+                "last_step": r.get("last_step"), "trigger": ha_redact(r.get("trigger", "")),
+                "error": ha_redact(r.get("error", "")) if r.get("error") else ""}
+               for r in runs[:_HA_TRACE_RUNS]]
+        truncated = len(runs) > _HA_TRACE_RUNS
+        return {"ok": True, "error": "", "entityId": entity_id, "runs": out, "truncated": truncated,
+                "note": f"nur die neuesten {_HA_TRACE_RUNS} von {len(runs)} Läufen" if truncated else ""}
+    detail = await _ha_ws_call(url, account, "trace/get",
+                               {"domain": domain, "item_id": item_id, "run_id": str(run_id)})
+    if not detail["ok"]:
+        return detail
+    data = detail["data"] if isinstance(detail["data"], dict) else {}
+    trimmed = {k: data.get(k) for k in ("trigger", "condition", "error", "state", "timestamp",
+                                        "last_step", "context", "trace") if k in data}
+    text, truncated = _cut(trimmed, _HA_TRACE_CHARS)
+    return {"ok": True, "error": "", "entityId": entity_id, "runId": str(run_id), "trace": text,
+            "truncated": truncated,
+            "note": f"auf {_HA_TRACE_CHARS} Zeichen gekürzt" if truncated else ""}
 
 
 # ---------------------------------------------------------------------------------------------
