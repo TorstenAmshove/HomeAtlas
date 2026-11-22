@@ -11,6 +11,7 @@ export const CATEGORIES: [string, string][] = [
   ["proxmox", "Proxmox VE (API-Token)"],
   ["adguard", "AdGuard Home (Basic Auth)"],
   ["traefik", "Traefik API (Basic Auth)"],
+  ["cloudflare", "Cloudflare API (Token, nur lesend)"],
   ["exposure_cloudflared", "cloudflared-Konfiguration lesen (SSH-Forced-Command)"],
   ["exposure_caddy", "Caddyfile lesen (SSH-Forced-Command)"],
   ["exposure_ddclient", "ddclient-Konfiguration lesen (SSH-Forced-Command)"],

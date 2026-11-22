@@ -269,6 +269,18 @@ Konfiguration; danach nur GET. Der Zugang (Kategorie „UniFi klassische API“)
 verwenden“; die Quelle ist in den Einstellungen abschaltbar (`scanEnableUnifiClassic`). Gespeichert
 werden nur Protokoll, Ports, Ziel-IP und die WAN-Adresse, nie Name, Passwort, Cookie oder Token.
 
+**Cloudflare und öffentliches DNS (Erreichbarkeit, Kontakt nach außen).** Beides ist standardmäßig
+**aus** (`scanEnableCloudflare`, `scanEnablePublicDns`), weil es das einzige ist, was HomeAtlas außerhalb
+des LANs erreicht; ohne sie bleibt der Pfadstatus „unklar“. Cloudflare: ein eigener API-Token, nur GET,
+auf die Zone beschränkt, mit den Rechten Zone DNS:Read, Zone WAF:Read und Account Cloudflare
+Tunnel:Read. Der Zugang (Kategorie „Cloudflare API“) trägt die Zone-ID im Feld Adresse, die Account-ID
+im Feld Benutzername und den Token als Geheimnis. Das Tunnel-Token wird nie abgerufen, von den
+WAF-Regeln wird nur gelesen, ob sie ein Client-Zertifikat verlangen. Das öffentliche DNS nutzt einen
+festen DoH-Resolver (`cloudflare-dns.com`, nur GET); er erfährt dabei die öffentlichen Hostnamen des
+Haushalts (höchstens 200 Abfragen je Scan, keine Wildcards). DynDNS-Container (ddclient,
+cloudflare-ddns, ddns-updater, inadyn, ddnss) erkennt HomeAtlas am Image; aus ihrer Umgebung werden nur
+Hostnamen und die IPv4/IPv6-Schalter übernommen, nie Tokens oder Passwörter.
+
 **cloudflared, Caddy und ddclient lesen (Erreichbarkeit).** HomeAtlas liest diese Konfigurationsdateien
 per SSH, ohne auf dem Zielsystem etwas ausführen zu können, was nicht vorgesehen ist: Auf dem Zielsystem
 gibt es einen eigenen Nutzer ohne Shell-Rechte, dessen Schlüssel in `authorized_keys` so steht (je

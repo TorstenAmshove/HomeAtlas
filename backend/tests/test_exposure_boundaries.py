@@ -3,7 +3,7 @@ import ast
 from pathlib import Path
 
 APP = Path(__file__).resolve().parents[1] / "app"
-SOURCES = ["traefik_probe", "exposure_files", "unifi_classic_probe"]
+SOURCES = ["traefik_probe", "exposure_files", "unifi_classic_probe", "cloudflare_probe", "public_dns"]
 FORBIDDEN_IN_SOURCES = {"remote_admin", "docker_admin", "proxmox_admin", "switch_admin", "probe_auth", "tools"}
 
 
@@ -47,3 +47,11 @@ def test_unifi_classic_probe_has_login_as_only_post():
     for verb in ("client.put", "client.delete", "client.patch", "client.request"):
         assert verb not in src
     assert src.count("client.post(") == 1 and '/api/auth/login' in src
+
+
+def test_outside_sources_only_use_get():
+    for name in ("cloudflare_probe", "public_dns"):
+        src = (APP / f"{name}.py").read_text()
+        for verb in ("client.post", "client.put", "client.delete", "client.patch", "client.request"):
+            assert verb not in src, (name, verb)
+    assert 'cfd_tunnel/' not in (APP / "cloudflare_probe.py").read_text()  # no per-tunnel (token) endpoint
