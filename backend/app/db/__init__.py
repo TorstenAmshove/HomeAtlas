@@ -119,6 +119,13 @@ from .exposure import (  # noqa: E402
     prune_exposure_facts,
     replace_exposure_facts,
 )
+from .firewall import (  # noqa: E402
+    delete_firewall_facts,
+    list_firewall_facts,
+    mark_firewall_facts_stale,
+    prune_firewall_facts,
+    replace_firewall_facts,
+)
 from .accounts import (  # noqa: E402
     _ASSIGNMENT_TARGET_TYPES,
     _assigned_account_ids,
@@ -294,6 +301,11 @@ __all__ = [
     "list_monitor_events",
     "list_monitored_systems",
     "delete_exposure_facts",
+    "delete_firewall_facts",
+    "list_firewall_facts",
+    "mark_firewall_facts_stale",
+    "prune_firewall_facts",
+    "replace_firewall_facts",
     "list_exposure_facts",
     "mark_exposure_facts_stale",
     "prune_exposure_facts",

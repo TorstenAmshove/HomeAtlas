@@ -269,6 +269,23 @@ CREATE TABLE IF NOT EXISTS exposureFacts (
 );
 CREATE INDEX IF NOT EXISTS idx_exposurefacts_source ON exposureFacts(source, sourceAccountId);
 
+-- Normalised firewall facts (ADR-0017): zones, policies and address/port groups of the UniFi
+-- gateway (later: nftables rules). Same rules as exposureFacts: `data` holds only allowlisted,
+-- non-secret fields, raw answers are never stored, `stale = 1` marks data of a failed read.
+CREATE TABLE IF NOT EXISTS firewallFacts (
+    id TEXT PRIMARY KEY,
+    source TEXT NOT NULL,
+    sourceAccountId TEXT NOT NULL DEFAULT '',
+    kind TEXT NOT NULL,
+    key TEXT NOT NULL,
+    data TEXT,
+    active INTEGER NOT NULL DEFAULT 1,
+    stale INTEGER NOT NULL DEFAULT 0,
+    firstSeen TEXT NOT NULL,
+    lastSeen TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_firewallfacts_source ON firewallFacts(source, sourceAccountId);
+
 -- Lets one credential profile (an `accounts` row) additionally apply to more than the single
 -- device its own `systemId` points at -- a whole device kind ("every switch"), a subnet ("every
 -- device on 192.168.2.0/24"), or further individual systems beyond the primary one. See

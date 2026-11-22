@@ -18,7 +18,8 @@ from datetime import datetime, timedelta, timezone
 
 from . import (
     adguard_probe, classify, cloudflare_probe, crypto, db, diagnostics, discovery, docker_probe, docs,
-    exposure_files, omada_probe, oui, probe_auth, proxmox_probe, public_dns, traefik_probe, unifi_classic_probe, unifi_probe,
+    exposure_files, firewall_unifi, omada_probe, oui, probe_auth, proxmox_probe, public_dns, traefik_probe,
+    unifi_classic_probe, unifi_probe,
 )
 
 
@@ -540,6 +541,32 @@ async def run_full_scan(scan_id: str) -> None:
             db.prune_exposure_facts("unifi_classic", [a["id"] for a in classic_accounts])
         else:
             db.delete_exposure_facts(source="unifi_classic")
+
+        # Firewall zones/policies/groups (ADR-0017): off by default, same UniFi accounts as above.
+        if settings.get("scanEnableFirewallUnifi", False):
+            fw_accounts = [a for a in db.list_accounts()
+                           if a.get("category") == "unifi" and a.get("allowProbe")]
+            if fw_accounts:
+                progress("UniFi-Firewall erfassen", 89, "Lese Firewall-Zonen und -Regeln")
+            for account in fw_accounts:
+                try:
+                    fw = await asyncio.wait_for(firewall_unifi.probe(
+                        account.get("url") or "", crypto.decrypt(account.get("secretEnc") or ""),
+                        account["id"], account.get("systemId")), timeout=60)
+                except Exception as exc:  # one failing source must never stop the scan
+                    fw = {"ok": False, "error": f"UniFi-Firewall: {type(exc).__name__}"}
+                if fw["ok"]:
+                    db.replace_firewall_facts("unifi", account["id"], fw["facts"])
+                    log(f"UniFi-Firewall ({account['label']}): "
+                        f"{sum(1 for f in fw['facts'] if f['kind'] == 'policy')} Regel(n) gelesen")
+                else:
+                    db.mark_firewall_facts_stale("unifi", account["id"])
+                    warnings.append(f"UniFi-Firewall ({account['label']}): {fw['error']}")
+                    if account.get("systemId"):
+                        db.add_device_error_event(account["systemId"], "error", fw["error"])
+            db.prune_firewall_facts("unifi", [a["id"] for a in fw_accounts])
+        else:
+            db.delete_firewall_facts(source="unifi")
 
         if settings.get("scanEnableTraefik", True):
             traefik_accounts = [a for a in db.list_accounts()

@@ -410,6 +410,7 @@ export default function SettingsPage() {
             ["scanEnableTraefik", "Intern erreichbare Dienste über die Traefik-API erfassen"],
             ["scanEnableExposureFiles", "cloudflared-, Caddy- und ddclient-Konfiguration per SSH-Forced-Command lesen"],
             ["scanEnableCloudflare", "Cloudflare-DNS, Tunnel und Schutzregeln über die Cloudflare-API lesen (Kontakt nach außen)"],
+            ["scanEnableFirewallUnifi", "Firewall-Zonen und -Regeln über den UniFi-API-Key lesen (nur lesend)"],
             ["scanEnablePublicDns", "Öffentliche Hostnamen über einen öffentlichen DNS-Resolver auflösen (Kontakt nach außen)"],
             ["scanUseLlm", "KI zur Einordnung unbekannter Geräte und für die Doku-Texte nutzen"],
             ["scanUseCredentials", "Freigegebene Zugänge zum Auslesen der Geräte verwenden (nur lesend)"],

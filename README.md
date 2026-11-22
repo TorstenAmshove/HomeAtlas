@@ -290,6 +290,16 @@ abschaltbar (`scanEnableUnifiClassic`). Gespeichert werden nur Protokoll, Ports,
 WAN-Adresse, nie Name, Quellfilter oder Key. Ein früherer Zugang „UniFi klassische API“ wird beim
 Start gelöscht; nötig ist stattdessen ein `unifi`-Zugang mit „Zum Auslesen verwenden“ (ADR-0016).
 
+**Firewall-Regeln (UniFi).** Optional liest HomeAtlas die Firewall-Zonen, -Policies und Adress-/Port-Gruppen
+des UniFi-Gateways, um später auszuwerten, welche Netze miteinander sprechen dürfen. Das ist
+standardmäßig **aus** (`scanEnableFirewallUnifi`) und braucht denselben Zugang wie oben: „UniFi Network
+(API-Key)“ mit „Zum Auslesen verwenden“. Nur GET mit `X-API-Key` auf drei feste Pfade je Site, ohne Login und
+Weiterleitungen. Minimal nötige Rechte: wie oben, der Key hat die Rechte seines Erstellers (ADR-0017).
+Gespeichert werden nur Zonen, Regelname, Reihenfolge, Aktion, Protokoll, Ports und IPs, nie Kommentare,
+Trefferzähler oder Schlüssel. Ist die Quelle nicht lesbar, bleiben die alten Regeln als veraltet markiert.
+Die Auswertung, das Kapitel „Wer darf mit wem sprechen“ und nftables der Hosts folgen in weiteren Schritten
+(Issue #106).
+
 **Cloudflare und öffentliches DNS (Erreichbarkeit, Kontakt nach außen).** Beides ist standardmäßig
 **aus** (`scanEnableCloudflare`, `scanEnablePublicDns`), weil es das einzige ist, was HomeAtlas außerhalb
 des LANs erreicht; ohne sie bleibt der Pfadstatus „unklar“. Cloudflare: ein eigener API-Token, nur GET,

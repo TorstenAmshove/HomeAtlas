@@ -42,6 +42,8 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     # Contacts outside the LAN (ADR-0014): off until switched on deliberately.
     "scanEnableCloudflare": False,
     "scanEnablePublicDns": False,
+    # Firewall rules (ADR-0017): off until switched on deliberately, on top of the per-account opt-in.
+    "scanEnableFirewallUnifi": False,
     "scanEnableHttpBanner": True,
     "scanUseLlm": True,
     "scanExcludeIps": [],
