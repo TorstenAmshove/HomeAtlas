@@ -553,7 +553,7 @@ Siehe [data-model](../../contracts/data-model.md).
 - Datei: OUI-Cache (`HOMEATLAS_OUI_PATH`, Default `/data/oui.json`).
 - Settings gelesen: `scanSubnets, scanControllerNetworkIds, scanExtraTargets, scanExcludeIps,
   scanTimeoutMs, scanConcurrency, scanEnableMdns, scanEnableSsdp, scanEnableHttpBanner,
-  scanEnableDocker, scanEnableUnifi, scanEnableOmada, scanEnableProxmox, scanEnableAdguard, scanEnableTraefik,
+  scanEnableDocker, scanEnableUnifi, scanEnableOmada, scanEnableProxmox, scanEnableAdguard, scanEnableTraefik, scanEnableExposureFiles,
   scanUseLlm, scanUseCredentials, scanAutoEnabled, scanAutoIntervalHours`.
 
 ## Schnittstellen

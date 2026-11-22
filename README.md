@@ -261,6 +261,24 @@ erreichbar macht. Der Zugang (Kategorie „Traefik API“) braucht „Zum Ausles
 ist in den Einstellungen abschaltbar (`scanEnableTraefik`). Gespeichert werden nur Hostname,
 Ziel-URL, Zertifikats-Resolver und Middleware-Namen, nie die Regel im Rohformat oder Zugangsdaten.
 
+**cloudflared, Caddy und ddclient lesen (Erreichbarkeit).** HomeAtlas liest diese Konfigurationsdateien
+per SSH, ohne auf dem Zielsystem etwas ausführen zu können, was nicht vorgesehen ist: Auf dem Zielsystem
+gibt es einen eigenen Nutzer ohne Shell-Rechte, dessen Schlüssel in `authorized_keys` so steht (je
+Datei ein Schlüssel):
+
+```
+restrict,from="<HomeAtlas-IP>",command="cat /etc/caddy/Caddyfile" ssh-ed25519 AAAA… homeatlas
+```
+
+HomeAtlas sendet je Quelltyp einen im Code festen Befehl (`cat`, ohne Pfad); welche Datei geliefert wird,
+bestimmt allein dieser Eintrag. Die Firewall des Zielsystems lässt SSH nur von der HomeAtlas-IP zu. Der
+Zugang (Kategorien „cloudflared-/Caddyfile-/ddclient-Konfiguration lesen“; Zielsystem, Benutzername, Port,
+privater Schlüssel) braucht „Zum Auslesen verwenden“; die Quelle ist in den Einstellungen abschaltbar
+(`scanEnableExposureFiles`). Gespeichert werden nur Hostnamen, Ziele, Anbieter und „Client-Zertifikat ja/nein“,
+nie Passwörter, Tokens, Tunnel-Zugangsdaten oder die Datei selbst. Die cloudflared-Datei kann den Tunnel-Token
+enthalten; er liegt kurz im Speicher und wird verworfen. Der SSH-Hostschlüssel wird wie bei den übrigen
+Zugängen nicht geprüft.
+
 **Passwörter verlassen den Server einzeln.** API-Schlüssel kommen maskiert zurück, ein
 gespeichertes Passwort nur über `GET /api/accounts/{id}/secret` — genau eines, nur für
 Administratoren. Es gibt keine Route, die den Zugangsspeicher im Klartext ausgibt.
