@@ -104,7 +104,9 @@ Das System MUSS dem Assistenten die lesenden Werkzeuge `check_firewall_path(von,
 `list_firewall_rules(von, nach, system)` bereitstellen (auch über MCP): nur gespeicherte Fakten, kein Live-Zugriff, höchstens
 15 Regeln bzw. 8 Stationen, Regelnamen von Steuerzeichen befreit und auf 80 Zeichen gekürzt, kein Roh- oder Kommentartext,
 keine Zugangs-IDs. Ungültiger Port (nicht 1–65535), unbekanntes Protokoll, unbekannte Systeme oder `von == nach` ergeben eine
-Fehlermeldung. Der Systemprompt weist an, die Bewertung mit `check_port`/`http_check` zu kombinieren. **[Muss]**
+Fehlermeldung. Der Systemprompt weist an, die Bewertung mit `check_port`/`http_check` zu kombinieren. Diese Live-Diagnosen messen nur vom
+HomeAtlas-Host: Ihre Beschreibung und jedes Ergebnis (`gemessenVon`) sagen das, `check_firewall_path` weist in `liveTests`
+darauf hin, und der Assistent darf eine solche Messung nicht als Sicht des Quellsystems ausgeben. **[Muss]**
 
 Quelle: `backend/app/tools.py`, `backend/app/prompts.py`, Test: `backend/tests/test_tools_firewall.py`
 

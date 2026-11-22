@@ -70,6 +70,14 @@ _UNIFI_LIVE_MAX_RESULT_CHARS = 20000
 _MAX_ITERATIONS = 8
 
 
+# Live diagnostics run on the HomeAtlas host. Saying so in the schema and in every result keeps the model from
+# presenting such a measurement as the view of another system (#106, AK5).
+_MEASURED_FROM = "HomeAtlas-Host"
+_FROM_HOMEATLAS = " Misst nur vom HomeAtlas-Host aus, nie von einem anderen Gerät."
+_LIVE_TEST_NOTE = ("check_port, ping_host, http_check und traceroute messen vom HomeAtlas-Host, nicht von `von`. "
+                   "Ein offener Port dort sagt nichts darüber, ob `von` ihn erreicht.")
+
+
 TOOL_DEFINITIONS: list[dict] = [
     {
         "name": "list_systems",
@@ -360,7 +368,7 @@ TOOL_DEFINITIONS: list[dict] = [
     },
     {
         "name": "ping_host",
-        "description": "Prüft, ob ein Gerät im Netzwerk antwortet, und wie stabil die Verbindung ist.",
+        "description": "Prüft, ob ein Gerät im Netzwerk antwortet, und wie stabil die Verbindung ist." + _FROM_HOMEATLAS,
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -373,7 +381,7 @@ TOOL_DEFINITIONS: list[dict] = [
     {
         "name": "check_port",
         "description": ("Prüft, ob ein bestimmter Dienst auf einem Gerät erreichbar ist, z. B. 80/443 für eine "
-                        "Weboberfläche, 445 für Dateifreigaben, 9100 für Drucker."),
+                        "Weboberfläche, 445 für Dateifreigaben, 9100 für Drucker." + _FROM_HOMEATLAS),
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -403,7 +411,7 @@ TOOL_DEFINITIONS: list[dict] = [
     },
     {
         "name": "http_check",
-        "description": "Ruft eine Weboberfläche auf und meldet Statuscode, Titel und Antwortzeit.",
+        "description": "Ruft eine Weboberfläche auf und meldet Statuscode, Titel und Antwortzeit." + _FROM_HOMEATLAS,
         "inputSchema": {
             "type": "object",
             "properties": {"url": {"type": "string", "description": "Vollständige Adresse mit http:// oder https://."}},
@@ -413,7 +421,7 @@ TOOL_DEFINITIONS: list[dict] = [
     {
         "name": "traceroute",
         "description": ("Zeigt den Weg zu einem Ziel über die Zwischenstationen. Nützlich, um zu unterscheiden, ob "
-                        "ein Problem im Heimnetz oder beim Internetanbieter liegt."),
+                        "ein Problem im Heimnetz oder beim Internetanbieter liegt." + _FROM_HOMEATLAS),
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -754,7 +762,7 @@ async def _dispatch(name: str, args: dict) -> object:
         result = firewall_eval.evaluate_path(src, dst, port, proto, db.list_firewall_facts(),
                                              db.list_network_resources(kind="network", active_only=True))
         return {"von": src["label"], "nach": dst["label"], "port": port, "protokoll": proto,
-                **result, "stations": result["stations"][:8]}
+                **result, "stations": result["stations"][:8], "liveTests": _LIVE_TEST_NOTE}
 
     if name == "list_firewall_rules":
         return firewall_eval.list_rules(str(args.get("von") or ""), str(args.get("nach") or ""),
@@ -832,17 +840,17 @@ async def _dispatch(name: str, args: dict) -> object:
     if name == "internet_check":
         return await diagnostics.internet_check()
     if name == "ping_host":
-        return await diagnostics.ping(args.get("host", ""), args.get("count", 3))
+        return {**await diagnostics.ping(args.get("host", ""), args.get("count", 3)), "gemessenVon": _MEASURED_FROM}
     if name == "check_port":
-        return await diagnostics.check_port(args.get("host", ""), args.get("port", 0))
+        return {**await diagnostics.check_port(args.get("host", ""), args.get("port", 0)), "gemessenVon": _MEASURED_FROM}
     if name == "dns_lookup":
         return await diagnostics.dns_lookup(args.get("name", ""))
     if name == "reverse_dns":
         return await diagnostics.reverse_dns(args.get("ip", ""))
     if name == "http_check":
-        return await diagnostics.http_check(args.get("url", ""))
+        return {**await diagnostics.http_check(args.get("url", "")), "gemessenVon": _MEASURED_FROM}
     if name == "traceroute":
-        return await diagnostics.traceroute(args.get("host", ""), args.get("maxHops", 15))
+        return {**await diagnostics.traceroute(args.get("host", ""), args.get("maxHops", 15)), "gemessenVon": _MEASURED_FROM}
 
     return {"error": f"Unbekanntes Werkzeug '{name}'."}
 

@@ -66,3 +66,22 @@ def test_blocked_unclear_allowed_over_the_tool_and_output_is_clean(temp_db):
     assert rules["zonePair"] == "DMZ -> Server" and rules["rules"][0]["position"] == "Index 10"
     text = json.dumps(out) + json.dumps(rules)
     assert "sourceAccountId" not in text and "secret" not in text.lower()
+
+
+def test_live_diagnostics_name_their_measuring_point(monkeypatch):
+    async def fake(*_args, **_kwargs):
+        return {"open": True}
+    calls = {"ping_host": ("ping", {"host": "192.0.2.5"}), "check_port": ("check_port", {"host": "192.0.2.5", "port": 22}),
+             "http_check": ("http_check", {"url": "http://192.0.2.5"}), "traceroute": ("traceroute", {"host": "192.0.2.5"})}
+    defs = {t["name"]: t for t in tools.TOOL_DEFINITIONS}
+    for tool, (func, args) in calls.items():
+        monkeypatch.setattr(tools.diagnostics, func, fake)
+        assert _call(tool, args) == {"open": True, "gemessenVon": "HomeAtlas-Host"}
+        assert "nur vom HomeAtlas-Host" in defs[tool]["description"]
+
+
+def test_path_result_and_prompt_separate_rule_from_measurement(temp_db):
+    out = _call("check_firewall_path", {"von": "192.0.2.1", "nach": "192.0.2.70", "port": 22})
+    assert "nicht von `von`" in out["liveTests"]
+    assert "nie von A" in prompts.CHAT_SYSTEM
+    prompts.CHAT_SYSTEM.format(home_name="x")  # the new text must not break the template
