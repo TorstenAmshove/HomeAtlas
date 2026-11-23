@@ -46,5 +46,18 @@ def count_error_events_by_system() -> dict[str, int]:
     badge without an extra round trip per device -- same pattern `/api/systems` already uses for
     `accountCount`."""
     with _conn() as conn:
-        rows = conn.execute("SELECT systemId, COUNT(*) AS c FROM deviceErrorEvents GROUP BY systemId").fetchall()
+        rows = conn.execute("SELECT systemId, COUNT(*) AS c FROM deviceErrorEvents WHERE acknowledgedAt IS NULL GROUP BY systemId").fetchall()
     return {row["systemId"]: row["c"] for row in rows}
+
+
+def acknowledge_device_error_events(system_id: str, event_id: str | None = None) -> int:
+    """Marks open events of one device as acknowledged (one event, or all when `event_id` is None).
+    Already acknowledged events keep their first timestamp; an event that belongs to another device
+    is never touched. Returns how many were newly acknowledged."""
+    sql = "UPDATE deviceErrorEvents SET acknowledgedAt = ? WHERE systemId = ? AND acknowledgedAt IS NULL"
+    params: list = [_now(), system_id]
+    if event_id is not None:
+        sql += " AND id = ?"
+        params.append(event_id)
+    with _conn() as conn:
+        return conn.execute(sql, params).rowcount

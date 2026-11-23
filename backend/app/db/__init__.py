@@ -163,6 +163,7 @@ from .config_versions import (  # noqa: E402
     save_device_config_version,
 )
 from .error_events import (  # noqa: E402
+    acknowledge_device_error_events,
     add_device_error_event,
     count_error_events_by_system,
     list_device_error_events,
@@ -202,6 +203,7 @@ from .chats import (  # noqa: E402
 )
 
 __all__ = [
+    "acknowledge_device_error_events",
     "DB_PATH",
     "_ERROR_EVENT_KEEP",
     "DEFAULT_SETTINGS",
