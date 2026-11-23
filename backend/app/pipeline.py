@@ -28,7 +28,8 @@ def _extra_targets(settings: dict, subnets_hint: list[str]) -> list[str]:
     """Hosts to probe that the subnet sweep would never reach.
 
     Two sources. Explicitly configured targets (Einstellungen -> Netzwerk-Scan), and the addresses
-    of devices someone already entered by hand -- a router at 10.1.1.1 while the LAN is
+    of devices someone already entered by hand (`discovered == 0`; devices a scan or a controller
+    API found are skipped -- they arrive through their own source) -- a router at 10.1.1.1 while the LAN is
     192.168.1.0/24, or a VM behind a bridge. Without this, a hand-created entry could never be
     enriched: it would sit in the inventory with a name and nothing else forever.
     """
@@ -42,6 +43,8 @@ def _extra_targets(settings: dict, subnets_hint: list[str]) -> list[str]:
             continue
 
     for system in db.list_systems():
+        if system.get("discovered"):
+            continue
         address = (system.get("ip") or "").strip()
         if not address or address in targets:
             continue
@@ -320,7 +323,8 @@ def _make_names_unique(findings: list[dict]) -> None:
 
     Docker containers all share their host's IP, so the IP-octet suffix means nothing for them
     (their names already carry project and service). Only an exact duplicate on the same host
-    (e.g. `docker compose --scale`) gets a running counter.
+    (e.g. `docker compose --scale`) gets a running counter. The same counter applies to any
+    other finding without an IP, where no octet suffix is possible.
     """
     name_counts: dict[str, int] = {}
     for f in findings:
@@ -331,7 +335,7 @@ def _make_names_unique(findings: list[dict]) -> None:
     for f in findings:
         if name_counts[f["name"]] <= 1:
             continue
-        if "docker" in (f.get("extra") or {}):
+        if "docker" in (f.get("extra") or {}) or not f.get("ip"):
             key = (f["name"], "")
             group_counts[key] = group_counts.get(key, 0) + 1
             if group_counts[key] > 1:
@@ -387,8 +391,13 @@ async def run_full_scan(scan_id: str) -> None:
     created = updated = 0
     unifi_results: list[tuple[dict, dict]] = []
 
+    highest = 0
+
     def progress(phase: str, percent: int, log_line: str | None = None) -> None:
-        db.update_scan(scan_id, phase=phase, progress=percent, log_line=log_line)
+        # Clamped: the bar never moves backwards, even if a later phase reports a lower value.
+        nonlocal highest
+        highest = max(highest, percent)
+        db.update_scan(scan_id, phase=phase, progress=highest, log_line=log_line)
 
     def log(line: str) -> None:
         db.update_scan(scan_id, log_line=line)
@@ -396,7 +405,9 @@ async def run_full_scan(scan_id: str) -> None:
     try:
         # The vendor database makes every later step better (it feeds the rule-based guess and the
         # LLM's evidence), so it is refreshed first -- but never at the cost of the scan.
-        if not oui.is_downloaded():
+        if not oui.is_downloaded() and not oui.download_due():
+            log("Hersteller-Datenbank: letzter Versuch vor weniger als 24 h, nächster Versuch später")
+        elif not oui.is_downloaded():
             progress("Hersteller-Datenbank laden", 1, "Lade IEEE-Herstellerdatenbank")
             ok, message = await oui.refresh_from_ieee()
             log(f"Hersteller-Datenbank: {message}")
@@ -574,7 +585,7 @@ async def run_full_scan(scan_id: str) -> None:
             fw_accounts = [a for a in db.list_accounts()
                            if a.get("category") == "unifi" and a.get("allowProbe")]
             if fw_accounts:
-                progress("UniFi-Firewall erfassen", 89, "Lese Firewall-Zonen und -Regeln")
+                progress("UniFi-Firewall erfassen", 88, "Lese Firewall-Zonen und -Regeln")
             for account in fw_accounts:
                 try:
                     fw = await asyncio.wait_for(firewall_unifi.probe(
@@ -600,7 +611,7 @@ async def run_full_scan(scan_id: str) -> None:
             nft_accounts = [a for a in db.list_accounts()
                             if a.get("category") == firewall_nft.CATEGORY and a.get("allowProbe")]
             if nft_accounts:
-                progress("Host-Firewalls erfassen", 89, "Lese nftables-Regelsätze")
+                progress("Host-Firewalls erfassen", 88, "Lese nftables-Regelsätze")
             for account in nft_accounts:
                 target = db.get_system(account["systemId"]) if account.get("systemId") else None
                 host = ((target or {}).get("ip") or "").strip()
@@ -727,7 +738,7 @@ async def run_full_scan(scan_id: str) -> None:
 
         _make_names_unique(findings)
 
-        progress("Inventar aktualisieren", 94, None)
+        progress("Inventar aktualisieren", 92, None)
         seen_ids: set[str] = set()
         for finding in findings:
             system, was_created = db.upsert_discovered_system(finding)
@@ -775,7 +786,7 @@ async def run_full_scan(scan_id: str) -> None:
 
         probed = 0
         if settings.get("scanUseCredentials", True):
-            progress("Geräte mit hinterlegtem Zugang abfragen", 93, None)
+            progress("Geräte mit hinterlegtem Zugang abfragen", 94, None)
             probed, probe_warnings, learned_arp, printer_supplies = await _probe_with_credentials(log)
             warnings += probe_warnings
             if learned_arp:

@@ -38,7 +38,7 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (121)
+## Alle Punkte je Fähigkeit (116)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (3)
 
@@ -89,17 +89,12 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 2. Die Latenz des Speedtests ist die erste Anfrage auf einer neuen Verbindung und enthält TCP- und TLS-Aufbau – systematisch zu hoch. → #151
 3. REST-Tool-Namen weichen von den LLM-Werkzeugnamen ab (`ping` vs. `ping_host`); Alternative vereinheitlichen? → #151
 
-### [discovery-und-scan](capabilities/discovery-und-scan/spec.md) (9)
+### [discovery-und-scan](capabilities/discovery-und-scan/spec.md) (4)
 
-1. Fortschritt springt rückwärts (94 % „Inventar aktualisieren“, dann 93 % Zugangs-Abfrage, `pipeline.py:480`/`:522`). → #138
-2. Einzelziele umfassen IPs *aller* Inventar-Geräte außerhalb der Bereiche (auch entdeckte Controller-Clients/Proxmox-Gäste), nicht nur „von Hand eingetragene“ wie der Docstring sagt (`pipeline.py:42`). Kann viele geroutete Ziele erzeugen. → #138
-3. Ungültiger Freitext-Bereich (z. B. „bad“) plus ein mDNS/SSDP-Fund außerhalb von `alive` führt in `discovery.py:859` zu `ValueError` aus `ip_network` und lässt den ganzen Scan scheitern. → #137
-4. Port 81 steht in der Banner-Portliste, aber nicht im Port-Katalog, wird also nie als offen erkannt (`discovery.py:341`, `ports.py:12`). → #138
-5. Ohne geladenes OUI-Register versucht jeder Scan erneut den Download (bis 120 s), auch offline. → #138
-6. MEMBER darf `GET /api/scans*` inkl. Protokoll lesen (Gerätenamen, Fehlertexte der Zugangs-Abfrage), obwohl die Scan-Seite admin-only ist. Absicht? → #119
-7. Start-Prüfung „läuft schon ein Scan“ und Anlegen sind nicht atomar (Rennen Zeitplan/manuell theoretisch möglich). → #129
-8. Namensvergabe für Nicht-Container ohne IP bei Duplikaten: kein Suffix, Duplikat bleibt. → #138
-9. Abgeschaltete Quelle (`scanEnableDocker=false`, Controller aus) setzt alle bisher aus dieser Quelle entdeckten Geräte beim nächsten Scan auf `offline`. → #139
+1. Ungültiger Freitext-Bereich (z. B. „bad“) plus ein mDNS/SSDP-Fund außerhalb von `alive` führt in `discovery.py:859` zu `ValueError` aus `ip_network` und lässt den ganzen Scan scheitern. → #137
+2. MEMBER darf `GET /api/scans*` inkl. Protokoll lesen (Gerätenamen, Fehlertexte der Zugangs-Abfrage), obwohl die Scan-Seite admin-only ist. Absicht? → #119
+3. Start-Prüfung „läuft schon ein Scan“ und Anlegen sind nicht atomar (Rennen Zeitplan/manuell theoretisch möglich). → #129
+4. Abgeschaltete Quelle (`scanEnableDocker=false`, Controller aus) setzt alle bisher aus dieser Quelle entdeckten Geräte beim nächsten Scan auf `offline`. → #139
 
 ### [dokumentation](capabilities/dokumentation/spec.md) (10)
 
