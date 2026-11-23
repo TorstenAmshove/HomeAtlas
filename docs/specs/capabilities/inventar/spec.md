@@ -155,7 +155,9 @@ Das System MUSS beim Übergang einer Bedeutung auf `critical` (Anlegen, Bearbeit
 Scan-Übernahme) für ein Gerät mit nicht-leerer IP oder Hostname einmalig `monitored=1` setzen.
 „Kritisch ⇒ überwacht" ist nur dieser Standard beim Markieren, keine feste Regel: ADMIN kann die
 Überwachung danach abwählen und sie bleibt aus (kein Zurücksetzen bei PATCH, Monitor-Runde, Scan
-oder Start). Ein im selben Schreibvorgang geänderter `monitored`-Wert gewinnt über den Standard.
+oder Start). Ein im selben Schreibvorgang mitgeschickter `monitored`-Wert gewinnt immer über den
+Standard, auch wenn er dem gespeicherten entspricht; das Bearbeiten-Formular schickt `monitored`
+deshalb bei jeder Änderung der Bedeutung mit.
 Ohne Adresse bleibt `monitored` unverändert (eine später nachgetragene Adresse schaltet nichts
 ein). Entfernen von „kritisch" ändert `monitored` nicht; erneutes Markieren ist ein neuer Übergang
 und schaltet wieder ein. **[Muss]**
@@ -163,6 +165,10 @@ und schaltet wieder ein. **[Muss]**
 #### Szenario: Gerät wird kritisch
 - **WENN** ADMIN ein Gerät mit IP auf „kritisch" setzt
 - **DANN** ist es in der Antwort des PATCH bereits `monitored=1`
+
+#### Szenario: Beim Markieren gleich wieder abgewählt
+- **WENN** ADMIN ein nicht überwachtes Gerät auf „kritisch" setzt, den automatisch gesetzten Haken abwählt und speichert
+- **DANN** bleibt `monitored=0`
 
 #### Szenario: Überwachung abgewählt
 - **WENN** ADMIN bei einem kritischen Gerät `monitored` auf 0 setzt

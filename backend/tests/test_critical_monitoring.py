@@ -103,3 +103,19 @@ def test_merge_taking_critical_importance_enables_monitoring(temp_db):
     db.merge_systems(keep["id"], remove["id"])
     got = db.get_system(keep["id"])
     assert got["importance"] == "critical" and got["monitored"] == 1
+
+
+def test_unticked_box_in_same_save_wins_when_unchanged(temp_db):
+    """Form flow: device not monitored, user marks it critical (box gets ticked automatically),
+    unticks it again and saves -> PATCH {importance: critical, monitored: 0}; 0 equals the stored
+    value but is still the user's explicit choice."""
+    a = _dev(ip="10.0.0.1")
+    assert _mon(a["id"]) == 0
+    db.update_system(a["id"], {"importance": "critical", "monitored": 0})
+    assert _mon(a["id"]) == 0
+
+
+def test_monitored_none_does_not_block_default(temp_db):
+    a = _dev(ip="10.0.0.1")
+    db.update_system(a["id"], {"importance": "critical", "monitored": None})
+    assert _mon(a["id"]) == 1

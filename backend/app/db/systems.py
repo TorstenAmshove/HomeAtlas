@@ -41,13 +41,13 @@ def _enables_monitoring_on_critical(current: dict, patch: dict) -> bool:
     """True when this write is the transition "not critical -> critical" for a device with an address.
 
     "Critical implies monitored" is only a default applied once, at the moment of marking: later
-    an admin may switch monitoring off and it stays off. An explicit, changed `monitored` value in
-    the same write wins over the default; an unchanged one (the edit form always sends the whole
-    draft) does not count as explicit.
+    an admin may switch monitoring off and it stays off. A `monitored` value in the same write is
+    explicit and always wins over the default, even when it equals the stored one -- the edit form
+    sends only changed fields, plus `monitored` whenever the importance changes (deviceDraft.ts).
     """
     if patch.get("importance") != "critical" or current.get("importance") == "critical":
         return False
-    if "monitored" in patch and bool(patch["monitored"]) != bool(current.get("monitored")):
+    if patch.get("monitored") is not None:
         return False
     return _has_address({**current, **patch})
 
