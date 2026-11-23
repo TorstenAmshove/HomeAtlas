@@ -106,6 +106,18 @@ def update_system(system_id: str, patch: dict) -> dict | None:
     return get_system(system_id)
 
 
+def set_parent_from_source(system_id: str, parent_id: str, source: str) -> dict | None:
+    """Sets a controller-derived parent (omada/unifi/proxmox) and records it in
+    `extra.parentSource`. A parent a human set (`parentSource == "manual"`) is never touched."""
+    current = get_system(system_id)
+    if current is None:
+        return None
+    extra = current.get("extra") or {}
+    if extra.get("parentSource") == "manual":
+        return current
+    return update_system(system_id, {"parentId": parent_id, "extra": {**extra, "parentSource": source}})
+
+
 def delete_system(system_id: str) -> None:
     with _conn() as conn:
         conn.execute("UPDATE systems SET parentId = NULL WHERE parentId = ?", (system_id,))

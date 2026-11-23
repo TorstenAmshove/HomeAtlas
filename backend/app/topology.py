@@ -21,6 +21,7 @@ from __future__ import annotations
 import html
 import ipaddress
 import re
+from datetime import datetime, timedelta, timezone
 
 from . import db
 
@@ -460,7 +461,7 @@ def render(settings: dict | None = None) -> str:
     # container/VM used to be excluded here and only ever showed up folded into its host's
     # collapsed "N Container/VM" count -- exactly the kind of thing marking it critical was
     # supposed to prevent -- so it now gets its own box here like any other critical device.
-    host_ids = {s["id"] for s in systems if s["kind"] in ("server", "nas")}
+    host_ids = {s["id"] for s in systems if s["kind"] not in ("container", "vm")}
     children_by_host: dict[str, list[dict]] = {}
     for kind in ("container", "vm"):
         for s in by_kind.get(kind, []):
@@ -645,6 +646,24 @@ def _router_vlan_ids(system: dict) -> dict[str, str]:
 _MIN_SUBNET_DEVICES = 3
 
 
+_STALE_DAYS = 30
+
+
+def _counts_in_layer3(system: dict) -> bool:
+    """Whether a device counts towards a Layer-3 subnet: no Docker containers (same IP as their
+    host) and no discovered device that has been offline for more than `_STALE_DAYS` days. An
+    unparsable or missing `lastSeen` counts, so a data gap never hides a device."""
+    if "docker" in (system.get("discoverySource") or "").split("+"):
+        return False
+    if system.get("discovered") and system.get("status") == "offline":
+        try:
+            seen = datetime.strptime(system.get("lastSeen") or "", "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        except ValueError:
+            return True
+        return datetime.now(timezone.utc) - seen <= timedelta(days=_STALE_DAYS)
+    return True
+
+
 def _infer_router_hierarchy(routers: list[dict], raw_subnets: dict[str, set[str]]) -> dict[str, str | None]:
     """Which router is the effective *parent* of which (its upstream, closer to Internet), so a
     secondary router plugged into the household's primary one (a Mikrotik behind a FritzBox) is
@@ -680,17 +699,6 @@ def _infer_router_hierarchy(routers: list[dict], raw_subnets: dict[str, set[str]
     return parent_by_id
 
 
-def _looks_like_gateway_ip(ip: str) -> bool:
-    """Whether an IP's last octet is .1 or .254 -- the two conventional gateway-address endings
-    (FritzBox and most home routers default to .1, some ISP/enterprise gear to .254). A `kind ==
-    "router"` system without one of these is, in practice, something misclassified rather than a
-    real gateway (a mesh satellite, an AP that reports itself oddly, a stale duplicate) -- the
-    Layer-3 view's router chain is built entirely from what `_infer_router_hierarchy` can deduce
-    about real gateways, so one of those would otherwise show up as a spurious, unconnected box."""
-    parts = (ip or "").strip().split(".")
-    return len(parts) == 4 and parts[3] in ("1", "254")
-
-
 def render_layer3(settings: dict | None = None) -> str:
     """Alternative view of the same inventory, grouped by IP subnet (/24) instead of by how
     devices are physically wired -- useful once a household has more than one subnet or VLAN (a
@@ -705,10 +713,13 @@ def render_layer3(settings: dict | None = None) -> str:
     rather than all lumped together as roots, so a household with FritzBox -> Mikrotik -> its own
     LANs actually renders as that chain instead of two disconnected boxes.
 
-    Only a `kind == "router"` system whose own stored IP ends in .1 or .254 (see
-    `_looks_like_gateway_ip`) is considered for this view at all -- anything else with that `kind`
-    is left out of the plan entirely, on this view only, rather than drawn as a router or folded
-    into an "other devices" count (the physical plan is unaffected).
+    Routers are recognised by `kind == "router"` and a stored IP, not by the IP's last octet; a
+    router without an IP has no derivable subnet and stays off this view (the physical plan is
+    unaffected). Device counts leave out Docker containers (they share their host's IP) and
+    discovered devices that have been offline for more than `_STALE_DAYS` days.
+
+    A /24 approximation (from probe facts) that overlaps an exact controller CIDR is dropped in
+    favour of the CIDR, so one physical network never enters the chain inference twice.
 
     A subnet a router shares with its own upstream is that upstream's LAN, not something the
     downstream router "serves" -- excluded from the downstream router's own networks (see
@@ -718,10 +729,10 @@ def render_layer3(settings: dict | None = None) -> str:
     settings = settings or db.get_settings()
     all_systems = db.list_systems()
     routers = sorted(
-        (s for s in all_systems if s["kind"] == "router" and _looks_like_gateway_ip(s.get("ip"))),
+        (s for s in all_systems if s["kind"] == "router" and s.get("ip")),
         key=lambda r: r["name"].lower(),
     )
-    others = [s for s in all_systems if s["kind"] != "router" and s.get("ip")]
+    others = [s for s in all_systems if s["kind"] != "router" and s.get("ip") and _counts_in_layer3(s)]
 
     controller_networks: list[tuple[ipaddress.IPv4Network, str | None, str | None]] = []
     for resource in db.list_network_resources(kind="network", active_only=True):
@@ -749,7 +760,23 @@ def render_layer3(settings: dict | None = None) -> str:
             if vlan_id:
                 controller_vlans_by_owner.setdefault(owner_id, {})[str(network)] = vlan_id
 
-    raw_subnets = {r["id"]: _router_subnets(r) | controller_subnets_by_owner.get(r["id"], set()) for r in routers}
+    active_cidrs = [network for network, _, _ in controller_networks]
+    controller_cidr_strs = {str(n) for n in active_cidrs}
+
+    def _approximation_kept(subnet: str) -> bool:
+        if subnet in controller_cidr_strs:
+            return True
+        try:
+            net = ipaddress.ip_network(subnet, strict=False)
+        except ValueError:
+            return True
+        return not any(isinstance(net, ipaddress.IPv4Network) and net.overlaps(c) for c in active_cidrs)
+
+    raw_subnets = {
+        r["id"]: {s for s in _router_subnets(r) if _approximation_kept(s)}
+        | controller_subnets_by_owner.get(r["id"], set())
+        for r in routers
+    }
     router_vlans = {r["id"]: _router_vlan_ids(r) for r in routers}
     for router_id, vlans in controller_vlans_by_owner.items():
         router_vlans.setdefault(router_id, {}).update(vlans)
