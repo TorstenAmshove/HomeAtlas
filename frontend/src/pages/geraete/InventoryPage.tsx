@@ -473,7 +473,7 @@ export default function InventoryPage() {
               <span className="inv-name-text">{s.name}</span>
               {s.importance === "critical" && <span className="inv-star" title="wichtig (kritisch)" aria-label="wichtig">★</span>}
               {!!s.errorCount && (
-                <span className="inv-flag bad" title={`${s.errorCount} protokollierte(r) Fehler – siehe Geräteseite`}>
+                <span className="inv-flag bad" title={`${s.errorCount} unquittierte(r) Fehler – siehe Geräteseite`}>
                   ⚠ {s.errorCount}
                 </span>
               )}

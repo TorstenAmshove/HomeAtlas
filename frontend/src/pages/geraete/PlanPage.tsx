@@ -297,7 +297,7 @@ export default function PlanPage() {
                       <span className="plan-row-main">
                         <span className="plan-row-name">{s.name}</span>
                         <span className="plan-row-sub">
-                          {[s.ip || "keine Adresse", s.ports.length > 0 ? `Port ${s.ports.join(", ")}` : "Ping"].join(" · ")}
+                          {[s.ip || "keine Adresse", s.ports.length > 0 ? `Port ${s.ports.join(", ")}` : s.hostOnly ? "prüft nur den Host" : "Ping"].join(" · ")}
                         </span>
                       </span>
                       <span className={`geraete-chip ${cls}`} title={down?.title || undefined}>

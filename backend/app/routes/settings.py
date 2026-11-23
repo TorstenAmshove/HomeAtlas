@@ -11,7 +11,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, create_model, model_validator
 
-from .. import auth, crypto, db, docker_probe, docs, llm_providers, model_catalog, oui, probe_auth
+from .. import auth, crypto, db, discovery, docker_probe, docs, llm_providers, model_catalog, oui, probe_auth
 from ..deps import current_user, logger, require_admin
 from ..version import app_version
 
@@ -111,6 +111,12 @@ class _SettingsPatchBase(BaseModel):
             value = getattr(self, name, None)
             if value and value != _MASK:
                 raise ValueError(f"{name}: Entfernen und neuer Wert gleichzeitig.")
+        return self
+
+    @model_validator(mode="after")
+    def _valid_scan_subnets(self):
+        if getattr(self, "scanSubnets", None) is not None:
+            self.scanSubnets = discovery.validate_scan_subnets(self.scanSubnets)
         return self
 
 

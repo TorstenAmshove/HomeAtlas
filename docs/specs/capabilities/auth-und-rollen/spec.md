@@ -352,20 +352,35 @@ Quelle: `backend/app/auth.py:112`, `backend/app/main.py:213`
 ADMIN MUSS Benutzer auflisten, anlegen, ändern und löschen können:
 - **Liste** (`GET /api/users`): öffentliche Felder `id, username, role, displayName, totpEnabled,
   createdAt`, sortiert nach Anlagezeit. Hash, Salz, TOTP-Geheimnis nie.
-- **Anlegen** (`POST /api/users`, `{username (≥1 Zeichen), password, role = MEMBER, displayName = ""}`):
-  Name schon vergeben → 409 „Diesen Benutzernamen gibt es schon.“; Richtlinie gegen Passwort und
-  Benutzernamen → 400; unbekannte Rolle wird stillschweigend zu MEMBER; leerer Anzeigename wird zum
+- **Anlegen** (`POST /api/users`, `{username, password, role = MEMBER, displayName = ""}`):
+  Name wird getrimmt (Schreibweise bleibt), 1–64 Zeichen aus Unicode-Buchstaben/Ziffern und
+  `. _ - @`, sonst 400; unbekannte Rolle → 400 „Unbekannte Rolle.“; Name schon vergeben, auch in
+  anderer Schreibweise (oder Race gegen den UNIQUE-Constraint) → 409 „Diesen Benutzernamen gibt
+  es schon.“; Richtlinie gegen Passwort und Benutzernamen → 400; leerer Anzeigename wird zum
   Benutzernamen; neuer Benutzer hat keinen Faktor; Protokoll `user.create` „<name> als <Rolle>“.
 - **Ändern** (`PATCH /api/users/{id}`, `{displayName?, role?, newPassword?}`): 404 wenn unbekannt;
-  unbekannte Rolle → 400 „Unbekannte Rolle.“; `newPassword` (nicht leer) wird gegen Richtlinie
-  geprüft, gesetzt, und ALLE Sessions des Ziels werden beendet; Antwort `{user, changes[]}`
+  unbekannte Rolle → 400 „Unbekannte Rolle.“; zuerst wird alles geprüft (Rolle, letzter Admin,
+  Passwortrichtlinie), erst danach geschrieben – eine abgelehnte Anfrage ändert nichts;
+  `newPassword` (nicht leer) wird gesetzt, und ALLE Sessions des Ziels werden beendet; Antwort `{user, changes[]}`
   (deutsche Änderungsliste); Protokoll `user.update` „<name>: <Änderungen>“ nur bei Änderungen.
-- **Löschen** (`DELETE /api/users/{id}`): eigenes Konto → 400; entfernt Benutzer und dessen
+- **Löschen** (`DELETE /api/users/{id}`): unbekannte ID → 404; eigenes Konto → 400; entfernt Benutzer und dessen
   Sessions; Antwort `{ok: true}`. **[Muss]**
 
 #### Szenario: Doppelter Benutzername
 - **WENN** ADMIN legt `anna` an, obwohl `anna` existiert
 - **DANN** 409
+
+#### Szenario: Benutzername in anderer Schreibweise
+- **WENN** ADMIN legt `Anna` an, obwohl `anna` existiert
+- **DANN** 409
+
+#### Szenario: PATCH mit schwachem Passwort
+- **WENN** ADMIN sendet `displayName`, `role` und ein zu schwaches `newPassword`
+- **DANN** 400, Anzeigename, Rolle und Sessions bleiben unverändert, kein Protokolleintrag
+
+#### Szenario: Login ohne Rücksicht auf Groß-/Kleinschreibung
+- **WENN** `anna` meldet sich als ` Anna ` an
+- **DANN** Anmeldung gelingt (exakter Treffer hat Vorrang; mehrdeutige Altnamen → normaler Login-Fehler)
 
 #### Szenario: Admin-Reset des Passworts
 - **WENN** ADMIN setzt per PATCH `newPassword` für Benutzer X
@@ -507,7 +522,7 @@ Quelle: `backend/app/reset_password.py:40`, `backend/app/reset_password.py:73`, 
 ## Daten
 
 Aus [data-model](../../contracts/data-model.md):
-- `users`: `id`, `username` (eindeutig, case-sensitiv), `passwordHash`, `salt`, `role` (`ADMIN`|`MEMBER`),
+- `users`: `id`, `username` (eindeutig exakt per Constraint, bei Neuanlage zusätzlich ohne Rücksicht auf Schreibweise; Altnamen unverändert), `passwordHash`, `salt`, `role` (`ADMIN`|`MEMBER`),
   `displayName`, `totpSecretEnc` (verschlüsselt, siehe [zugangsdaten](../zugangsdaten/spec.md)),
   `totpEnabled` (0/1), `createdAt`. Öffentlich nur `id, username, role, displayName, totpEnabled, createdAt`.
 - `sessions`: `token`, `userId`, `expiresAt` (geschrieben/gelöscht).
@@ -571,9 +586,4 @@ UI-Seite(n): `frontend/src/gates/Login.tsx` (ohne Session, jede Route),
 ## OFFEN
 
 - > OFFEN: `DELETE /api/users/{id}` schreibt keinen Protokolleintrag, obwohl die AccessLogPage ein Label `user.delete` kennt und README „Benutzeränderungen“ als protokolliert nennt (wirkt wie Bug). → #122
-- > OFFEN: `DELETE /api/users/{id}` antwortet für unbekannte IDs mit `{ok: true}` statt 404 (PATCH/mfa-reset liefern 404). → #123
-- > OFFEN: PATCH `/api/users/{id}` ist nicht atomar: Anzeigename/Rolle werden gespeichert, bevor ein zu schwaches `newPassword` mit 400 abgelehnt wird. → #123
-- > OFFEN: POST `/api/users` mappt unbekannte Rollen still auf MEMBER, PATCH antwortet 400 – uneinheitlich. → #123
 - > OFFEN: AccessLogPage kennt Label `mfa.disable` (nie geschrieben). (`mfa.reset` hat seit PR 6 ein Label und gilt als sicherheitsrelevant.) → #122
-- > OFFEN: Benutzernamen sind case-sensitiv und werden weder getrimmt noch validiert (außer ≥ 1 Zeichen). → #123
-- > OFFEN: Selbst-Herabstufung eines ADMIN ist erlaubt, solange ein weiterer ADMIN existiert; die eigene UI-Ansicht bleibt bis zum Reload Admin. → #123

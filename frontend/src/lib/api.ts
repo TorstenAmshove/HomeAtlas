@@ -99,6 +99,8 @@ export interface MonitorSystem {
   importance: string;
   lastSeen: string;
   ports: number[];
+  /** Container without ports: the ping only proves the host is up. */
+  hostOnly?: boolean;
 }
 
 export interface MonitorState {
@@ -185,6 +187,8 @@ export interface DeviceErrorEvent {
   level: "error" | "warning" | "info";
   message: string;
   createdAt: string;
+  /** null = open; only open events count toward the inventory badge. */
+  acknowledgedAt: string | null;
 }
 
 export interface Account {
@@ -502,6 +506,10 @@ export const api = {
     get<{ version: ConfigVersion }>(`/systems/${systemId}/config-versions/${id}`),
   listSystemErrors: (systemId: string) =>
     get<{ events: DeviceErrorEvent[] }>(`/systems/${systemId}/errors`),
+  acknowledgeSystemError: (systemId: string, eventId: string) =>
+    post<{ ok: boolean }>(`/systems/${systemId}/errors/${eventId}/acknowledge`),
+  acknowledgeAllSystemErrors: (systemId: string) =>
+    post<{ acknowledged: number }>(`/systems/${systemId}/errors/acknowledge`),
 
   listMcpTokens: () => get<{ tokens: ApiToken[] }>("/settings/mcp-tokens"),
   createMcpToken: (label: string) => post<{ token: ApiToken }>("/settings/mcp-tokens", { label }),

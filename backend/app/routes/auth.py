@@ -4,6 +4,7 @@ Moved out of main.py unchanged; see main.py for the cross-cutting rules."""
 from __future__ import annotations
 
 import secrets as _secrets
+import sqlite3
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
@@ -167,20 +168,33 @@ class UserBody(BaseModel):
     displayName: str = ""
 
 
+def _checked_role(role: str) -> str:
+    if role not in (auth.ROLE_ADMIN, auth.ROLE_MEMBER):
+        raise HTTPException(status_code=400, detail="Unbekannte Rolle.")
+    return role
+
+
 @router.post("/api/users")
 async def create_user(body: UserBody, request: Request, admin: dict = Depends(require_admin)) -> dict:
-    if db.get_user_by_username_raw(body.username) is not None:
+    try:
+        username = security.normalize_username(body.username)
+    except security.UsernameError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    role = _checked_role(body.role)
+    if db.username_taken(username):
         raise HTTPException(status_code=409, detail="Diesen Benutzernamen gibt es schon.")
     try:
-        security.check_password(body.password, body.username)
+        security.check_password(body.password, username)
     except security.PasswordError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    role = body.role if body.role in (auth.ROLE_ADMIN, auth.ROLE_MEMBER) else auth.ROLE_MEMBER
     salt = _secrets.token_hex(16)
-    user_id = db.create_user(body.username, auth.hash_password(body.password, salt), salt, role, body.displayName)
+    try:
+        user_id = db.create_user(username, auth.hash_password(body.password, salt), salt, role, body.displayName)
+    except sqlite3.IntegrityError as exc:  # race against the UNIQUE constraint
+        raise HTTPException(status_code=409, detail="Diesen Benutzernamen gibt es schon.") from exc
     ip, agent = _client(request)
     db.log_access("user.create", user=admin, ip=ip, user_agent=agent,
-                  detail=f"{body.username} als {role}")
+                  detail=f"{username} als {role}")
     return {"user": db.get_user(user_id)}
 
 
@@ -197,14 +211,15 @@ async def update_user(user_id: str, body: UserPatchBody, request: Request,
     if target is None:
         raise HTTPException(status_code=404, detail="Benutzer nicht gefunden.")
 
+    # Validate everything first, write afterwards: a rejected request must change nothing.
+    if body.role is not None:
+        _checked_role(body.role)
     patch: dict = {}
     changes: list[str] = []
     if body.displayName is not None and body.displayName != target["displayName"]:
         patch["displayName"] = body.displayName
         changes.append("Anzeigename")
     if body.role is not None and body.role != target["role"]:
-        if body.role not in (auth.ROLE_ADMIN, auth.ROLE_MEMBER):
-            raise HTTPException(status_code=400, detail="Unbekannte Rolle.")
         # Demoting the last admin would leave nobody able to reach settings or secrets, with no
         # recovery path short of editing the database by hand.
         admins = [u for u in db.list_users() if u["role"] == auth.ROLE_ADMIN]
@@ -213,14 +228,15 @@ async def update_user(user_id: str, body: UserPatchBody, request: Request,
                                 detail="Der letzte Administrator kann die Rolle nicht abgeben.")
         patch["role"] = body.role
         changes.append(f"Rolle → {body.role}")
-    if patch:
-        db.update_user(user_id, patch)
-
     if body.newPassword:
         try:
             security.check_password(body.newPassword, target["username"])
         except security.PasswordError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if patch:
+        db.update_user(user_id, patch)
+    if body.newPassword:
         auth.set_password(user_id, body.newPassword)
         # An open session would otherwise keep working with the replaced credential, which is not
         # what anyone means by "reset the password".
@@ -236,6 +252,8 @@ async def update_user(user_id: str, body: UserPatchBody, request: Request,
 
 @router.delete("/api/users/{user_id}")
 async def delete_user(user_id: str, user: dict = Depends(require_admin)) -> dict:
+    if db.get_user(user_id) is None:
+        raise HTTPException(status_code=404, detail="Benutzer nicht gefunden.")
     if user_id == user["id"]:
         raise HTTPException(status_code=400, detail="Das eigene Konto lässt sich nicht löschen.")
     admins = [u for u in db.list_users() if u["role"] == auth.ROLE_ADMIN]

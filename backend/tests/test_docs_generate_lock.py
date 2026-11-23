@@ -93,6 +93,7 @@ def test_reset_route_409_and_page_untouched(client, monkeypatch):
     called = []
     monkeypatch.setattr(docs, "is_generating", lambda: True)
     monkeypatch.setattr(db, "reset_doc_page", lambda slug: called.append(slug))
+    db.upsert_doc_page("uebersicht", "x", "T", "", "", 1)
     r = client.post("/api/docs/uebersicht/reset")
     assert r.status_code == 409
     assert called == []

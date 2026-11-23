@@ -79,6 +79,11 @@ Defaults auffüllen und Änderungen als flaches Zusammenführen anwenden: nur ü
 ändern sich, alle anderen bleiben erhalten. Änderungen MÜSSEN beim nächsten Lesen wirksam sein
 (kein Neustart). **[Muss]**
 
+`scanSubnets` MUSS beim Speichern validiert werden: jeder Eintrag ein IPv4-Netzbereich, sonst 422
+mit Meldung, die den Eintrag nennt und nichts speichert; Einträge werden getrimmt, normalisiert und
+dedupliziert (Tests: `backend/tests/test_main_settings_api.py::test_patch_invalid_scan_subnet_422`,
+`::test_patch_scan_subnets_trimmed_normalised`). **[Muss]**
+
 #### Szenario: Teil-Update
 - **WENN** erst `scanControllerNetworkIds=["a"]`, `scanControllerNetworksSeen=["a","b"]` und danach nur `homeName="X"` gespeichert wird
 - **DANN** sind beide Netz-Listen unverändert und der Default von `scanControllerNetworkIds` bleibt `[]`

@@ -131,7 +131,7 @@ CDP liefert nur Namen; SNMP gruppiert nach den letzten drei OID-Komponenten) **[
 Quelle: `backend/app/topology.py:69`, `backend/app/topology.py:171`, `backend/app/topology.py:193`
 
 ### Requirement: Host-Zusammenfassung für Container/VMs
-Das System MUSS bei einem wichtigen Server oder NAS, dem nicht-kritische Container/VMs zugeordnet
+Das System MUSS bei einem wichtigen Host jeder Art (z. B. auch `pc`), dem nicht-kritische Container/VMs zugeordnet
 sind, im Kasten „<IP> · <N> Container/VM, <M> aktiv ▸“ zeigen (M = Anzahl online). Ein Klick auf
 diesen Kasten MUSS die Geräteliste gefiltert auf diesen Host öffnen (`/geraete?parentId=<id>`),
 statt der Geräteseite. **[Muss]**
@@ -247,8 +247,23 @@ Das System MUSS jedem Router alle Subnetze zuordnen, in denen er eine Schnittste
 Ohne Schnittstellendaten gilt das /24 seiner eigenen IP. Subnetzmasken, `0.x`, `127.x`,
 `255.255.255.255` und Zeilen mit „gateway“ zählen nicht als Schnittstellenadresse. **[Muss]**
 
-Als Router gelten in dieser Ansicht nur Geräte der Art `router`, deren IP auf `.1` oder `.254`
-endet; andere Router-Geräte fehlen in dieser Ansicht ganz. Router werden nach Name sortiert. **[Impl]**
+Als Router gelten in dieser Ansicht alle Geräte der Art `router` mit IP, unabhängig von der
+IP-Endung; ein Router ohne IP fehlt in dieser Ansicht. Router werden nach Name sortiert. **[Impl]**
+
+Gerätezahlen der Subnetze (inkl. „N erreichbar“ und Mindestschwelle) zählen keine Docker-Container
+und keine entdeckten, offline gemeldeten Geräte, deren `lastSeen` älter als 30 Tage ist (nicht
+lesbares `lastSeen` zählt mit). **[Impl]**
+
+Überlappt eine /24-Näherung aus Schnittstellendaten ein aktives exaktes Controller-CIDR, geht nur
+das CIDR in die Ketteninferenz ein. **[Impl]**
+
+#### Szenario: Router ohne .1/.254
+- **WENN** ein Router 192.168.1.5 existiert
+- **DANN** erscheint er als Router im Layer-3-Plan
+
+#### Szenario: Controller-CIDR statt Näherung
+- **WENN** ein Router ein Probe-/24 und ein Controller-/26 im selben Netz hat
+- **DANN** zeigt der Plan nur das /26
 
 #### Szenario: Ungeprüfter Router
 - **WENN** ein Router 192.168.1.1 ohne ausgelesene Schnittstellendaten existiert
@@ -306,8 +321,14 @@ Das System MUSS bei jedem Scan nach dem Inventar-Update Elterngeräte ableiten: 
   sonstige), nur wenn der Container noch kein Elterngerät hat.
 - Proxmox-Gast → Inventargerät (server/nas), dessen Hostname bzw. Name dem Proxmox-Knoten
   entspricht (ohne Groß/Klein), sonst das Gerät, dem der Proxmox-Zugang zugeordnet ist.
+- Proxmox-Gäste werden bei jedem Scan neu zugeordnet (eine migrierte VM wandert mit).
 - Omada-Gerät/-Client → Gerät mit der gemeldeten Uplink-MAC.
 - UniFi-Gerät/-Client → Gerät mit der gemeldeten Controller-Geräte-ID des Uplinks.
+
+Ein per PATCH gesetztes Elterngerät (`extra.parentSource = "manual"`) wird von Proxmox-, Omada- und
+UniFi-Verknüpfung nie überschrieben; Controller-Verknüpfungen markieren `parentSource` mit
+`proxmox`/`omada`/`unifi`. `parentId: null` im PATCH entfernt Elterngerät und Marker. Bestand ohne
+Marker gilt als überschreibbar. **[Muss]**
 
 Nicht auflösbare Uplinks und Selbstbezüge ändern nichts; ein erneuter Lauf ohne Änderung meldet
 0 Verknüpfungen. Reihenfolge: Docker, Omada, UniFi; Log „<n> Omada-/UniFi-Gerät(e)/Client(s) im
@@ -316,6 +337,10 @@ Netzplan mit ihrem Uplink verknüpft“. **[Impl]**
 #### Szenario: UniFi-Kette
 - **WENN** Switch → Gateway, AP → Switch, Drucker → AP als UniFi-Uplinks gemeldet sind
 - **DANN** sind 3 Elterngeräte gesetzt, ein zweiter Lauf meldet 0
+
+#### Szenario: Manuelles Elterngerät
+- **WENN** ein Gerät per PATCH ein Elterngerät erhalten hat und der Controller einen anderen Uplink meldet
+- **DANN** bleibt das manuelle Elterngerät
 
 #### Szenario: Unbekannte Uplink-MAC
 - **WENN** ein Omada-AP eine Uplink-MAC meldet, die kein Inventargerät hat
@@ -400,8 +425,3 @@ UI-Seite(n): `frontend/src/pages/geraete/PlanPage.tsx` (Route `/plan`, Navigatio
 ## OFFEN
 
 - > OFFEN: ADR-0008 und CLAUDE.md beschreiben die Ebenen „Server → Endgeräte“ und „Container innerhalb ihres Hosts“; das Bild zeichnet aber nur „Wichtige Geräte“, Server/Endgeräte stehen als HTML-Listen darunter, Container nur als Zähler bei kritischen Hosts. Spec folgt dem Code; ADR-0009 hält diesen Stand fest. → kein Issue, ADR-0009 hält den Stand fest
-- > OFFEN: Router-Geräte ohne IP-Endung .1/.254 fehlen im Layer-3-Plan komplett (weder als Router noch im Gerätezähler). → #144
-- > OFFEN: Layer-3-Gerätezahlen enthalten Container (gleiche IP wie Host) und lange offline Geräte. → #144
-- > OFFEN: Omada-/UniFi-Verknüpfung überschreibt ein vorhandenes Elterngerät, auch ein manuell per API gesetztes; Docker-Verknüpfung dagegen nie. Proxmox-Elterngerät wird nur bei Neuanlage gesetzt, eine migrierte VM wandert nicht mit. → #144
-- > OFFEN: Erweiterbar-Markierung nur für Hosts der Art server/nas; ein Docker-Host der Art `pc` bekommt Container zugeordnet, aber keinen Zähler. → #144
-- > OFFEN: Mischt ein Router /24-Näherungen aus Probe-Fakten mit exakten Controller-CIDRs (z. B. /26), können beide als getrennte Subnetze in die Ketteninferenz eingehen. → #144

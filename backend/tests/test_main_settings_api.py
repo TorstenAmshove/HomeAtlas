@@ -107,3 +107,23 @@ def test_member_get_unchanged(temp_db):
     finally:
         main.app.dependency_overrides.clear()
     assert set(settings) == {"homeName", "setupCompleted"}
+
+
+def test_patch_invalid_scan_subnet_422(temp_db):
+    before = db.get_settings()
+    for entries, bad in ((["bad"], "bad"), (["10.0.0.0/24", "x"], "x"), (["2001:db8::/64"], "2001:db8::/64")):
+        response = _patch({"scanSubnets": entries})
+        assert response.status_code == 422, entries
+        assert bad in response.text
+    assert db.get_settings() == before
+
+
+def test_patch_scan_subnets_trimmed_normalised(temp_db):
+    response = _patch({"scanSubnets": [" 10.0.0.5/24 ", "", "10.0.0.0/24"]})
+    assert response.status_code == 200
+    assert db.get_settings()["scanSubnets"] == ["10.0.0.0/24"]
+
+
+def test_patch_without_scan_subnets_ignores_validator(temp_db):
+    assert _patch({"homeName": "Y"}).status_code == 200
+    assert _patch({"scanSubnets": []}).status_code == 200

@@ -33,6 +33,7 @@ _VALID_KINDS = {
     "smarthome", "climate", "heating", "energy", "media", "iot", "other",
 }
 _VALID_IMPORTANCE = {"critical", "normal", "low"}
+_ACCEPTED_CONFIDENCE = {"high", "medium"}
 
 
 _NAME_SOURCES = ("docker", "proxmox", "unifi", "omada")
@@ -71,9 +72,9 @@ def needs_classification(finding: dict) -> bool:
     nothing but an IP address, and asking anyway invites a confident invention.
 
     Given evidence, a device qualifies if the rules couldn't place it, if their guess was only a
-    placeholder (`guessConfident`), or if it still lacks a purpose or a manufacturer link -- the
-    last two are what makes the inventory readable, so they are worth filling even for hardware
-    that was recognised.
+    placeholder (`guessConfident`), or if it still lacks a purpose -- that is what makes the
+    inventory readable, so it is worth filling even for hardware that was recognised. A missing
+    manufacturer link alone is not enough (every non-AVM router lacks one).
     """
     if is_container(finding):
         return False
@@ -84,7 +85,7 @@ def needs_classification(finding: dict) -> bool:
         return True
     if not evidence.get("guessConfident", True):
         return True
-    return not finding.get("purpose") or not finding.get("docUrl")
+    return not finding.get("purpose")
 
 
 def _evidence_for(finding: dict) -> dict:
@@ -111,6 +112,43 @@ def _evidence_for(finding: dict) -> dict:
         "webPageTitle": banner.get("title", ""),
         "webServerHeader": banner.get("server", ""),
     }
+
+
+def _merge_by_ip(candidates: list[dict]) -> list[dict]:
+    """One evidence record per IP. A network finding and a controller/Proxmox finding for the same
+    address would otherwise yield competing records (last one wins). Scalars come from the first
+    finding with a value, lists are united in order without duplicates. Findings without an IP
+    cannot be mapped back to an answer and are skipped."""
+    merged: dict[str, dict] = {}
+    for f in candidates:
+        ip = f.get("ip") or ""
+        if not ip:
+            continue
+        m = merged.get(ip)
+        if m is None:
+            merged[ip] = {**f, "services": list(f.get("services") or []),
+                          "extra": {**(f.get("extra") or {}),
+                                    "mdns": list((f.get("extra") or {}).get("mdns") or []),
+                                    "ssdp": list((f.get("extra") or {}).get("ssdp") or [])}}
+            continue
+        for key in ("hostname", "vendor"):
+            if not m.get(key) and f.get(key):
+                m[key] = f[key]
+        if not m.get("purpose") and f.get("purpose"):
+            m["purpose"] = f["purpose"]
+        if m.get("kind") in ("other", "", None) and f.get("kind") not in ("other", "", None):
+            m["kind"] = f["kind"]
+        extra = f.get("extra") or {}
+        for target, items in ((m["services"], f.get("services") or []),
+                              (m["extra"]["mdns"], extra.get("mdns") or []),
+                              (m["extra"]["ssdp"], extra.get("ssdp") or [])):
+            for item in items:
+                if item not in target:
+                    target.append(item)
+        for key in ("httpBanner",):
+            if not m["extra"].get(key) and extra.get(key):
+                m["extra"][key] = extra[key]
+    return list(merged.values())
 
 
 def _extract_json_array(text: str) -> list:
@@ -148,6 +186,10 @@ async def classify(findings: list[dict], settings: dict, log=None,
             log("KI-Einordnung übersprungen: kein KI-Zugang eingerichtet.")
         return {}, warnings
 
+    candidates = _merge_by_ip(candidates)
+    if not candidates:
+        return {}, warnings
+
     by_ip: dict[str, dict] = {}
     for offset in range(0, len(candidates), _BATCH_SIZE):
         batch = candidates[offset:offset + _BATCH_SIZE]
@@ -171,10 +213,13 @@ async def classify(findings: list[dict], settings: dict, log=None,
                 continue
             ip = str(entry.get("ip", "")).strip()
             # Guard against the model answering about a device that wasn't in this batch.
-            if ip not in known_ips or entry.get("confidence") == "low":
+            raw_conf = entry.get("confidence")
+            confidence = "medium" if raw_conf is None or raw_conf == "" else str(raw_conf).strip().lower()
+            if ip not in known_ips or confidence not in _ACCEPTED_CONFIDENCE:
                 continue
-            kind = entry.get("kind") if entry.get("kind") in _VALID_KINDS else "other"
-            importance = entry.get("importance") if entry.get("importance") in _VALID_IMPORTANCE else "normal"
+            # Invalid values stay empty so `apply` never overwrites a rule result with a default.
+            kind = entry.get("kind") if entry.get("kind") in _VALID_KINDS else ""
+            importance = entry.get("importance") if entry.get("importance") in _VALID_IMPORTANCE else ""
             by_ip[ip] = {
                 "kind": kind,
                 "name": str(entry.get("name") or "").strip()[:80],
@@ -184,7 +229,7 @@ async def classify(findings: list[dict], settings: dict, log=None,
                 "descriptionMd": str(entry.get("description") or "").strip()[:800],
                 "docUrl": str(entry.get("docUrl") or "").strip()[:300],
                 "importance": importance,
-                "confidence": entry.get("confidence", "medium"),
+                "confidence": confidence,
             }
         if log:
             log(f"KI-Einordnung: {len(batch)} Geräte geprüft")
@@ -230,6 +275,13 @@ def apply(finding: dict, classification: dict) -> dict:
         protected = ("name",)
     else:
         protected = ()
+    # A kind the rules were sure about is not the model's to change, whoever supplied the name.
+    if (finding.get("kind") not in ("other", "", None)
+            and (finding.get("extra") or {}).get("guessConfident", True)):
+        protected = tuple({*protected, "kind"})
+    # Never demote a rule-assigned critical (gateway); the model may still raise to critical.
+    if finding.get("importance") == "critical":
+        protected = tuple({*protected, "importance"})
     merged = dict(finding)
     for field in ("kind", "name", "vendor", "model", "purpose", "descriptionMd", "importance", "docUrl"):
         value = classification.get(field)
@@ -251,7 +303,7 @@ def finding_from_system(system: dict) -> dict:
     """Builds the finding-shaped dict `classify`/`apply` work on from a stored inventory row."""
     return {key: system.get(key) for key in (
         "ip", "hostname", "vendor", "kind", "purpose", "docUrl", "openPorts", "services",
-        "discoverySource", "name",
+        "discoverySource", "name", "importance",
     )} | {"extra": system.get("extra") or {}}
 
 

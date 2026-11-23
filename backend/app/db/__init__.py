@@ -24,6 +24,8 @@ DB_PATH = os.environ.get("HOMEATLAS_DB_PATH", "/data/homeatlas.db")
 # user-configurable like the config-backup limit is -- these are diagnostic breadcrumbs, not
 # something anyone restores from, so there is no equivalent tradeoff to expose a setting for.
 _ERROR_EVENT_KEEP = 100
+# Per-device cap on monitorEvents: a flapping device would otherwise grow the table forever.
+_MONITOR_EVENT_KEEP = 200
 
 from ._core import (  # noqa: E402
     _ADDED_COLUMNS,
@@ -59,6 +61,8 @@ from .users import (  # noqa: E402
     get_db_session,
     get_user,
     get_user_by_username_raw,
+    username_taken,
+    username_ambiguous,
     get_user_raw,
     invalidate_user_sessions,
     list_api_tokens,
@@ -96,6 +100,7 @@ from .systems import (  # noqa: E402
     find_system_for_merge,
     get_system,
     link_containers_to_host,
+    set_parent_from_source,
     list_aliases,
     list_systems,
     mark_systems_offline,
@@ -144,6 +149,7 @@ from .accounts import (  # noqa: E402
 from .docs import (  # noqa: E402
     _DOC_VERSION_KEEP,
     delete_doc_page,
+    delete_doc_versions,
     get_doc_page,
     get_doc_version,
     list_doc_pages,
@@ -162,6 +168,7 @@ from .config_versions import (  # noqa: E402
     save_device_config_version,
 )
 from .error_events import (  # noqa: E402
+    acknowledge_device_error_events,
     add_device_error_event,
     count_error_events_by_system,
     list_device_error_events,
@@ -201,8 +208,10 @@ from .chats import (  # noqa: E402
 )
 
 __all__ = [
+    "acknowledge_device_error_events",
     "DB_PATH",
     "_ERROR_EVENT_KEEP",
+    "_MONITOR_EVENT_KEEP",
     "DEFAULT_SETTINGS",
     "_ACCESS_LOG_KEEP",
     "_ADDED_COLUMNS",
@@ -259,6 +268,7 @@ __all__ = [
     "delete_chat_messages_after",
     "delete_db_session",
     "delete_doc_page",
+    "delete_doc_versions",
     "delete_system",
     "delete_user",
     "dismiss_duplicate",
@@ -284,11 +294,14 @@ __all__ = [
     "get_system",
     "get_user",
     "get_user_by_username_raw",
+    "username_taken",
+    "username_ambiguous",
     "get_user_raw",
     "init_db",
     "invalidate_user_sessions",
     "latest_scan",
     "link_containers_to_host",
+    "set_parent_from_source",
     "list_access_log",
     "list_account_assignments",
     "list_accounts",

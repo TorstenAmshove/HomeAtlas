@@ -37,21 +37,20 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (61)
+## Alle Punkte je Fähigkeit (34)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (1)
 
 1. `list_switches` fragt bei jedem Aufruf live alle freigegebenen HA-Instanzen ab (kein Cache). → #121
 
-### [auth-und-rollen](capabilities/auth-und-rollen/spec.md) (7)
+### [auth-und-rollen](capabilities/auth-und-rollen/spec.md) (6)
 
 1. `DELETE /api/users/{id}` schreibt keinen Protokolleintrag, obwohl die AccessLogPage ein Label `user.delete` kennt und README „Benutzeränderungen“ als protokolliert nennt (wirkt wie Bug). → #122
-2. `DELETE /api/users/{id}` antwortet für unbekannte IDs mit `{ok: true}` statt 404 (PATCH/mfa-reset liefern 404). → #123
-3. PATCH `/api/users/{id}` ist nicht atomar: Anzeigename/Rolle werden gespeichert, bevor ein zu schwaches `newPassword` mit 400 abgelehnt wird. → #123
-4. POST `/api/users` mappt unbekannte Rollen still auf MEMBER, PATCH antwortet 400 – uneinheitlich. → #123
-5. AccessLogPage kennt Label `mfa.disable` (nie geschrieben). (`mfa.reset` hat seit PR 6 ein Label und gilt als sicherheitsrelevant.) → #122
-6. Benutzernamen sind case-sensitiv und werden weder getrimmt noch validiert (außer ≥ 1 Zeichen). → #123
-7. Selbst-Herabstufung eines ADMIN ist erlaubt, solange ein weiterer ADMIN existiert; die eigene UI-Ansicht bleibt bis zum Reload Admin. → #123
+2. AccessLogPage kennt Label `mfa.disable` (nie geschrieben). (`mfa.reset` hat seit PR 6 ein Label und gilt als sicherheitsrelevant.) → #122
+3. Session-Cookie ohne `Secure`-Flag, auch hinter TLS-Proxy. → #115
+4. `X-Real-IP` wird ungeprüft übernommen; sicher nur, solange das Backend ausschließlich über nginx erreichbar ist (ADR-0003). → #115
+5. WebSocket-Check akzeptiert fehlenden `Origin`-Header; Docstring nennt die Bedingung „same bar as current_user“, prüft aber zusätzlich ADMIN. → #115
+6. `GET /api/health` ist unauthentifiziert und verrät `userCount`; das Frontend nutzt das Feld nicht. → #115
 
 ### [credentialed-probing](capabilities/credentialed-probing/spec.md) (5)
 
@@ -67,41 +66,16 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 ### [diagnose](capabilities/diagnose/spec.md) (0)
 
 
-### [discovery-und-scan](capabilities/discovery-und-scan/spec.md) (1)
+### [dokumentation](capabilities/dokumentation/spec.md) (1)
 
-1. Ungültiger Freitext-Bereich (z. B. „bad“) plus ein mDNS/SSDP-Fund außerhalb von `alive` führt in `discovery.py:859` zu `ValueError` aus `ip_network` und lässt den ganzen Scan scheitern. → #137
-
-### [dokumentation](capabilities/dokumentation/spec.md) (5)
-
-1. `POST /api/docs/{slug}/reset` mit unbekanntem Slug liefert 200 mit `page: null` statt 404. → #140
-2. `GET /api/docs/{slug}/versions` mit unbekanntem Slug liefert leere Liste statt 404. → #140
-3. `PUT /api/docs/{slug}` ohne Feld `bodyMd` speichert leeren Text (keine Validierung). → #140
-4. Kapitel, deren Slug nicht mehr definiert ist, werden nie gelöscht (`db.delete_doc_page` ungenutzt). → #140
-5. Benutzernamen und URLs von Zugängen sind über die Doku für MEMBER sichtbar, obwohl die Zugangs-API admin-only ist. Ebenso Gerätenotizen und ausgelesene Gerätewerte — falls dort Geheimnisse stehen, landen sie in der Doku. → entschieden in #48: in Ordnung, solange keine Secrets
+1. Benutzernamen und URLs von Zugängen sind über die Doku für MEMBER sichtbar, obwohl die Zugangs-API admin-only ist. Ebenso Gerätenotizen und ausgelesene Gerätewerte — falls dort Geheimnisse stehen, landen sie in der Doku. → entschieden in #48: in Ordnung, solange keine Secrets
 
 ### [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md) (0)
 
 
-### [inventar](capabilities/inventar/spec.md) (2)
+### [inventar](capabilities/inventar/spec.md) (1)
 
 1. `GET /api/systems/{id}` liefert MEMBER die Zugangs-Metadaten (Label, Benutzername, URL, Notizen) des Geräts; nur die UI blendet sie aus. Gewollt? → entschieden in #48: in Ordnung, solange keine Secrets
-2. Der Fehler-Badge verschwindet nie, weil Fehlerereignisse nicht quittiert oder gelöscht werden können (nur Kappung bei 100). → #132
-
-### [klassifikation-llm](capabilities/klassifikation-llm/spec.md) (5)
-
-1. Weil `importance` nach Normalisierung nie leer ist, überschreibt die KI-Wichtigkeit immer die regelbasierte – auch beim Gateway (`critical`), sobald es Kandidat ist (z. B. kein kuratierter Doku-Link bei Nicht-AVM-Routern). Ebenso überschreibt eine ungültige KI-`kind` (→ `other`) eine korrekte Regel-Art wie `router`. → #142
-2. Ein sicher erkanntes Gerät wird schon Kandidat, wenn nur der Doku-Link fehlt. → #142
-3. Nur exakt `"low"` wird verworfen; „LOW“, „niedrig“ o. Ä. gelten als akzeptiert. → #142
-4. Gleiche IP in mehreren Funden (Netzwerk-Fund plus UniFi/Omada/Proxmox/AdGuard) – mehrere Belegsätze pro IP im selben Stapel möglich, der letzte gewinnt, und das Ergebnis wird auf alle Funde dieser IP angewandt. → #142
-5. Der Prompt verlangt dieselbe Reihenfolge wie die Eingabe; der Code ordnet ausschließlich per IP zu (Reihenfolge irrelevant) – unschädlich, aber Anforderung an Modell überflüssig. → #142
-
-### [monitoring](capabilities/monitoring/spec.md) (5)
-
-1. `unknown` (z. B. Ping-Aufruf wirft) setzt den Fehlerzähler zurück und wird sofort übernommen; ein Gerät kann so `offline → unknown → offline` flattern und jeweils Ereignisse erzeugen. → #130
-2. `monitorEvents` hat keine Aufbewahrungsgrenze (im Gegensatz zu `deviceErrorEvents`/`accessLog`); wächst bei flatternden Geräten unbegrenzt. → #130
-3. Rückkehr auf `online` nach Ausfall erzeugt kein Fehler-/Info-Ereignis am Gerät, nur ein `monitorEvents`-Eintrag – gewollt? → #130
-4. `intervalSeconds` in `GET /api/monitor` ist der ungeklemmte Einstellungswert, nicht das tatsächlich verwendete Intervall; `monitorTimeoutMs` hat serverseitig keine Obergrenze. → #130
-5. Für Docker-Container (Art `container`, teilen die Host-IP) gibt es keine typischen Ports; ohne offene Ports prüft der Monitor per Ping effektiv nur den Host. → #130
 
 ### [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) (3)
 
@@ -119,19 +93,14 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 1. `POST /api/setup` prüft nicht, ob das Setup schon abgeschlossen ist; erneuter Aufruf legt Geräte/Konten doppelt an und überschreibt `homeName`/`scanSubnets`. → #149
 2. Antwortfeld `accounts` zählt Gerätezugänge nicht mit – gewollt oder Ungenauigkeit? → #149
-3. Keine Validierung der `scanSubnets`-Einträge; ungültiger Freitext landet in den Einstellungen (Verhalten im Scan siehe [discovery-und-scan](../discovery-und-scan/spec.md)). → #137
-4. Leerer `homeName` wird gespeichert; Doku/Topologie/Assistent fallen dann teils auf Ersatztexte zurück. → #149
+3. Leerer `homeName` wird gespeichert; Doku/Topologie/Assistent fallen dann teils auf Ersatztexte zurück. → #149
+4. `GET /api/health` ist ohne Login erreichbar und verrät `userCount`; das Frontend nutzt das Feld nicht. → #115
 5. Art→Wichtigkeit (`router/server/nas/heating` → kritisch) ist hart verdrahtet; `network` (Switch/AP) wird nicht kritisch – Absicht? → #149
 6. Kein Duplikatabgleich mit bereits gescannten Geräten gleicher IP; ein späterer Scan muss das zusammenführen (siehe [inventar](../inventar/spec.md)). → #149
 
-### [topologie](capabilities/topologie/spec.md) (6)
+### [topologie](capabilities/topologie/spec.md) (1)
 
 1. ADR-0008 und CLAUDE.md beschreiben die Ebenen „Server → Endgeräte“ und „Container innerhalb ihres Hosts“; das Bild zeichnet aber nur „Wichtige Geräte“, Server/Endgeräte stehen als HTML-Listen darunter, Container nur als Zähler bei kritischen Hosts. Spec folgt dem Code; ADR-0009 hält diesen Stand fest. → kein Issue, ADR-0009 hält den Stand fest
-2. Router-Geräte ohne IP-Endung .1/.254 fehlen im Layer-3-Plan komplett (weder als Router noch im Gerätezähler). → #144
-3. Layer-3-Gerätezahlen enthalten Container (gleiche IP wie Host) und lange offline Geräte. → #144
-4. Omada-/UniFi-Verknüpfung überschreibt ein vorhandenes Elterngerät, auch ein manuell per API gesetztes; Docker-Verknüpfung dagegen nie. Proxmox-Elterngerät wird nur bei Neuanlage gesetzt, eine migrierte VM wandert nicht mit. → #144
-5. Erweiterbar-Markierung nur für Hosts der Art server/nas; ein Docker-Host der Art `pc` bekommt Container zugeordnet, aber keinen Zähler. → #144
-6. Mischt ein Router /24-Näherungen aus Probe-Fakten mit exakten Controller-CIDRs (z. B. /26), können beide als getrennte Subnetze in die Ketteninferenz eingehen. → #144
 
 ### [zugangsdaten](capabilities/zugangsdaten/spec.md) (7)
 
