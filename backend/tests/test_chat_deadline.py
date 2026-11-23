@@ -69,3 +69,19 @@ def test_provider_error_unchanged(temp_db, monkeypatch):
     chat = db.create_chat("t")
     with pytest.raises(llm_providers.ProviderError):
         _turn(chat["id"])
+
+
+def test_inner_timeout_error_is_not_reported_as_turn_deadline(temp_db, monkeypatch):
+    """Only the turn deadline itself produces the "took too long" message."""
+    async def inner_timeout(*a, **k):
+        raise TimeoutError("provider-internal")
+
+    monkeypatch.setattr(llm_providers, "chat", inner_timeout)
+    chat = db.create_chat("t")
+    with pytest.raises(TimeoutError):
+        _turn(chat["id"])
+    assert not any("zu lange gedauert" in (m.get("content") or "") for m in db.list_chat_messages(chat["id"]))
+
+
+def test_turn_deadline_below_proxy_timeout():
+    assert tools._TURN_DEADLINE_S < 300

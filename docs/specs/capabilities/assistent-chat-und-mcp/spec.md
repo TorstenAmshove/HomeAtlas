@@ -149,7 +149,7 @@ summierte Token-Zahlen (`promptTokens`, `completionTokens`). Modellwahl mit Zwec
 - **DANN** speichert das System „Ich habe mehrere Prüfungen hintereinander durchgeführt … Magst du die Frage etwas eingrenzen …“ und `model` ist leer
 
 ### Requirement: Gesamtzeitgrenze je Runde
-Das System MUSS eine Chat-Runde (alle LLM-Aufrufe und Werkzeuge zusammen) nach spätestens 300 Sekunden beenden. Dabei MUSS jeder noch unbeantwortete Werkzeugaufruf eine Werkzeugnachricht „Abgebrochen: Zeitgrenze der Runde erreicht.“ erhalten, damit der Verlauf gültig bleibt, und das System speichert eine Assistentennachricht, die den Abbruch nach 5 Minuten erklärt; `model` ist leer. Folgerunden funktionieren normal. **[Muss]** (300 s **[Impl]**)
+Das System MUSS eine Chat-Runde (alle LLM-Aufrufe und Werkzeuge zusammen) nach spätestens 240 Sekunden beenden (unter dem 300-s-Proxy-Timeout von nginx für `/api/`). Dabei MUSS jeder noch unbeantwortete Werkzeugaufruf eine Werkzeugnachricht „Abgebrochen: Zeitgrenze der Runde erreicht.“ erhalten, damit der Verlauf gültig bleibt, und das System speichert eine Assistentennachricht, die den Abbruch nach 4 Minuten erklärt; `model` ist leer. Folgerunden funktionieren normal. **[Muss]** (240 s **[Impl]**)
 
 #### Szenario: Hängender Werkzeugaufruf
 - **WENN** ein Werkzeug die Zeitgrenze überschreitet

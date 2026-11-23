@@ -69,8 +69,10 @@ _HA_READ_MAX_RESULT_CHARS = 24000
 _UNIFI_LIVE_TOOLS = ("get_unifi_client", "get_unifi_device", "get_unifi_network", "get_unifi_events")
 _UNIFI_LIVE_MAX_RESULT_CHARS = 20000
 _MAX_ITERATIONS = 8
-# Wall-clock cap for one whole chat turn (all model calls and tools together), in seconds.
-_TURN_DEADLINE_S = 300
+# Wall-clock cap for one whole chat turn (all model calls and tools together), in seconds. Kept
+# well below nginx's `proxy_read_timeout 300s` for /api/ (frontend/nginx.conf.template): otherwise
+# the proxy answers 504 before the explanatory message below can reach the browser.
+_TURN_DEADLINE_S = 240
 
 
 # Live diagnostics run on the HomeAtlas host. Saying so in the schema and in every result keeps the model from
@@ -932,7 +934,7 @@ async def _run_chat_turn(chat_id: str, user_text: str, settings: dict) -> dict:
 
     unanswered: list[dict] = []
     try:
-        async with asyncio.timeout(_TURN_DEADLINE_S):
+        async with asyncio.timeout(_TURN_DEADLINE_S) as deadline:
             for _ in range(_MAX_ITERATIONS):
                 result = await llm_providers.chat(
                     provider, settings, system_prompt, history_for_llm(chat_id),
@@ -956,6 +958,8 @@ async def _run_chat_turn(chat_id: str, user_text: str, settings: dict) -> dict:
                     db.add_chat_message(chat_id, "tool", output, tool_call_id=call["id"], name=call["name"])
                     unanswered.remove(call)
     except TimeoutError:
+        if not deadline.expired():
+            raise  # a TimeoutError from inside the turn, not the turn deadline
         # Hard deadline for the whole turn (LLM calls and tools together). Keep the transcript
         # replayable: every tool call the model issued needs a tool message before the next turn.
         for call in unanswered:
@@ -963,7 +967,7 @@ async def _run_chat_turn(chat_id: str, user_text: str, settings: dict) -> dict:
                                 tool_call_id=call["id"], name=call["name"])
         duration_ms = round((time.monotonic() - started) * 1000)
         message = db.add_chat_message(chat_id, "assistant", (
-            "Die Anfrage hat zu lange gedauert und wurde nach 5 Minuten abgebrochen. "
+            "Die Anfrage hat zu lange gedauert und wurde nach 4 Minuten abgebrochen. "
             "Magst du die Frage eingrenzen oder es noch einmal versuchen?"
         ), duration_ms=duration_ms)
         return {"message": message, "model": "", "toolsUsed": used_tools,
