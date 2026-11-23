@@ -37,3 +37,16 @@ def test_network_resource_manual_update_returns_404_for_unknown_resource(client)
     response = client.patch("/api/network-resources/missing", json={"manualMd": "Notiz"})
 
     assert response.status_code == 404
+
+
+def test_network_resource_note_length_is_limited(client):
+    account = db.create_account({"label": "UCG", "category": "unifi"})
+    resource = db.sync_network_resources(account["id"], [{
+        "source": "unifi", "siteExternalId": "site-1", "siteName": "Haus", "kind": "network",
+        "externalId": "vlan-20", "name": "IoT", "facts": {"vlanId": 20},
+    }], [("site-1", "network")])[0]
+    url = f"/api/network-resources/{resource['id']}"
+
+    assert client.patch(url, json={"manualMd": "ä" * 2000}).status_code == 200
+    assert client.patch(url, json={"manualMd": "ä" * 2001}).status_code == 422
+    assert client.patch(url, json={}).json()["resource"]["manualMd"] == ""
