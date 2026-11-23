@@ -228,3 +228,83 @@ async def probe(host_ip: str = "") -> dict:
             for v in volume_list
         ],
     }
+
+
+# --- Live status for the assistant (ADR-0022) -------------------------------------------------
+# `live_containers` is the only thing the assistant's `get_container_status` tool reaches here. It
+# issues exactly one request, `GET /containers/json?all=1`, never the per-container inspect endpoint:
+# inspect returns `Config.Env` in clear text (possible secrets), and a socket proxy cannot filter
+# that out. Without inspect no environment value ever reaches HomeAtlas on this path, and a proxy can
+# deny `/containers/{id}/json` completely. Output is built from a field allowlist; Command, Env,
+# Mounts, Ports and all labels except the compose project/service are never copied.
+_LIVE_LIST_PATH = "/containers/json?all=1"
+
+_EXIT_MEANING = {
+    0: "regulär beendet",
+    1: "Fehler in der Anwendung",
+    125: "Container konnte nicht gestartet werden",
+    126: "Startbefehl nicht ausführbar",
+    127: "Startbefehl nicht gefunden",
+    137: "vom System beendet, oft Speicher voll (SIGKILL)",
+    139: "Absturz (SIGSEGV)",
+    143: "sauber gestoppt (SIGTERM)",
+}
+_RE_EXITED = re.compile(r"^(?:Exited|Restarting) \((-?\d+)\)")
+_RE_PARENS = re.compile(r"\s*\([^)]*\)")
+_IMAGE_USERINFO = re.compile(r"^[^/@\s]*@(?=[^@]*/)")
+
+
+def exit_meaning(code: int | None) -> str | None:
+    if code is None:
+        return None
+    return _EXIT_MEANING.get(code, "unbekannter Exit-Code")
+
+
+def _parse_status(status: str) -> dict:
+    """Derives exit code, health and the age text from Docker's human `Status` string."""
+    status = str(status or "").strip()[:200]
+    m = _RE_EXITED.match(status)
+    code = int(m.group(1)) if m else None
+    low = status.lower()
+    if "(unhealthy)" in low:
+        health = "unhealthy"
+    elif "(healthy)" in low:
+        health = "healthy"
+    elif "(health: starting)" in low:
+        health = "starting"
+    else:
+        health = None
+    return {"exitCode": code, "exitMeaning": exit_meaning(code), "health": health,
+            "since": _RE_PARENS.sub("", status).strip()}
+
+
+def _live_row(container: dict) -> dict:
+    labels = container.get("Labels") if isinstance(container.get("Labels"), dict) else {}
+    names = container.get("Names")
+    row = {
+        "name": _clean_name(names if isinstance(names, list) else None)[:100],
+        "image": _IMAGE_USERINFO.sub("", str(container.get("Image") or ""))[:200],
+        "state": str(container.get("State") or "")[:20],
+        "status": str(container.get("Status") or "")[:200],
+    }
+    row.update(_parse_status(container.get("Status")))
+    row["composeProject"] = str(labels.get("com.docker.compose.project") or "")[:100]
+    row["_service"] = str(labels.get("com.docker.compose.service") or "")[:100]
+    row["_id"] = str(container.get("Id") or "")[:64]
+    return row
+
+
+async def live_containers() -> dict:
+    """Returns {"ok", "error", "containers": [...]} from the local Docker API, never raises.
+
+    Rows carry the internal keys `_service` and `_id`, which `tools.py` uses for matching and drops.
+    """
+    if not socket_available():
+        return {"ok": False, "error": "Docker-Socket nicht eingebunden – Live-Status nicht verfügbar", "containers": []}
+    try:
+        data = await _get(_LIVE_LIST_PATH)
+    except (httpx.HTTPError, ValueError, OSError) as exc:
+        return {"ok": False, "error": f"Docker-API nicht erreichbar: {exc}"[:300], "containers": []}
+    if not isinstance(data, list):
+        return {"ok": False, "error": "Docker lieferte keine Containerliste", "containers": []}
+    return {"ok": True, "error": "", "containers": [_live_row(c) for c in data if isinstance(c, dict)]}

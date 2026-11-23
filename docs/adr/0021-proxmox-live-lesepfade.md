@@ -1,6 +1,6 @@
 # ADR-0021: Lesender Live-Zugriff auf die Proxmox-API für den Assistenten
 
-- **Status:** Akzeptiert, ersetzt ADR-0019
+- **Status:** Ersetzt durch ADR-0022 (ersetzte ADR-0019)
 - **Datum:** 2026-11-23
 
 ## Kontext
