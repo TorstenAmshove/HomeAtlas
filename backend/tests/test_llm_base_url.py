@@ -51,3 +51,17 @@ def test_test_connection_returns_failure():
     ok, msg, _ = asyncio.run(llm.test_connection("OLLAMA", {_field(): "http://169.254.169.254/v1",
                                                             "ollamaModel": "x"}))
     assert ok is False and msg
+
+
+@pytest.mark.parametrize("url", ["http://2852039166/v1", "http://0xa9fea9fe/v1", "http://169.254.43518/v1",
+                                 "http://169.254.169.254./v1", "http://0251.0376.0251.0376/v1"])
+def test_numeric_ipv4_forms_of_link_local_rejected(url):
+    """Alternative IPv4 notations the resolver accepts must not pass as hostnames."""
+    with pytest.raises(llm.ProviderError):
+        llm.base_url_for("OLLAMA", {_field(): url})
+
+
+@pytest.mark.parametrize("url", ["http://2130706433:11434/v1", "http://deadbeef.lan:11434/v1",
+                                 "http://abc:11434/v1"])
+def test_numeric_loopback_and_hex_looking_names_allowed(url):
+    assert llm.base_url_for("OLLAMA", {_field(): url}) == url

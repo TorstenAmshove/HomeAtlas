@@ -67,6 +67,23 @@ async def ensure_allowed_target(host: str, *, allow_lan: bool = True,
         raise BlockedTarget(host)
 
 
+def _parse_llm_host(host: str):
+    """The host as an IP address, or None for a real name. Besides the standard notations this also
+    reads the numeric IPv4 forms the system resolver accepts (`2852039166`, `0xa9fea9fe`,
+    `169.254.43518`, a trailing dot) -- otherwise they would pass as "names" and reach link-local."""
+    try:
+        return _parse(host)
+    except ValueError:
+        pass
+    candidate = host.rstrip(".")
+    if not candidate or not all(c in "0123456789abcdefxABCDEFX." for c in candidate):
+        return None
+    try:
+        return ipaddress.IPv4Address(socket.inet_aton(candidate))
+    except OSError:
+        return None
+
+
 def check_llm_base_url(url: str) -> None:
     """Raises BlockedTarget with a user-facing German message if the LLM server address is unusable."""
     try:
@@ -81,9 +98,8 @@ def check_llm_base_url(url: str) -> None:
         raise BlockedTarget("Die Server-Adresse enthält keinen Host.")
     if parts.username is not None or parts.password is not None:
         raise BlockedTarget("Die Server-Adresse darf keine Zugangsdaten enthalten.")
-    try:
-        ip = _parse(host)
-    except ValueError:
+    ip = _parse_llm_host(host)
+    if ip is None:
         return  # a name: not resolved here
     if ip.is_loopback:
         return  # ::1 counts as "reserved" in the stdlib, so check loopback first

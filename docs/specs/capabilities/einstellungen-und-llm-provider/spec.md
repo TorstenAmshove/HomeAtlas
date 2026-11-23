@@ -295,6 +295,8 @@ Admin-only; das genügt als Absicherung, weil Ollama im LAN der Normalfall ist. 
 Link-Local (u. a. 169.254.169.254), Multicast, unspezifiziert oder reserviert ist. Loopback und
 LAN-Adressen bleiben erlaubt. Verstoß → `ProviderError` mit verständlicher Meldung (bei „Modelle
 laden“ und „Testen“ als `ok: false`, ohne Request). Weiterleitungen folgt der Client nicht. **[Muss]**
+Numerische IPv4-Sonderformen, die der Resolver annimmt (`2852039166`, `0xa9fea9fe`, `169.254.43518`,
+abschließender Punkt), werden wie die übliche Schreibweise geprüft.
 Restrisiko: Hostnamen werden nicht aufgelöst; ein Name, der auf Link-Local zeigt, umgeht die Prüfung.
 
 #### Szenario: Metadaten-Adresse
