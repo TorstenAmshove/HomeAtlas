@@ -1,5 +1,5 @@
 """Shared request plumbing and helpers used by more than one route module (moved out of
-main.py unchanged): session/role dependencies, client identity, WebSocket auth and the
+main.py unchanged): session/role dependencies, client identity and the
 small helpers several route groups share. Importing nothing from routes/ keeps it a leaf."""
 from __future__ import annotations
 
@@ -7,9 +7,8 @@ import asyncio
 import ipaddress
 import logging
 import os
-from urllib.parse import urlsplit
 
-from fastapi import Cookie, Depends, HTTPException, Request, WebSocket, status
+from fastapi import Cookie, Depends, HTTPException, Request, status
 
 from . import auth
 
@@ -100,36 +99,6 @@ def _client(request: Request) -> tuple[str, str]:
     """Best-effort client identity for the access log (see `_peer_ip` for the trust rule)."""
     return _peer_ip(request.headers, request.client.host if request.client else None), \
         request.headers.get("user-agent", "")
-
-
-def _ws_client(websocket: WebSocket) -> tuple[str, str]:
-    return _peer_ip(websocket.headers, websocket.client.host if websocket.client else None), \
-        websocket.headers.get("user-agent", "")
-
-
-async def _ws_authenticate(websocket: WebSocket) -> dict | None:
-    """Same bar as `current_user` (valid session, `totpEnabled`) plus the ADMIN role. Returns None
-    (caller closes with code=1008) rather than raising -- `HTTPException` has no meaning once a
-    WebSocket connection is being negotiated; there is no HTTP response left to attach it to.
-
-    `Origin` is mandatory: browsers send it on every WebSocket handshake and nginx passes it
-    through, so a missing or `null` Origin is refused. It is defense in depth on top of the
-    `samesite="lax"` session cookie; the blast radius of getting this check wrong (an interactive
-    root shell) is much larger than anywhere else this app's cookie-only trust model is used.
-
-    Compares hostnames only, not ports: reverse proxies routinely normalize or drop the port from
-    the Host header they forward (the bundled nginx's `$host` strips it even though the browser's
-    Origin always includes a non-default one), so a port-exact comparison would reject legitimate
-    same-origin connections."""
-    origin = websocket.headers.get("origin", "")
-    origin_host = urlsplit(origin).hostname or "" if origin else ""
-    request_host = (websocket.headers.get("host", "") or "").split(":")[0]
-    if not origin_host or not request_host or origin_host != request_host:
-        return None
-    user = auth.get_session_user(websocket.cookies.get(auth.SESSION_COOKIE_NAME))
-    if user is None or not user.get("totpEnabled") or user["role"] != auth.ROLE_ADMIN:
-        return None
-    return user
 
 
 def _public_account(account: dict) -> dict:

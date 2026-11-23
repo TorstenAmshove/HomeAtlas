@@ -273,24 +273,21 @@ veraltete IDs und inaktive Netze zählen nicht. Es DARF dabei kein Prozess gesta
 Quelle: `backend/app/tools.py:278`, `backend/app/tools.py:410`, Tests: `backend/tests/test_tools_network_overview.py::test_overview_controller_only`, `::test_overview_free_text_only`, `::test_overview_empty_is_automatic`, `::test_overview_mixed_and_keys`, `::test_overview_stale_id_is_automatic`, `::test_overview_inactive_network_is_automatic`
 
 ### Requirement: Schalten von Lampen und Steckdosen (`set_switch`)
-Das System MUSS dem Assistenten (jede Rolle, jeder MCP-Client) erlauben, ohne Rückfrage ein Shelly-
-Relais (Kanal 0) oder eine Home-Assistant-Entity ein- oder auszuschalten. Ziele MÜSSEN serverseitig
-aus der Datenbank aufgelöst werden (Shelly: `systemId` eines Inventargeräts → dessen IP/Hostname;
-HA: `accountId` eines Zugangs der Kategorie `homeassistant` → dessen URL/Token), nie aus vom LLM
+Das System MUSS dem Assistenten (jede Rolle, jeder MCP-Client) erlauben, ohne Rückfrage eine Home-Assistant-Entity ein- oder auszuschalten. Ziele MÜSSEN serverseitig
+aus der Datenbank aufgelöst werden (`accountId` eines Zugangs der Kategorie `homeassistant` → dessen URL/Token), nie aus vom LLM
 gelieferten Adressen. Bei Home Assistant MÜSSEN nur die Domänen `switch` und `light` geschaltet
-werden, dazu `cover`-Entities mit `device_class` blind/shade/shutter/curtain/awning per `action` open/close/stop (keine Position; `device_class` wird live vor dem POST gelesen; garage/gate/door und fehlende `device_class` gesperrt; `on` nur für switch/light, `action` nur für cover); Shelly-Befehle gehen nur an Geräte, deren Hersteller oder Modell „Shelly“ enthält (dieselbe
-Prüfung wie `list_switches` und die Oberfläche). Jeder Schaltversuch MUSS mit Aktion
+werden, dazu `cover`-Entities mit `device_class` blind/shade/shutter/curtain/awning per `action` open/close/stop (keine Position; `device_class` wird live vor dem POST gelesen; garage/gate/door und fehlende `device_class` gesperrt; `on` nur für switch/light, `action` nur für cover). Shelly-Relais werden nicht mehr direkt geschaltet (ADR-0023): `kind=shelly` wird abgewiesen. Jeder Schaltversuch MUSS mit Aktion
 `switch.assistant`, Ziel, Ergebnis und Auslöser (angemeldeter Benutzer im Chat bzw. „MCP: <Token-
-Bezeichnung>“) ins Zugriffsprotokoll. `list_switches` liefert die Shelly-Geräte und höchstens 200
-HA-Entities der Domänen switch/light und erlaubte Rollos. Home-Assistant-Zugänge MÜSSEN das Opt-in „Zum Auslesen verwenden“ (`allowProbe`) haben, sonst werden sie bei `list_switches` übersprungen (nicht kontaktiert; ohne freigegebenen Zugang steht `haHinweis` in der Antwort) und `set_switch` MUSS vor Entschlüsselung, Senden und Protokollieren mit einem Fehler abweisen. **[Muss]** (Produktentscheidung, ADR-0013, bestätigt in #43, #99; Opt-in #121.)
+Bezeichnung>“) ins Zugriffsprotokoll. `list_switches` liefert höchstens 200
+HA-Entities der Domänen switch/light und erlaubte Rollos. Home-Assistant-Zugänge MÜSSEN das Opt-in „Zum Auslesen verwenden“ (`allowProbe`) haben, sonst werden sie bei `list_switches` übersprungen (nicht kontaktiert; ohne freigegebenen Zugang steht `haHinweis` in der Antwort) und `set_switch` MUSS vor Entschlüsselung, Senden und Protokollieren mit einem Fehler abweisen. **[Muss]** (Produktentscheidung, ADR-0013, ADR-0023, bestätigt in #43, #99; Opt-in #121.)
 
 #### Szenario: Zugang ohne Opt-in
 - **WENN** `set_switch` mit `kind=ha` und der `accountId` eines Zugangs ohne „Zum Auslesen verwenden“ aufgerufen wird
 - **DANN** kommt `{"error": …}` mit Hinweis auf den Haken, nichts wird gesendet oder protokolliert
 
-#### Szenario: Kein Shelly
-- **WENN** `set_switch` mit `kind=shelly` und der `systemId` eines NAS aufgerufen wird
-- **DANN** wird kein Befehl gesendet und das Ergebnis ist „Kein Shelly-Gerät mit dieser systemId gefunden …“
+#### Szenario: Shelly wird nicht mehr direkt geschaltet
+- **WENN** `set_switch` mit `kind=shelly` aufgerufen wird, auch mit der `systemId` eines Shelly-Geräts
+- **DANN** wird kein Befehl gesendet und das Ergebnis ist „Unbekannte Art 'shelly', erwartet 'ha'.“
 
 #### Szenario: Schloss verweigert
 - **WENN** das LLM `set_switch` mit `kind=ha`, `entityId=lock.haustuer` aufruft
@@ -304,12 +301,11 @@ HA-Entities der Domänen switch/light und erlaubte Rollos. Home-Assistant-Zugän
 - **WENN** `set_switch` mit `entityId=cover.buero` (`device_class` shutter) und `action=close` aufgerufen wird
 - **DANN** ruft das System `cover/close_cover` auf und protokolliert `switch.assistant`
 
-#### Szenario: Unbekannte Geräte-ID
-- **WENN** `set_switch` mit `kind=shelly` und unbekannter `systemId` aufgerufen wird
-- **DANN** lautet das Ergebnis „Kein Shelly-Gerät mit dieser systemId gefunden -- vorher list_switches aufrufen.“
+#### Szenario: Unbekannter Zugang
+- **WENN** `set_switch` mit `kind=ha` und unbekannter `accountId` aufgerufen wird
+- **DANN** lautet das Ergebnis „Kein Home-Assistant-Zugang mit dieser accountId gefunden -- vorher list_switches aufrufen.“
 
-Quelle: `backend/app/tools.py:335`, `backend/app/tools.py:352`, `backend/app/switch_admin.py:24`, `backend/app/switch_admin.py:27`, `backend/app/switch_admin.py:53`,
-`switch_admin.is_shelly`, `tools.current_actor`, Tests: `backend/tests/test_chat_owner_and_switch.py`
+Quelle: `backend/app/tools.py:335`, `backend/app/tools.py:352`, `backend/app/switch_admin.py:24`, `backend/app/switch_admin.py:27`, `tools.current_actor`, Tests: `backend/tests/test_chat_owner_and_switch.py`
 
 ### Requirement: Live-Lesen von UniFi-Clients
 Das System MUSS dem Assistenten (jede Rolle, jeder MCP-Client) mit `get_unifi_client` die Live-Werte
@@ -518,7 +514,7 @@ Siehe [data-model](../../contracts/data-model.md).
 
 „MEMBER“ heißt: jede angemeldete Rolle mit Zwei-Faktor-Anmeldung. Anbieter-/Schlüssel-Konfiguration:
 [einstellungen-und-llm-provider](../einstellungen-und-llm-provider/spec.md). Direkte Schalt-Routen
-(`/shelly-switch`, `/ha-switch`, admin-only) gehören nicht zu dieser Fähigkeit.
+gibt es nicht (entfallen mit ADR-0023).
 
 UI-Seite(n): `frontend/src/pages/ChatPage.tsx` (Routen `/assistent`, `/assistent/:chatId`); MCP-Tokens im Tab „MCP-Server“ von
 `frontend/src/pages/SettingsPage.tsx` (Route `/einstellungen`, nur Admin).
@@ -537,7 +533,7 @@ UI-Seite(n): `frontend/src/pages/ChatPage.tsx` (Routen `/assistent`, `/assistent
 - Gemini liefert keine Aufruf-IDs; als ID dient der Funktionsname.
 - MCP über das Python-SDK (`StreamableHTTPSessionManager`, `stateless=True`, `json_response=True`), eigene ASGI-Bearer-Prüfung statt SDK-OAuth.
 - Tokens liegen im Klartext in der DB (wie Sitzungstokens); Begründung im Schema-Kommentar.
-- Home-Assistant-Aufrufe ohne TLS-Prüfung (`verify=False`); Shelly-Generation wird je Schaltvorgang über `GET /shelly` ermittelt (Gen1 `/relay/0?turn=`, Gen2+ `/rpc/Switch.Set`), Timeout 8 s (Verbindung 3 s).
+- Home-Assistant-Aufrufe ohne TLS-Prüfung (`verify=False`); Timeout 8 s (Verbindung 3 s).
 - UI zeigt unter der Antwort „Dafür geprüft: …“ (deduplizierte `toolsUsed`) und die Dauer.
 
 ## OFFEN

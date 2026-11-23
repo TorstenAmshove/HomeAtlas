@@ -5,7 +5,7 @@
 
 Lücken: **0**
 
-## Routen (91)
+## Routen (77)
 
 | Eintrag | Spec |
 |---|---|
@@ -16,7 +16,6 @@ Lücken: **0**
 | `PATCH /api/accounts/{account_id}` | [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `GET /api/accounts/{account_id}/assignments` | [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `PUT /api/accounts/{account_id}/assignments` | [zugangsdaten](capabilities/zugangsdaten/spec.md) |
-| `POST /api/accounts/{account_id}/deploy` | [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `GET /api/accounts/{account_id}/secret` | [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `POST /api/auth/login` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
 | `POST /api/auth/logout` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
@@ -72,23 +71,13 @@ Lücken: **0**
 | `POST /api/systems/{system_id}/classify` | [inventar](capabilities/inventar/spec.md), [klassifikation-llm](capabilities/klassifikation-llm/spec.md) |
 | `GET /api/systems/{system_id}/config-versions` | [inventar](capabilities/inventar/spec.md) |
 | `GET /api/systems/{system_id}/config-versions/{version_id}` | [inventar](capabilities/inventar/spec.md) |
-| `GET /api/systems/{system_id}/container/logs` | [remote-admin](capabilities/remote-admin/spec.md) |
-| `POST /api/systems/{system_id}/container/{action}` | [remote-admin](capabilities/remote-admin/spec.md) |
 | `GET /api/systems/{system_id}/errors` | [inventar](capabilities/inventar/spec.md) |
 | `POST /api/systems/{system_id}/errors/acknowledge` | [inventar](capabilities/inventar/spec.md) |
 | `POST /api/systems/{system_id}/errors/{event_id}/acknowledge` | [inventar](capabilities/inventar/spec.md) |
 | `GET /api/systems/{system_id}/exposure` | [inventar](capabilities/inventar/spec.md) |
-| `POST /api/systems/{system_id}/ha-switch/{action}` | [remote-admin](capabilities/remote-admin/spec.md) |
-| `GET /api/systems/{system_id}/ha-switchables` | [remote-admin](capabilities/remote-admin/spec.md) |
 | `POST /api/systems/{system_id}/merge` | [inventar](capabilities/inventar/spec.md) |
 | `POST /api/systems/{system_id}/not-duplicate` | [inventar](capabilities/inventar/spec.md) |
 | `POST /api/systems/{system_id}/probe` | [credentialed-probing](capabilities/credentialed-probing/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) |
-| `POST /api/systems/{system_id}/reboot` | [remote-admin](capabilities/remote-admin/spec.md) |
-| `GET /api/systems/{system_id}/remote-containers` | [remote-admin](capabilities/remote-admin/spec.md) |
-| `GET /api/systems/{system_id}/remote-containers/{container_id}/logs` | [remote-admin](capabilities/remote-admin/spec.md) |
-| `POST /api/systems/{system_id}/remote-containers/{container_id}/{action}` | [remote-admin](capabilities/remote-admin/spec.md) |
-| `POST /api/systems/{system_id}/shelly-switch/{action}` | [remote-admin](capabilities/remote-admin/spec.md) |
-| `POST /api/systems/{system_id}/ssh-keys` | [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `GET /api/topology-layer3.svg` | [topologie](capabilities/topologie/spec.md) |
 | `GET /api/topology.svg` | [topologie](capabilities/topologie/spec.md) |
 | `GET /api/users` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
@@ -97,17 +86,14 @@ Lücken: **0**
 | `PATCH /api/users/{user_id}` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
 | `POST /api/users/{user_id}/mfa/reset` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
 | `GET /api/version` | [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md) |
-| `WS /api/ws/systems/{system_id}/docker-console` | [remote-admin](capabilities/remote-admin/spec.md) |
-| `WS /api/ws/systems/{system_id}/remote-docker-console` | [remote-admin](capabilities/remote-admin/spec.md) |
-| `WS /api/ws/systems/{system_id}/ssh-console` | [remote-admin](capabilities/remote-admin/spec.md) |
 
 ## Tabellen (21)
 
 | Eintrag | Spec |
 |---|---|
-| `accessLog` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [remote-admin](capabilities/remote-admin/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
+| `accessLog` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `accountAssignments` | [credentialed-probing](capabilities/credentialed-probing/spec.md), [inventar](capabilities/inventar/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
-| `accounts` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [credentialed-probing](capabilities/credentialed-probing/spec.md), [dashboard](capabilities/dashboard/spec.md), [dokumentation](capabilities/dokumentation/spec.md), [inventar](capabilities/inventar/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md), [remote-admin](capabilities/remote-admin/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
+| `accounts` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [credentialed-probing](capabilities/credentialed-probing/spec.md), [dashboard](capabilities/dashboard/spec.md), [dokumentation](capabilities/dokumentation/spec.md), [inventar](capabilities/inventar/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `apiTokens` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
 | `chatMessages` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `chats` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
@@ -124,7 +110,7 @@ Lücken: **0**
 | `sessions` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
 | `settings` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [dashboard](capabilities/dashboard/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [dokumentation](capabilities/dokumentation/spec.md), [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md), [inventar](capabilities/inventar/spec.md), [klassifikation-llm](capabilities/klassifikation-llm/spec.md), [monitoring](capabilities/monitoring/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md), [topologie](capabilities/topologie/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `systemAliases` | [inventar](capabilities/inventar/spec.md) |
-| `systems` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [credentialed-probing](capabilities/credentialed-probing/spec.md), [dashboard](capabilities/dashboard/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [dokumentation](capabilities/dokumentation/spec.md), [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md), [erreichbarkeit](capabilities/erreichbarkeit/spec.md), [inventar](capabilities/inventar/spec.md), [klassifikation-llm](capabilities/klassifikation-llm/spec.md), [monitoring](capabilities/monitoring/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md), [remote-admin](capabilities/remote-admin/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md), [topologie](capabilities/topologie/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
+| `systems` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [credentialed-probing](capabilities/credentialed-probing/spec.md), [dashboard](capabilities/dashboard/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [dokumentation](capabilities/dokumentation/spec.md), [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md), [erreichbarkeit](capabilities/erreichbarkeit/spec.md), [inventar](capabilities/inventar/spec.md), [klassifikation-llm](capabilities/klassifikation-llm/spec.md), [monitoring](capabilities/monitoring/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md), [topologie](capabilities/topologie/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `users` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
 
 ## KI-Werkzeuge (32)
@@ -142,8 +128,8 @@ Lücken: **0**
 | `list_exposure` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [erreichbarkeit](capabilities/erreichbarkeit/spec.md) |
 | `check_firewall_path` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [firewall](capabilities/firewall/spec.md) |
 | `list_firewall_rules` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [firewall](capabilities/firewall/spec.md) |
-| `list_switches` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [remote-admin](capabilities/remote-admin/spec.md) |
-| `set_switch` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [remote-admin](capabilities/remote-admin/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
+| `list_switches` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
+| `set_switch` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `get_ha_state` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `get_ha_history` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `get_ha_logbook` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
@@ -172,7 +158,7 @@ Lücken: **0**
 | `DocsPage` | [dokumentation](capabilities/dokumentation/spec.md) |
 | `SettingsPage` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [diagnose](capabilities/diagnose/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md), [firewall](capabilities/firewall/spec.md), [monitoring](capabilities/monitoring/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) |
 
-## ADRs in der Constitution (22)
+## ADRs in der Constitution (23)
 
 Quelle links sind die Dateien in `docs/adr/`, rechts die Regeln in [constitution.md](constitution.md),
 die auf das ADR verlinken.
@@ -200,4 +186,5 @@ die auf das ADR verlinken.
 | [ADR-0019](../adr/0019-firewall-zonen-subnetze.md) | Ersetzt durch ADR-0021; ersetzte ADR-0018 | – |  |
 | [ADR-0020](../adr/0020-llm-client-ohne-schwesterprojekt.md) | Akzeptiert | K5, K6, K7 |  |
 | [ADR-0021](../adr/0021-proxmox-live-lesepfade.md) | Ersetzt durch ADR-0022 (ersetzte ADR-0019) | – |  |
-| [ADR-0022](../adr/0022-container-live-status.md) | Akzeptiert, ersetzt ADR-0021 | P1, L1, L2, L4, L5, L6, L8, L9, K1, K2, K3 |  |
+| [ADR-0022](../adr/0022-container-live-status.md) | Ersetzt durch ADR-0023 (ersetzte ADR-0021) | – |  |
+| [ADR-0023](../adr/0023-keine-fernwartung.md) | Akzeptiert, ersetzt ADR-0022 | P1, L1, L2, L4, L5, L6, L8, L9, K1, K2, K3 |  |

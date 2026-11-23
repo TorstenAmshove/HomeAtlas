@@ -25,8 +25,8 @@ Du prüfst einen PR in einer **frischen Sitzung**: Du kennst weder das Issue-Ges
    der auch ohne die Änderung grün wäre).
 
    **C. Sicherheit:** Bedrohungsmodell: README-Abschnitt „Sicherheit“ und ADRs. Prüfe insbesondere:
-   - Lese-/Schreib-Trennung (ADR-0011): neue Imports von `*_admin.py`/`remote_admin.py` in
-     `tools.py`, `pipeline.py`, `mcp_server.py` oder Probe-Module? Wird `set_switch` über
+   - Lese-/Schreib-Trennung (ADR-0011): neue `*_admin.py`-Module (HomeAtlas hat keine Fernwartung, ADR-0023) oder
+     Imports von `switch_admin` in `pipeline.py`, `mcp_server.py` oder Probe-Modulen (nur `tools.py` darf es)? Wird `set_switch` über
      „an/aus für switch/light“ hinaus erweitert?
    - Kann über `tools.py`/MCP jetzt etwas verändert oder ein Secret gelesen werden?
    - Neue oder geänderte API-Routen: hängen sie an `current_user` bzw. `require_admin`? Ist eine

@@ -383,7 +383,7 @@ gespeichertes Passwort nur über `GET /api/accounts/{id}/secret` — genau eines
 Administratoren. Es gibt keine Route, die den Zugangsspeicher im Klartext ausgibt.
 
 **Diagnose-Werkzeuge ohne Shell.** Alles, was der Assistent ausführen kann, ist lesend (einzige
-bewusste Ausnahme: Shelly-Relais und Home-Assistant-Lichter/-Schalter ein- und ausschalten sowie Rollos hoch/runter/stoppen; Garagen- und Hoftore, Türen und Entities ohne Rollo-`device_class` sind gesperrt), hat ein
+bewusste Ausnahme: Home-Assistant-Lichter/-Schalter ein- und ausschalten sowie Rollos hoch/runter/stoppen; Garagen- und Hoftore, Türen und Entities ohne Rollo-`device_class` sind gesperrt), hat ein
 Timeout und läuft über `create_subprocess_exec` mit Argumentliste. Ein Hostname mit `;` oder
 Backticks ist ein Hostname, kein Befehl — und wird vorher gegen ein striktes Muster geprüft.
 Port- und Webseiten-Prüfungen lehnen Ziele auf dem HomeAtlas-Server selbst (Loopback) und
@@ -415,11 +415,19 @@ Funktion in genau dem Netz unbrauchbar machen, das sie dokumentieren soll.
 unterliegen denselben Regeln: nie in der Doku, nie beim KI-Anbieter, nur einzeln über die
 Admin-Route abrufbar.
 
-**Der Docker-Socket ist root-äquivalent.** Die Erkennung ruft ausschließlich GET-Endpunkte auf.
-Schreibend nutzt ihn nur die Container-Steuerung für Administratoren (Starten, Stoppen, Neustarten,
-Konsole). Das `:ro` in `docker-compose.yml` schützt nur die Socket-Datei, nicht die API dahinter:
-Wer den Socket erreicht, kann auf dem Host viel. Wem das zu weit geht, entfernt die Zeile in
-`docker-compose.yml`; alles außer Container-Erkennung und -Steuerung funktioniert weiter.
+**Keine Fernwartung.** HomeAtlas erkennt und erklärt, es verwaltet nicht. Es gibt kein Web-Terminal, keine
+SSH-Konsole, keine Container- oder Proxmox-Steuerung, keinen Geräte-Neustart und kein Erzeugen oder
+Verteilen von SSH-Schlüsseln (ADR-0023). Dafür gibt es Portainer, Ansible und die Proxmox-Oberfläche. Die
+einzige Schreibfähigkeit ist das Schalten über Home Assistant durch den Assistenten (Lichter, Steckdosen,
+Rollos; siehe oben). Shelly-Geräte werden weiter erkannt und dokumentiert, aber nicht mehr direkt
+geschaltet. Bestehende SSH-Schlüssel-Zugänge nutzt HomeAtlas weiter für das lesende Auslesen; neue
+Schlüssel legt der Admin außerhalb an (z. B. per Ansible) und trägt sie als Zugang ein.
+
+**Der Docker-Socket ist root-äquivalent.** HomeAtlas ruft ausschließlich GET-Endpunkte auf (Erkennung und
+Live-Status der Container); nichts schreibt darüber. Das `:ro` in `docker-compose.yml` schützt nur die
+Socket-Datei, nicht die API dahinter: Wer den Socket erreicht, kann auf dem Host viel. Ein Socket-Proxy, der
+nur lesende Pfade durchlässt, ist geplant (#101). Wem das zu weit geht, entfernt die Zeile in
+`docker-compose.yml`; alles außer Container-Erkennung und dem Live-Container-Status funktioniert weiter.
 
 **Anmeldeschutz.** Nach wiederholten Fehlversuchen (Passwort oder Code) sperrt HomeAtlas weitere
 Anmeldeversuche für bis zu 15 Minuten: von derselben Adresse für denselben Namen nach 5, für
@@ -562,6 +570,11 @@ sind dort eingeschränkt, die Oberfläche und alles andere funktionieren.
 
 ## Bekannte Grenzen
 
+- **Keine Fernwartung.** Seit ADR-0023 (Breaking Change) steuert HomeAtlas keine Geräte und Container mehr;
+  entfallen sind SSH-Schlüssel erzeugen/verteilen, alle Konsolen, Container- und Proxmox-Steuerung samt Logs,
+  Geräte-Neustart sowie die Schaltknöpfe für Shelly und Home Assistant. Schalten geht nur noch über Home
+  Assistant durch den Assistenten. Zugänge, die nur für die Fernwartung angelegt wurden (z. B. SSH-Zugänge
+  mit Schreibrechten), kann der Admin unter „Zugänge“ löschen.
 - **Nur IPv4.** IPv6-Adressen, die sich per mDNS/SSDP melden, werden verworfen und nicht
   aktiv gescannt.
 - **Netzbereiche bis /22.** Ein größerer Bereich wird auf die ersten 1024 Adressen begrenzt —

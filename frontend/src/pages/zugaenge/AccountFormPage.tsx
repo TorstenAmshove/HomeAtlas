@@ -45,7 +45,6 @@ export default function AccountFormPage({ mode }: { mode: "new" | "edit" }) {
   const [restored, setRestored] = useState<{ secretTyped: boolean } | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [keyBusy, setKeyBusy] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
   const [deleting, setDeleting] = useState<Account | null>(null);
 
@@ -53,8 +52,6 @@ export default function AccountFormPage({ mode }: { mode: "new" | "edit" }) {
   const [assignType, setAssignType] = useState<"kind" | "subnet" | "system">("kind");
   const [assignValue, setAssignValue] = useState("");
   const [assignBusy, setAssignBusy] = useState(false);
-
-  const publicKey = (location.state as { publicKey?: string } | null)?.publicKey ?? "";
 
   useEffect(() => {
     setAccounts(null);
@@ -180,23 +177,6 @@ export default function AccountFormPage({ mode }: { mode: "new" | "edit" }) {
     }
   }
 
-  async function generateKey() {
-    if (!form || !form.systemId) return;
-    setKeyBusy(true);
-    setError("");
-    try {
-      const r = await api.generateSshKey(form.systemId, form.label.trim() || "SSH-Schlüssel (HomeAtlas)");
-      clearAccountDraft(draftId);
-      setForm(null);
-      // The new key is stored right away; continue on its own page (the public half is not secret).
-      navigate(`/zugaenge/${r.account.id}`, { replace: true, state: { publicKey: r.publicKey } });
-    } catch (e) {
-      setError(errorText(e));
-    } finally {
-      setKeyBusy(false);
-    }
-  }
-
   async function writeAssignments(next: { targetType: string; targetValue: string }[]) {
     setAssignBusy(true);
     setError("");
@@ -294,12 +274,6 @@ export default function AccountFormPage({ mode }: { mode: "new" | "edit" }) {
         }}
       />
 
-      {publicKey && (
-        <div className="notice ok" role="status">
-          Schlüssel erzeugt und gespeichert. Öffentlicher Teil (für <span className="mono">authorized_keys</span> auf dem Gerät):
-          <code className="mono m-secret-value" style={{ display: "block", marginTop: 6 }}>{publicKey}</code>
-        </div>
-      )}
       {restored && (
         <div className="m-note" role="status">
           Ungespeicherte Änderungen aus diesem Browser-Tab wiederhergestellt.
@@ -342,17 +316,6 @@ export default function AccountFormPage({ mode }: { mode: "new" | "edit" }) {
 
           {usesSshKey(form.category) ? (
             <>
-              {isNew && form.category === "sshkey" && (
-                <div className="field" style={{ gridColumn: "1 / -1" }}>
-                  <button className="m-btn" type="button" onClick={() => void generateKey()} disabled={keyBusy || !form.systemId}>
-                    {keyBusy ? "Erzeuge …" : "Neuen Schlüssel erzeugen"}
-                  </button>
-                  <div className="field-hint">
-                    Erzeugt ein Ed25519-Schlüsselpaar für das oben gewählte Gerät und speichert es direkt;
-                    ersetzt die Eingabe unten. Braucht ein gewähltes Gerät.
-                  </div>
-                </div>
-              )}
               <div className="field" style={{ gridColumn: "1 / -1" }}>
                 <label htmlFor="zg-secret">{fields.secret.label}</label>
                 <textarea id="zg-secret" data-secret="true" style={{ minHeight: 150 }} spellCheck={false} autoComplete="off"

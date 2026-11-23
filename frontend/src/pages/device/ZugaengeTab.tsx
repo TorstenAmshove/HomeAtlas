@@ -12,17 +12,12 @@ export const SECRET_VISIBLE_MS = 30_000;
  * revealed secret does not stay readable on a screen someone walked away from. They are kept only
  * in this component's state, never in storage or the URL.
  */
-export default function ZugaengeTab({ systemId, systemName, accounts, onAccountsChanged }: {
-  systemId: string;
-  systemName: string;
+export default function ZugaengeTab({ accounts }: {
   accounts: Account[];
-  onAccountsChanged: () => Promise<void>;
 }) {
   const [secrets, setSecrets] = useState<Record<string, string>>({});
   const timers = useRef<Record<string, number>>({});
   const [notice, setNotice] = useState<Notice>(null);
-  const [keyBusy, setKeyBusy] = useState(false);
-  const [keyNotice, setKeyNotice] = useState<Notice>(null);
 
   useEffect(() => () => {
     Object.values(timers.current).forEach((t) => window.clearTimeout(t));
@@ -47,20 +42,6 @@ export default function ZugaengeTab({ systemId, systemName, accounts, onAccounts
       timers.current[accountId] = window.setTimeout(() => hide(accountId), SECRET_VISIBLE_MS);
     } catch (e) {
       setNotice({ kind: "error", text: e instanceof Error ? e.message : String(e) });
-    }
-  }
-
-  async function generateKey() {
-    setKeyBusy(true);
-    setKeyNotice(null);
-    try {
-      const { publicKey } = await api.generateSshKey(systemId, `SSH-Schlüssel (${systemName || "HomeAtlas"})`);
-      await onAccountsChanged();
-      setKeyNotice({ kind: "ok", text: `Schlüssel erzeugt. Öffentlicher Teil: ${publicKey}` });
-    } catch (e) {
-      setKeyNotice({ kind: "error", text: e instanceof Error ? e.message : String(e) });
-    } finally {
-      setKeyBusy(false);
     }
   }
 
@@ -107,20 +88,6 @@ export default function ZugaengeTab({ systemId, systemName, accounts, onAccounts
             ))}
           </ul>
         )}
-        <p className="dv-hint" style={{ marginTop: 12 }}>
-          Die Konsole für SSH-Zugänge liegt im Tab <Link className="dv-link" to="?tab=steuern">Steuern</Link>.
-        </p>
-      </Section>
-
-      <Section title="SSH-Schlüssel" id="dv-sshkey">
-        <p className="dv-hint">
-          Erzeugt ein neues Schlüsselpaar und legt es als Zugang für dieses Gerät ab. Auf das Gerät
-          kommt dabei nichts; den öffentlichen Teil trägst du dort selbst ein (oder über „Zugänge“).
-        </p>
-        <NoticeLine notice={keyNotice} />
-        <button type="button" className="secondary" disabled={keyBusy} onClick={() => void generateKey()}>
-          {keyBusy ? "Erzeuge …" : "SSH-Schlüssel erzeugen"}
-        </button>
       </Section>
     </div>
   );

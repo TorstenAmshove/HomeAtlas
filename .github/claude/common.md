@@ -12,15 +12,15 @@
    Commit-Messages wie im Repo üblich (Englisch, Conventional Commits).
 4. **Risikoregel.** Ein Vorhaben ist `risk:high`, wenn es eines davon berührt:
    - `backend/app/auth.py`, `security.py`, `crypto.py` (Login, 2FA, Verschlüsselung)
-   - `backend/app/probe_auth.py`, `remote_admin.py`, `docker_admin.py`, `proxmox_admin.py`,
-     `switch_admin.py` (Zugriff auf Geräte, besonders schreibend)
+   - `backend/app/probe_auth.py`, `switch_admin.py` (Zugriff auf Geräte, besonders schreibend; es gibt
+     keine Fernwartung mehr, ADR-0023)
    - die Fähigkeitsgrenze in `backend/app/tools.py` / `mcp_server.py` (was das LLM darf)
    - `require_admin` / `current_user` in `deps.py` oder die Rückgabe von Secrets aus der API
    - `docker-compose.yml`-Netzwerk/Socket-Einbindung, `.github/workflows/`
 
    Für `risk:high` gilt immer zusätzlich `needs-human`. Bei Zweifel: `risk:high`.
 5. **Lese-/Schreib-Trennung (ADR-0011) nie aufweichen.** Kein neuer Import eines schreibenden
-   Moduls (`*_admin.py`, `remote_admin.py`) in `tools.py`, `mcp_server.py`, `pipeline.py` oder ein
+   Moduls (`*_admin.py`) in `tools.py`, `mcp_server.py`, `pipeline.py` oder ein
    Probe-Modul. Einzige dokumentierte Ausnahme: `switch_admin` in `tools.py` für `set_switch`. Diese
    Ausnahme wird nicht erweitert.
 6. **Keine Secrets** in Kommentare, Logs, Testdaten oder Prompts schreiben.

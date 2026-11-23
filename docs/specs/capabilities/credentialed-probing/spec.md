@@ -104,7 +104,7 @@ Adresse läuft nichts, Grund „Keine Adresse hinterlegt.“): **[Muss]**
 - `sshkey`: immer SSH.
 - `login` mit Port 0 oder 22: SSH nur (ein anderer Port gehört meist zur Weboberfläche; SSH dorthin
   wäre ein Fehlversuch mit Zugangsdaten für einen anderen Dienst – bewusst so, `sshkey` ist
-  eindeutig SSH und darf jeden Port haben; `routes/remote.py::_ssh_eligible` trägt dieselbe Regel), wenn eine Netzwerk-Plattform erkannt ist oder `kind` ∈
+  eindeutig SSH und darf jeden Port haben), wenn eine Netzwerk-Plattform erkannt ist oder `kind` ∈
   {server, nas, vm, pc, container}.
 - `snmp`: SNMP. `homeassistant`: Home-Assistant-API (URL des Zugangs, sonst des Geräts).
 - `login`/`apikey` mit URL (Zugang, sonst Gerät): HTTP-GET-Anmeldung.
@@ -496,8 +496,8 @@ nichts, nennt `reason` den Grund (Schalter aus, Secret nicht lesbar, Controller-
 Quelle: `backend/app/routes/systems.py::probe_system`, `backend/app/pipeline.py::probe_one_system`, Test: `backend/tests/test_main_unifi_probe.py::test_manual_unifi_probe_syncs_devices_topology_and_network_resources`, `backend/tests/test_main_unifi_probe.py::test_manual_unifi_probe_returns_the_controller_error`, `backend/tests/test_pipeline_probe_one.py::test_manual_and_full_scan_same_facts`, `backend/tests/test_pipeline_probe_one.py::test_manual_respects_scan_enable_proxmox`
 
 ### Requirement: Lese-/Schreibtrennung
-Das System MUSS die lesenden Probe-Module strikt von schreibenden Modulen (Remote-Admin,
-Container-/Gast-Steuerung) trennen: kein Probe-Modul nutzt Schreibfunktionen, und das LLM erreicht
+Das System MUSS die lesenden Probe-Module strikt vom einzigen schreibenden Modul (`switch_admin.py`,
+Home-Assistant-Schalten; ADR-0023) trennen: kein Probe-Modul nutzt Schreibfunktionen, und das LLM erreicht
 keine Schreibfunktion über die Probes (ADR 0012). **[Muss]** Einzige Nicht-GET-Verbindung zu Home Assistant ist ein WebSocket, der nur
 `trace/list` und `trace/get` sendet (exakter Vergleich gegen eine feste Liste, sonst `ValueError`).
 
@@ -537,8 +537,8 @@ auslesen“, nur Admin und nur wenn ein Zugang `allowProbe` hat).
 
 ## Nicht-Ziele und Grenzen
 
-- Keine Konfigurationsänderung, kein Neustart, kein Zurückspielen von Sicherungen (siehe
-  [remote-admin](../remote-admin/spec.md) für Schreibaktionen).
+- Keine Konfigurationsänderung, kein Neustart, kein Zurückspielen von Sicherungen; HomeAtlas hat keine
+  Fernwartung (ADR-0023). Bestehende `sshkey`-Zugänge werden weiter nur lesend genutzt.
 - Keine Hostschlüssel-/Zertifikatsprüfung (SSH, HTTPS, Controller-APIs).
 - SNMP nur v2c; keine strukturierte Auswertung von VLAN-/LLDP-Walks (Rohtext).
 - Klassisches Aruba (das Zugangsformular der Kategorie `login` weist am Benutzernamen darauf hin): kein Beantworten einer `enable`-Passwortabfrage – nur Konten mit

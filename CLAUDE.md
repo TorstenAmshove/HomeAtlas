@@ -19,7 +19,7 @@ The backend binds only to `127.0.0.1`; nginx is the only thing that can reach it
 network means the API port is otherwise exposed on every interface of the Docker host.
 
 Read the README.md "Sicherheit" section before touching auth, credential storage, or the
-probe/remote-admin modules — it states the threat model and trade-offs this code is built around.
+probe/`switch_admin.py` modules — it states the threat model and trade-offs this code is built around.
 
 ## Development commands
 
@@ -88,21 +88,20 @@ Every module has a docstring explaining its own design rationale and constraints
 module docstring before editing it, it usually answers "why is this written this way" before you
 have to ask. Key structural rules that span multiple files:
 
-**Read vs. write is a hard architectural split, not just a convention.** Modules that read from
-devices/Docker and modules that change them are deliberately separate and never import each
-other:
-- `docker_probe.py` (read-only, GET-only Docker API calls) vs. `docker_admin.py` (write-capable
-  container control) — the latter is reachable only from the admin-gated routes in `routes/remote.py`, never
-  from `tools.py` or `pipeline.py`.
-- `probe_auth.py` (read-only SSH/HTTP/TR-064 device probing, hardcoded command allowlist in
-  `_SSH_COMMANDS` with no setting/parameter/tool able to extend it) vs. `remote_admin.py`
-  (write-capable SSH admin: install keys, interactive shell, remote container control) — same
-  "never imported by/into `tools.py`" rule. A future import from `tools.py` into either write
-  module would be a bug, not a refactor.
+**HomeAtlas has no remote administration (ADR-0023).** There is no SSH key generation/deployment, no
+console, no container/Proxmox control, no reboot; admins use Portainer, Ansible and Proxmox. The
+read side stays a hard split: `docker_probe.py` (GET-only Docker API calls) and `probe_auth.py`
+(read-only SSH/HTTP/TR-064 device probing, hardcoded command allowlist in `_SSH_COMMANDS` with no
+setting/parameter/tool able to extend it; existing `sshkey` accounts are still used for it) never
+import a write module. The only write-capable device module is `switch_admin.py` (Home Assistant
+`switch`/`light`/shutter-class `cover` switching), reachable only from `tools.py` (`set_switch`). Any
+further member action goes natively into `switch_admin.py`, only via `tools.py`, each with its own
+ADR and a fixed allowlist. A new `*_admin.py` module, or an import of `switch_admin` elsewhere, would
+be a bug, not a refactor.
 
 **`tools.py` is the LLM's entire capability surface** (used by both the in-app chat and
 `mcp_server.py`'s external MCP endpoint). It is read-only plus bounded live diagnostics, with one
-documented exception (`set_switch`: Shelly relay / Home Assistant `switch`/`light` on/off plus shutter-class `cover`
+documented exception (`set_switch`: Home Assistant `switch`/`light` on/off plus shutter-class `cover`
 open/close/stop, never garage doors, gates or windows, see ADR-0018; Home Assistant automation traces and the system-log fallback are read over a WebSocket limited to `trace/list`/`trace/get`/`system_log/list`, ADR-0018); live UniFi reads go through `unifi_live.py` (ADR-0017: fixed allowlist incl. exactly one read-only POST for the event log, `X-API-Key`, field allowlist) and live Proxmox reads through `proxmox_live.py` (ADR-0021: GET-only path allowlist, scan token, no task log text) and live local container status through `docker_probe.live_containers` (ADR-0022: exactly `GET /containers/json?all=1`, never inspect, field allowlist); these three are the only source modules `tools.py` may import; nothing else reachable from here mutates inventory, docs, or devices, and `list_accounts` always strips
 passwords before they reach a model — secrets never enter a prompt, provider log, or chat
 history. When adding a new assistant capability, this boundary is the thing to preserve.
@@ -164,7 +163,7 @@ directly from a page.
 
 ## Architecture decisions
 
-`docs/adr/` records the cross-cutting decisions above (read/write split, host network, LLM
+`docs/adr/` records the cross-cutting decisions above (no remote administration, host network, LLM
 capability boundary, SQLite without ORM, provider-neutral LLM client, credential encryption, SVG
 topology). Read the relevant ADR before changing one of those areas. Never edit an accepted ADR
 to reverse it — propose a new ADR that supersedes it. ADRs hold the *why*; `docs/specs/constitution.md`

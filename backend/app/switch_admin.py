@@ -1,14 +1,16 @@
-"""Write-capable switching of Shelly relays and Home Assistant `switch`/`light` entities -- the
-counterpart `discovery.shelly_identity`/`probe_auth.probe_homeassistant` explicitly are not.
+"""Write-capable switching of Home Assistant `switch`/`light` entities and shutter-class `cover`s --
+the counterpart `probe_auth.probe_homeassistant` explicitly is not.
 
-Same split as `remote_admin.py` vs. `probe_auth.py` (see that module's docstring): this file only
-ever sends a state-changing request, never imports a read-only module, and duplicates the small
-amount of connection setup it needs (Shelly generation detection, HA's Bearer header) rather than
-sharing it.
+This is the only write-capable device module HomeAtlas has left (ADR-0023): there is no remote
+administration, and Shelly relays are no longer switched directly -- switching goes through Home
+Assistant. This file only ever sends a state-changing request, never imports a read-only module,
+and duplicates the small amount of connection setup it needs (HA's Bearer header) rather than
+sharing it. Any further member action would be added here, only reachable via `tools.py`, each with
+its own ADR and a fixed allowlist.
 
 Unlike every other write module in this codebase, this one *is* reachable from `tools.py` --
 that's a deliberate, explicit product decision (switching a light or plug is judged safe enough
-for the assistant to do directly, unlike editing inventory/docs or touching containers/hosts) and
+for the assistant to do directly, unlike editing inventory/docs) and
 is documented at the point of exposure in `tools.py`, not a loophole.
 
 Scope is deliberately narrow: on/off only for the `switch` and `light` domains
@@ -35,44 +37,6 @@ _HA_ALLOWED_DOMAINS = ("switch", "light")
 _COVER_ALLOWED_CLASSES = ("blind", "shade", "shutter", "curtain", "awning")  # never `window` (ADR-0018)
 _COVER_ACTIONS = {"open": "open_cover", "close": "close_cover", "stop": "stop_cover"}
 _COVER_ENTITY_RE = re.compile(r"^cover\.[a-z0-9_]+$")
-
-
-def is_shelly(system: dict) -> bool:
-    """Whether an inventory entry is a Shelly device -- the same test the UI uses to show the switch
-    buttons. Checked before every switch command, so a systemId the model (or a client) names can
-    only ever reach a device that actually is a Shelly."""
-    return "shelly" in f"{system.get('vendor') or ''} {system.get('model') or ''}".lower()
-
-
-# Highest relay channel the REST route accepts (Shelly Pro 4PM has channels 0-3). The assistant's
-# `set_switch` deliberately stays on channel 0.
-SHELLY_MAX_CHANNEL = 3
-
-
-async def shelly_set_switch(host: str, on: bool, channel: int = 0) -> dict:
-    """Turns one relay channel of a Shelly device on or off. Gen1 devices (`/shelly` -> no "gen"
-    key, or `gen` == 1) use the classic `GET /relay/{ch}?turn=on|off` REST call; Gen2+ (Plus/Pro
-    line) use the RPC endpoint `GET /rpc/Switch.Set?id={ch}&on=true|false`. Both generations answer
-    `/shelly` without credentials (see `discovery.shelly_identity`), so generation is detected
-    fresh here rather than trusting a possibly-stale value from the last scan."""
-    turn = "on" if on else "off"
-    try:
-        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-            try:
-                identity = (await client.get(f"http://{host}/shelly")).json()
-            except (httpx.HTTPError, ValueError) as exc:
-                return {"ok": False, "error": f"„{host}“ antwortet nicht wie ein Shelly-Gerät: {exc}"}
-            gen = int(identity.get("gen") or 1)
-            if gen >= 2:
-                response = await client.get(
-                    f"http://{host}/rpc/Switch.Set", params={"id": channel, "on": str(on).lower()})
-            else:
-                response = await client.get(f"http://{host}/relay/{channel}", params={"turn": turn})
-        if response.status_code >= 400:
-            return {"ok": False, "error": f"Shelly-Gerät „{host}“ hat mit HTTP {response.status_code} abgelehnt."}
-        return {"ok": True, "error": ""}
-    except httpx.HTTPError as exc:
-        return {"ok": False, "error": f"Verbindung zu „{host}“ fehlgeschlagen: {exc}"}
 
 
 async def ha_set_switch(base_url: str, token: str, entity_id: str, on: bool) -> dict:

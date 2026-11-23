@@ -6,7 +6,6 @@ import asyncio
 import pytest
 
 from app import probe_auth
-from app.routes import remote
 
 
 def _ok():
@@ -173,14 +172,6 @@ def test_sshkey_any_port_tried(monkeypatch):
     _patch(monkeypatch, ssh={"k": _ok()})
     out = _run({}, [_acct("k", "sshkey", port=2222)])
     assert "ssh:k" in out["results"]
-
-
-@pytest.mark.parametrize("category,port,expected", [
-    ("login", 8443, False), ("login", 22, True), ("login", 0, True), ("login", None, True),
-    ("sshkey", 2222, True), ("sshkey", 22, True), ("apikey", 22, False),
-])
-def test_ssh_eligible_matches_probe_rule(category, port, expected):
-    assert remote._ssh_eligible({"category": category, "port": port}) is expected
 
 
 def test_derive_purpose_ignores_failures(monkeypatch):

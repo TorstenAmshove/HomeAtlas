@@ -21,7 +21,6 @@ rettet ausgesperrte Instanzen.
 | Benutzer auflisten, anlegen, ändern, löschen | ja | nein (403) |
 | Zweiten Faktor eines Benutzers zurücksetzen | ja | nein (403) |
 | Zugriffsprotokoll lesen | ja | nein (403) |
-| Interaktive Konsolen (WebSocket) öffnen | ja | nein (Verbindung abgewiesen) |
 | Selbst den zweiten Faktor abschalten | nein (gibt es nicht) | nein |
 | Notfall-Reset per CLI | wer Shell-Zugriff auf den Container hat | – |
 
@@ -429,7 +428,7 @@ Das System MUSS sicherheitsrelevante Ereignisse mit Zeitpunkt (UTC), Benutzer-ID
 Aktion, Detail, Client-IP, User-Agent und Erfolg speichern. Mindestens: `login` (Erfolg/Fehlschlag),
 `login.mfa` (Code angefordert/falsch, ok=false), `password.change`, `mfa.enable`, `mfa.reset`,
 `user.create`, `user.update`, `user.delete` (Detail: Benutzername des gelöschten Kontos, Aktor ist der handelnde ADMIN; abgelehnte Löschungen erzeugen keinen Eintrag); außerdem Aktionen anderer Fähigkeiten (`account.create/update/delete`, `networkresource.update`, `secret.reveal`, `scan.start`,
-`console.*.open/close`, `sshkey.*`, `switch.*`, `system.reboot`). Fehlgeschlagene Logins werden mit dem
+`switch.*`; ältere Einträge der entfallenen Fernwartung wie `console.*`, `sshkey.*`, `system.reboot` bleiben lesbar). Fehlgeschlagene Logins werden mit dem
 eingegebenen (ggf. nicht existenten) Benutzernamen protokolliert. Client-IP aus `X-Real-IP` des
 vorgeschalteten Proxys, aber nur wenn der TCP-Peer Loopback ist (nginx, ADR-0003); sonst, bei leerem
 oder ungültigem Header oder ohne Peer, die Peer-Adresse. Dieselbe IP dient dem Login-Throttle. Aufbewahrung: die neuesten 5000 Einträge; Kürzung Detail
@@ -464,28 +463,6 @@ Authenticator beim nächsten Login neu einrichten), und die Rollenerklärung hin
 
 Quelle: `frontend/src/pages/mehr/AccessLogPage.tsx`,
 `frontend/src/pages/mehr/accessLogLabels.ts`, `frontend/src/pages/mehr/UsersPage.tsx`
-
-### Requirement: WebSocket-Authentifizierung
-WebSocket-Routen (interaktive Konsolen, siehe [remote-admin](../remote-admin/spec.md)) MÜSSEN vor dem
-Annehmen prüfen: (a) `Origin` ist Pflicht und dessen Hostname muss exakt dem Hostnamen aus
-`Host` entsprechen (Port wird ignoriert, weil Proxys ihn entfernen); fehlender oder `null`-Origin
-wie fehlender `Host` lehnt ab; (b) gültige Session-Cookie;
-(c) `totpEnabled`; (d) Rolle ADMIN. Fehlschlag → Verbindung mit Code 1008 schließen, ohne Details.
-**[Muss]**
-
-#### Szenario: Fehlender Origin
-- **WENN** kein `Origin`-Header (oder `null`) gesendet wird
-- **DANN** Close 1008
-
-#### Szenario: Fremde Origin
-- **WENN** `Origin: http://evil.example` bei `Host: homeatlas.lan:8280`
-- **DANN** Close 1008
-
-#### Szenario: MEMBER öffnet Konsole
-- **WENN** gültige MEMBER-Session mit MFA
-- **DANN** Close 1008
-
-Quelle: `backend/app/main.py:121`, `backend/app/main.py:801`
 
 ### Requirement: Rollen-Gating in der Oberfläche
 Die UI MUSS die Reihenfolge Login → MFA-Einrichtung → (nur ADMIN, wenn Setup offen) Setup-Wizard →
@@ -551,8 +528,7 @@ Aus [data-model](../../contracts/data-model.md):
 | GET | /api/access-log | ADMIN | Zugriffsprotokoll lesen |
 
 „ADMIN, MEMBER“ heißt hier immer: gültige Session UND aktiver zweiter Faktor. Fehlende Session → 401
-„Nicht angemeldet.“; fehlende Admin-Rolle → 403. WebSocket-Regel: siehe Requirement oben; die
-Konsolen-Routen selbst gehören zu [remote-admin](../remote-admin/spec.md).
+„Nicht angemeldet.“; fehlende Admin-Rolle → 403.
 
 UI-Seite(n): `frontend/src/gates/Login.tsx` (ohne Session, jede Route),
 `frontend/src/gates/MfaEnroll.tsx` (solange `totpEnabled` false, jede Route),

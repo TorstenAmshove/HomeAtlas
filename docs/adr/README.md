@@ -41,4 +41,5 @@ Menschen und für KI-Agenten, die sonst bewusste Entscheidungen „wegrefaktorie
 | [0019](0019-firewall-zonen-subnetze.md) | Firewall-Zonen über die Subnetze aus `networkconf` zuordnen | Ersetzt durch ADR-0021 |
 | [0020](0020-llm-client-ohne-schwesterprojekt.md) | Providerneutraler LLM-Client ohne Vendor-SDK, ohne Schwesterprojekt | Akzeptiert |
 | [0021](0021-proxmox-live-lesepfade.md) | Lesender Live-Zugriff auf die Proxmox-API für den Assistenten | Ersetzt durch ADR-0022 |
-| [0022](0022-container-live-status.md) | Live-Status lokaler Docker-Container für den Assistenten, ohne Inspect | Akzeptiert |
+| [0022](0022-container-live-status.md) | Live-Status lokaler Docker-Container für den Assistenten, ohne Inspect | Ersetzt durch ADR-0023 |
+| [0023](0023-keine-fernwartung.md) | Keine Fernwartung, einzige Steuerung ist Home-Assistant-Schalten | Akzeptiert |

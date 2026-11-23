@@ -1,7 +1,6 @@
-"""Login, second factor, roles and the WebSocket gate (#45). Until now the auth path had no backend
+"""Login, second factor and roles (#45). Until now the auth path had no backend
 tests at all; these cover the rules the spec marks [Muss]: mandatory TOTP, server-side role checks,
 brute-force throttling and single-use TOTP codes."""
-import asyncio
 import time
 
 import pytest
@@ -167,45 +166,6 @@ def test_ip_limit_covers_many_usernames():
         throttle.record_failure(f"user{i}", "9.9.9.9")
     assert throttle.retry_after("someone-else", "9.9.9.9") > 0
     assert throttle.retry_after("someone-else", "9.9.9.8") == 0
-
-
-# --- WebSocket gate --------------------------------------------------------------------------
-
-class _FakeSocket:
-    def __init__(self, token: str | None, origin: str = "", host: str = "homeatlas.lan:8280"):
-        self.headers = {"origin": origin, "host": host}
-        self.cookies = {auth.SESSION_COOKIE_NAME: token} if token else {}
-
-
-def _session_for(user_id: str) -> str:
-    return auth.create_session(user_id)
-
-
-def test_ws_gate_admin_same_origin_ok_cross_origin_refused(env):
-    admin_id, _ = _user("anna")
-    token = _session_for(admin_id)
-    ok = asyncio.run(main._ws_authenticate(_FakeSocket(token, origin="http://homeatlas.lan:8280")))
-    assert ok is not None and ok["username"] == "anna"
-    assert asyncio.run(main._ws_authenticate(_FakeSocket(token, origin="http://evil.example"))) is None
-
-
-def test_ws_gate_refuses_missing_or_null_origin(env):
-    admin_id, _ = _user("anna")
-    token = _session_for(admin_id)
-    assert asyncio.run(main._ws_authenticate(_FakeSocket(token, origin=""))) is None
-    assert asyncio.run(main._ws_authenticate(_FakeSocket(token, origin="null"))) is None
-    assert asyncio.run(main._ws_authenticate(_FakeSocket(token, origin="http://homeatlas.lan", host=""))) is None
-    port_less = _FakeSocket(token, origin="http://homeatlas.lan:8280", host="homeatlas.lan")
-    assert asyncio.run(main._ws_authenticate(port_less)) is not None
-
-
-def test_ws_gate_refuses_member_unenrolled_and_anonymous(env):
-    member_id, _ = _user("mia", role=auth.ROLE_MEMBER)
-    unenrolled_id, _ = _user("bert", totp=False)
-    origin = "http://homeatlas.lan"
-    assert asyncio.run(main._ws_authenticate(_FakeSocket(_session_for(member_id), origin=origin))) is None
-    assert asyncio.run(main._ws_authenticate(_FakeSocket(_session_for(unenrolled_id), origin=origin))) is None
-    assert asyncio.run(main._ws_authenticate(_FakeSocket(None, origin=origin))) is None
 
 
 # --- session lifecycle (#116) ----------------------------------------------------------------

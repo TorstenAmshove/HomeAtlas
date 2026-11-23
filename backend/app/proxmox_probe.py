@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import asyncio
 import re
-from datetime import datetime, timezone
 
 import httpx
 
@@ -89,7 +88,7 @@ def _is_template(guest: dict) -> bool:
 
 def _usable_guests(guests: list) -> list:
     """Guests worth listing: have a vmid and are not templates. Templates never run and are
-    irrelevant for operations, so neither probe() nor list_guests() reports them (and no `/config`
+    irrelevant for operations, so probe() does not report them (and no `/config`
     request is made for them)."""
     return [g for g in guests if g.get("vmid") is not None and not _is_template(g)]
 
@@ -156,7 +155,7 @@ async def probe(base_url: str, token_id: str, token_secret: str) -> dict:
                     try:
                         guests = (await _get(client, base_url, f"/nodes/{node}/{path}")).get("data") or []
                     except (httpx.HTTPError, ValueError) as exc:
-                        # See list_guests()'s matching comment: swallowing every failure here would
+                        # Swallowing every failure here would
                         # make a token without its own permission grant look identical to a host
                         # with genuinely zero guests.
                         errors.append(f"{node}/{path}: {exc}")
@@ -212,123 +211,3 @@ async def probe(base_url: str, token_id: str, token_secret: str) -> dict:
             return {"ok": True, "error": "", "systems": systems}
     except (httpx.HTTPError, ValueError, KeyError) as exc:
         return {"ok": False, "error": f"Proxmox-Host nicht erreichbar: {exc}", "systems": []}
-
-
-_KIND_LABEL = {"vm": "VM (QEMU/KVM)", "container": "LXC-Container"}
-
-
-async def list_guests(base_url: str, token_id: str, token_secret: str) -> dict:
-    """Returns {"ok", "error", "containers": [...]}. A VM/LXC listing for the "VMs &
-    LXC-Container laden" card on a Proxmox host's own device page in the UI -- fetches each
-    guest's `/config` in parallel (same call `probe()` makes, via `_guest_details`) so the card can
-    show an IP address and so start/stop/restart/console/logs have the `node`/`vmid`/`kind` they
-    need; unlike `probe()` this never touches the inventory.
-
-    `containers` entries share their base shape (id/name/image/state/status) with remote_admin.
-    list_remote_containers' Docker listing so the frontend can render both with one table -- but
-    Docker is never involved on the Proxmox path: this is the primary source routes/remote.py's
-    `list_remote_containers` route uses for a system with a "proxmox"-category account attached,
-    with `remote_admin.list_remote_proxmox_guests` (native `pct list`/`qm list` over SSH) only as
-    its fallback when this call itself fails. Neither path ever runs a `docker` command against a
-    Proxmox host -- it has no Docker CLI at all."""
-    base_url = (base_url or "").rstrip("/")
-    if not base_url:
-        return {"ok": False, "error": "Keine Adresse für den Proxmox-Host hinterlegt.", "containers": []}
-    if not token_id or not token_secret:
-        return {"ok": False, "error": "API-Token-ID oder -Secret fehlt.", "containers": []}
-
-    headers = {"Authorization": f"PVEAPIToken={token_id}={token_secret}"}
-    try:
-        async with httpx.AsyncClient(timeout=_TIMEOUT, verify=False, headers=headers) as client:
-            nodes = (await _get(client, base_url, "/nodes")).get("data") or []
-
-            containers = []
-            errors = []
-            for node_entry in nodes:
-                node = node_entry.get("node", "")
-                if not node:
-                    continue
-                for kind, path in (("vm", "qemu"), ("container", "lxc")):
-                    try:
-                        guests = (await _get(client, base_url, f"/nodes/{node}/{path}")).get("data") or []
-                    except (httpx.HTTPError, ValueError) as exc:
-                        # One node/guest-type failing must not drop the rest -- but if every one of
-                        # them fails (typically an API token that has no permission of its own: with
-                        # Proxmox's "Privilege Separation" a token needs its own ACL entry, separate
-                        # from the user it belongs to), an empty `containers` list would look exactly
-                        # like "this host genuinely has zero guests" instead of "token can't see
-                        # them" -- see the `errors` check below.
-                        errors.append(f"{node}/{path}: {exc}")
-                        continue
-                    valid_guests = _usable_guests(guests)
-                    details = await asyncio.gather(*(
-                        _guest_details(client, base_url, node, kind, int(g["vmid"])) for g in valid_guests
-                    ))
-                    for guest, detail in zip(valid_guests, details):
-                        vmid = guest["vmid"]
-                        status = guest.get("status") or "unbekannt"
-                        containers.append({
-                            # ":" not "/" -- a literal slash inside a single FastAPI path segment
-                            # (`{container_id}` in routes/remote.py's remote-containers routes) would split
-                            # into extra path segments and break routing entirely.
-                            "id": f"{node}:{path}:{vmid}",
-                            "name": guest.get("name") or f"{'VM' if kind == 'vm' else 'LXC'} {vmid}",
-                            "image": f"{_KIND_LABEL[kind]} · Node {node}",
-                            "state": "running" if status == "running" else "stopped",
-                            "status": status,
-                            "ip": detail["ip"],
-                            "node": node,
-                            "vmid": str(vmid),
-                            "kind": kind,
-                        })
-            if not containers and errors:
-                return {"ok": False, "containers": [], "error": (
-                    "Gäste-Liste konnte nicht gelesen werden (Berechtigung des API-Tokens prüfen -- "
-                    "bei aktivierter Privilege Separation braucht der Token eine eigene Berechtigung, "
-                    "z. B. PVEAuditor auf „/“): " + "; ".join(errors)
-                )}
-            return {"ok": True, "error": "", "containers": containers}
-    except (httpx.HTTPError, ValueError, KeyError) as exc:
-        return {"ok": False, "error": f"Proxmox-Host nicht erreichbar: {exc}", "containers": []}
-
-
-async def guest_task_log(base_url: str, token_id: str, token_secret: str, node: str, vmid: str) -> dict:
-    """The Proxmox task history for one guest (start/stop/restart/backup/... and their outcome) --
-    not application/system output, which the REST API has no access to at all (a VM's console
-    output needs a VNC/serial session, not a GET request; see remote_admin.run_remote_lxc_
-    journalctl for the LXC-only alternative that does read real system logs). Reads `/nodes/{node}
-    /tasks` filtered to this guest, newest first, then fetches each task's own log lines. Capped at
-    the 20 most recent tasks -- this is a history view, not a live tail."""
-    base_url = (base_url or "").rstrip("/")
-    if not base_url:
-        return {"ok": False, "error": "Keine Adresse für den Proxmox-Host hinterlegt.", "text": ""}
-    if not token_id or not token_secret:
-        return {"ok": False, "error": "API-Token-ID oder -Secret fehlt.", "text": ""}
-
-    headers = {"Authorization": f"PVEAPIToken={token_id}={token_secret}"}
-    try:
-        async with httpx.AsyncClient(timeout=_TIMEOUT, verify=False, headers=headers) as client:
-            tasks = (await _get(client, base_url, f"/nodes/{node}/tasks?vmid={vmid}&limit=20")).get("data") or []
-            tasks.sort(key=lambda t: t.get("starttime") or 0, reverse=True)
-            blocks = []
-            for task in tasks:
-                upid = task.get("upid")
-                if not upid:
-                    continue
-                try:
-                    log_lines = (await _get(client, base_url, f"/nodes/{node}/tasks/{upid}/log")).get("data") or []
-                except (httpx.HTTPError, ValueError):
-                    log_lines = []
-                when = task.get("starttime")
-                header = f"=== {task.get('type', 'Aufgabe')} ({task.get('status', 'unbekannt')})"
-                if when:
-                    header += f" -- {datetime.fromtimestamp(when, tz=timezone.utc).astimezone().strftime('%Y-%m-%d %H:%M:%S')}"
-                header += " ==="
-                body = "\n".join(line.get("t", "") for line in log_lines) or "(keine Ausgabe)"
-                blocks.append(f"{header}\n{body}")
-            text = "\n\n".join(blocks)
-        if not text:
-            return {"ok": True, "error": "", "text": "Kein Aufgabenprotokoll für diesen Gast vorhanden."}
-        return {"ok": True, "error": "", "text": text[-20000:]}
-    except (httpx.HTTPError, ValueError, KeyError) as exc:
-        return {"ok": False, "error": f"Proxmox-Host nicht erreichbar: {exc}", "text": ""}

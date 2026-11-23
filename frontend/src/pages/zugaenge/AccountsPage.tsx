@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api, type Account, type System } from "../../lib/api";
-import ConfirmDialog from "../../components/ConfirmDialog";
 import OverflowMenu, { type OverflowItem } from "../../components/OverflowMenu";
 import { Skeleton } from "../../components/Skeleton";
 import { useRevealedSecrets } from "../../lib/useRevealedSecrets";
@@ -86,8 +85,6 @@ export default function AccountsPage() {
   const { secrets, reveal, hide } = useRevealedSecrets();
   const [toast, showToast] = useUndoToast();
   const [deleting, setDeleting] = useState<Account | null>(null);
-  const [deploy, setDeploy] = useState<{ account: Account; loginId: string; error: string } | null>(null);
-  const [deployBusy, setDeployBusy] = useState(false);
 
   async function reload() {
     const [a, s] = await Promise.all([api.listAccounts(), api.listSystems()]);
@@ -137,25 +134,6 @@ export default function AccountsPage() {
     }
   }
 
-  async function runDeploy() {
-    if (!deploy) return;
-    if (!deploy.loginId) {
-      setDeploy({ ...deploy, error: "Bitte zuerst den Zugang zum Einloggen wählen." });
-      return;
-    }
-    setDeployBusy(true);
-    try {
-      const r = await api.deploySshKey(deploy.account.id, deploy.loginId);
-      const device = systemName[deploy.account.systemId ?? ""] ?? "Gerät";
-      setDeploy(null);
-      showToast({ message: r.changed ? `Schlüssel auf „${device}“ eingespielt.` : `Der Schlüssel war auf „${device}“ schon hinterlegt.` });
-    } catch (e) {
-      setDeploy((d) => d && { ...d, error: e instanceof Error ? e.message : String(e) });
-    } finally {
-      setDeployBusy(false);
-    }
-  }
-
   if (accounts === null) {
     return (
       <div className="mehr-page zugaenge-page">
@@ -165,11 +143,6 @@ export default function AccountsPage() {
   }
 
   const probing = accounts.filter((a) => a.allowProbe).length;
-  const deployLogins = deploy
-    ? accounts.filter((o) => o.systemId === deploy.account.systemId && o.id !== deploy.account.id && o.hasSecret
-        && (o.category === "login" || o.category === "sshkey"))
-    : [];
-  const deployDevice = deploy ? systemName[deploy.account.systemId ?? ""] ?? "das Gerät" : "";
 
   return (
     <div className="mehr-page zugaenge-page">
@@ -189,36 +162,6 @@ export default function AccountsPage() {
           void reload().catch(() => {});
         }}
       />
-
-      <ConfirmDialog
-        open={deploy !== null}
-        title="SSH-Schlüssel auf dem Gerät einspielen"
-        busy={deployBusy}
-        confirmLabel="Einspielen"
-        consequences={deploy ? [
-          <>HomeAtlas meldet sich mit dem gewählten Zugang per SSH an „{deployDevice}“ an.</>,
-          <>Der öffentliche Teil von „{deploy.account.label}“ wird dort für diesen Benutzer als erlaubter Schlüssel eingetragen (falls er noch fehlt); sonst wird nichts geändert.</>,
-        ] : undefined}
-        onCancel={() => setDeploy(null)}
-        onConfirm={runDeploy}
-      >
-        <div className="field">
-          <label htmlFor="zg-deploy-login">Mit welchem Zugang einloggen?</label>
-          {deployLogins.length === 0 ? (
-            <p className="m-dialog-note">
-              Für „{deployDevice}“ ist kein weiterer Zugang mit Passwort hinterlegt. Lege zuerst einen
-              Login-Zugang für dieses Gerät an.
-            </p>
-          ) : (
-            <select id="zg-deploy-login" value={deploy?.loginId ?? ""}
-                    onChange={(e) => setDeploy((d) => d && { ...d, loginId: e.target.value, error: "" })}>
-              <option value="">Zugang wählen …</option>
-              {deployLogins.map((o) => <option key={o.id} value={o.id}>{o.label}{o.username ? ` (${o.username})` : ""}</option>)}
-            </select>
-          )}
-        </div>
-        {deploy?.error && <div className="notice error" role="alert">{deploy.error}</div>}
-      </ConfirmDialog>
 
       {pmSeen ? null : (
         <div className="m-note" role="note">
@@ -271,9 +214,6 @@ export default function AccountsPage() {
             const device = a.systemId ? systemName[a.systemId] ?? "unbekanntes Gerät" : "";
             const items: OverflowItem[] = [
               { label: "Bearbeiten", onSelect: () => navigate(`/zugaenge/${a.id}`) },
-              ...(a.category === "sshkey" && a.systemId
-                ? [{ label: "Auf Gerät einspielen …", onSelect: () => setDeploy({ account: a, loginId: "", error: "" }) }]
-                : []),
               { label: "Löschen …", onSelect: () => setDeleting(a), danger: true },
             ];
             return (

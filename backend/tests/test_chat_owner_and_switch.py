@@ -1,5 +1,5 @@
-"""#49: chats belong to their creator, admins see all. #43: `set_switch` only reaches real Shelly
-devices and names who switched (chat user or MCP token) in the access log."""
+"""#49: chats belong to their creator, admins see all. #43: `set_switch` names who switched
+(chat user or MCP token) in the access log."""
 import asyncio
 import json
 
@@ -58,48 +58,6 @@ def test_owner_can_delete(as_user):
 
 # --- #43 --------------------------------------------------------------------------------------
 
-@pytest.fixture()
-def switched(temp_db, monkeypatch):
-    calls = []
-
-    async def fake_set(host, on, channel=0):
-        calls.append((host, on))
-        return {"ok": True, "error": ""}
-
-    monkeypatch.setattr(switch_admin, "shelly_set_switch", fake_set)
-    return calls
-
-
-def _set_switch(system_id: str) -> dict:
-    return json.loads(asyncio.run(tools.dispatch("set_switch", {"kind": "shelly", "systemId": system_id, "on": True})))
-
-
-def test_set_switch_refuses_non_shelly(switched):
-    nas = db.create_system({"name": "NAS", "kind": "nas", "ip": "192.168.1.20", "vendor": "Synology"})
-    assert "error" in _set_switch(nas["id"])
-    assert switched == []
-
-
-def test_set_switch_logs_chat_user(switched):
-    plug = db.create_system({"name": "Stehlampe", "kind": "smarthome", "ip": "192.168.1.40",
-                             "vendor": "Shelly", "model": "Plug S"})
-    token = tools.current_actor.set({"user": {"id": "u-anna", "username": "anna"}})
-    try:
-        assert _set_switch(plug["id"])["ok"] is True
-    finally:
-        tools.current_actor.reset(token)
-    assert switched == [("192.168.1.40", True)]
-    entry = db.list_access_log(5, "switch.assistant")[0]
-    assert entry["username"] == "anna" and "Stehlampe" in entry["detail"]
-
-
-def test_list_switches_uses_same_predicate(temp_db):
-    db.create_system({"name": "Plug", "kind": "smarthome", "vendor": "", "model": "Shelly Plus 1PM"})
-    db.create_system({"name": "NAS", "kind": "nas", "vendor": "Synology"})
-    result = json.loads(asyncio.run(tools.dispatch("list_switches", {})))
-    assert [s["name"] for s in result["shellies"]] == ["Plug"]
-
-
 def test_mcp_middleware_sets_token_as_actor(temp_db):
     token = db.create_api_token("Laptop")["token"]
     seen = {}
@@ -113,10 +71,22 @@ def test_mcp_middleware_sets_token_as_actor(temp_db):
     assert tools.current_actor.get() is None
 
 
-def test_shelly_rest_route_refuses_non_shelly(as_user, switched):
-    nas = db.create_system({"name": "NAS", "kind": "nas", "ip": "192.168.1.20", "vendor": "Synology"})
-    assert as_user(ADMIN).post(f"/api/systems/{nas['id']}/shelly-switch/on").status_code == 400
-    assert switched == []
+def test_set_switch_logs_chat_user(temp_db, monkeypatch):
+    account = _ha_account(temp_db)
+
+    async def fake_set(url, token, entity, on):
+        return {"ok": True, "error": ""}
+
+    monkeypatch.setattr(switch_admin, "ha_set_switch", fake_set)
+    token = tools.current_actor.set({"user": {"id": "u-anna", "username": "anna"}})
+    try:
+        out = json.loads(asyncio.run(tools.dispatch(
+            "set_switch", {"kind": "ha", "accountId": account["id"], "entityId": "light.stehlampe", "on": True})))
+    finally:
+        tools.current_actor.reset(token)
+    assert out["ok"] is True
+    entry = db.list_access_log(5, "switch.assistant")[0]
+    assert entry["username"] == "anna" and "light.stehlampe" in entry["detail"]
 
 
 # --- #99 PR3: shutters via set_switch ---------------------------------------------------------

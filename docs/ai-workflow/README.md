@@ -66,7 +66,7 @@ prüft das Claude-Review (`review.md`, Durchgang A) und am Ende der Mensch beim 
 
 ### Risikoregel
 
-Berührt ein Vorhaben Auth/2FA/Krypto, schreibenden Gerätezugriff (`*_admin.py`, `remote_admin.py`),
+Berührt ein Vorhaben Auth/2FA/Krypto, schreibenden Gerätezugriff (`switch_admin.py`, jedes neue `*_admin.py`),
 die LLM-Fähigkeitsgrenze (`tools.py`, `mcp_server.py`), Secret-Ausgabe der API, Deployment oder CI,
 setzt die Triage `risk:high` + `needs-human`. Claude plant dann nur. Willst du trotzdem automatisch
 umsetzen lassen, entferne `needs-human` bewusst, bevor du `status:approved` setzt.

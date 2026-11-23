@@ -9,13 +9,12 @@ services:
     volumes:
       - homeatlas-data:/data
       # `:ro` does NOT stop writes over an already-connected socket -- it only blocks filesystem-
-      # level operations on the special file itself (open-for-write, delete, rename). Container
-      # start/stop/restart/logs/exec (see docker_admin.py, admin-only, never reachable from the
-      # LLM tool-calling surface) go over this same connection and always could have. Discovery
-      # (docker_probe.py) only ever issues GET calls, but that has always been an application-code
-      # choice, not something this flag enforced. Socket access is root-equivalent on the host
-      # either way -- remove this line to run without Docker discovery/control; everything else
-      # keeps working.
+      # level operations on the special file itself (open-for-write, delete, rename). HomeAtlas
+      # has no container control (ADR-0023): discovery and the live container status
+      # (docker_probe.py) only ever issue GET calls, but that is an application-code choice, not
+      # something this flag enforces. Socket access is root-equivalent on the host either way --
+      # remove this line to run without Docker discovery; everything else keeps working. A
+      # read-only socket proxy is tracked in #101.
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       - TZ=Europe/Berlin

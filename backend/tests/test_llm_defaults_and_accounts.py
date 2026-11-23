@@ -1,13 +1,12 @@
 """#46: no LLM call without a configured provider, and provider network errors are non-fatal.
-#47: PATCH on an account changes only what was sent; deploying a key uses the key itself, not
-the editable notes field."""
+#47: PATCH on an account changes only what was sent."""
 import asyncio
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from app import auth, classify, crypto, db, docs, llm_providers, main, remote_admin
+from app import auth, classify, crypto, db, docs, llm_providers, main
 
 
 @pytest.fixture()
@@ -100,32 +99,3 @@ def test_full_form_patch_still_works(admin):
     assert admin.patch(f"/api/accounts/{account['id']}", json=body).status_code == 200
     assert db.get_account(account["id"])["allowProbe"] == 0
 
-
-def test_public_line_is_derived_from_private_key():
-    private_pem, public_line = remote_admin.generate_keypair(comment="homeatlas@NAS")
-    derived = remote_admin.public_line_for(private_pem, "", comment="homeatlas@NAS  Keller\nx")
-    assert derived.split()[:2] == public_line.split()[:2]
-    assert "\n" not in derived and derived.endswith("homeatlas@NAS Keller x")
-    with pytest.raises(ValueError):
-        remote_admin.public_line_for("not a key")
-
-
-def test_deploy_ignores_edited_notes(admin, monkeypatch):
-    system = db.create_system({"name": "NAS", "kind": "nas", "ip": "192.168.1.20"})
-    private_pem, public_line = remote_admin.generate_keypair(comment="homeatlas@NAS")
-    key = db.create_account({"systemId": system["id"], "label": "Key", "category": "sshkey",
-                             "secretEnc": crypto.encrypt(private_pem), "passphraseEnc": crypto.encrypt(""),
-                             "notes": 'command="rm -rf /" ssh-ed25519 AAAAevil attacker'})
-    login = db.create_account({"systemId": system["id"], "label": "Login", "category": "login",
-                               "username": "root", "secretEnc": crypto.encrypt("pw")})
-    seen = {}
-
-    async def fake_deploy(host, account, line, port=0):
-        seen["line"] = line
-        return {"ok": True, "changed": True, "error": ""}
-
-    monkeypatch.setattr(remote_admin, "deploy_public_key", fake_deploy)
-    response = admin.post(f"/api/accounts/{key['id']}/deploy", json={"loginAccountId": login["id"]})
-    assert response.status_code == 200
-    assert seen["line"].split()[:2] == public_line.split()[:2]
-    assert "command=" not in seen["line"] and "evil" not in seen["line"]

@@ -35,7 +35,7 @@
 | **Werkzeug (Tool)** | Eine Fähigkeit des Assistenten; die Liste ist die vollständige Fähigkeitsgrenze des Modells. |
 | **MCP-Endpunkt** | Externer Zugang zu denselben Werkzeugen für andere KI-Clients (Model Context Protocol), abgesichert per Token. |
 | **Diagnose** | Live-Messung: Ping, Port, DNS, HTTP, Traceroute, Internet-Check, Speedtest. |
-| **Fernverwaltung (Remote-Admin)** | Schreibende Admin-Funktionen: Container steuern, Reboot, SSH-Konsole, Schlüssel ausrollen, Schalter. |
+| **Fernverwaltung (Remote-Admin)** | Entfallen (ADR-0023): HomeAtlas steuert keine Geräte und Container; die einzige Schreibfähigkeit ist das Schalten über Home Assistant (`set_switch`). |
 | **Einrichtungsassistent (Setup)** | Einmalige Ersteinrichtung nach der ersten Anmeldung und MFA. |
 | **ADMIN / MEMBER** | Die zwei Rollen: Administrator / Mitglied (nur lesen, Assistent). |
 | **[Muss] / [Impl]** | Markierung in diesen Specs: verbindlich auch für eine Alternative / nur Eigenart der heutigen Umsetzung. |

@@ -1837,8 +1837,7 @@ async def probe_system(system: dict, accounts: list[dict]) -> dict:
     # only recorded for FRITZ! devices: for any other router the call is a speculative guess, and
     # storing its failure would raise an error event on every scan for every non-AVM router.
     # The `login` credential is sent (Digest, port 49000) to FRITZ! devices only -- a foreign
-    # router's web/SSH password must never go to a service it does not run. routes/remote.py::
-    # reboot_system carries the same is_fritzbox rule (no import, ADR-0011): keep in sync.
+    # router's web/SSH password must never go to a service it does not run.
     if is_fritzbox or system.get("kind") == "router":
         router_account = (next((a for a in accounts if a.get("category") == "login"), None)
                           if is_fritzbox else None)
@@ -1851,7 +1850,7 @@ async def probe_system(system: dict, accounts: list[dict]) -> dict:
         # `login` only counts as SSH with port 22/unset: its port usually belongs to the web UI
         # (e.g. 8443), and sending those credentials to SSH there would be a failed attempt with
         # credentials meant for another service (lockout risk). `sshkey` is unambiguously SSH, so
-        # any port is fine. routes/remote.py::_ssh_eligible carries the same rule (no import, ADR-0011).
+        # any port is fine.
         if category == "sshkey" or (category == "login" and (account.get("port") or 0) in (22, 0)):
             # A detected Mikrotik/Aruba widens this beyond the usual Linux-host kinds -- a
             # router/switch admin login is exactly the "login" shape SSH probing was built for,

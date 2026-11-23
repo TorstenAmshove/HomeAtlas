@@ -1,16 +1,14 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { api, type ExposureEntry, type ProbeResult, System, SystemAlias } from "../../lib/api";
 import { Facts, NoticeLine, Section, StateChip, fullDate, type Notice } from "./common";
 
 /** Tab "Technik": everything the scan and the read-only probe found (forensics "Gerät" 5). The
- *  container controls that used to sit inside "Container-Details" are in the "Steuern" tab. */
-export default function TechnikTab({ system, monitorPorts, aliases, isAdmin, canProbe, probing, probeNotice, onProbe }: {
+ *  HomeAtlas has no container controls; use Portainer or the Docker host itself. */
+export default function TechnikTab({ system, monitorPorts, aliases, canProbe, probing, probeNotice, onProbe }: {
   system: System;
   monitorPorts: number[];
   /** Admin only (GET /systems/{id}/aliases); null while loading or for members. */
   aliases: SystemAlias[] | null;
-  isAdmin: boolean;
   canProbe: boolean;
   probing: boolean;
   probeNotice: Notice;
@@ -109,8 +107,7 @@ export default function TechnikTab({ system, monitorPorts, aliases, isAdmin, can
       )}
 
       {docker && (
-        <Section title="Container-Details" id="dv-docker"
-                 aside={isAdmin ? <Link className="dv-link" to="?tab=steuern">Starten, stoppen, Logs → Steuern</Link> : undefined}>
+        <Section title="Container-Details" id="dv-docker">
           <Facts mono rows={[
             ["Image", docker.image],
             ["Zustand", docker.status || docker.state],

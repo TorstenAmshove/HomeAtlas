@@ -1,6 +1,6 @@
 # ADR-0022: Live-Status lokaler Docker-Container für den Assistenten, ohne Inspect
 
-- **Status:** Akzeptiert, ersetzt ADR-0021
+- **Status:** Ersetzt durch ADR-0023 (ersetzte ADR-0021)
 - **Datum:** 2026-11-23
 
 ## Kontext

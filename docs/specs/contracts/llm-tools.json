@@ -169,7 +169,7 @@
     "name": "list_firewall_rules"
   },
   {
-    "description": "Listet schaltbare Shelly-Geräte und Home-Assistant-Entities (switch/light und Rollos) mit den IDs, die set_switch braucht. Immer zuerst aufrufen, um einen umgangssprachlichen Namen wie 'das Wohnzimmerlicht' einem konkreten Ziel zuzuordnen, bevor geschaltet wird. Home-Assistant-Zugänge nur mit Haken 'Zum Auslesen verwenden'.",
+    "description": "Listet schaltbare Home-Assistant-Entities (switch/light und Rollos) mit den IDs, die set_switch braucht. Immer zuerst aufrufen, um einen umgangssprachlichen Namen wie 'das Wohnzimmerlicht' einem konkreten Ziel zuzuordnen, bevor geschaltet wird. Home-Assistant-Zugänge nur mit Haken 'Zum Auslesen verwenden'.",
     "inputSchema": {
       "properties": {},
       "type": "object"
@@ -177,11 +177,11 @@
     "name": "list_switches"
   },
   {
-    "description": "Schaltet ein Shelly-Relais oder eine Home-Assistant-switch/light-Entity ein oder aus ('on') bzw. fährt ein Rollo (cover) hoch/runter/stoppt es ('action'). Vorher list_switches aufrufen, um die passende ID zu finden. Wird sofort ausgeführt, ohne Rückfrage. Keine Garagen-/Hoftore, Türen, Schlösser, Heizung oder Alarmanlage und keine Rollo-Position (die bietet dieses Werkzeug nicht an).",
+    "description": "Schaltet eine Home-Assistant-switch/light-Entity ein oder aus ('on') bzw. fährt ein Rollo (cover) hoch/runter/stoppt es ('action'). Vorher list_switches aufrufen, um die passende ID zu finden. Wird sofort ausgeführt, ohne Rückfrage. Keine Garagen-/Hoftore, Türen, Schlösser, Heizung oder Alarmanlage und keine Rollo-Position (die bietet dieses Werkzeug nicht an).",
     "inputSchema": {
       "properties": {
         "accountId": {
-          "description": "Für kind='ha': die accountId aus list_switches.",
+          "description": "Die accountId aus list_switches.",
           "type": "string"
         },
         "action": {
@@ -194,24 +194,19 @@
           "type": "string"
         },
         "entityId": {
-          "description": "Für kind='ha': die entityId aus list_switches, z. B. switch.wohnzimmer_stecker.",
+          "description": "Die entityId aus list_switches, z. B. switch.wohnzimmer_stecker.",
           "type": "string"
         },
         "kind": {
-          "description": "'shelly' für ein Shelly-Gerät, 'ha' für eine Home-Assistant-Entity.",
+          "description": "Immer 'ha' (Home-Assistant-Entity).",
           "enum": [
-            "shelly",
             "ha"
           ],
           "type": "string"
         },
         "on": {
-          "description": "Für Shelly und HA switch/light: true = einschalten, false = ausschalten.",
+          "description": "Für HA switch/light: true = einschalten, false = ausschalten.",
           "type": "boolean"
-        },
-        "systemId": {
-          "description": "Für kind='shelly': die systemId aus list_switches.",
-          "type": "string"
         }
       },
       "required": [
