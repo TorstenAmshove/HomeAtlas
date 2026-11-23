@@ -118,7 +118,7 @@ Paar `(idA, idB)`, das ein Mensch als „kein Duplikat“ markiert hat.
 `systemId`, `label`, `content`, `source`, `createdAt`.
 
 ### deviceErrorEvents — Fehlermeldungen je Gerät
-`systemId`, `level` (Default `error`), `message`, `createdAt`.
+`systemId`, `level` (Default `error`), `message`, `createdAt`, `acknowledgedAt` (`NULL` = offen; nur offene zählen im Fehler-Badge).
 
 ### monitorEvents — Statusübergänge der Überwachung
 `systemId`, `at`, `status`, `detail`. Gespeichert werden nur Übergänge, nicht jede Abfrage **[Muss]**.

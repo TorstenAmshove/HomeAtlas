@@ -5,7 +5,7 @@
 
 Lücken: **0**
 
-## Routen (88)
+## Routen (90)
 
 | Eintrag | Spec |
 |---|---|
@@ -74,6 +74,8 @@ Lücken: **0**
 | `GET /api/systems/{system_id}/container/logs` | [remote-admin](capabilities/remote-admin/spec.md) |
 | `POST /api/systems/{system_id}/container/{action}` | [remote-admin](capabilities/remote-admin/spec.md) |
 | `GET /api/systems/{system_id}/errors` | [inventar](capabilities/inventar/spec.md) |
+| `POST /api/systems/{system_id}/errors/acknowledge` | [inventar](capabilities/inventar/spec.md) |
+| `POST /api/systems/{system_id}/errors/{event_id}/acknowledge` | [inventar](capabilities/inventar/spec.md) |
 | `GET /api/systems/{system_id}/exposure` | [inventar](capabilities/inventar/spec.md) |
 | `POST /api/systems/{system_id}/ha-switch/{action}` | [remote-admin](capabilities/remote-admin/spec.md) |
 | `GET /api/systems/{system_id}/ha-switchables` | [remote-admin](capabilities/remote-admin/spec.md) |
@@ -102,7 +104,7 @@ Lücken: **0**
 
 | Eintrag | Spec |
 |---|---|
-| `accessLog` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [monitoring](capabilities/monitoring/spec.md), [remote-admin](capabilities/remote-admin/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
+| `accessLog` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [remote-admin](capabilities/remote-admin/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `accountAssignments` | [credentialed-probing](capabilities/credentialed-probing/spec.md), [inventar](capabilities/inventar/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `accounts` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [credentialed-probing](capabilities/credentialed-probing/spec.md), [dashboard](capabilities/dashboard/spec.md), [dokumentation](capabilities/dokumentation/spec.md), [inventar](capabilities/inventar/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md), [remote-admin](capabilities/remote-admin/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `apiTokens` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |

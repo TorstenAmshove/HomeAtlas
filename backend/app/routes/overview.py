@@ -5,9 +5,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Response
 from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
-from .. import crypto, db, diagnostics, docs, llm_providers, topology
+from .. import crypto, db, diagnostics, discovery, docs, llm_providers, topology
 from .. import monitor as monitor_module
 from ..deps import current_user, require_admin
 
@@ -35,13 +35,14 @@ async def monitor_status(_: dict = Depends(current_user)) -> dict:
     systems = db.list_monitored_systems()
     return {
         "enabled": settings.get("monitorEnabled", True),
-        "intervalSeconds": settings.get("monitorIntervalSeconds", 10),
+        "intervalSeconds": monitor_module.effective_interval(settings),
         "status": monitor_module.monitor.status(),
         "systems": [
             {"id": s["id"], "name": s["name"], "ip": s["ip"], "kind": s["kind"],
              "status": s["status"], "importance": s["importance"], "lastSeen": s["lastSeen"],
              "ports": monitor_module.effective_ports(s)[0],
-             "portsExplicit": monitor_module.effective_ports(s)[1]}
+             "portsExplicit": monitor_module.effective_ports(s)[1],
+             "hostOnly": monitor_module.is_host_only(s)}
             for s in systems
         ],
         "events": db.list_monitor_events(limit=50),
@@ -105,7 +106,7 @@ async def dashboard(_: dict = Depends(current_user)) -> dict:
             {**s, "monitorPortsEffective": monitor_module.effective_ports(s)[0]}
             for s in systems if s["importance"] == "critical"
         ][:10],
-        "monitorIntervalSeconds": settings.get("monitorIntervalSeconds", 10),
+        "monitorIntervalSeconds": monitor_module.effective_interval(settings),
         "monitorEnabled": settings.get("monitorEnabled", True),
         # Slim on purpose: MEMBER must not get the scan log/summary (issue #119).
         "lastScan": None if scan is None else {k: scan[k] for k in ("startedAt", "finishedAt", "status")},
@@ -139,6 +140,11 @@ class SetupBody(BaseModel):
     accounts: list[SetupAccount] = Field(default_factory=list)
     scanSubnets: list[str] = Field(default_factory=list)
 
+    @field_validator("scanSubnets")
+    @classmethod
+    def _valid_scan_subnets(cls, value: list[str]) -> list[str]:
+        return discovery.validate_scan_subnets(value)
+
 
 @router.post("/api/setup")
 async def run_setup(body: SetupBody, _: dict = Depends(require_admin)) -> dict:
@@ -168,5 +174,5 @@ async def run_setup(body: SetupBody, _: dict = Depends(require_admin)) -> dict:
         created_accounts += 1
 
     db.update_settings({"homeName": body.homeName, "setupCompleted": True,
-                        "scanSubnets": [s.strip() for s in body.scanSubnets if s.strip()]})
+                        "scanSubnets": body.scanSubnets})
     return {"ok": True, "systems": created_systems, "accounts": created_accounts}

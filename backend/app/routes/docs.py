@@ -4,11 +4,25 @@ Moved out of main.py unchanged; see main.py for the cross-cutting rules."""
 from __future__ import annotations
 
 from fastapi import APIRouter, Body, Depends, HTTPException
+from pydantic import BaseModel
 
 from .. import db, docs
 from ..deps import current_user, require_admin
 
 router = APIRouter()
+
+
+class DocBodyBody(BaseModel):
+    # Required on purpose: a missing field must not silently blank a chapter. "" stays valid
+    # (deliberately emptying and pinning a page).
+    bodyMd: str
+
+
+def _require_page(slug: str) -> dict:
+    page = db.get_doc_page(slug)
+    if page is None:
+        raise HTTPException(status_code=404, detail="Kapitel nicht gefunden.")
+    return page
 
 
 # ---------------------------------------------------------------------------------------------
@@ -22,26 +36,20 @@ async def list_docs(_: dict = Depends(current_user)) -> dict:
 
 @router.get("/api/docs/{slug}")
 async def get_doc(slug: str, _: dict = Depends(current_user)) -> dict:
-    page = db.get_doc_page(slug)
-    if page is None:
-        raise HTTPException(status_code=404, detail="Kapitel nicht gefunden.")
-    return {"page": page}
+    return {"page": _require_page(slug)}
 
 
 @router.put("/api/docs/{slug}")
-async def edit_doc(slug: str, body: dict = Body(...), _: dict = Depends(require_admin)) -> dict:
-    page = db.set_doc_page_body(slug, body.get("bodyMd", ""))
-    if page is None:
-        raise HTTPException(status_code=404, detail="Kapitel nicht gefunden.")
-    return {"page": page}
+async def edit_doc(slug: str, body: DocBodyBody, _: dict = Depends(require_admin)) -> dict:
+    _require_page(slug)
+    return {"page": db.set_doc_page_body(slug, body.bodyMd)}
 
 
 @router.put("/api/docs/{slug}/manual")
 async def edit_doc_manual(slug: str, body: dict = Body(...), _: dict = Depends(require_admin)) -> dict:
     """The household's own notes for a chapter. Kept apart from the generated body so a scan can
     keep refreshing the device tables while this text stays exactly as written."""
-    if db.get_doc_page(slug) is None:
-        raise HTTPException(status_code=404, detail="Kapitel nicht gefunden.")
+    _require_page(slug)
     return {"page": db.set_doc_page_manual(slug, body.get("manualMd", ""))}
 
 
@@ -52,6 +60,7 @@ def _reject_if_generating() -> None:
 
 @router.post("/api/docs/{slug}/reset")
 async def reset_doc(slug: str, _: dict = Depends(require_admin)) -> dict:
+    _require_page(slug)  # 404 before 409
     _reject_if_generating()
     db.reset_doc_page(slug)
     settings = db.get_settings()
@@ -73,6 +82,7 @@ async def generate_docs(body: dict = Body(default={}), _: dict = Depends(require
 
 @router.get("/api/docs/{slug}/versions")
 async def list_doc_versions(slug: str, _: dict = Depends(current_user)) -> dict:
+    _require_page(slug)
     return {"versions": db.list_doc_versions(slug)}
 
 
