@@ -602,8 +602,9 @@ solange der Scan läuft und der Tab sichtbar ist). Scan-Einstellungen in `fronte
   Rückfall; mDNS über `zeroconf` in einem Thread; Gateway aus `ip route show default`, DNS aus
   `/etc/resolv.conf`; Host-IP über verbundenen UDP-Socket zu 8.8.8.8:53 (sendet nichts).
 - Fortschrittswerte: 1 OUI, 2 Bereiche, 5–35 Lebend-Erkennung (Update alle 16 Adressen), 36–60
-  Ports, 62 Namen/Banner, 76 mDNS/UPnP, 78 Shelly, 86 Docker, 87 UniFi/Omada, 88 Proxmox/AdGuard,
-  89 KI, 92 Inventar, 94 Zugänge, 96 Doku, 100 Fertig.
+  Ports, 62 Namen/Banner, 76 mDNS/UPnP, 78 Shelly, 86 Docker, 87 UniFi/Omada, 88 Proxmox/AdGuard/
+  Firewalls/Traefik/Konfigurationen/Cloudflare/öffentliches DNS, 89 KI, 92 Inventar, 94 Zugänge,
+  96 Doku, 100 Fertig. `progress()` klemmt auf den bisher höchsten Wert, die Anzeige fällt nie.
 - Scan läuft als `asyncio.Task` im API-Prozess; Bezeichnung im Feld `subnets` beim manuellen Start
   = Bereichsliste oder „automatisch“.
 - `Scheduler.status()` existiert, wird aber über keine Route ausgeliefert.

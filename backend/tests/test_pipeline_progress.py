@@ -8,6 +8,9 @@ from app import db, pipeline
 @pytest.mark.parametrize("creds", [True, False])
 def test_progress_never_decreases(temp_db, monkeypatch, creds):
     async def fake_discover(settings, progress, extra_targets=None, subnets=None):
+        # A phase reporting a lower value than an earlier one must not move the bar backwards.
+        progress("Ports prüfen", 60)
+        progress("Lebend-Erkennung", 30)
         return {"findings": [], "warnings": [], "gateway": "", "dnsServers": [], "hostIp": "",
                 "routedTargets": [], "counts": {}}
 

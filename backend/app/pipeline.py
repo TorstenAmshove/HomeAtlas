@@ -391,8 +391,13 @@ async def run_full_scan(scan_id: str) -> None:
     created = updated = 0
     unifi_results: list[tuple[dict, dict]] = []
 
+    highest = 0
+
     def progress(phase: str, percent: int, log_line: str | None = None) -> None:
-        db.update_scan(scan_id, phase=phase, progress=percent, log_line=log_line)
+        # Clamped: the bar never moves backwards, even if a later phase reports a lower value.
+        nonlocal highest
+        highest = max(highest, percent)
+        db.update_scan(scan_id, phase=phase, progress=highest, log_line=log_line)
 
     def log(line: str) -> None:
         db.update_scan(scan_id, log_line=line)
@@ -580,7 +585,7 @@ async def run_full_scan(scan_id: str) -> None:
             fw_accounts = [a for a in db.list_accounts()
                            if a.get("category") == "unifi" and a.get("allowProbe")]
             if fw_accounts:
-                progress("UniFi-Firewall erfassen", 89, "Lese Firewall-Zonen und -Regeln")
+                progress("UniFi-Firewall erfassen", 88, "Lese Firewall-Zonen und -Regeln")
             for account in fw_accounts:
                 try:
                     fw = await asyncio.wait_for(firewall_unifi.probe(
@@ -606,7 +611,7 @@ async def run_full_scan(scan_id: str) -> None:
             nft_accounts = [a for a in db.list_accounts()
                             if a.get("category") == firewall_nft.CATEGORY and a.get("allowProbe")]
             if nft_accounts:
-                progress("Host-Firewalls erfassen", 89, "Lese nftables-Regelsätze")
+                progress("Host-Firewalls erfassen", 88, "Lese nftables-Regelsätze")
             for account in nft_accounts:
                 target = db.get_system(account["systemId"]) if account.get("systemId") else None
                 host = ((target or {}).get("ip") or "").strip()
