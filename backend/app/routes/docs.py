@@ -45,8 +45,14 @@ async def edit_doc_manual(slug: str, body: dict = Body(...), _: dict = Depends(r
     return {"page": db.set_doc_page_manual(slug, body.get("manualMd", ""))}
 
 
+def _reject_if_generating() -> None:
+    if docs.is_generating():
+        raise HTTPException(status_code=409, detail="Die Dokumentation wird gerade erzeugt.")
+
+
 @router.post("/api/docs/{slug}/reset")
 async def reset_doc(slug: str, _: dict = Depends(require_admin)) -> dict:
+    _reject_if_generating()
     db.reset_doc_page(slug)
     settings = db.get_settings()
     await docs.generate(settings, use_llm=settings.get("scanUseLlm", True))
@@ -55,6 +61,7 @@ async def reset_doc(slug: str, _: dict = Depends(require_admin)) -> dict:
 
 @router.post("/api/docs/generate")
 async def generate_docs(body: dict = Body(default={}), _: dict = Depends(require_admin)) -> dict:
+    _reject_if_generating()
     settings = db.get_settings()
     use_llm = body.get("useLlm", settings.get("scanUseLlm", True))
     slugs = await docs.generate(settings, use_llm=use_llm)

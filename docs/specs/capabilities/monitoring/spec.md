@@ -122,11 +122,15 @@ Das System MUSS jedem angemeldeten Benutzer liefern: `enabled`, `intervalSeconds
 Quelle: `backend/app/main.py:1557`–`backend/app/main.py:1573`, `backend/app/monitor.py:176`, `backend/app/db.py:1930`
 
 ### Requirement: Prüfrunde manuell auslösen
-Das System MUSS einem ADMIN erlauben, sofort eine Prüfrunde auszuführen, und die in dieser Runde übernommenen Statuswechsel zurückgeben (`changes`: `systemId`, `name`, `status`, `detail`). Die manuelle Runde gilt unabhängig von `monitorEnabled` und zählt für die Ausfallbestätigung wie eine automatische. **[Muss]**
+Das System MUSS einem ADMIN erlauben, sofort eine Prüfrunde auszuführen, und die in dieser Runde übernommenen Statuswechsel zurückgeben (`changes`: `systemId`, `name`, `status`, `detail`). Die manuelle Runde gilt unabhängig von `monitorEnabled`. Runden laufen nie parallel (Sperre in `Monitor`; eine manuelle wartet auf eine laufende Hintergrundrunde). Eine manuelle Runde bestätigt keinen Ausfall und ändert den Fehlerzähler bei `offline` nicht; Ausfälle bestätigt nur die Hintergrundschleife nach `_FAILURES_BEFORE_DOWN` Runden. `online`/`unknown` gelten sofort wie bisher. **[Muss]**
 
 #### Szenario: Admin klickt „Jetzt prüfen“
 - **WENN** `POST /api/monitor/run` aufgerufen wird
 - **DANN** antwortet das System nach Abschluss der Runde mit `{"changes": [...]}`; MEMBER erhält 403
+
+#### Szenario: Manuelle Runde findet ein Gerät offline
+- **WENN** die Hintergrundschleife erst einen Fehlschlag gezählt hat und „Jetzt prüfen“ ebenfalls offline meldet
+- **DANN** bleibt Status und Fehlerzähler unverändert
 
 Quelle: `backend/app/main.py:1576`–`backend/app/main.py:1580`, `frontend/src/pages/geraete/PlanPage.tsx`
 
@@ -175,7 +179,6 @@ UI-Seite(n): `frontend/src/pages/geraete/PlanPage.tsx` (Route `/plan`, Überwach
 ## OFFEN
 
 - > OFFEN: `unknown` (z. B. Ping-Aufruf wirft) setzt den Fehlerzähler zurück und wird sofort übernommen; ein Gerät kann so `offline → unknown → offline` flattern und jeweils Ereignisse erzeugen. → #130
-- > OFFEN: Manuelle Runde und Hintergrundschleife teilen sich den Fehlerzähler und können parallel laufen; ein Klick auf „Jetzt prüfen“ kann einen Ausfall daher schneller „bestätigen“ als zwei Intervalle. → #129
 - > OFFEN: `monitorEvents` hat keine Aufbewahrungsgrenze (im Gegensatz zu `deviceErrorEvents`/`accessLog`); wächst bei flatternden Geräten unbegrenzt. → #130
 - > OFFEN: Rückkehr auf `online` nach Ausfall erzeugt kein Fehler-/Info-Ereignis am Gerät, nur ein `monitorEvents`-Eintrag – gewollt? → #130
 - > OFFEN: `intervalSeconds` in `GET /api/monitor` ist der ungeklemmte Einstellungswert, nicht das tatsächlich verwendete Intervall; `monitorTimeoutMs` hat serverseitig keine Obergrenze. → #130

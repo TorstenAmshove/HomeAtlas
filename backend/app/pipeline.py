@@ -917,7 +917,9 @@ class Scheduler:
             started = datetime.strptime(latest["startedAt"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
             if datetime.now(timezone.utc) - started < timedelta(hours=interval_hours):
                 return  # last scan (manual or automatic) is still recent enough
-        scan_id = db.create_scan("automatisch (Zeitplan)")
+        scan_id = db.create_scan_if_idle("automatisch (Zeitplan)")
+        if scan_id is None:
+            return  # a manual start won the race between the check above and the insert
         await run_full_scan(scan_id)
 
     def status(self) -> dict:
