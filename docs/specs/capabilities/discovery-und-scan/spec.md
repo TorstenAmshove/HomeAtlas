@@ -36,11 +36,17 @@ Quelle: `backend/app/main.py:1431`, `backend/app/pipeline.py:347`, `backend/app/
 
 ### Requirement: Höchstens ein Scan gleichzeitig
 Das System MUSS einen zweiten Scan ablehnen, solange einer läuft (manuell: HTTP 409 „Es läuft
-bereits ein Scan."; Zeitplan: still überspringen). **[Muss]**
+bereits ein Scan."; Zeitplan: still überspringen). Prüfung und Anlegen sind ein einziger atomarer
+SQL-Befehl (`db.create_scan_if_idle`), zwei gleichzeitige Starts erzeugen also nie zwei `running`-Scans;
+ein abgelehnter Start wird nicht als `scan.start` protokolliert. **[Muss]**
 
 #### Szenario: Doppelstart
 - **WENN** ein Scan `running` ist und erneut `POST /api/scans` kommt
 - **DANN** HTTP 409, kein neuer Scan
+
+#### Szenario: Gleichzeitiger Start (Zeitplan und manuell)
+- **WENN** zwei Starts gleichzeitig `create_scan_if_idle` aufrufen
+- **DANN** legt genau einer den Scan an, der andere erhält 409 bzw. der Zeitplan kehrt ohne Scan zurück
 
 Quelle: `backend/app/main.py:1433`, `backend/app/pipeline.py:602`
 
@@ -631,5 +637,3 @@ solange der Scan läuft und der Tab sichtbar ist). Scan-Einstellungen in `fronte
 - > OFFEN: Ungültiger Freitext-Bereich (z. B. „bad“) plus ein mDNS/SSDP-Fund außerhalb von
   `alive` führt in `discovery.py:859` zu `ValueError` aus `ip_network` und lässt den ganzen Scan
   scheitern. → #137
-- > OFFEN: Start-Prüfung „läuft schon ein Scan“ und Anlegen sind nicht atomar (Rennen
-  Zeitplan/manuell theoretisch möglich). → #129

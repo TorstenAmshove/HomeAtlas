@@ -106,6 +106,9 @@ class Monitor:
     def __init__(self) -> None:
         self._task: asyncio.Task | None = None
         self._failures: dict[str, int] = {}
+        # Serialises rounds: the background loop and "Jetzt prüfen" share `_failures`, so they
+        # must never interleave.
+        self._lock = asyncio.Lock()
         self.last_run: float = 0.0
         self.last_error: str = ""
 
@@ -136,7 +139,14 @@ class Monitor:
                 self.last_error = str(exc)
             await asyncio.sleep(interval)
 
-    async def run_once(self, settings: dict | None = None) -> list[dict]:
+    async def run_once(self, settings: dict | None = None, manual: bool = False) -> list[dict]:
+        """One polling round. A `manual` round (button click) never confirms an outage and does not
+        touch the failure counter for offline results -- only the background loop, one interval
+        apart, may count towards `_FAILURES_BEFORE_DOWN`. Online results apply as usual."""
+        async with self._lock:
+            return await self._run_round(settings, manual)
+
+    async def _run_round(self, settings: dict | None, manual: bool) -> list[dict]:
         settings = settings or db.get_settings()
         timeout_s = max(0.2, int(settings.get("monitorTimeoutMs", 1500)) / 1000)
         # Cheap UPDATE, but it is what keeps a newly-marked-critical device from being ignored
@@ -156,6 +166,8 @@ class Monitor:
                 continue
             status, detail = outcome
             if status == "offline":
+                if manual:
+                    continue
                 self._failures[system["id"]] = self._failures.get(system["id"], 0) + 1
                 if self._failures[system["id"]] < _FAILURES_BEFORE_DOWN:
                     # Not yet confirmed -- leave the previous status alone.

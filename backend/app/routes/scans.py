@@ -22,13 +22,14 @@ router = APIRouter()
 
 @router.post("/api/scans")
 async def start_scan(request: Request, user: dict = Depends(require_admin)) -> dict:
-    if db.running_scan() is not None:
+    settings = db.get_settings()
+    chosen = discovery.effective_subnets(settings, db.list_network_resources(kind="network", active_only=True))
+    # atomic check-and-create: a rejected start is neither logged as a start nor creates a row
+    scan_id = db.create_scan_if_idle(", ".join(chosen) or "automatisch")
+    if scan_id is None:
         raise HTTPException(status_code=409, detail="Es läuft bereits ein Scan.")
     ip, agent = _client(request)
     db.log_access("scan.start", user=user, ip=ip, user_agent=agent)
-    settings = db.get_settings()
-    chosen = discovery.effective_subnets(settings, db.list_network_resources(kind="network", active_only=True))
-    scan_id = db.create_scan(", ".join(chosen) or "automatisch")
     task = asyncio.create_task(pipeline.run_full_scan(scan_id))
     _background_tasks.add(task)
     task.add_done_callback(_background_tasks.discard)

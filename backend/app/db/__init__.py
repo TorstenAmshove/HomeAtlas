@@ -169,6 +169,7 @@ from .error_events import (  # noqa: E402
 from .scans import (  # noqa: E402
     abandon_stale_scans,
     create_scan,
+    create_scan_if_idle,
     finish_scan,
     get_scan,
     latest_scan,
@@ -250,6 +251,7 @@ __all__ = [
     "create_chat",
     "create_db_session",
     "create_scan",
+    "create_scan_if_idle",
     "create_system",
     "create_user",
     "delete_account",
