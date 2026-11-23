@@ -115,12 +115,11 @@
 - **K4 [Muss]** Werkzeugergebnisse sind in der Größe begrenzt; eine Kürzung wird dem Modell
   mitgeteilt. Die Zahl der LLM-Aufrufe pro Antwort ist begrenzt.
 - **K5 [Muss]** Anbieter frei wählbar: Anthropic Claude, OpenAI, Google Gemini, DeepSeek, lokales
-  Ollama. ([ADR-0006](../adr/0006-providerneutraler-llm-client.md))
-- **K6 [Impl]** Eigener HTTP-Client statt Vendor-SDKs; Struktur parallel zum Schwesterprojekt
-  GlucoSphere-Web. ([ADR-0006](../adr/0006-providerneutraler-llm-client.md))
+  Ollama. ([ADR-0020](../adr/0020-llm-client-ohne-schwesterprojekt.md))
+- **K6 [Impl]** Eigener HTTP-Client statt Vendor-SDKs. ([ADR-0020](../adr/0020-llm-client-ohne-schwesterprojekt.md))
 - **K7 [Muss, solange Claude unterstützt wird]** An Anthropic keine Sampling-Parameter
   (`temperature`, `top_p`, `top_k`) und kein explizites `thinking` senden. Signierte Thinking-Blöcke
-  werden im nächsten Zug unverändert zurückgespielt. ([ADR-0006](../adr/0006-providerneutraler-llm-client.md))
+  werden im nächsten Zug unverändert zurückgespielt. ([ADR-0020](../adr/0020-llm-client-ohne-schwesterprojekt.md))
 - **K8 [Muss]** Dieselben Werkzeuge stehen über einen externen MCP-Endpunkt bereit, abgesichert
   über Tokens, die ein ADMIN anlegt und widerruft; der Tokenwert wird nur einmal angezeigt.
 - **K9 [Muss]** Ein LLM klassifiziert nur, was die Regeln nicht sicher einordnen können; Antworten

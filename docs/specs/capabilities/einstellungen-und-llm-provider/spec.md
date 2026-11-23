@@ -219,13 +219,21 @@ Quelle: `backend/app/model_catalog.py:35`, `backend/app/model_catalog.py:76`, `b
 ### Requirement: Modelle beim Anbieter laden
 Das System MUSS mit dem aktuellen, ungespeicherten Formularstand (maskierte Werte = gespeicherter
 Wert) die Modellliste des Anbieters abrufen und bei Erfolg unter `providerModelCache[<Anbieter>]` als
-`{models: [{id, label}]}` speichern, nach ID sortiert. Andere Formularwerte werden dabei nicht
-gespeichert. Bei Gemini zählen nur Modelle mit `generateContent`. Bei Netzwerkfehler, HTTP ≥ 400,
+`{models: [{id, label}]}` speichern, nach ID sortiert und ohne doppelte IDs. Das gilt nur, wenn
+Schlüssel und Server-Adresse des Formulars den gespeicherten entsprechen (Antwortfeld `persisted`);
+sonst wird die Liste nur zurückgegeben und die Meldung ergänzt „Die Liste gilt bis zum Speichern“.
+Andere Formularwerte werden dabei nicht gespeichert. Claude und Gemini werden seitenweise gelesen
+(höchstens 10 Seiten; bei Erreichen steht „Liste nach 10 Seiten gekürzt“ in der Meldung); ein Fehler
+auf einer Folgeseite lässt den ganzen Abruf fehlschlagen. Bei Gemini zählen nur Modelle mit `generateContent`. Bei Netzwerkfehler, HTTP ≥ 400,
 Nicht-JSON-Antwort („stimmt die Server-Adresse?“) oder leerer Liste MUSS `ok=false` mit Meldung
 zurückkommen und der Cache unverändert bleiben. Erfolgsmeldung: „<n> Modelle gefunden.“ **[Muss]**
 
-Details **[Impl]**: Timeout 30 s (Verbindung 10 s); Claude `GET /models?limit=100`; OpenAI-kompatibel
-`GET /models`; Gemini `GET …/v1beta/models`.
+Details **[Impl]**: Timeout 30 s (Verbindung 10 s); Claude `GET /models?limit=1000` (`after_id`/`has_more`/`last_id`); OpenAI-kompatibel
+`GET /models`; Gemini `GET …/v1beta/models?pageSize=1000` (`pageToken`/`nextPageToken`), Schlüssel nur im Header `x-goog-api-key`, auch beim Chat – nie in der URL.
+
+Der Cache wird bei jeder Änderung von Schlüssel oder Server-Adresse eines Anbieters (inkl. Entfernen eines
+Schlüssels) per `PATCH /api/settings` für diesen Anbieter verworfen; ein unlesbarer alter Schlüssel zählt
+als geändert. `PATCH` ignoriert `providerModelCache` im Body.
 
 #### Szenario: Schlüssel noch nicht gespeichert
 - **WENN** ein Admin einen neuen OpenAI-Schlüssel eintippt und „Modelle laden“ wählt
@@ -353,8 +361,3 @@ Admins; Konto und Über für alle; Darstellung (System · Hell · Dunkel, pro Br
 
 ## OFFEN
 
-- > OFFEN: UI-Fehler: Nach „Modelle laden“ wird nur `data`, nicht `form` aktualisiert; die neue Liste erscheint erst nach Neuladen, und ein anschließendes „Speichern“ schreibt den alten `providerModelCache` zurück. → #125
-- > OFFEN: Die Live-Liste wird nach ID sortiert gespeichert; der Fallback „erster/letzter Eintrag“ in `resolve` wählt dadurch alphabetisch, nicht nach Anbieter-Reihenfolge (Docstring geht von Anbieterreihenfolge aus). → #125
-- > OFFEN: `providerModelCache` wird bei Wechsel von Schlüssel oder Server-Adresse nicht verworfen. → #125
-- > OFFEN: Claude-Modellabruf holt höchstens 100 Modelle, ohne Paginierung. → #125
-- > OFFEN: Gemini-Schlüssel steht als Query-Parameter in der URL (kann in Proxy-Logs landen). → #125

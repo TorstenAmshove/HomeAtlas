@@ -166,7 +166,7 @@ Lücken: **0**
 | `DocsPage` | [dokumentation](capabilities/dokumentation/spec.md) |
 | `SettingsPage` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [diagnose](capabilities/diagnose/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md), [firewall](capabilities/firewall/spec.md), [monitoring](capabilities/monitoring/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) |
 
-## ADRs in der Constitution (19)
+## ADRs in der Constitution (20)
 
 Quelle links sind die Dateien in `docs/adr/`, rechts die Regeln in [constitution.md](constitution.md),
 die auf das ADR verlinken.
@@ -178,7 +178,7 @@ die auf das ADR verlinken.
 | [ADR-0003](../adr/0003-host-netzwerk-und-loopback-backend.md) | Akzeptiert (nachträglich dokumentiert) | B1, B2, B3, B6 |  |
 | [ADR-0004](../adr/0004-llm-faehigkeitsgrenze.md) | Ersetzt durch ADR-0013 (nachträglich dokumentiert) | – |  |
 | [ADR-0005](../adr/0005-sqlite-ohne-orm.md) | Ersetzt durch ADR-0010 | – |  |
-| [ADR-0006](../adr/0006-providerneutraler-llm-client.md) | Akzeptiert (nachträglich dokumentiert) | K5, K6, K7 |  |
+| [ADR-0006](../adr/0006-providerneutraler-llm-client.md) | Ersetzt durch ADR-0020 | – |  |
 | [ADR-0007](../adr/0007-credentials-fernet-schluessel-im-volume.md) | Akzeptiert (nachträglich dokumentiert) | Z1, Z2, Z3, Z5 |  |
 | [ADR-0008](../adr/0008-topologie-als-server-svg.md) | Ersetzt durch ADR-0009 (ursprünglich akzeptiert, nachträglich dokumentiert) | – |  |
 | [ADR-0009](../adr/0009-netzplan-ebenen-ist-stand.md) | Akzeptiert, ersetzt ADR-0008 | D4, D5 |  |
@@ -192,3 +192,4 @@ die auf das ADR verlinken.
 | [ADR-0017](../adr/0017-firewall-quellen-und-pfadbewertung.md) | Ersetzt durch ADR-0018; ersetzte ADR-0016 | – |  |
 | [ADR-0018](../adr/0018-wan-status-und-lesepfade.md) | Ersetzt durch ADR-0019; ersetzte ADR-0017 | – |  |
 | [ADR-0019](../adr/0019-firewall-zonen-subnetze.md) | Akzeptiert, ersetzt ADR-0018 | P1, L1, L2, L4, L5, L6, L8, K1, K2, K3 |  |
+| [ADR-0020](../adr/0020-llm-client-ohne-schwesterprojekt.md) | Akzeptiert | K5, K6, K7 |  |

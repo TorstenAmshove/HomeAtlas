@@ -471,7 +471,7 @@ export const api = {
   testLlm: (provider: string, settings: Record<string, any>) =>
     post<{ ok: boolean; message: string; model: string }>("/settings/llm/test", { provider, settings }),
   refreshModels: (provider: string, settings: Record<string, any>) =>
-    post<{ ok: boolean; message: string; models: ModelOption[] }>("/settings/llm/models", { provider, settings }),
+    post<{ ok: boolean; message: string; models: ModelOption[]; persisted: boolean }>("/settings/llm/models", { provider, settings }),
   refreshOui: () => post<{ ok: boolean; message: string; entries: number }>("/settings/oui/refresh"),
 
   listSystems: (kind?: string) =>

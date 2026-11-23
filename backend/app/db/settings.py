@@ -15,7 +15,7 @@ from ._core import _conn, _dump
 DEFAULT_SETTINGS: dict[str, Any] = {
     "homeName": "Mein Zuhause",
     "setupCompleted": False,
-    # LLM -- same provider ids/fields as GlucoSphere-Web so the config UI is familiar.
+    # LLM
     "llmProvider": "DEEPSEEK",
     "geminiApiKey": "", "geminiModel": "auto",
     "claudeApiKey": "", "claudeModel": "auto", "claudeBaseUrl": "",

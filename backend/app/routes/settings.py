@@ -173,11 +173,28 @@ async def update_settings(patch: SettingsPatch, _: dict = Depends(require_admin)
         if not name.startswith("has"):
             data.pop(name, None)
     cleared = data.get("clearSecrets") or []
-    cleaned = _unmask_patch(data, db.get_settings())
+    before = db.get_settings()
+    cleaned = _unmask_patch(data, before)
     for name in cleared:
         cleaned[_ENCRYPTED_SETTING_FIELDS.get(name, name)] = ""
     merged = db.update_settings(cleaned)
+    # A cached model list belongs to the key + server address it was fetched with.
+    cache = dict(merged.get("providerModelCache") or {})
+    stale = [p for p in cache if _connection_identity(p, before) != _connection_identity(p, merged)]
+    if stale:
+        for provider in stale:
+            del cache[provider]
+        merged = db.update_settings({"providerModelCache": cache})
     return {"settings": _mask_settings(merged)}
+
+
+def _connection_identity(provider: str, settings: dict) -> tuple[str, str] | None:
+    """(plaintext key, effective base URL) -- what a model list depends on. None when the stored key
+    cannot be decrypted, which never compares equal to anything, so the cache is dropped."""
+    try:
+        return llm_providers.api_key_for(provider, settings), llm_providers.base_url_for(provider, settings)
+    except llm_providers.ProviderError:
+        return None
 
 
 # ---------------------------------------------------------------------------------------------
@@ -230,11 +247,17 @@ async def test_llm(body: ProviderBody, _: dict = Depends(require_admin)) -> dict
 async def refresh_llm_models(body: ProviderBody, _: dict = Depends(require_admin)) -> dict:
     provider, settings = _settings_for_provider_test(body)
     ok, message, models = await llm_providers.refresh_models(provider, settings)
-    if ok:
-        cache = dict(db.get_settings().get("providerModelCache") or {})
+    stored = db.get_settings()
+    identity = _connection_identity(provider, settings)
+    # An unsaved key/address would cache a list that belongs to values the server does not hold yet.
+    persisted = ok and identity is not None and identity == _connection_identity(provider, stored)
+    if persisted:
+        cache = dict(stored.get("providerModelCache") or {})
         cache[provider] = {"models": models}
         db.update_settings({"providerModelCache": cache})
-    return {"ok": ok, "message": message, "models": models}
+    elif ok:
+        message += " Die Liste gilt bis zum Speichern; danach erneut laden."
+    return {"ok": ok, "message": message, "models": models, "persisted": persisted}
 
 
 @router.post("/api/settings/oui/refresh")

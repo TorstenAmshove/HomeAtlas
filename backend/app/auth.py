@@ -5,7 +5,6 @@ here: the household should be able to look up "wie starte ich den Server neu" wi
 handing out the router password.
 
 PBKDF2-HMAC-SHA256 via stdlib `hashlib`, opaque random session tokens in the `sessions` table.
-Ported from GlucoSphere-Web's `auth.py`.
 """
 from __future__ import annotations
 

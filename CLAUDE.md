@@ -138,9 +138,7 @@ volume — protects against a leaked DB copy, not a host-root attacker) encrypts
 deliberately not using any vendor SDK. Two correctness details specific to current Claude models:
 no sampling parameters (`temperature`/`top_p`/`top_k`) are ever sent to Anthropic (removed on
 Opus 5/Sonnet 5/4.8/4.7 — sending them is an HTTP 400), and `thinking` is never explicitly
-configured (every explicit setting 400s on some model in the supported range). Mirrors the
-sibling project GlucoSphere-Web's `llm_providers.py` structure by design — keep them recognizably
-similar if you touch this.
+configured (every explicit setting 400s on some model in the supported range).
 
 **`auth.py`** implements two roles: ADMIN (full access including secrets) and MEMBER (docs +
 chat, read-only, never a plaintext secret). `deps.py`'s `require_admin`/`current_user`
