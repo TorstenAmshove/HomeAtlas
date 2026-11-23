@@ -37,7 +37,7 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (66)
+## Alle Punkte je Fähigkeit (64)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (1)
 
@@ -72,10 +72,6 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 1. Die Latenz des Speedtests ist die erste Anfrage auf einer neuen Verbindung und enthält TCP- und TLS-Aufbau – systematisch zu hoch. → #151
 2. REST-Tool-Namen weichen von den LLM-Werkzeugnamen ab (`ping` vs. `ping_host`); Alternative vereinheitlichen? → #151
-
-### [discovery-und-scan](capabilities/discovery-und-scan/spec.md) (1)
-
-1. Ungültiger Freitext-Bereich (z. B. „bad“) plus ein mDNS/SSDP-Fund außerhalb von `alive` führt in `discovery.py:859` zu `ValueError` aus `ip_network` und lässt den ganzen Scan scheitern. → #137
 
 ### [dokumentation](capabilities/dokumentation/spec.md) (5)
 
@@ -124,15 +120,14 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 2. Assistent schaltet bei Shelly immer Kanal 0 (bewusst; ein Kanalparameter für `set_switch` erweitert die ADR-Ausnahme). Bereichsprüfung der REST-Route behoben (#147).
 3. Keine Tests für die drei WebSocket-Konsolen, lokale Container-Aktionen, Shelly/HA-Schalten und die Origin-Prüfung. → #148
 
-### [setup-wizard](capabilities/setup-wizard/spec.md) (7)
+### [setup-wizard](capabilities/setup-wizard/spec.md) (6)
 
 1. `POST /api/setup` prüft nicht, ob das Setup schon abgeschlossen ist; erneuter Aufruf legt Geräte/Konten doppelt an und überschreibt `homeName`/`scanSubnets`. → #149
 2. Antwortfeld `accounts` zählt Gerätezugänge nicht mit – gewollt oder Ungenauigkeit? → #149
-3. Keine Validierung der `scanSubnets`-Einträge; ungültiger Freitext landet in den Einstellungen (Verhalten im Scan siehe [discovery-und-scan](../discovery-und-scan/spec.md)). → #137
-4. Leerer `homeName` wird gespeichert; Doku/Topologie/Assistent fallen dann teils auf Ersatztexte zurück. → #149
-5. `GET /api/health` ist ohne Login erreichbar und verrät `userCount`; das Frontend nutzt das Feld nicht. → #115
-6. Art→Wichtigkeit (`router/server/nas/heating` → kritisch) ist hart verdrahtet; `network` (Switch/AP) wird nicht kritisch – Absicht? → #149
-7. Kein Duplikatabgleich mit bereits gescannten Geräten gleicher IP; ein späterer Scan muss das zusammenführen (siehe [inventar](../inventar/spec.md)). → #149
+3. Leerer `homeName` wird gespeichert; Doku/Topologie/Assistent fallen dann teils auf Ersatztexte zurück. → #149
+4. `GET /api/health` ist ohne Login erreichbar und verrät `userCount`; das Frontend nutzt das Feld nicht. → #115
+5. Art→Wichtigkeit (`router/server/nas/heating` → kritisch) ist hart verdrahtet; `network` (Switch/AP) wird nicht kritisch – Absicht? → #149
+6. Kein Duplikatabgleich mit bereits gescannten Geräten gleicher IP; ein späterer Scan muss das zusammenführen (siehe [inventar](../inventar/spec.md)). → #149
 
 ### [topologie](capabilities/topologie/spec.md) (6)
 

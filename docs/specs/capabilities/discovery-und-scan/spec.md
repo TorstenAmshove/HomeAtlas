@@ -79,8 +79,15 @@ aktivierte Controller-Netze (`scanControllerNetworkIds`, Quelle „controller“
 Freitext-Einträge (`scanSubnets`, Quelle „freitext“). Einträge werden normalisiert
 (`10.0.0.5/24` → `10.0.0.0/24`) und dedupliziert (Controller-Eintrag gewinnt). Ist nichts
 gewählt, MUSS das System die direkt angeschlossenen Netze des Hosts nehmen, ersatzweise das /24 der
-primären Host-IP. **[Muss]** Ungültiger Freitext wird unverändert durchgereicht, damit der Scan
-warnen kann. **[Impl]**
+primären Host-IP. **[Muss]** Ungültiger Freitext (Altbestand) wird unverändert durchgereicht;
+`discover` überspringt ihn mit einer Warnung im Scan-Protokoll, auch beim Zusammenführen der
+mDNS/SSDP-Funde. Sind alle Einträge ungültig, bricht der Scan mit der Meldung „kein
+Netzwerk-Bereich“ ab. Neue Einträge lehnen Setup und Einstellungen vorher mit 422 ab. **[Muss]**
+
+#### Szenario: Ungültiger Altbestand bricht den Scan nicht ab
+- **WENN** `scanSubnets = ["bad", "10.50.0.0/30"]` und mDNS meldet eine IP außerhalb von `alive`
+- **DANN** läuft der Scan durch, das Ergebnis enthält die Warnung „'bad' ist kein gültiger Netzwerk-Bereich …“
+  (Test: `backend/tests/test_discovery_subnets.py::test_invalid_free_text_subnet_does_not_abort_scan`)
 
 #### Szenario: Controller + Freitext ohne Duplikate
 - **WENN** Controller-Netze a=`192.168.20.0/24`, b=`10.0.0.0/24` angehakt und Freitext
@@ -634,8 +641,3 @@ solange der Scan läuft und der Tab sichtbar ist). Scan-Einstellungen in `fronte
   = Bereichsliste oder „automatisch“.
 - `Scheduler.status()` existiert, wird aber über keine Route ausgeliefert.
 
-## OFFEN
-
-- > OFFEN: Ungültiger Freitext-Bereich (z. B. „bad“) plus ein mDNS/SSDP-Fund außerhalb von
-  `alive` führt in `discovery.py:859` zu `ValueError` aus `ip_network` und lässt den ganzen Scan
-  scheitern. → #137

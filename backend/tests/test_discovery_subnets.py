@@ -133,3 +133,21 @@ def test_selected_subnets_duplicate_keeps_controller_position():
     result = discovery.selected_subnets(
         {"scanControllerNetworkIds": ["a"], "scanSubnets": ["10.0.0.0/24"]}, resources)
     assert [e["source"] for e in result] == ["controller"]
+
+
+def test_invalid_free_text_subnet_does_not_abort_scan(monkeypatch):
+    async def fake_mdns(*a, **k):
+        return {"10.50.0.9": [{"name": "x"}], "not-an-ip": []}, []
+
+    monkeypatch.setattr(discovery, "probe_mdns", fake_mdns)
+    result = _run_discover(monkeypatch, {"scanEnableMdns": True},
+                           ["bad", "10.50.0.0/30"], alive={"10.50.0.1"})
+    assert any(w.startswith("'bad' ist kein gültiger Netzwerk-Bereich") for w in result["warnings"])
+    assert any(f.get("ip") == "10.50.0.1" for f in result["findings"])
+
+
+def test_all_invalid_subnets_raise_clear_error(monkeypatch):
+    import pytest
+
+    with pytest.raises(RuntimeError, match="kein Netzwerk-Bereich"):
+        _run_discover(monkeypatch, {}, ["bad"], alive=set())
