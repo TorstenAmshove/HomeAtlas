@@ -35,7 +35,7 @@ Daten: gleiche SQL-Statements gegen eine **Kopie** von `homeatlas.db`.
 | Übersicht | „live · alle N s“ | `settings.monitorIntervalSeconds` | ✅ | siehe B2 |
 | Geräte | Treffer der Liste | clientseitig gefiltert aus `GET /api/systems` | ✅ | keine Zahl angezeigt außer „n ausgewählt“ und „(n Container)“ je Compose-Gruppe |
 | Geräte | „n Verdachtsfälle“ | `GET /api/systems/duplicates` Länge | ✅ | |
-| Gerät | „⚠ n Fehler protokolliert“ | `listSystemErrors` Länge | ✅ | begrenzt durch `_ERROR_EVENT_KEEP` – „n“ ist „n gespeicherte“, nicht „n insgesamt“ |
+| Gerät | „⚠ n Fehler protokolliert“ | `listSystemErrors` Länge | ✅ | begrenzt durch `_ERROR_EVENT_KEEP` – „n“ ist „n offene (unquittierte)“, nicht „n insgesamt“ |
 | Netzplan | „n überwachte Geräte nicht erreichbar“ | `GET /api/monitor` → `systems` mit status='offline' | ✅ | **andere Grundmenge** als das frühere `counts.offline` der Übersicht (inzwischen entfernt, #85) (nur `monitored=1` mit Adresse) – siehe B3 |
 | Netzplan | Speedtest Mbit/s, DNS-Zeiten | Live-Messung, nicht gespeichert | n/a | |
 | Scan | Fortschritt %, Zusammenfassung | `scans.progress`, `scans.summary` (Text vom Pipeline-Lauf) | ✅ | Zusammenfassung ist Freitext, keine separat gezählte Zahl |
