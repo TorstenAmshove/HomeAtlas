@@ -543,7 +543,7 @@ export const api = {
       + `?accountId=${accountId}${mode ? `&mode=${mode}` : ""}`,
     ),
   remoteDockerConsoleWsUrl: (systemId: string, accountId: string, containerId: string) =>
-    wsUrl(`/api/ws/systems/${systemId}/remote-docker-console?accountId=${accountId}&containerId=${containerId}`),
+    wsUrl(`/api/ws/systems/${systemId}/remote-docker-console?accountId=${accountId}&containerId=${encodeURIComponent(containerId)}`),
 
   rebootSystem: (systemId: string, accountId: string) =>
     post<{ ok: boolean }>(`/systems/${systemId}/reboot?accountId=${accountId}`),

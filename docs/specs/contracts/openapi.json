@@ -5350,6 +5350,8 @@
             "required": false,
             "schema": {
               "default": 0,
+              "maximum": 3,
+              "minimum": 0,
               "title": "Channel",
               "type": "integer"
             }
