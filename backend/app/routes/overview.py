@@ -79,7 +79,10 @@ async def dns_diagnostic(body: dict = Body(default={}), _: dict = Depends(curren
 
 @router.post("/api/diagnostics/speedtest")
 async def speedtest_diagnostic(_: dict = Depends(current_user)) -> dict:
-    return {"result": await diagnostics.speedtest()}
+    try:
+        return {"result": await diagnostics.speedtest()}
+    except diagnostics.DiagnosticBusy as exc:
+        raise HTTPException(status_code=429, detail=str(exc), headers={"Retry-After": "30"}) from exc
 
 
 @router.get("/api/dashboard")

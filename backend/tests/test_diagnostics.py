@@ -113,3 +113,123 @@ def test_routes_answer_400_not_500(client):
     assert client.post("/api/diagnostics", json={"tool": "http_check", "args": {"url": "http://127.0.0.1:8281/"}}).status_code == 400
     assert client.post("/api/diagnostics/dns", json={"names": "heise.de"}).status_code == 400
     assert client.post("/api/diagnostics/dns", json={"names": ["bad host;"]}).status_code == 400
+
+
+# --- #120: Speedtest-Sperre, Traceroute-Grenzen ---------------------------------------------------
+
+def test_second_parallel_speedtest_rejected(monkeypatch):
+    release = asyncio.Event()
+    entered = asyncio.Event()
+
+    class FakeClient:
+        def __init__(self, *a, **k):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def get(self, *a, **k):
+            entered.set()
+            await release.wait()
+            return type("R", (), {"content": b"x"})()
+
+        async def post(self, *a, **k):
+            return None
+
+    monkeypatch.setattr(diagnostics.httpx, "AsyncClient", FakeClient)
+
+    async def scenario():
+        first = asyncio.create_task(diagnostics.speedtest())
+        await entered.wait()
+        with pytest.raises(diagnostics.DiagnosticBusy):
+            await diagnostics.speedtest()
+        first.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await first
+        # lock was released by the cancellation: a new run starts again
+        release.set()
+        result = await diagnostics.speedtest()
+        assert result["ok"] is True
+
+    run(scenario())
+
+
+def test_speedtest_route_returns_429_when_busy(monkeypatch):
+    async def busy():
+        raise diagnostics.DiagnosticBusy("Es läuft bereits ein Speedtest. Bitte kurz warten.")
+
+    monkeypatch.setattr(diagnostics, "speedtest", busy)
+    main.app.dependency_overrides[main.current_user] = lambda: {
+        "id": "u1", "role": auth.ROLE_MEMBER, "username": "a", "totpEnabled": 1}
+    try:
+        response = TestClient(main.app).post("/api/diagnostics/speedtest")
+    finally:
+        main.app.dependency_overrides.clear()
+    assert response.status_code == 429
+    assert "Speedtest" in response.json()["detail"]
+
+
+def test_traceroute_max_two_concurrent(monkeypatch):
+    release = asyncio.Event()
+
+    async def fake_run(args, timeout):
+        await release.wait()
+        return 0, "header\n"
+
+    monkeypatch.setattr(diagnostics, "_run", fake_run)
+
+    async def scenario():
+        a = asyncio.create_task(diagnostics.traceroute("192.168.1.1"))
+        b = asyncio.create_task(diagnostics.traceroute("192.168.1.2"))
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        with pytest.raises(diagnostics.DiagnosticBusy):
+            await diagnostics.traceroute("192.168.1.3")
+        release.set()
+        await asyncio.gather(a, b)
+        assert (await diagnostics.traceroute("192.168.1.3"))["host"] == "192.168.1.3"
+
+    run(scenario())
+
+
+def test_traceroute_route_rate_limit_per_user(monkeypatch):
+    from app.routes import diagnostics as route
+
+    async def fake(host, hops=15):
+        return {"host": host, "hops": [], "explanation": ""}
+
+    monkeypatch.setattr(diagnostics, "traceroute", fake)
+    now = [1000.0]
+    monkeypatch.setattr(route, "_TRACEROUTE_LIMITER",
+                        route.SlidingWindowLimiter(3, 60, clock=lambda: now[0]))
+    user = {"id": "u1", "role": auth.ROLE_MEMBER, "username": "a", "totpEnabled": 1}
+    holder = {"u": user}
+    main.app.dependency_overrides[main.current_user] = lambda: holder["u"]
+    client = TestClient(main.app)
+    body = {"tool": "traceroute", "args": {"host": "192.168.1.1"}}
+    try:
+        for _ in range(3):
+            assert client.post("/api/diagnostics", json=body).status_code == 200
+        limited = client.post("/api/diagnostics", json=body)
+        assert limited.status_code == 429
+        assert int(limited.headers["Retry-After"]) >= 1
+        holder["u"] = {**user, "id": "u2"}
+        assert client.post("/api/diagnostics", json=body).status_code == 200
+        # other tools are not limited
+        assert client.post("/api/diagnostics", json={"tool": "nope"}).status_code == 400
+    finally:
+        main.app.dependency_overrides.clear()
+
+
+def test_tool_dispatch_traceroute_busy_returns_error_text(monkeypatch):
+    from app import tools
+
+    async def busy(*a, **k):
+        raise diagnostics.DiagnosticBusy("zu viele Traceroutes")
+
+    monkeypatch.setattr(diagnostics, "traceroute", busy)
+    result = run(tools.dispatch("traceroute", {"host": "192.168.1.1"}))
+    assert "zu viele Traceroutes" in str(result)
