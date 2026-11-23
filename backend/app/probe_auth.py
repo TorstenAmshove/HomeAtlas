@@ -1836,8 +1836,12 @@ async def probe_system(system: dict, accounts: list[dict]) -> dict:
     # TR-064 works partly without a login, so it runs for AVM hardware regardless. A failure is
     # only recorded for FRITZ! devices: for any other router the call is a speculative guess, and
     # storing its failure would raise an error event on every scan for every non-AVM router.
+    # The `login` credential is sent (Digest, port 49000) to FRITZ! devices only -- a foreign
+    # router's web/SSH password must never go to a service it does not run. routes/remote.py::
+    # reboot_system carries the same is_fritzbox rule (no import, ADR-0011): keep in sync.
     if is_fritzbox or system.get("kind") == "router":
-        router_account = next((a for a in accounts if a.get("category") in ("login", "router")), None)
+        router_account = (next((a for a in accounts if a.get("category") == "login"), None)
+                          if is_fritzbox else None)
         result = await probe_fritzbox(host, router_account)
         if result["ok"] or is_fritzbox:
             results["tr064"] = result
