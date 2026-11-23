@@ -37,7 +37,7 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (69)
+## Alle Punkte je Fähigkeit (67)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (1)
 
@@ -70,10 +70,8 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 ### [dashboard](capabilities/dashboard/spec.md) (0)
 
 
-### [diagnose](capabilities/diagnose/spec.md) (2)
+### [diagnose](capabilities/diagnose/spec.md) (0)
 
-1. Die Latenz des Speedtests ist die erste Anfrage auf einer neuen Verbindung und enthält TCP- und TLS-Aufbau – systematisch zu hoch. → #151
-2. REST-Tool-Namen weichen von den LLM-Werkzeugnamen ab (`ping` vs. `ping_host`); Alternative vereinheitlichen? → #151
 
 ### [discovery-und-scan](capabilities/discovery-und-scan/spec.md) (1)
 
