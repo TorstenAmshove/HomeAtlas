@@ -182,3 +182,80 @@ def test_ws_gate_refuses_member_unenrolled_and_anonymous(env):
     assert asyncio.run(main._ws_authenticate(_FakeSocket(_session_for(member_id), origin=origin))) is None
     assert asyncio.run(main._ws_authenticate(_FakeSocket(_session_for(unenrolled_id), origin=origin))) is None
     assert asyncio.run(main._ws_authenticate(_FakeSocket(None, origin=origin))) is None
+
+
+# --- session lifecycle (#116) ----------------------------------------------------------------
+
+def _client_with(token: str) -> TestClient:
+    client = TestClient(main.app)
+    client.cookies.set(auth.SESSION_COOKIE_NAME, token)
+    return client
+
+
+def _status(token: str) -> int:
+    return _client_with(token).get("/api/auth/me").status_code
+
+
+def test_invalidate_user_sessions_keep_token(env):
+    a, _ = _user("anna")
+    b, _ = _user("bert")
+    keep, other, foreign = auth.create_session(a), auth.create_session(a), auth.create_session(b)
+    assert db.invalidate_user_sessions(a, keep_token=keep) == 1
+    assert _status(keep) == 200 and _status(other) == 401 and _status(foreign) == 200
+    assert db.invalidate_user_sessions(a) == 1
+    assert _status(keep) == 401 and _status(foreign) == 200
+
+
+def test_password_change_ends_other_sessions(env):
+    uid, _ = _user("anna")
+    other_id, _ = _user("bert")
+    a, b, foreign = auth.create_session(uid), auth.create_session(uid), auth.create_session(other_id)
+    resp = _client_with(a).post("/api/auth/password",
+                                json={"currentPassword": PASSWORD, "newPassword": "Ganz-Neues-Passwort-77x"})
+    assert resp.status_code == 200
+    assert _status(a) == 200
+    assert _status(b) == 401
+    assert _status(foreign) == 200  # other users untouched
+
+
+def test_failed_password_change_keeps_sessions(env):
+    uid, _ = _user("anna")
+    a, b = auth.create_session(uid), auth.create_session(uid)
+    client = _client_with(a)
+    assert client.post("/api/auth/password",
+                       json={"currentPassword": "falsch", "newPassword": "Ganz-Neues-Passwort-77x"}).status_code == 400
+    assert client.post("/api/auth/password",
+                       json={"currentPassword": PASSWORD, "newPassword": "a"}).status_code == 400
+    assert _status(a) == 200 and _status(b) == 200
+
+
+def test_admin_mfa_reset_ends_all_target_sessions(env):
+    admin_id, _ = _user("anna")
+    target_id, _ = _user("bert")
+    admin_tok = auth.create_session(admin_id)
+    t1, t2 = auth.create_session(target_id), auth.create_session(target_id)
+    resp = _client_with(admin_tok).post(f"/api/users/{target_id}/mfa/reset")
+    assert resp.status_code == 200
+    assert _status(t1) == 401 and _status(t2) == 401
+    assert _status(admin_tok) == 200
+    fresh = TestClient(main.app)
+    assert _login(fresh, "bert").status_code == 200
+    assert fresh.get("/api/auth/me").json()["user"]["totpEnabled"] in (False, 0)
+    assert fresh.post("/api/auth/mfa/setup").status_code == 200
+
+
+def test_self_mfa_reset_ends_own_session(env):
+    admin_id, _ = _user("anna")
+    tok = auth.create_session(admin_id)
+    assert _client_with(tok).post(f"/api/users/{admin_id}/mfa/reset").status_code == 200
+    assert _status(tok) == 401
+    fresh = TestClient(main.app)
+    assert _login(fresh, "anna").status_code == 200
+    assert fresh.post("/api/auth/mfa/setup").status_code == 200
+
+
+def test_mfa_reset_unknown_user_is_404_and_ends_nothing(env):
+    admin_id, _ = _user("anna")
+    tok = auth.create_session(admin_id)
+    assert _client_with(tok).post("/api/users/does-not-exist/mfa/reset").status_code == 404
+    assert _status(tok) == 200

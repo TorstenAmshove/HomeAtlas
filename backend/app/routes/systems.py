@@ -191,7 +191,18 @@ async def update_system(system_id: str, patch: SystemWrite, _: dict = Depends(re
 
 
 @router.delete("/api/systems/{system_id}")
-async def delete_system(system_id: str, _: dict = Depends(require_admin)) -> dict:
+async def delete_system(system_id: str, withAccounts: bool = False,
+                        _: dict = Depends(require_admin)) -> dict:
+    """Accounts hold passwords, so a device that still has some is only deleted on explicit
+    `?withAccounts=true`; the count is returned, never the accounts themselves."""
+    if db.get_system(system_id) is None:
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
+    count = len(db.list_accounts(system_id))
+    if count and not withAccounts:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Das Gerät hat {count} Zugang/Zugänge. Zum Löschen withAccounts=true angeben.",
+        )
     db.delete_system(system_id)
     return {"ok": True}
 

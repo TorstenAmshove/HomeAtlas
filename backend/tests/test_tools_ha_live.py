@@ -20,9 +20,9 @@ def _key(tmp_path, monkeypatch):
     monkeypatch.setattr(crypto, "_cached", None)
 
 
-def _ha_account(label="HA", url="http://ha.local:8123"):
+def _ha_account(label="HA", url="http://ha.local:8123", allow_probe=True):
     return db.create_account({"label": label, "category": "homeassistant", "url": url,
-                              "secretEnc": crypto.encrypt("tok-secret"), "systemId": None})
+                              "allowProbe": 1 if allow_probe else 0, "secretEnc": crypto.encrypt("tok-secret"), "systemId": None})
 
 
 def _call(name, args):
@@ -109,3 +109,65 @@ def test_tools_imports_only_allowed_write_module():
     assert writers(imported(APP / "tools.py")) <= {"switch_admin"}
     assert writers(imported(APP / "probe_auth.py")) == set()
     assert crypto  # keep the import used
+
+
+# --- #121: opt-in "Zum Auslesen verwenden" (allowProbe) ---------------------------------------
+
+def test_list_switches_skips_ha_without_opt_in(temp_db, monkeypatch):
+    allowed, denied = _ha_account("frei"), _ha_account("gesperrt", allow_probe=False)
+    contacted = []
+
+    async def fake(url, acc):
+        contacted.append(acc["id"])
+        return {"ok": True, "entities": [{"entityId": "light.a"}]}
+
+    monkeypatch.setattr(probe_auth, "list_ha_switchables", fake)
+    out = _call("list_switches", {})
+    assert contacted == [allowed["id"]]
+    assert {e["accountId"] for e in out["haEntities"]} == {allowed["id"]}
+    assert denied["id"] not in json.dumps(out) and "haHinweis" not in out
+
+
+def test_list_switches_no_opt_in_accounts(temp_db, monkeypatch):
+    _ha_account(allow_probe=False)
+
+    async def boom(url, acc):
+        raise AssertionError("must not be contacted")
+
+    monkeypatch.setattr(probe_auth, "list_ha_switchables", boom)
+    out = _call("list_switches", {})
+    assert out["haEntities"] == [] and "Zum Auslesen verwenden" in out["haHinweis"]
+
+
+@pytest.mark.parametrize("name", NEW_TOOLS)
+def test_ha_read_tools_require_opt_in(temp_db, monkeypatch, name):
+    account = _ha_account(allow_probe=False)
+    for attr in dir(probe_auth):
+        if attr.startswith("ha_") or attr == "list_ha_traces":
+            monkeypatch.setattr(probe_auth, attr, lambda *a, **k: (_ for _ in ()).throw(AssertionError(attr)))
+    assert "Zum Auslesen verwenden" in _call(name, {"entityId": "light.a"})["error"]
+    assert "Zum Auslesen verwenden" in _call(name, {"entityId": "light.a", "accountId": account["id"]})["error"]
+
+
+def test_pick_ha_account_auto_choice_ignores_unopted(temp_db):
+    ok = _ha_account("frei")
+    _ha_account("gesperrt", allow_probe=False)
+    account, _, error = tools._pick_ha_account("")
+    assert error == "" and account["id"] == ok["id"]
+    _, _, error = tools._pick_ha_account("gibt-es-nicht")
+    assert "frei" in error and "gesperrt" not in error
+
+
+def test_pick_ha_account_ambiguity_lists_only_opted_in(temp_db):
+    _ha_account("eins")
+    _ha_account("zwei")
+    _ha_account("gesperrt", allow_probe=False)
+    _, _, error = tools._pick_ha_account("")
+    assert "eins" in error and "zwei" in error and "gesperrt" not in error
+
+
+def test_opt_in_withdrawal_takes_effect_immediately(temp_db):
+    account = _ha_account()
+    assert tools._pick_ha_account(account["id"])[2] == ""
+    db.update_account(account["id"], {"allowProbe": 0})
+    assert "Zum Auslesen verwenden" in tools._pick_ha_account(account["id"])[2]

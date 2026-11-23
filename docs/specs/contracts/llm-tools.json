@@ -156,7 +156,7 @@
     "name": "list_firewall_rules"
   },
   {
-    "description": "Listet schaltbare Shelly-Geräte und Home-Assistant-Entities (switch/light und Rollos) mit den IDs, die set_switch braucht. Immer zuerst aufrufen, um einen umgangssprachlichen Namen wie 'das Wohnzimmerlicht' einem konkreten Ziel zuzuordnen, bevor geschaltet wird.",
+    "description": "Listet schaltbare Shelly-Geräte und Home-Assistant-Entities (switch/light und Rollos) mit den IDs, die set_switch braucht. Immer zuerst aufrufen, um einen umgangssprachlichen Namen wie 'das Wohnzimmerlicht' einem konkreten Ziel zuzuordnen, bevor geschaltet wird. Home-Assistant-Zugänge nur mit Haken 'Zum Auslesen verwenden'.",
     "inputSchema": {
       "properties": {},
       "type": "object"

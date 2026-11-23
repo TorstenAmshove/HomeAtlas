@@ -482,7 +482,10 @@ export const api = {
     ),
   createSystem: (body: Partial<System>) => post<{ system: System }>("/systems", body),
   updateSystem: (id: string, body: Partial<System>) => patch<{ system: System }>(`/systems/${id}`, body),
-  deleteSystem: (id: string) => del<{ ok: boolean }>(`/systems/${id}`),
+  // The API refuses to delete a device that still has accounts unless `withAccounts` is set;
+  // the UI passes it only after its confirm dialog has named that consequence.
+  deleteSystem: (id: string, withAccounts = false) =>
+    del<{ ok: boolean }>(`/systems/${id}${withAccounts ? "?withAccounts=true" : ""}`),
   mergeSystems: (keepId: string, removeId: string) =>
     post<{ system: System }>(`/systems/${keepId}/merge`, { removeId }),
   getDuplicateCandidates: () => get<{ candidates: DuplicateCandidate[] }>("/systems/duplicates"),

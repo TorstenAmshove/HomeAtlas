@@ -280,7 +280,11 @@ werden, dazu `cover`-Entities mit `device_class` blind/shade/shutter/curtain/awn
 Prüfung wie `list_switches` und die Oberfläche). Jeder Schaltversuch MUSS mit Aktion
 `switch.assistant`, Ziel, Ergebnis und Auslöser (angemeldeter Benutzer im Chat bzw. „MCP: <Token-
 Bezeichnung>“) ins Zugriffsprotokoll. `list_switches` liefert die Shelly-Geräte und höchstens 200
-HA-Entities der Domänen switch/light und erlaubte Rollos. **[Muss]** (Produktentscheidung, ADR-0013, bestätigt in #43, #99.)
+HA-Entities der Domänen switch/light und erlaubte Rollos. Home-Assistant-Zugänge MÜSSEN das Opt-in „Zum Auslesen verwenden“ (`allowProbe`) haben, sonst werden sie bei `list_switches` übersprungen (nicht kontaktiert; ohne freigegebenen Zugang steht `haHinweis` in der Antwort) und `set_switch` MUSS vor Entschlüsselung, Senden und Protokollieren mit einem Fehler abweisen. **[Muss]** (Produktentscheidung, ADR-0013, bestätigt in #43, #99; Opt-in #121.)
+
+#### Szenario: Zugang ohne Opt-in
+- **WENN** `set_switch` mit `kind=ha` und der `accountId` eines Zugangs ohne „Zum Auslesen verwenden“ aufgerufen wird
+- **DANN** kommt `{"error": …}` mit Hinweis auf den Haken, nichts wird gesendet oder protokolliert
 
 #### Szenario: Kein Shelly
 - **WENN** `set_switch` mit `kind=shelly` und der `systemId` eines NAS aufgerufen wird
@@ -316,7 +320,8 @@ Antworten MÜSSEN eine Feld-Positivliste durchlaufen, der Key DARF nie in Ergebn
 erscheinen, nichts wird gespeichert. Fehlt Zugang, URL oder Key oder ist der Controller nicht
 erreichbar, MUSS eine feste, verständliche Meldung statt eines Fehlers kommen.
 
-> OFFEN: Das Opt-in „Zum Auslesen verwenden“ des Zugangs wird (wie bei Home Assistant) nicht geprüft.
+Nur Zugänge mit Opt-in „Zum Auslesen verwenden“ werden benutzt; ohne Haken kommt ein Fehler mit Hinweis.
+
 > OFFEN: Die Client-Filterung der Ereignisse nutzt MAC, IP und Name aus Anfrage und Inventar, nicht die Live-Werte aus `stat/sta`.
 
 Weitere UniFi-Live-Werkzeuge mit denselben Regeln (Positivliste, Key nur als `X-API-Key`, feste
@@ -364,8 +369,7 @@ Fehler eines Laufs, höchstens 16 000 Zeichen). Es DÜRFEN nur GET-Aufrufe und d
 geschwärzt werden (Bearer-Tokens, JWTs, `token`/`password`/`secret`/`api_key`-Werte,
 `user:pass@`-URLs). Das Zugriffstoken verlässt den Server nie. Gibt es mehrere Zugänge der Kategorie
 `homeassistant`, MUSS `accountId` angegeben werden; ohne Zugang oder bei Fehlern kommt ein
-`{"error": …}` statt einer Ausnahme. **[Muss]** (Das Opt-in „Zum Auslesen verwenden“ wird wie bei
-`list_switches` nicht geprüft; Rollos folgen in einem späteren PR, #99. YAML-Automationen ohne `id` haben keine Traces.)
+`{"error": …}` statt einer Ausnahme. Nur Zugänge mit dem Opt-in „Zum Auslesen verwenden“ werden benutzt; ohne Haken (oder bei einer `accountId` ohne Haken) kommt ein Fehler mit diesem Stichwort. **[Muss]** (#121. YAML-Automationen ohne `id` haben keine Traces.)
 
 #### Szenario: Wie oft war das Licht an
 - **WENN** das LLM `get_ha_history` mit `entityId=light.x` und `days=30` aufruft
@@ -468,4 +472,4 @@ UI-Seite(n): `frontend/src/pages/ChatPage.tsx` (Routen `/assistent`, `/assistent
 
 ## OFFEN
 
-- > OFFEN: `list_switches` nutzt jeden HA-Zugang unabhängig vom Opt-in „Zum Auslesen verwenden“ und fragt bei jedem Aufruf live alle HA-Instanzen ab. → #121
+- > OFFEN: `list_switches` fragt bei jedem Aufruf live alle freigegebenen HA-Instanzen ab (kein Cache). → #121

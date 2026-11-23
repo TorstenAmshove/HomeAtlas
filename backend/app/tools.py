@@ -187,7 +187,8 @@ TOOL_DEFINITIONS: list[dict] = [
         "name": "list_switches",
         "description": ("Listet schaltbare Shelly-Geräte und Home-Assistant-Entities (switch/light und Rollos) mit den "
                         "IDs, die set_switch braucht. Immer zuerst aufrufen, um einen umgangssprachlichen Namen "
-                        "wie 'das Wohnzimmerlicht' einem konkreten Ziel zuzuordnen, bevor geschaltet wird."),
+                        "wie 'das Wohnzimmerlicht' einem konkreten Ziel zuzuordnen, bevor geschaltet wird. "
+                        "Home-Assistant-Zugänge nur mit Haken 'Zum Auslesen verwenden'."),
         "inputSchema": {"type": "object", "properties": {}},
     },
     {
@@ -496,48 +497,67 @@ async def dispatch(name: str, arguments: dict) -> str:
     return text
 
 
-def _pick_ha_account(account_id: str) -> tuple[dict | None, str, str]:
-    """Chooses the Home Assistant account for a live read: the one named by `accountId`, else the
-    only one that exists. Returns (account, url, error). The opt-in "Zum Auslesen verwenden" is not
-    checked, same as `list_switches` (known open point in the spec)."""
-    accounts = [a for a in db.list_accounts(None) if a.get("category") == "homeassistant"]
+OPTIN_HINWEIS = ("Der Zugang hat nicht den Haken „Zum Auslesen verwenden“ -- der Admin muss ihn in den "
+                 "Zugangsdaten setzen, bevor der Assistent ihn nutzen darf.")
+
+
+def _opted_in(account: dict) -> bool:
+    """`allowProbe` is stored as int 0/1; missing or None counts as not released."""
+    return bool(account.get("allowProbe"))
+
+
+def _ha_accounts() -> list[dict]:
+    """Home Assistant accounts the admin released for automatic use ("Zum Auslesen verwenden")."""
+    return [a for a in db.list_accounts(None) if a.get("category") == "homeassistant" and _opted_in(a)]
+
+
+def _unifi_accounts() -> list[dict]:
+    """UniFi accounts the admin released for automatic use ("Zum Auslesen verwenden")."""
+    return [a for a in db.list_accounts(None) if a.get("category") == "unifi" and _opted_in(a)]
+
+
+def _labels(accounts: list[dict]) -> str:
+    return ", ".join(f"{a['id']} ({a['label']})" for a in accounts)
+
+
+def _pick_account(category: str, name: str, none_msg: str, account_id: str) -> tuple[dict | None, str, str]:
+    """Shared picker. Reads unfiltered once, then only accounts with the opt-in "Zum Auslesen
+    verwenden" (`allowProbe`) are usable; the opt-in is checked on every call, so withdrawing it
+    takes effect immediately. Returns (account, url, error)."""
+    everything = [a for a in db.list_accounts(None) if a.get("category") == category]
+    accounts = [a for a in everything if _opted_in(a)]
     account_id = (account_id or "").strip()
     if account_id:
         account = next((a for a in accounts if a["id"] == account_id), None)
         if account is None:
-            return None, "", ("Kein Home-Assistant-Zugang mit dieser accountId gefunden. Vorhanden: "
-                              + (", ".join(f"{a['id']} ({a['label']})" for a in accounts) or "keiner"))
+            if any(a["id"] == account_id for a in everything):
+                return None, "", f"{OPTIN_HINWEIS} Betroffen: {_labels(everything)}"
+            return None, "", (f"Kein {name}-Zugang mit dieser accountId gefunden. Vorhanden: "
+                              + (_labels(accounts) or "keiner"))
+    elif not everything:
+        return None, "", none_msg
     elif not accounts:
-        return None, "", "Es ist kein Home-Assistant-Zugang hinterlegt (Kategorie homeassistant)."
+        return None, "", f"{OPTIN_HINWEIS} Betroffen: {_labels(everything)}"
     elif len(accounts) > 1:
-        return None, "", ("Mehrere Home-Assistant-Zugänge vorhanden, bitte accountId angeben: "
-                          + ", ".join(f"{a['id']} ({a['label']})" for a in accounts))
+        return None, "", (f"Mehrere {name}-Zugänge vorhanden, bitte accountId angeben: " + _labels(accounts))
     else:
         account = accounts[0]
     system = db.get_system(account.get("systemId") or "") or {}
     return account, account.get("url") or system.get("url") or "", ""
+
+
+def _pick_ha_account(account_id: str) -> tuple[dict | None, str, str]:
+    """Chooses the Home Assistant account for a live read: the one named by `accountId`, else the
+    only released one. Only accounts with the opt-in "Zum Auslesen verwenden" qualify."""
+    return _pick_account("homeassistant", "Home-Assistant",
+                         "Es ist kein Home-Assistant-Zugang hinterlegt (Kategorie homeassistant).", account_id)
 
 
 def _pick_unifi_account(account_id: str) -> tuple[dict | None, str, str]:
-    """Like `_pick_ha_account`, for category `unifi`. The opt-in "Zum Auslesen verwenden" is not
-    checked (same known open point as for Home Assistant). Returns (account, url, error)."""
-    accounts = [a for a in db.list_accounts(None) if a.get("category") == "unifi"]
-    account_id = (account_id or "").strip()
-    if account_id:
-        account = next((a for a in accounts if a["id"] == account_id), None)
-        if account is None:
-            return None, "", ("Kein UniFi-Zugang mit dieser accountId gefunden. Vorhanden: "
-                              + (", ".join(f"{a['id']} ({a['label']})" for a in accounts) or "keiner"))
-    elif not accounts:
-        return None, "", ("Es ist kein UniFi-Zugang hinterlegt (Kategorie unifi); es gibt nur die Daten des "
-                          "letzten Scans aus dem Inventar.")
-    elif len(accounts) > 1:
-        return None, "", ("Mehrere UniFi-Zugänge vorhanden, bitte accountId angeben: "
-                          + ", ".join(f"{a['id']} ({a['label']})" for a in accounts))
-    else:
-        account = accounts[0]
-    system = db.get_system(account.get("systemId") or "") or {}
-    return account, account.get("url") or system.get("url") or "", ""
+    """Like `_pick_ha_account`, for category `unifi` (opt-in required as well)."""
+    return _pick_account("unifi", "UniFi",
+                         "Es ist kein UniFi-Zugang hinterlegt (Kategorie unifi); es gibt nur die Daten des "
+                         "letzten Scans aus dem Inventar.", account_id)
 
 
 def _client_identifiers(text: str) -> tuple[set[str], set[str], set[str]]:
@@ -784,15 +804,16 @@ async def _dispatch(name: str, args: dict) -> object:
             if switch_admin.is_shelly(s)
         ]
         ha_entities: list[dict] = []
-        for account in db.list_accounts(None):
-            if account.get("category") != "homeassistant":
-                continue
+        for account in _ha_accounts():
             system = db.get_system(account.get("systemId") or "") or {}
             result = await probe_auth.list_ha_switchables(account.get("url") or system.get("url") or "", account)
             if result["ok"]:
                 ha_entities.extend({"accountId": account["id"], **e} for e in result["entities"])
-        return {"shellyCount": len(shellies), "shellies": shellies,
-                "haEntityCount": len(ha_entities), "haEntities": ha_entities[:200]}
+        out = {"shellyCount": len(shellies), "shellies": shellies,
+               "haEntityCount": len(ha_entities), "haEntities": ha_entities[:200]}
+        if not _ha_accounts() and any(a.get("category") == "homeassistant" for a in db.list_accounts(None)):
+            out["haHinweis"] = OPTIN_HINWEIS
+        return out
 
     if name == "set_switch":
         # The one write action this module exposes -- see module docstring for why. `kind`,
@@ -818,9 +839,14 @@ async def _dispatch(name: str, args: dict) -> object:
                 return {"error": result["error"]}
             return {"ok": True, "device": system["name"], "state": state_label}
         if kind == "ha":
-            account = db.get_account(args.get("accountId") or "")
+            account_id = args.get("accountId") or ""
             entity_id = args.get("entityId") or ""
-            if account is None or account.get("category") != "homeassistant":
+            # Opt-in check comes before any decryption and before anything is sent or logged.
+            account = next((a for a in _ha_accounts() if a["id"] == account_id), None)
+            if account is None:
+                existing = db.get_account(account_id)
+                if existing is not None and existing.get("category") == "homeassistant":
+                    return {"error": OPTIN_HINWEIS}
                 return {"error": "Kein Home-Assistant-Zugang mit dieser accountId gefunden -- vorher list_switches "
                                  "aufrufen."}
             system = db.get_system(account.get("systemId") or "") or {}
