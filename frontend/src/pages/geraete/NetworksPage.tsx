@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../App";
 import { api, type NetworkResource } from "../../lib/api";
 import { Skeleton } from "../../components/Skeleton";
+import Markdown from "../../components/Markdown";
 import "./geraete.css";
 
 /**
@@ -31,9 +32,11 @@ export default function NetworksPage() {
   const [editing, setEditing] = useState<string | null>(null);
   const [manualMd, setManualMd] = useState("");
   const [saving, setSaving] = useState(false);
+  const [showInactive, setShowInactive] = useState(false);
 
+  // Always load everything; the switch only filters, so a page with only inactive entries is not "empty".
   useEffect(() => {
-    api.listNetworkResources().then((result) => setResources(result.resources))
+    api.listNetworkResources(undefined, false).then((result) => setResources(result.resources))
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, []);
 
@@ -69,6 +72,8 @@ export default function NetworksPage() {
     );
   }
 
+  const visible = resources.filter((resource) => showInactive || resource.active);
+
   if (resources.length === 0) {
     return (
       <div className="geraete-page">
@@ -96,8 +101,13 @@ export default function NetworksPage() {
   return (
     <div className="geraete-page">
       {error && <div className="notice error" role="alert">{error}</div>}
+      <label className="net-toggle">
+        <input type="checkbox" checked={showInactive}
+               onChange={(e) => { setShowInactive(e.target.checked); setEditing(null); }} />
+        Inaktive anzeigen
+      </label>
       {(["network", "wifi", "wan"] as const).map((kind) => {
-        const items = resources.filter((resource) => resource.kind === kind);
+        const items = visible.filter((resource) => resource.kind === kind);
         if (!items.length) return null;
         return (
           <section key={kind} aria-labelledby={`net-${kind}`}>
@@ -110,10 +120,11 @@ export default function NetworksPage() {
                     <div className="net-row-main">
                       <div className="net-row-name">
                         {resource.name}
-                        {!resource.enabled && <span className="geraete-chip" style={{ marginLeft: 8 }}>deaktiviert</span>}
+                        {!resource.active && <span className="geraete-chip" style={{ marginLeft: 8 }}>nicht mehr im Controller</span>}
+                        {!!resource.active && !resource.enabled && <span className="geraete-chip" style={{ marginLeft: 8 }}>deaktiviert</span>}
                       </div>
                       {sub && <div className="net-row-sub">{sub}</div>}
-                      {editing !== resource.id && resource.manualMd && <div className="net-note">{resource.manualMd}</div>}
+                      {editing !== resource.id && resource.manualMd && <div className="net-note"><Markdown>{resource.manualMd}</Markdown></div>}
                     </div>
                     {isAdmin && editing !== resource.id && (
                       <button type="button" className="secondary geraete-btn"
@@ -124,8 +135,10 @@ export default function NetworksPage() {
                     )}
                     {editing === resource.id && (
                       <form className="net-edit" onSubmit={(e) => { e.preventDefault(); void save(resource); }}>
-                        <input value={manualMd} onChange={(e) => setManualMd(e.target.value)} autoFocus
-                               aria-label={`Notiz zu ${resource.name}`} placeholder="z. B. nur für Besuch" />
+                        <textarea value={manualMd} onChange={(e) => setManualMd(e.target.value)} autoFocus
+                                  rows={4} maxLength={2000} aria-label={`Notiz zu ${resource.name}`}
+                                  placeholder="z. B. nur für Besuch (Markdown möglich)" />
+                        <div className="net-count">{manualMd.length} / 2000</div>
                         <button type="submit" className="geraete-btn" disabled={saving}>{saving ? "Speichere …" : "Speichern"}</button>
                         <button type="button" className="secondary geraete-btn" disabled={saving} onClick={() => setEditing(null)}>
                           Abbrechen

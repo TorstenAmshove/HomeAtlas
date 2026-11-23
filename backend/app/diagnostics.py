@@ -26,6 +26,7 @@ import os
 import re
 import shutil
 import socket
+import statistics
 import time
 
 import httpx
@@ -392,6 +393,7 @@ _SPEEDTEST_DOWNLOAD_URL = "https://speed.cloudflare.com/__down"
 _SPEEDTEST_UPLOAD_URL = "https://speed.cloudflare.com/__up"
 _SPEEDTEST_DOWNLOAD_BYTES = 25_000_000  # 25 MB -- past TCP slow-start, so the number means something
 _SPEEDTEST_UPLOAD_BYTES = 10_000_000  # 10 MB -- uploads are usually the slower direction at home
+_SPEEDTEST_LATENCY_SAMPLES = 5  # 0-byte requests on the already-open connection; the median is reported
 
 
 async def speedtest() -> dict:
@@ -403,18 +405,24 @@ async def speedtest() -> dict:
     -- the opposite of bounded -- so it only ever runs from an explicit button click, never
     something an LLM decides to trigger on its own (possibly repeatedly) mid-conversation.
 
-    Latency is measured as its own near-zero-byte request rather than derived from the download
+    Latency is measured as its own near-zero-byte requests rather than derived from the download
     timing, since a multi-second bulk transfer's start-to-finish time says nothing useful about
-    round-trip time.
+    round-trip time. The first request only opens the connection (TCP + TLS) and is discarded; the
+    reported value is the median of ``_SPEEDTEST_LATENCY_SAMPLES`` further requests that reuse it
+    via keep-alive, each timed until the full body has arrived.
     """
     if _speedtest_lock.locked():
         raise DiagnosticBusy("Es läuft bereits ein Speedtest. Bitte kurz warten.")
     async with _speedtest_lock:
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=8.0)) as client:
-                ping_started = time.monotonic()
-                await client.get(f"{_SPEEDTEST_DOWNLOAD_URL}?bytes=0")
-                ping_ms = (time.monotonic() - ping_started) * 1000
+                await client.get(f"{_SPEEDTEST_DOWNLOAD_URL}?bytes=0")  # warm-up: connection setup, discarded
+                samples = []
+                for _ in range(_SPEEDTEST_LATENCY_SAMPLES):
+                    ping_started = time.monotonic()
+                    await client.get(f"{_SPEEDTEST_DOWNLOAD_URL}?bytes=0")
+                    samples.append((time.monotonic() - ping_started) * 1000)
+                ping_ms = round(statistics.median(samples))
 
                 download_started = time.monotonic()
                 response = await client.get(f"{_SPEEDTEST_DOWNLOAD_URL}?bytes={_SPEEDTEST_DOWNLOAD_BYTES}")
@@ -435,7 +443,7 @@ async def speedtest() -> dict:
         "ok": True, "error": "",
         "downloadMbps": round(download_mbps, 1),
         "uploadMbps": round(upload_mbps, 1),
-        "pingMs": round(ping_ms),
+        "pingMs": ping_ms,
         "explanation": (
             f"Download {download_mbps:.0f} Mbit/s, Upload {upload_mbps:.0f} Mbit/s, "
             f"Latenz {ping_ms:.0f} ms (gemessen gegen speed.cloudflare.com)."

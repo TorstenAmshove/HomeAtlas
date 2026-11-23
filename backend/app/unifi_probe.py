@@ -176,14 +176,17 @@ def _network_resource(site: dict, network: dict, owner_system_id: str | None) ->
     }
 
 
-def _wifi_resource(site: dict, wifi: dict, owner_system_id: str | None) -> dict:
+def _wifi_resource(site: dict, wifi: dict, owner_system_id: str | None,
+                   network_names: dict[str, str] | None = None) -> dict:
     network = wifi.get("network") or {}
+    network_id = network.get("networkId") or ""
     security = wifi.get("securityConfiguration") or {}
     return {
         "kind": "wifi", "source": "unifi", "siteExternalId": site.get("id") or "",
         "siteName": site.get("name") or "", "externalId": wifi.get("id") or "", "name": wifi.get("name") or "WLAN",
         "enabled": bool(wifi.get("enabled")), "ownerSystemId": owner_system_id,
-        "facts": {"networkExternalId": network.get("networkId") or "", "security": security.get("type") or "",
+        "facts": {"networkExternalId": network_id, "networkName": (network_names or {}).get(network_id, ""),
+                  "security": security.get("type") or "",
                   "type": wifi.get("type") or ""},
     }
 
@@ -255,19 +258,21 @@ async def probe(base_url: str, api_key: str, account_id: str, controller_system_
                 except (httpx.HTTPError, _ApiError) as exc:
                     warnings.append(f"UniFi-Site {site.get('name') or site_id}: Clients konnten nicht gelesen werden ({exc}).")
 
+                network_names: dict[str, str] = {}
                 try:
                     networks = await _all_pages(client, api_base, f"/sites/{site_id}/networks")
                     network_details = await asyncio.gather(*(
                         _get(client, api_base, f"/sites/{site_id}/networks/{network.get('id')}") for network in networks
                     ))
                     resources += [_network_resource(site, network, controller_system_id) for network in network_details]
+                    network_names = {n.get("id") or "": n.get("name") or "" for n in network_details}
                     complete_scopes.append((site_id, "network"))
                 except (httpx.HTTPError, _ApiError) as exc:
                     warnings.append(f"UniFi-Site {site.get('name') or site_id}: Netze konnten nicht gelesen werden ({exc}).")
 
                 try:
                     wifi = await _all_pages(client, api_base, f"/sites/{site_id}/wifi/broadcasts")
-                    resources += [_wifi_resource(site, entry, controller_system_id) for entry in wifi]
+                    resources += [_wifi_resource(site, entry, controller_system_id, network_names) for entry in wifi]
                     complete_scopes.append((site_id, "wifi"))
                 except (httpx.HTTPError, _ApiError) as exc:
                     warnings.append(f"UniFi-Site {site.get('name') or site_id}: WLANs konnten nicht gelesen werden ({exc}).")

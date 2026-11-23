@@ -3,6 +3,7 @@ refused, also after a redirect), the response-size cap, and input validation tha
 as HTTP 500."""
 import asyncio
 import threading
+import types
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
@@ -155,6 +156,72 @@ def test_second_parallel_speedtest_rejected(monkeypatch):
         assert result["ok"] is True
 
     run(scenario())
+
+
+def _latency_client(calls, fail_at=None):
+    class FakeClient:
+        def __init__(self, *a, **k):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def get(self, url, *a, **k):
+            calls.append(url)
+            if fail_at is not None and len(calls) == fail_at:
+                raise diagnostics.httpx.ConnectError("boom")
+            size = int(url.rsplit("=", 1)[1])
+            return type("R", (), {"content": b"x" * size})()
+
+        async def post(self, *a, **k):
+            return None
+
+    return FakeClient
+
+
+def test_speedtest_latency_is_median_without_connection_setup(monkeypatch):
+    calls = []
+    monkeypatch.setattr(diagnostics.httpx, "AsyncClient", _latency_client(calls))
+    # the warm-up request is not timed at all; only the samples feed the clock (start/stop pairs)
+    durations = [0.020, 0.030, 0.025, 0.100, 0.022]
+    assert len(durations) == diagnostics._SPEEDTEST_LATENCY_SAMPLES
+    ticks = []
+    now = 0.0
+    for d in durations:  # start/stop pair per latency request
+        ticks += [now, now + d]
+        now += d + 1.0
+    ticks_iter = iter(ticks)
+    after = {"t": now}
+
+    def fake_monotonic():
+        try:
+            return next(ticks_iter)
+        except StopIteration:
+            after["t"] += 1.0
+            return after["t"]
+
+    # replace the module reference, not time.monotonic itself (the event loop uses that too)
+    monkeypatch.setattr(diagnostics, "time", types.SimpleNamespace(monotonic=fake_monotonic))
+    result = run(diagnostics.speedtest())
+    assert result["ok"] is True
+    assert result["pingMs"] == 25
+    zero = [u for u in calls if u.endswith("bytes=0")]
+    assert len(zero) == 1 + diagnostics._SPEEDTEST_LATENCY_SAMPLES
+    assert calls.index(next(u for u in calls if not u.endswith("bytes=0"))) == len(zero)
+
+
+@pytest.mark.parametrize("fail_at", [1, 3])
+def test_speedtest_latency_error_returns_not_ok(monkeypatch, fail_at):
+    calls = []
+    monkeypatch.setattr(diagnostics.httpx, "AsyncClient", _latency_client(calls, fail_at=fail_at))
+    result = run(diagnostics.speedtest())
+    assert result["ok"] is False and result["pingMs"] is None
+    # lock released: a new run works
+    monkeypatch.setattr(diagnostics.httpx, "AsyncClient", _latency_client([]))
+    assert run(diagnostics.speedtest())["ok"] is True
 
 
 def test_speedtest_route_returns_429_when_busy(monkeypatch):

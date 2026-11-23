@@ -416,8 +416,8 @@ def _network_resources_section() -> str:
     tables = (
         ("network", "### VLANs und Netze", ("VLAN", "Netzwerk"),
          lambda facts: (str(facts.get("vlanId", "-")), facts.get("cidr", "-"))),
-        ("wifi", "### WLANs", ("Sicherheit",),
-         lambda facts: (facts.get("security", "-"),)),
+        ("wifi", "### WLANs", ("Sicherheit", "Netz"),
+         lambda facts: (facts.get("security", "-"), facts.get("networkName") or "-")),
         ("wan", "### Internet-Anschlüsse", ("Typ", "Adresse"),
          lambda facts: (facts.get("type", "-"), facts.get("ip", "-"))),
     )

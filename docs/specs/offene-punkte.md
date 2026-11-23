@@ -68,10 +68,8 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 ### [dashboard](capabilities/dashboard/spec.md) (0)
 
 
-### [diagnose](capabilities/diagnose/spec.md) (2)
+### [diagnose](capabilities/diagnose/spec.md) (0)
 
-1. Die Latenz des Speedtests ist die erste Anfrage auf einer neuen Verbindung und enthält TCP- und TLS-Aufbau – systematisch zu hoch. → #151
-2. REST-Tool-Namen weichen von den LLM-Werkzeugnamen ab (`ping` vs. `ping_host`); Alternative vereinheitlichen? → #151
 
 ### [discovery-und-scan](capabilities/discovery-und-scan/spec.md) (1)
 
@@ -101,14 +99,19 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 4. Gleiche IP in mehreren Funden (Netzwerk-Fund plus UniFi/Omada/Proxmox/AdGuard) – mehrere Belegsätze pro IP im selben Stapel möglich, der letzte gewinnt, und das Ergebnis wird auf alle Funde dieser IP angewandt. → #142
 5. Der Prompt verlangt dieselbe Reihenfolge wie die Eingabe; der Code ordnet ausschließlich per IP zu (Reihenfolge irrelevant) – unschädlich, aber Anforderung an Modell überflüssig. → #142
 
-### [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) (6)
+### [monitoring](capabilities/monitoring/spec.md) (5)
 
-1. Seite „Netze & WLAN“ zeigt bei WLAN `facts.networkName` und bei WAN `facts.type`/`facts.ip`; der Abgleich liefert diese Felder nie (WLAN hat nur `networkExternalId`, WAN `{}`). WAN-Details sind daher immer „-“, das zugehörige Netz eines WLANs wird nie angezeigt (`frontend/src/pages/geraete/NetworksPage.tsx`). Dasselbe gilt für die WAN-Tabelle der Dokumentation (`backend/app/docs.py:380`). → #145
-2. Fähigkeitsbeschreibung nennt Omada und Discovery-Subnetze als Quelle; im Code liefert nur UniFi Netzwerkressourcen. Soll eine Alternative Omada-Netze übernehmen?
-3. Feld heißt `manualMd`, wird aber weder auf der Seite noch sonst als Markdown gerendert; Eingabe ist einzeilig. → #145
-4. Inaktive Ressourcen sind in der UI nirgends sichtbar (nur über die API), ihre Notizen also faktisch versteckt; gewollt? → #145
-5. Notiz-Änderung erzeugt keinen Eintrag im Zugriffsprotokoll und hat keine Längenbegrenzung. → #122, #145
-6. Der manuelle Abgleich beim Verbindungstest (`backend/app/routes/systems.py:262`) nutzt dieselbe `sync_network_resources` und zählt `emptyScans` mit; zwei Klicks bei leer gemeldetem Bereich deaktivieren dessen Ressourcen also ebenso wie zwei Scans. Gewollt?
+1. `unknown` (z. B. Ping-Aufruf wirft) setzt den Fehlerzähler zurück und wird sofort übernommen; ein Gerät kann so `offline → unknown → offline` flattern und jeweils Ereignisse erzeugen. → #130
+2. `monitorEvents` hat keine Aufbewahrungsgrenze (im Gegensatz zu `deviceErrorEvents`/`accessLog`); wächst bei flatternden Geräten unbegrenzt. → #130
+3. Rückkehr auf `online` nach Ausfall erzeugt kein Fehler-/Info-Ereignis am Gerät, nur ein `monitorEvents`-Eintrag – gewollt? → #130
+4. `intervalSeconds` in `GET /api/monitor` ist der ungeklemmte Einstellungswert, nicht das tatsächlich verwendete Intervall; `monitorTimeoutMs` hat serverseitig keine Obergrenze. → #130
+5. Für Docker-Container (Art `container`, teilen die Host-IP) gibt es keine typischen Ports; ohne offene Ports prüft der Monitor per Ping effektiv nur den Host. → #130
+
+### [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) (3)
+
+1. Fähigkeitsbeschreibung nennt Omada und Discovery-Subnetze als Quelle; im Code liefert nur UniFi Netzwerkressourcen. Soll eine Alternative Omada-Netze übernehmen?
+2. Notiz-Änderung erzeugt keinen Eintrag im Zugriffsprotokoll. → #122
+3. Der manuelle Abgleich beim Verbindungstest (`backend/app/routes/systems.py:262`) nutzt dieselbe `sync_network_resources` und zählt `emptyScans` mit; zwei Klicks bei leer gemeldetem Bereich deaktivieren dessen Ressourcen also ebenso wie zwei Scans. Gewollt?
 
 ### [remote-admin](capabilities/remote-admin/spec.md) (3)
 
