@@ -104,7 +104,8 @@ async def dashboard(_: dict = Depends(current_user)) -> dict:
         ][:10],
         "monitorIntervalSeconds": settings.get("monitorIntervalSeconds", 10),
         "monitorEnabled": settings.get("monitorEnabled", True),
-        "lastScan": scan,
+        # Slim on purpose: MEMBER must not get the scan log/summary (issue #119).
+        "lastScan": None if scan is None else {k: scan[k] for k in ("startedAt", "finishedAt", "status")},
         "llmConfigured": llm_providers.is_configured(provider, settings),
     }
 

@@ -360,6 +360,13 @@ export interface Chat {
   updatedAt: string;
 }
 
+/** Slim on purpose: MEMBER never gets the scan log/summary. */
+export interface LastScan {
+  startedAt: string;
+  finishedAt: string | null;
+  status: "running" | "completed" | "failed";
+}
+
 export interface Dashboard {
   homeName: string;
   counts: {
@@ -371,7 +378,7 @@ export interface Dashboard {
   byKind: Record<string, number>;
   kindLabels: Record<string, string>;
   criticalSystems: (System & { monitorPortsEffective?: number[] })[];
-  lastScan: Scan | null;
+  lastScan: LastScan | null;
   llmConfigured: boolean;
   monitorEnabled: boolean;
   monitorIntervalSeconds: number;
