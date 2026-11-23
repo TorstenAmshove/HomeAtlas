@@ -58,21 +58,121 @@ def _extra_targets(settings: dict, subnets_hint: list[str]) -> list[str]:
     return targets
 
 
-async def _probe_with_credentials(log) -> tuple[int, list[str], dict[str, str], list[dict]]:
-    """Logs into the devices whose stored credentials were explicitly cleared for it and records
-    what it read. Strictly read-only -- see probe_auth.
+#: Controller categories whose per-account read is shared between the full scan and the manual
+#: "Auslesen" (#135). Omada and AdGuard keep their own blocks in `run_full_scan`.
+CONTROLLER_CATEGORIES = ("unifi", "proxmox")
+_CONTROLLER_SWITCH = {"unifi": "scanEnableUnifi", "proxmox": "scanEnableProxmox"}
 
-    Facts learned here are written into `extra.probe` for display, and are additionally used to
-    fill `purpose`, `os` and `model` **only where those are still empty**. An authenticated read is
-    more authoritative than a port guess, but it must not overwrite what a human typed.
 
-    The third return value is every IP->MAC pair read from a router's own ARP/host-list table
-    (see probe_auth.extract_arp_entries) -- routers only, since that is the one place such a table
-    covers the whole LAN rather than just what this host itself could see. The fourth is every
-    printer toner/ink reading Home Assistant reported (see probe_auth.extract_printer_supplies) --
-    gathered from whichever system the HA credential is attached to (usually the smart-home hub,
-    not a printer itself), which is why matching them to a printer happens separately afterwards.
+def controller_enabled(category: str, settings: dict) -> bool:
+    return bool(settings.get(_CONTROLLER_SWITCH[category], True))
+
+
+async def read_controller_account(category: str, account: dict, client_subnets: list[str] | None = None) -> dict:
+    """Reads one UniFi/Proxmox controller account -- the per-account step both the full scan and the
+    manual probe use. Returns `{ok, unreadable, error, result}`; `unreadable` means the stored
+    secret could not be decrypted (nothing was contacted). Proxmox guests get their parent assigned
+    here, so both callers see the same systems."""
+    try:
+        secret = crypto.decrypt_strict(account.get("secretEnc") or "")
+    except crypto.SecretUnreadable:
+        return {"ok": False, "unreadable": True, "result": None,
+                "error": f"Zugang {account['label']}: Secret nicht lesbar – übersprungen"}
+    if category == "unifi":
+        result = await unifi_probe.probe(account.get("url") or "", secret, account["id"],
+                                         account.get("systemId"), client_subnets=client_subnets)
+    else:
+        result = await proxmox_probe.probe(account.get("url") or "", account.get("username") or "", secret)
+        if result["ok"]:
+            _assign_proxmox_parents(result["systems"], account.get("systemId"))
+    return {"ok": bool(result["ok"]), "unreadable": False, "result": result, "error": result.get("error", "")}
+
+
+async def probe_one_system(system: dict, settings: dict) -> dict:
+    """Reads one device with its cleared credentials (or the guarded default credential) and records
+    what it found. The single implementation behind both the full scan and the manual "Auslesen"
+    button (#135), so both produce the same facts for the same device. Strictly read-only -- see
+    probe_auth.
+
+    Facts go into `extra.probe` for display, and additionally fill `purpose`, `os` and `model`
+    **only where those are still empty**. An authenticated read is more authoritative than a port
+    guess, but it must not overwrite what a human typed.
+
+    Returns `{ran, results, purpose, reason, warnings, learnedArp, printerSupplies, usedFallback}`.
+    `learnedArp` is every IP->MAC pair read from a router's own ARP/host-list table (routers only --
+    the one place such a table covers the whole LAN); `printerSupplies` is every toner/ink reading
+    Home Assistant reported (matched to a printer separately, see `_apply_printer_supplies`).
+    `reason` says why nothing ran. Controller categories are not handled here, see
+    `read_controller_account`.
     """
+    outcome: dict = {"ran": False, "results": {}, "purpose": "", "reason": "", "warnings": [],
+                     "learnedArp": {}, "printerSupplies": [], "usedFallback": False,
+                     "configSaved": 0}
+    accounts = db.list_probe_accounts(system["id"])
+    if not accounts:
+        # Only where nothing device-specific is stored, and only where probe_auth's guardrails
+        # allow it (right kind of device, matching port actually open).
+        fallback = probe_auth.fallback_account(settings, system)
+        if fallback is None:
+            outcome["reason"] = ("Kein Zugang freigegeben und kein passender Standard-Zugang "
+                                 "(Geräteart oder offener Port)")
+            return outcome
+        accounts = [fallback]
+        outcome["usedFallback"] = True
+    try:
+        probed = await probe_auth.probe_system(system, accounts)
+    except crypto.SecretUnreadable as exc:
+        outcome["warnings"].append(f"Zugang bei {system['name']}: Secret nicht lesbar – übersprungen")
+        outcome["reason"] = f"Secret nicht lesbar: {exc}"
+        return outcome
+    except Exception as exc:  # noqa: BLE001 -- one unreachable device must not end the scan
+        outcome["warnings"].append(f"Abfrage von {system['name']} fehlgeschlagen: {exc}")
+        outcome["reason"] = f"Abfrage fehlgeschlagen: {exc}"
+        db.add_device_error_event(system["id"], "error", f"Abfrage fehlgeschlagen: {exc}")
+        return outcome
+
+    outcome.update({"ran": probed["ran"], "results": probed["results"],
+                    "purpose": probed.get("purpose", ""), "reason": probed.get("reason", "")})
+
+    # Collected regardless of whether *some* credential on this system succeeded -- a system
+    # with both a working SSH account and a Home Assistant account whose token just expired
+    # must not have that second failure swallowed. Logged both to the warnings (gone after the
+    # next scan) and against the device itself (see db.add_device_error_event).
+    for label, result in (probed.get("results") or {}).items():
+        if not result.get("ok") and result.get("error"):
+            outcome["warnings"].append(f"{system['name']} ({label}): {result['error']}")
+            db.add_device_error_event(system["id"], "error", f"{label}: {result['error']}")
+        # Set even on an otherwise-ok result (e.g. probe_ssh's per-command timeouts).
+        for warning in result.get("warnings") or []:
+            db.add_device_error_event(system["id"], "warning", f"{label}: {warning}")
+    if not probed["ran"]:
+        return outcome
+
+    # Config exports go only into encrypted deviceConfigVersions (persist_config_backups below),
+    # never into extra.probe, which members, the docs and the LLM can read.
+    patch: dict = {"extra": {**(system.get("extra") or {}),
+                             "probe": probe_auth.without_config_backups(probed["results"])}}
+    if probed.get("purpose") and not system.get("purpose"):
+        patch["purpose"] = probed["purpose"]
+    facts = {key: value["value"] for result in probed["results"].values() if result.get("ok")
+             for key, value in result.get("facts", {}).items()}
+    if facts.get("os") and not system.get("os"):
+        patch["os"] = facts["os"].splitlines()[0][:120]
+    if facts.get("model") and not system.get("model"):
+        patch["model"] = facts["model"].strip()[:100]
+    if facts.get("modelName") and not system.get("model"):
+        patch["model"] = facts["modelName"].strip()[:100]
+    db.update_system(system["id"], patch)
+    outcome["configSaved"] = probe_auth.persist_config_backups(system, probed)
+    if system.get("kind") == "router":
+        outcome["learnedArp"] = probe_auth.extract_arp_entries(probed)
+    outcome["printerSupplies"] = probe_auth.extract_printer_supplies(probed)
+    return outcome
+
+
+async def _probe_with_credentials(log) -> tuple[int, list[str], dict[str, str], list[dict]]:
+    """Runs `probe_one_system` over every device. Returns (devices read, warnings, learned ARP
+    pairs, printer supplies)."""
     warnings: list[str] = []
     probed = 0
     learned_arp: dict[str, str] = {}
@@ -81,66 +181,17 @@ async def _probe_with_credentials(log) -> tuple[int, list[str], dict[str, str], 
     used_fallback = 0
 
     for system in db.list_systems():
-        accounts = db.list_probe_accounts(system["id"])
-        if not accounts:
-            # Only where nothing device-specific is stored, and only where probe_auth's guardrails
-            # allow it (right kind of device, matching port actually open).
-            fallback = probe_auth.fallback_account(settings, system)
-            if fallback is None:
-                continue
-            accounts = [fallback]
-            used_fallback += 1
-        try:
-            outcome = await probe_auth.probe_system(system, accounts)
-        except Exception as exc:  # noqa: BLE001 -- one unreachable device must not end the scan
-            warnings.append(f"Abfrage von {system['name']} fehlgeschlagen: {exc}")
-            db.add_device_error_event(system["id"], "error", f"Abfrage fehlgeschlagen: {exc}")
-            continue
-
-        # Collected regardless of whether *some* credential on this system succeeded -- a system
-        # with both a working SSH account and a Home Assistant account whose token just expired
-        # used to have that second failure silently swallowed here (only visible at all once every
-        # credential on the row failed), which is exactly backwards for something an admin needs
-        # to notice and fix. Logged both to the scan-wide `warnings` (gone after the next scan) and
-        # against the device itself (see db.add_device_error_event) -- someone troubleshooting one
-        # specific switch/host should not have to dig through the last scan's log to find out an
-        # SSH timeout is why its config backup stopped updating.
-        for label, result in (outcome.get("results") or {}).items():
-            if not result.get("ok") and result.get("error"):
-                warnings.append(f"{system['name']} ({label}): {result['error']}")
-                db.add_device_error_event(system["id"], "error", f"{label}: {result['error']}")
-            # Set even on an otherwise-ok result (e.g. probe_ssh's per-command timeouts) -- a
-            # switch whose config export timed out while its other commands succeeded still needs
-            # that specific failure visible on the device, not just buried in an overall "ok".
-            for warning in result.get("warnings") or []:
-                db.add_device_error_event(system["id"], "warning", f"{label}: {warning}")
+        outcome = await probe_one_system(system, settings)
+        warnings += outcome["warnings"]
+        used_fallback += 1 if outcome["usedFallback"] else 0
         if not outcome["ran"]:
             continue
-
-        # Config exports go only into encrypted deviceConfigVersions (persist_config_backups below),
-        # never into extra.probe, which members, the docs and the LLM can read.
-        patch: dict = {"extra": {**(system.get("extra") or {}),
-                                 "probe": probe_auth.without_config_backups(outcome["results"])}}
-        if outcome.get("purpose") and not system.get("purpose"):
-            patch["purpose"] = outcome["purpose"]
-
-        facts = {key: value["value"] for result in outcome["results"].values() if result.get("ok")
-                 for key, value in result.get("facts", {}).items()}
-        if facts.get("os") and not system.get("os"):
-            patch["os"] = facts["os"].splitlines()[0][:120]
-        if facts.get("model") and not system.get("model"):
-            patch["model"] = facts["model"].strip()[:100]
-        if facts.get("modelName") and not system.get("model"):
-            patch["model"] = facts["modelName"].strip()[:100]
-
-        db.update_system(system["id"], patch)
         probed += 1
         log(f"Abgefragt: {system['name']} ({', '.join(outcome['results'])})")
-        if probe_auth.persist_config_backups(system, outcome):
+        if outcome["configSaved"]:
             log(f"Konfiguration von {system['name']} gesichert")
-        if system.get("kind") == "router":
-            learned_arp.update(probe_auth.extract_arp_entries(outcome))
-        printer_supplies += probe_auth.extract_printer_supplies(outcome)
+        learned_arp.update(outcome["learnedArp"])
+        printer_supplies += outcome["printerSupplies"]
 
     if used_fallback:
         log(f"Standard-Zugang bei {used_fallback} Gerät(en) ohne eigenen Zugang versucht")
@@ -463,16 +514,12 @@ async def run_full_scan(scan_id: str) -> None:
             if unifi_accounts:
                 progress("UniFi-Geräte erfassen", 87, "Frage UniFi Network Controller ab")
             for account in unifi_accounts:
-                try:
-                    api_key = crypto.decrypt_strict(account.get("secretEnc") or "")
-                except crypto.SecretUnreadable:
-                    warnings.append(f"Zugang {account['label']}: Secret nicht lesbar – übersprungen")
+                read = await read_controller_account("unifi", account, configured_subnets)
+                if read["unreadable"]:
+                    warnings.append(read["error"])
                     skipped_sources.add("unifi")  # not read -> its devices keep their status
                     continue
-                unifi_result = await unifi_probe.probe(
-                    account.get("url") or "", api_key, account["id"], account.get("systemId"),
-                    client_subnets=configured_subnets,
-                )
+                unifi_result = read["result"]
                 if unifi_result["ok"]:
                     findings += unifi_result["systems"]
                     unifi_results.append((account, unifi_result))
@@ -526,16 +573,13 @@ async def run_full_scan(scan_id: str) -> None:
             if proxmox_accounts:
                 progress("Proxmox-Gäste erfassen", 88, "Frage Proxmox-Host ab")
             for account in proxmox_accounts:
-                token_id = account.get("username") or ""
-                try:
-                    token_secret = crypto.decrypt_strict(account.get("secretEnc") or "")
-                except crypto.SecretUnreadable:
-                    warnings.append(f"Zugang {account['label']}: Secret nicht lesbar – übersprungen")
+                read = await read_controller_account("proxmox", account)
+                if read["unreadable"]:
+                    warnings.append(read["error"])
                     skipped_sources.add("proxmox")  # not read -> its devices keep their status
                     continue
-                proxmox_result = await proxmox_probe.probe(account.get("url") or "", token_id, token_secret)
+                proxmox_result = read["result"]
                 if proxmox_result["ok"]:
-                    _assign_proxmox_parents(proxmox_result["systems"], account.get("systemId"))
                     findings += proxmox_result["systems"]
                     log(f"Proxmox ({account['label']}): {len(proxmox_result['systems'])} Gäste gefunden")
                 else:

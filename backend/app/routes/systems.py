@@ -11,7 +11,7 @@ from typing import Any
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, StrictInt, field_validator
 
-from .. import classify, crypto, db, discovery, docs, exposure, llm_providers, pipeline, probe_auth, unifi_probe
+from .. import classify, crypto, db, discovery, docs, exposure, llm_providers, pipeline, probe_auth
 from .. import monitor as monitor_module
 from ..deps import _public_account, current_user, require_admin
 
@@ -237,70 +237,95 @@ async def merge_system(system_id: str, body: dict = Body(...), _: dict = Depends
 # Authenticated probing (read-only -- see probe_auth)
 # ---------------------------------------------------------------------------------------------
 
+_CONTROLLER_LABELS = {"unifi": "UniFi", "proxmox": "Proxmox"}
+_SCAN_ONLY_CATEGORIES = {"omada": "Omada", "adguard": "AdGuard Home"}
+
+
 @router.post("/api/systems/{system_id}/probe")
 async def probe_system(system_id: str, _: dict = Depends(require_admin)) -> dict:
-    """Runs all read-only probes for one device, including a full UniFi controller sync."""
+    """Reads one device -- the same code and the same settings as the full scan (#135): device
+    credentials and the default credential through `pipeline.probe_one_system` (honours
+    `scanUseCredentials`), UniFi/Proxmox controller accounts through
+    `pipeline.read_controller_account` (honour `scanEnableUnifi`/`scanEnableProxmox`). Which
+    controller accounts: the ones attached to or assigned to this device. Omada and AdGuard are only
+    read by the full scan; the outcome says so instead of a bare `ran = false`."""
     system = db.get_system(system_id)
     if system is None:
         raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
+    settings = db.get_settings()
     accounts = db.list_probe_accounts(system_id)
-    if not accounts:
+    if not accounts and probe_auth.fallback_account(settings, system) is None:
         raise HTTPException(status_code=400, detail=(
             "Für dieses Gerät ist kein Zugang freigegeben. Unter Zugänge beim gewünschten Eintrag "
             "„Zum Auslesen verwenden“ aktivieren."
         ))
-    unifi_accounts = [account for account in accounts if account.get("category") == "unifi"]
-    other_accounts = [account for account in accounts if account.get("category") != "unifi"]
-    outcome = await probe_auth.probe_system(system, other_accounts) if other_accounts else {
-        "ran": False, "results": {}, "purpose": "", "reason": "",
-    }
-    results = dict(outcome["results"])
-    unifi_errors: list[str] = []
-    unifi_succeeded = False
+    controller_categories = (*pipeline.CONTROLLER_CATEGORIES, *_SCAN_ONLY_CATEGORIES)
+    controller_accounts = [a for a in accounts if a.get("category") in controller_categories]
+    device_path = not accounts or any(a.get("category") not in controller_categories for a in accounts)
 
-    scan_subnets = await asyncio.to_thread(
-        discovery.effective_subnets, db.get_settings(),
-        db.list_network_resources(kind="network", active_only=True),
-    ) if unifi_accounts else []
+    results: dict = {}
+    reasons: list[str] = []
+    purpose = ""
+    ran = False
+    learned_arp: dict[str, str] = {}
+    printer_supplies: list[dict] = []
 
-    for account in unifi_accounts:
-        result = await unifi_probe.probe(
-            account.get("url") or "", crypto.decrypt_strict(account.get("secretEnc") or ""),
-            account["id"], account.get("systemId"), client_subnets=scan_subnets,
-        )
-        key = f"unifi:{account['label']}"
-        if not result["ok"]:
-            results[key] = {"ok": False, "error": result["error"], "facts": {}}
-            unifi_errors.append(result["error"])
+    if device_path:
+        if settings.get("scanUseCredentials", True):
+            device = await pipeline.probe_one_system(system, settings)
+            results.update(device["results"])
+            purpose = device["purpose"]
+            ran = device["ran"]
+            learned_arp, printer_supplies = device["learnedArp"], device["printerSupplies"]
+            if not device["ran"] and device["reason"]:
+                reasons.append(device["reason"])
+        else:
+            reasons.append("Auslesen per Zugangsdaten ist in den Einstellungen abgeschaltet")
+
+    scan_subnets: list[str] = []
+    if any(a.get("category") == "unifi" for a in controller_accounts):
+        scan_subnets = await asyncio.to_thread(
+            discovery.effective_subnets, settings, db.list_network_resources(kind="network", active_only=True))
+    unifi_synced = False
+    for account in controller_accounts:
+        category = account["category"]
+        if category in _SCAN_ONLY_CATEGORIES:
+            reasons.append(f"{_SCAN_ONLY_CATEGORIES[category]} ({account['label']}) wird beim manuellen "
+                           "Auslesen noch nicht unterstützt – nur im Netzwerk-Scan")
             continue
+        name = _CONTROLLER_LABELS[category]
+        if not pipeline.controller_enabled(category, settings):
+            reasons.append(f"{name}-Abfrage ist in den Einstellungen abgeschaltet")
+            continue
+        read = await pipeline.read_controller_account(category, account, scan_subnets)
+        key = f"{category}:{account['label']}"
+        if not read["ok"]:
+            results[key] = {"ok": False, "error": read["error"], "facts": {}}
+            reasons.append(read["error"])
+            continue
+        result = read["result"]
         for finding in result["systems"]:
             db.upsert_discovered_system(finding)
-        db.sync_network_resources(account["id"], result["resources"], result["completeScopes"])
-        results[key] = {
-            "ok": True,
-            "error": "",
-            "facts": {"synchronisiert": {
-                "label": "Synchronisiert",
-                "value": f"{len(result['systems'])} Geräte/Clients, {len(result['resources'])} Netzwerkressourcen",
-            }},
-        }
-        unifi_succeeded = True
+        if category == "unifi":
+            db.sync_network_resources(account["id"], result["resources"], result["completeScopes"])
+            unifi_synced = True
+            summary = (f"{len(result['systems'])} Geräte/Clients, "
+                       f"{len(result['resources'])} Netzwerkressourcen")
+        else:
+            summary = f"{len(result['systems'])} Gäste"
+        results[key] = {"ok": True, "error": "",
+                        "facts": {"synchronisiert": {"label": "Synchronisiert", "value": summary}}}
+        ran = True
 
-    if unifi_succeeded:
+    if unifi_synced:
         pipeline._link_unifi_topology()
-    if outcome["ran"]:
-        db.update_system(system_id, {"extra": {**(system.get("extra") or {}),
-                                               "probe": probe_auth.without_config_backups(outcome["results"])}})
-        if outcome.get("purpose") and not system.get("purpose"):
-            db.update_system(system_id, {"purpose": outcome["purpose"]})
-        probe_auth.persist_config_backups(system, outcome)
-    if unifi_succeeded:
-        outcome = {"ran": True, "results": results, "purpose": outcome.get("purpose", ""), "reason": ""}
-    elif unifi_errors and not outcome["ran"]:
-        outcome = {"ran": False, "results": results, "purpose": outcome.get("purpose", ""),
-                   "reason": " · ".join(unifi_errors)}
-    else:
-        outcome = {**outcome, "results": results}
+    if learned_arp:
+        await pipeline._learn_devices_from_arp(learned_arp, lambda _line: None)
+    if printer_supplies:
+        pipeline._apply_printer_supplies(printer_supplies, lambda _line: None)
+
+    outcome = {"ran": ran, "results": results, "purpose": purpose,
+               "reason": "" if ran else " · ".join(reasons)}
     return {"outcome": outcome, "system": db.get_system(system_id)}
 
 

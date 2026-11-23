@@ -465,17 +465,35 @@ Druckerfüllstände) ab, nicht die Controller-Probes. **[Muss]**
 Quelle: `backend/app/pipeline.py:376`, `backend/app/pipeline.py:387`–`:455`, `backend/app/pipeline.py:521`
 
 ### Requirement: Gerät manuell auslesen
-Das System MUSS Admins erlauben, ein Gerät sofort auszulesen: unbekanntes Gerät → 404; ohne
-freigegebenen Zugang → 400 „Für dieses Gerät ist kein Zugang freigegeben …“; sonst alle Probes
-des Geräts plus vollständige UniFi-Synchronisierung für `unifi`-Zugänge (Funde, Netzwerkressourcen,
-Topologie-Verknüpfung). Antwort `{outcome: {ran, results, purpose, reason}, system}`; scheitern
-nur UniFi-Zugänge, ist `ran = false` und `reason` = Fehlermeldungen, „ · “-getrennt. **[Muss]**
+Das System MUSS Admins erlauben, ein Gerät sofort auszulesen, mit derselben Logik und denselben
+Einstellungen wie der Vollscan (`pipeline.probe_one_system` für Geräte-Zugänge und Standard-Zugang,
+`pipeline.read_controller_account` für `unifi`/`proxmox`): unbekanntes Gerät → 404; weder
+freigegebener Zugang noch zulässiger Standard-Zugang → 400 „Für dieses Gerät ist kein Zugang
+freigegeben …“. Geräte-Probes beachten `scanUseCredentials`, den Standard-Zugang (mit Port- und
+Geräteart-Prüfung), `os`/`model`/`purpose`-Füllung nur bei leeren Feldern, Fehlerereignisse,
+Konfigurationssicherung, ARP-Lernen (nur Router) und Druckerzuordnung. Controller-Zugänge
+(`unifi`: Funde, Netzwerkressourcen, Topologie; `proxmox`: Gäste unter dem Host) beachten
+`scanEnableUnifi`/`scanEnableProxmox` und gelten, wie im Vollscan, nicht für `scanUseCredentials`.
+Es werden die dem Gerät direkt oder per Zuordnung zugeordneten Controller-Zugänge gelesen
+(Vollscan: alle freigegebenen der Kategorie; je Zugang identischer Code und identisches Ergebnis).
+`omada`/`adguard` werden manuell nicht gelesen. Antwort `{outcome: {ran, results, purpose, reason},
+system}`; `ran = true`, wenn mindestens ein Zugang lief (Fehler anderer stehen in `results`). Läuft
+nichts, nennt `reason` den Grund (Schalter aus, Secret nicht lesbar, Controller-Fehler,
+„noch nicht unterstützt“), „ · “-getrennt. **[Muss]**
 
 #### Szenario: UniFi-Sync auf Knopfdruck
 - **WENN** ein Admin am Controller „Gerät auslesen“ auslöst
 - **DANN** ist `outcome.ran = true`, der neue Switch hängt unter dem Controller und das VLAN ist aktiv
 
-Quelle: `backend/app/main.py:1344`, Test: `backend/tests/test_main_unifi_probe.py::test_manual_unifi_probe_syncs_devices_topology_and_network_resources`, `backend/tests/test_main_unifi_probe.py::test_manual_unifi_probe_returns_the_controller_error`
+#### Szenario: Manuell wie Vollscan
+- **WENN** dasselbe Gerät manuell und im Vollscan ausgelesen wird
+- **DANN** stehen dieselben Fakten (`extra.probe`, `purpose`, `os`, `model`, gelernte ARP-Geräte, Fehlerereignisse) am Gerät
+
+#### Szenario: Controller-Schalter aus
+- **WENN** `scanEnableProxmox = false` und ein Proxmox-Zugang am Gerät hängt
+- **DANN** ist `ran = false` und `reason` nennt die abgeschaltete Proxmox-Abfrage
+
+Quelle: `backend/app/routes/systems.py::probe_system`, `backend/app/pipeline.py::probe_one_system`, Test: `backend/tests/test_main_unifi_probe.py::test_manual_unifi_probe_syncs_devices_topology_and_network_resources`, `backend/tests/test_main_unifi_probe.py::test_manual_unifi_probe_returns_the_controller_error`, `backend/tests/test_pipeline_probe_one.py::test_manual_and_full_scan_same_facts`, `backend/tests/test_pipeline_probe_one.py::test_manual_respects_scan_enable_proxmox`
 
 ### Requirement: Lese-/Schreibtrennung
 Das System MUSS die lesenden Probe-Module strikt von schreibenden Modulen (Remote-Admin,
@@ -540,12 +558,8 @@ auslesen“, nur Admin und nur wenn ein Zugang `allowProbe` hat).
 - > OFFEN: TP-Link-Pager-Abschaltung nutzt `configure` / `no clipaging` – ein
   Konfigurationsmodus-Befehl, entgegen „kein Config-Mode“. Ob die Einstellung persistent in der
   Running-Config landet, ist ungeprüft.
-- > OFFEN: Manuelles Auslesen behandelt `omada`/`proxmox`/`adguard`-Zugänge nicht (sie gehen an
-  `probe_auth.probe_system`, das sie ignoriert) → bei solchen Geräten `ran = false` ohne Grund.
-  Ebenso ignoriert es `scanUseCredentials`/`scanEnable*`, den Standard-Zugang, ARP-Lernen,
-  Druckerzuordnung, `os`/`model`-Füllung und Fehlerereignisse. → #135
-- > OFFEN: Im Vollscan nutzen Controller-Probes alle freigegebenen Zugänge der Kategorie,
-  beim manuellen Auslesen nur die dem Gerät (direkt/per Zuordnung) zugeordneten – uneinheitlich. → #135
+- > OFFEN: Manuelles Auslesen liest `omada`/`adguard`-Zugänge nicht (`reason` nennt das); deren
+  Besonderheiten werden separat behandelt.
 - > OFFEN: `omada_backup` läuft auf jedem Linux-Host und wird Base64-kodiert als Fakt gespeichert;
   ein Restore ist bewusst nicht vorgesehen, Nutzen der Speicherung ist unklar.
 - > OFFEN: Omada liest nur Seite 1 (Geräte 100, Clients 500); größere Sites werden still abgeschnitten.

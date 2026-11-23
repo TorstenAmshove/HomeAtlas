@@ -37,7 +37,7 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (24)
+## Alle Punkte je Fähigkeit (23)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (1)
 
@@ -48,13 +48,12 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 1. `DELETE /api/users/{id}` schreibt keinen Protokolleintrag, obwohl die AccessLogPage ein Label `user.delete` kennt und README „Benutzeränderungen“ als protokolliert nennt (wirkt wie Bug). → #122
 2. AccessLogPage kennt Label `mfa.disable` (nie geschrieben). (`mfa.reset` hat seit PR 6 ein Label und gilt als sicherheitsrelevant.) → #122
 
-### [credentialed-probing](capabilities/credentialed-probing/spec.md) (5)
+### [credentialed-probing](capabilities/credentialed-probing/spec.md) (4)
 
 1. TP-Link-Pager-Abschaltung nutzt `configure` / `no clipaging` – ein Konfigurationsmodus-Befehl, entgegen „kein Config-Mode“. Ob die Einstellung persistent in der Running-Config landet, ist ungeprüft.
-2. Manuelles Auslesen behandelt `omada`/`proxmox`/`adguard`-Zugänge nicht (sie gehen an `probe_auth.probe_system`, das sie ignoriert) → bei solchen Geräten `ran = false` ohne Grund. Ebenso ignoriert es `scanUseCredentials`/`scanEnable*`, den Standard-Zugang, ARP-Lernen, Druckerzuordnung, `os`/`model`-Füllung und Fehlerereignisse. → #135
-3. Im Vollscan nutzen Controller-Probes alle freigegebenen Zugänge der Kategorie, beim manuellen Auslesen nur die dem Gerät (direkt/per Zuordnung) zugeordneten – uneinheitlich. → #135
-4. `omada_backup` läuft auf jedem Linux-Host und wird Base64-kodiert als Fakt gespeichert; ein Restore ist bewusst nicht vorgesehen, Nutzen der Speicherung ist unklar.
-5. Omada liest nur Seite 1 (Geräte 100, Clients 500); größere Sites werden still abgeschnitten. Ein `errorCode` bei Geräten überspringt auch die Clients der Site.
+2. Manuelles Auslesen liest `omada`/`adguard`-Zugänge nicht (`reason` nennt das); deren Besonderheiten werden separat behandelt.
+3. `omada_backup` läuft auf jedem Linux-Host und wird Base64-kodiert als Fakt gespeichert; ein Restore ist bewusst nicht vorgesehen, Nutzen der Speicherung ist unklar.
+4. Omada liest nur Seite 1 (Geräte 100, Clients 500); größere Sites werden still abgeschnitten. Ein `errorCode` bei Geräten überspringt auch die Clients der Site.
 
 ### [dashboard](capabilities/dashboard/spec.md) (0)
 
