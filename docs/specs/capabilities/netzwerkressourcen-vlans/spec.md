@@ -72,13 +72,19 @@ Quelle: `backend/app/db.py:1318`, Test:
 Das System MUSS eine Ressource nur dann als inaktiv markieren, wenn der Abgleich den zugehörigen
 Bereich (Zugang + Standort + Art) vollständig gelesen hat und die Ressource darin fehlt. Ein
 fehlgeschlagener oder nicht gelesener Bereich DARF bestehende Einträge NICHT deaktivieren.
-Ressourcen werden nie physisch gelöscht. Ein vollständig gelesener, leerer Bereich deaktiviert alle
-Ressourcen dieses Bereichs. **[Muss]**
+Ressourcen werden nie physisch gelöscht. Ein vollständig gelesener, leerer Bereich deaktiviert seine
+Ressourcen erst beim zweiten leeren Abgleich in Folge (`emptyScans`, schützt vor kurzzeitig leeren
+Controller-Antworten); ein nicht gelesener Bereich lässt den Zähler unverändert, jede Aktualisierung
+der Ressource setzt ihn auf 0. **[Muss]**
 
 #### Szenario: Teilausfall löscht nichts
 - **WENN** „LAN“ und „IoT“ bekannt sind und ein Abgleich nur „LAN“ liefert, ohne den Bereich
   (site-1, network) als vollständig zu melden
 - **DANN** bleiben beide aktiv
+
+#### Szenario: Leerer Bereich erst beim zweiten Mal
+- **WENN** ein vollständig gelesener Bereich zum ersten Mal leer ist
+- **DANN** bleiben seine Ressourcen aktiv; beim zweiten leeren Abgleich in Folge werden sie inaktiv
 
 #### Szenario: Vollständiger Bereich ohne Eintrag
 - **WENN** derselbe Abgleich den Bereich (site-1, network) als vollständig meldet
@@ -257,7 +263,7 @@ siehe [dokumentation](../dokumentation/spec.md), [topologie](../topologie/spec.m
 Tabelle `networkResources` aus [data-model](../../contracts/data-model.md#networkresources--netze-wlans-wans-aus-controllern):
 `id`, `kind`, `source`, `sourceKey` (eindeutig, `<source>:<accountId>:<siteId>:<kind>:<externalId>`),
 `sourceAccountId` (→ `accounts`), `ownerSystemId` (→ `systems`, optional), `siteExternalId`,
-`siteName`, `externalId`, `name`, `enabled`, `active`, `facts` (JSON), `manualMd`, `firstSeen`,
+`siteName`, `externalId`, `name`, `enabled`, `active`, `emptyScans`, `facts` (JSON), `manualMd`, `firstSeen`,
 `lastSeen`, `updatedAt`. Geschrieben vom Abgleich (alles außer `manualMd`, `firstSeen`, `id`) und
 von der Notiz-Route (`manualMd`, `updatedAt`); `accounts`-Löschung setzt `active = 0`.
 
@@ -308,5 +314,5 @@ Rollen). Scan-Netzauswahl in `frontend/src/pages/SettingsPage.tsx` (Route `/eins
 - > OFFEN: Fähigkeitsbeschreibung nennt Omada und Discovery-Subnetze als Quelle; im Code liefert nur UniFi Netzwerkressourcen. Soll eine Alternative Omada-Netze übernehmen?
 - > OFFEN: Feld heißt `manualMd`, wird aber weder auf der Seite noch sonst als Markdown gerendert; Eingabe ist einzeilig. → #145
 - > OFFEN: Inaktive Ressourcen sind in der UI nirgends sichtbar (nur über die API), ihre Notizen also faktisch versteckt; gewollt? → #145
-- > OFFEN: Ein vollständig gelesener Bereich mit 0 Einträgen deaktiviert alle Ressourcen dieses Bereichs; bei einer kurzzeitig leeren Controller-Antwort gehen sie (reversibel) aus Scan-Auswahl, Doku und Layer-3-Plan verloren. → #139
 - > OFFEN: Notiz-Änderung erzeugt keinen Eintrag im Zugriffsprotokoll und hat keine Längenbegrenzung. → #122, #145
+- > OFFEN: Der manuelle Abgleich beim Verbindungstest (`backend/app/routes/systems.py:262`) nutzt dieselbe `sync_network_resources` und zählt `emptyScans` mit; zwei Klicks bei leer gemeldetem Bereich deaktivieren dessen Ressourcen also ebenso wie zwei Scans. Gewollt?

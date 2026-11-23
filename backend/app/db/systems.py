@@ -661,13 +661,22 @@ def upsert_discovered_system(found: dict) -> tuple[dict, bool]:
     return update_system(existing["id"], volatile), False  # type: ignore[return-value]
 
 
-def mark_systems_offline(seen_ids: set[str]) -> None:
+def mark_systems_offline(seen_ids: set[str], skip_sources: frozenset[str] | set[str] = frozenset()) -> None:
     """Everything previously discovered but absent from this scan goes to `offline` -- manually
     created (non-discovered) entries are left alone, since "I documented my heat pump" says
-    nothing about whether it answers pings."""
+    nothing about whether it answers pings.
+
+    `skip_sources` names sources that were switched off or could not be read this scan: a device
+    whose `discoverySource` (tokens joined by "+") contains one of them keeps its status, because
+    "the source delivered nothing" is not "the device is gone" (#139)."""
     with _conn() as conn:
-        placeholders = ",".join("?" * len(seen_ids)) if seen_ids else "''"
-        conn.execute(
-            f"UPDATE systems SET status = 'offline' WHERE discovered = 1 AND id NOT IN ({placeholders})",
-            tuple(seen_ids),
-        )
+        rows = conn.execute("SELECT id, discoverySource FROM systems WHERE discovered = 1").fetchall()
+        stale = [r["id"] for r in rows
+                 if r["id"] not in seen_ids
+                 and not skip_sources.intersection((r["discoverySource"] or "").split("+"))]
+        for i in range(0, len(stale), 500):
+            chunk = stale[i:i + 500]
+            conn.execute(
+                f"UPDATE systems SET status = 'offline' WHERE id IN ({','.join('?' * len(chunk))})",
+                tuple(chunk),
+            )

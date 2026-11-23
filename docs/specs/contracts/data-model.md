@@ -112,7 +112,7 @@ Paar `(idA, idB)`, das ein Mensch als „kein Duplikat“ markiert hat.
 ### networkResources — Netze, WLANs, WANs aus Controllern
 `kind` (`network`, `wifi`, `wan`), `source` (Controller-Typ), `sourceKey` (eindeutig),
 `sourceAccountId`, `ownerSystemId`, `siteExternalId`, `siteName`, `externalId`, `name`, `enabled`,
-`active`, `facts` (JSON), `manualMd` (Notizen des Haushalts), `firstSeen`, `lastSeen`.
+`active`, `emptyScans` (aufeinanderfolgende leere Abgleiche, #139), `facts` (JSON), `manualMd` (Notizen des Haushalts), `firstSeen`, `lastSeen`.
 
 ### deviceConfigVersions — Versionierte Gerätekonfiguration
 `systemId`, `label`, `content`, `source`, `createdAt`.

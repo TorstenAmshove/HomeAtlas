@@ -44,12 +44,20 @@ def update_network_resource_manual(resource_id: str, manual_md: str) -> dict | N
     return get_network_resource(resource_id)
 
 
+_EMPTY_SCANS_BEFORE_INACTIVE = 2
+
+
 def sync_network_resources(source_account_id: str, resources: list[dict],
                            complete_scopes: list[tuple[str, str]]) -> list[dict]:
     """Refreshes resources successfully read from a controller.
 
     `complete_scopes` is deliberately separate from `resources`: a failed endpoint must never make
     its old entries look deleted. Each tuple names one fully listed `(siteExternalId, kind)` scope.
+
+    A resource missing from a non-empty listing is deactivated at once. A scope read completely but
+    with zero entries may be a transient empty controller answer, so its resources are only
+    deactivated on the `_EMPTY_SCANS_BEFORE_INACTIVE`-th consecutive empty read (`emptyScans`);
+    any later appearance of the resource resets the counter.
     """
     now = _now()
     refreshed_ids: list[str] = []
@@ -71,7 +79,7 @@ def sync_network_resources(source_account_id: str, resources: list[dict],
                 "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
                 "ON CONFLICT(sourceKey) DO UPDATE SET "
                 "ownerSystemId = excluded.ownerSystemId, siteName = excluded.siteName, name = excluded.name, "
-                "enabled = excluded.enabled, active = 1, facts = excluded.facts, lastSeen = excluded.lastSeen, "
+                "enabled = excluded.enabled, active = 1, emptyScans = 0, facts = excluded.facts, lastSeen = excluded.lastSeen, "
                 "updatedAt = excluded.updatedAt",
                 (resource_id, kind, source, source_key, source_account_id, resource.get("ownerSystemId") or None,
                  site_id, resource.get("siteName") or "", external_id, resource.get("name") or external_id,
@@ -93,9 +101,12 @@ def sync_network_resources(source_account_id: str, resources: list[dict],
                 )
             else:
                 conn.execute(
-                    "UPDATE networkResources SET active = 0, updatedAt = ? WHERE sourceAccountId = ? "
-                    "AND siteExternalId = ? AND kind = ?",
-                    (now, source_account_id, site_id, kind),
+                    "UPDATE networkResources SET emptyScans = emptyScans + 1, "
+                    "active = CASE WHEN emptyScans + 1 >= ? THEN 0 ELSE active END, "
+                    "updatedAt = CASE WHEN emptyScans + 1 >= ? THEN ? ELSE updatedAt END "
+                    "WHERE sourceAccountId = ? AND siteExternalId = ? AND kind = ? AND active = 1",
+                    (_EMPTY_SCANS_BEFORE_INACTIVE, _EMPTY_SCANS_BEFORE_INACTIVE, now,
+                     source_account_id, site_id, kind),
                 )
     return [resource for resource_id in refreshed_ids if (resource := get_network_resource(resource_id)) is not None]
 

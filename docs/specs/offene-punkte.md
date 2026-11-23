@@ -37,7 +37,7 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (110)
+## Alle Punkte je Fähigkeit (109)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (3)
 
@@ -88,12 +88,11 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 2. Die Latenz des Speedtests ist die erste Anfrage auf einer neuen Verbindung und enthält TCP- und TLS-Aufbau – systematisch zu hoch. → #151
 3. REST-Tool-Namen weichen von den LLM-Werkzeugnamen ab (`ping` vs. `ping_host`); Alternative vereinheitlichen? → #151
 
-### [discovery-und-scan](capabilities/discovery-und-scan/spec.md) (4)
+### [discovery-und-scan](capabilities/discovery-und-scan/spec.md) (3)
 
 1. Ungültiger Freitext-Bereich (z. B. „bad“) plus ein mDNS/SSDP-Fund außerhalb von `alive` führt in `discovery.py:859` zu `ValueError` aus `ip_network` und lässt den ganzen Scan scheitern. → #137
 2. MEMBER darf `GET /api/scans*` inkl. Protokoll lesen (Gerätenamen, Fehlertexte der Zugangs-Abfrage), obwohl die Scan-Seite admin-only ist. Absicht? → #119
 3. Start-Prüfung „läuft schon ein Scan“ und Anlegen sind nicht atomar (Rennen Zeitplan/manuell theoretisch möglich). → #129
-4. Abgeschaltete Quelle (`scanEnableDocker=false`, Controller aus) setzt alle bisher aus dieser Quelle entdeckten Geräte beim nächsten Scan auf `offline`. → #139
 
 ### [dokumentation](capabilities/dokumentation/spec.md) (10)
 
@@ -150,8 +149,8 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 2. Fähigkeitsbeschreibung nennt Omada und Discovery-Subnetze als Quelle; im Code liefert nur UniFi Netzwerkressourcen. Soll eine Alternative Omada-Netze übernehmen?
 3. Feld heißt `manualMd`, wird aber weder auf der Seite noch sonst als Markdown gerendert; Eingabe ist einzeilig. → #145
 4. Inaktive Ressourcen sind in der UI nirgends sichtbar (nur über die API), ihre Notizen also faktisch versteckt; gewollt? → #145
-5. Ein vollständig gelesener Bereich mit 0 Einträgen deaktiviert alle Ressourcen dieses Bereichs; bei einer kurzzeitig leeren Controller-Antwort gehen sie (reversibel) aus Scan-Auswahl, Doku und Layer-3-Plan verloren. → #139
-6. Notiz-Änderung erzeugt keinen Eintrag im Zugriffsprotokoll und hat keine Längenbegrenzung. → #122, #145
+5. Notiz-Änderung erzeugt keinen Eintrag im Zugriffsprotokoll und hat keine Längenbegrenzung. → #122, #145
+6. Der manuelle Abgleich beim Verbindungstest (`backend/app/routes/systems.py:262`) nutzt dieselbe `sync_network_resources` und zählt `emptyScans` mit; zwei Klicks bei leer gemeldetem Bereich deaktivieren dessen Ressourcen also ebenso wie zwei Scans. Gewollt?
 
 ### [remote-admin](capabilities/remote-admin/spec.md) (10)
 

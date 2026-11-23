@@ -427,6 +427,10 @@ async def run_full_scan(scan_id: str) -> None:
             log(w)
         warnings += result["warnings"]
 
+        # Sources that were off or not fully read this scan: their devices keep their status
+        # instead of going offline (#139). Tokens equal `discoverySource` values.
+        skipped_sources: set[str] = set()
+
         if settings.get("scanEnableDocker", True):
             progress("Container erfassen", 86, "Frage Docker ab")
             docker_result = await docker_probe.probe(result.get("hostIp", ""))
@@ -437,14 +441,21 @@ async def run_full_scan(scan_id: str) -> None:
             elif docker_probe.socket_available():
                 warnings.append(docker_result["error"])
                 db.mark_exposure_facts_stale("docker_ddns", "docker")
+                skipped_sources.add("docker")
             else:
                 log("Docker-Socket nicht eingebunden -- Container werden übersprungen")
+                skipped_sources.add("docker")
         else:
             db.delete_exposure_facts(source="docker_ddns")
+            skipped_sources.add("docker")
 
+        if not settings.get("scanEnableUnifi", True):
+            skipped_sources.add("unifi")
         if settings.get("scanEnableUnifi", True):
             unifi_accounts = [a for a in db.list_accounts()
                               if a.get("category") == "unifi" and a.get("allowProbe")]
+            if not unifi_accounts:
+                skipped_sources.add("unifi")
             if unifi_accounts:
                 progress("UniFi-Geräte erfassen", 87, "Frage UniFi Network Controller ab")
             for account in unifi_accounts:
@@ -464,13 +475,18 @@ async def run_full_scan(scan_id: str) -> None:
                         if account.get("systemId"):
                             db.add_device_error_event(account["systemId"], "warning", warning)
                 else:
+                    skipped_sources.add("unifi")
                     warnings.append(f"UniFi Controller ({account['label']}): {unifi_result['error']}")
                     if account.get("systemId"):
                         db.add_device_error_event(account["systemId"], "error", unifi_result["error"])
 
+        if not settings.get("scanEnableOmada", True):
+            skipped_sources.add("omada")
         if settings.get("scanEnableOmada", True):
             omada_accounts = [a for a in db.list_accounts()
                               if a.get("category") == "omada" and a.get("allowProbe")]
+            if not omada_accounts:
+                skipped_sources.add("omada")
             if omada_accounts:
                 progress("Omada-Geräte erfassen", 87, "Frage Omada Controller ab")
             for account in omada_accounts:
@@ -481,13 +497,18 @@ async def run_full_scan(scan_id: str) -> None:
                     findings += omada_result["systems"]
                     log(f"Omada ({account['label']}): {len(omada_result['systems'])} Geräte/Clients gefunden")
                 else:
+                    skipped_sources.add("omada")
                     warnings.append(f"Omada Controller ({account['label']}): {omada_result['error']}")
                     if account.get("systemId"):
                         db.add_device_error_event(account["systemId"], "error", omada_result["error"])
 
+        if not settings.get("scanEnableProxmox", True):
+            skipped_sources.add("proxmox")
         if settings.get("scanEnableProxmox", True):
             proxmox_accounts = [a for a in db.list_accounts()
                                if a.get("category") == "proxmox" and a.get("allowProbe")]
+            if not proxmox_accounts:
+                skipped_sources.add("proxmox")
             if proxmox_accounts:
                 progress("Proxmox-Gäste erfassen", 88, "Frage Proxmox-Host ab")
             for account in proxmox_accounts:
@@ -499,13 +520,18 @@ async def run_full_scan(scan_id: str) -> None:
                     findings += proxmox_result["systems"]
                     log(f"Proxmox ({account['label']}): {len(proxmox_result['systems'])} Gäste gefunden")
                 else:
+                    skipped_sources.add("proxmox")
                     warnings.append(f"Proxmox-Host ({account['label']}): {proxmox_result['error']}")
                     if account.get("systemId"):
                         db.add_device_error_event(account["systemId"], "error", proxmox_result["error"])
 
+        if not settings.get("scanEnableAdguard", True):
+            skipped_sources.add("adguard")
         if settings.get("scanEnableAdguard", True):
             adguard_accounts = [a for a in db.list_accounts()
                                 if a.get("category") == "adguard" and a.get("allowProbe")]
+            if not adguard_accounts:
+                skipped_sources.add("adguard")
             if adguard_accounts:
                 progress("AdGuard Home erfassen", 88, "Frage AdGuard Home ab")
             for account in adguard_accounts:
@@ -523,6 +549,7 @@ async def run_full_scan(scan_id: str) -> None:
                                 "extra": {**(host.get("extra") or {}), "adguard": adguard_result["stats"]},
                             })
                 else:
+                    skipped_sources.add("adguard")
                     warnings.append(f"AdGuard Home ({account['label']}): {adguard_result['error']}")
                     if account.get("systemId"):
                         db.add_device_error_event(account["systemId"], "error", adguard_result["error"])
@@ -745,7 +772,9 @@ async def run_full_scan(scan_id: str) -> None:
             seen_ids.add(system["id"])
             created += 1 if was_created else 0
             updated += 0 if was_created else 1
-        db.mark_systems_offline(seen_ids)
+        if skipped_sources:
+            log("Status unverändert, Quelle nicht gelesen: " + ", ".join(sorted(skipped_sources)))
+        db.mark_systems_offline(seen_ids, skipped_sources)
         log(f"Inventar: {created} neu, {updated} aktualisiert")
 
         host_ip = result.get("hostIp", "")
