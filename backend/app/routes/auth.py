@@ -91,7 +91,8 @@ class PasswordBody(BaseModel):
 
 
 @router.post("/api/auth/password")
-async def change_password(body: PasswordBody, request: Request, user: dict = Depends(current_user)) -> dict:
+async def change_password(body: PasswordBody, request: Request, user: dict = Depends(current_user),
+                          homeatlas_session: str | None = Cookie(default=None)) -> dict:
     ip, agent = _client(request)
     try:
         changed = auth.change_password(user["id"], body.currentPassword, body.newPassword)
@@ -101,7 +102,12 @@ async def change_password(body: PasswordBody, request: Request, user: dict = Dep
         db.log_access("password.change", user=user, ip=ip, user_agent=agent, ok=False,
                       detail="aktuelles Passwort falsch")
         raise HTTPException(status_code=400, detail="Das aktuelle Passwort stimmt nicht.")
-    db.log_access("password.change", user=user, ip=ip, user_agent=agent)
+    # Everything but the session in use ends: a stolen cookie must not survive the very action a
+    # user takes to lock an intruder out. Only after a successful change, so a failed attempt
+    # (wrong current password) cannot be used to log the user out elsewhere.
+    ended = db.invalidate_user_sessions(user["id"], keep_token=homeatlas_session)
+    db.log_access("password.change", user=user, ip=ip, user_agent=agent,
+                  detail=f"{ended} andere Sitzungen beendet")
     return {"ok": True}
 
 
@@ -245,13 +251,15 @@ async def delete_user(user_id: str, user: dict = Depends(require_admin)) -> dict
 async def reset_user_mfa(user_id: str, request: Request, admin: dict = Depends(require_admin)) -> dict:
     """The only way a second factor comes off an account -- see the module note above the TOTP
     routes. Clears it rather than disabling the requirement: `current_user` treats
-    `totpEnabled = False` as "must enroll again", so this both recovers a locked-out user (lost
-    phone, reinstalled app) and immediately ends any open session's access to everything except
-    that enrollment, without waiting for it to expire."""
+    `totpEnabled = False` as "must enroll again", so this recovers a locked-out user (lost
+    phone, reinstalled app). All sessions of the target end, without exception (also when an admin
+    resets their own factor): an open session could otherwise enroll a factor of its own, which
+    would hand whoever only knew the password a second factor. Same as the CLI."""
     target = db.get_user(user_id)
     if target is None:
         raise HTTPException(status_code=404, detail="Benutzer nicht gefunden.")
     db.update_user(user_id, {"totpSecretEnc": "", "totpEnabled": False})
+    db.invalidate_user_sessions(user_id)
     ip, agent = _client(request)
     db.log_access("mfa.reset", user=admin, ip=ip, user_agent=agent, detail=target["username"])
     return {"user": db.get_user(user_id)}
