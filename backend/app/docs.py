@@ -612,6 +612,11 @@ def _emergency_section(context: dict) -> str:
         + (f" -- Weboberfläche: [{router['url']}]({router['url']})" if router.get("url") else "")
         + "."
     ) if router else "Es ist noch kein Router dokumentiert -- ein Netzwerk-Scan trägt ihn automatisch ein."
+    others = context.get("other_routers") or []
+    if router and others:
+        router_line += "\n\nWeitere Router: " + ", ".join(
+            f"**{_escape(o['name'])}** ({o['ip'] or 'keine Adresse hinterlegt'})" for o in others
+        )
 
     critical = context.get("critical") or []
     critical_lines = "\n".join(
@@ -707,6 +712,24 @@ def _systems_for(topic: Topic, all_systems: list[dict]) -> list[dict]:
     return [s for s in all_systems if s["kind"] in topic.kinds]
 
 
+def _pick_router(systems: list[dict]) -> tuple[dict | None, list[dict]]:
+    """Primary router for the emergency page plus the remaining ones (inventory order).
+
+    Order of preference: importance `critical` -> flagged default gateway (`extra.isGateway`) ->
+    first in inventory order. Within a tier the first in inventory order wins, so the choice is
+    deterministic. A second router (repeater, mesh node, modem behind the main router) must not
+    be picked by accident of ordering."""
+    routers = [s for s in systems if s["kind"] == "router"]
+    if not routers:
+        return None, []
+    primary = (
+        next((s for s in routers if s.get("importance") == "critical"), None)
+        or next((s for s in routers if (s.get("extra") or {}).get("isGateway")), None)
+        or routers[0]
+    )
+    return primary, [s for s in routers if s is not primary]
+
+
 # One generation at a time (scan pipeline vs. manual run): two overlapping runs would write
 # duplicate page versions and double the LLM cost. Manual routes check is_generating() and answer
 # 409; the scan pipeline simply waits on the lock.
@@ -717,13 +740,15 @@ def is_generating() -> bool:
     return _generate_lock.locked()
 
 
-async def generate(settings: dict, use_llm: bool = True, log=None) -> list[str]:
-    """Regenerates every chapter. Returns the slugs written. Serialised by `_generate_lock`."""
+async def generate(settings: dict, use_llm: bool = True, log=None, only_slug: str | None = None) -> list[str]:
+    """Regenerates every chapter, or only `only_slug` (chapter reset). Chapters that are skipped
+    are neither rendered, nor sent to the LLM, nor versioned. Returns the slugs written.
+    Serialised by `_generate_lock`."""
     async with _generate_lock:
-        return await _generate(settings, use_llm, log)
+        return await _generate(settings, use_llm, log, only_slug)
 
 
-async def _generate(settings: dict, use_llm: bool, log) -> list[str]:
+async def _generate(settings: dict, use_llm: bool, log, only_slug: str | None) -> list[str]:
     all_systems = db.list_systems()
     by_id = {s["id"]: s for s in all_systems}
     children_by_parent: dict[str, list[dict]] = {}
@@ -731,9 +756,11 @@ async def _generate(settings: dict, use_llm: bool, log) -> list[str]:
         parent_id = s.get("parentId")
         if parent_id:
             children_by_parent.setdefault(parent_id, []).append(s)
+    router, other_routers = _pick_router(all_systems)
     context = {
         "counts": {k: sum(1 for s in all_systems if s["kind"] == k) for k in {s["kind"] for s in all_systems}},
-        "router": next((s for s in all_systems if s["kind"] == "router"), None),
+        "router": router,
+        "other_routers": other_routers,
         "critical": [s for s in all_systems if s["importance"] == "critical"],
         "last_scan": db.latest_scan(),
         "subnets": discovery.effective_subnets(settings, db.list_network_resources(kind="network", active_only=True)),
@@ -741,6 +768,8 @@ async def _generate(settings: dict, use_llm: bool, log) -> list[str]:
 
     written: list[str] = []
     for topic in TOPICS:
+        if only_slug and topic.slug != only_slug:
+            continue
         systems = _systems_for(topic, all_systems)
         sections: list[str] = []
 

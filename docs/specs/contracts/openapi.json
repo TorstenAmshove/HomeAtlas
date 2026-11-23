@@ -2447,6 +2447,7 @@
     },
     "/api/docs/generate": {
       "post": {
+        "description": "Regenerates all chapters. The setting `scanUseLlm` is the master switch: `useLlm: false` in\nthe request can turn the AI intros off, but `useLlm: true` does not force them on while the\nsetting is off.",
         "operationId": "generate_docs_api_docs_generate_post",
         "parameters": [
           {
