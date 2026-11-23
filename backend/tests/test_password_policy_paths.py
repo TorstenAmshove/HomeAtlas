@@ -112,3 +112,15 @@ def test_cli_weak_password_with_reset_mfa_changes_nothing(temp_db):
     after = db.get_user_by_username_raw("alice")
     assert after["totpEnabled"]
     assert after["passwordHash"] == user["passwordHash"]
+
+
+def test_cli_ambiguous_legacy_name_aborts(temp_db, capsys):
+    for name in ("anna", "ANNA"):
+        db.create_user(name, "h", "s", auth.ROLE_ADMIN)
+    assert _cli("Anna", "Korrekt-Pferd-Batterie-9") == 1
+    assert "mehrdeutig" in capsys.readouterr().err
+
+
+def test_cli_new_user_name_is_validated(temp_db):
+    assert _cli("a b", "Korrekt-Pferd-Batterie-9") == 2
+    assert db.get_user_by_username_raw("a b") is None

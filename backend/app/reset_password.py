@@ -80,12 +80,22 @@ def main(argv: list[str]) -> int:
             print(str(exc), file=sys.stderr)
             return 2
 
+    if db.username_ambiguous(username):
+        print(f"Der Name '{username}' ist mehrdeutig (mehrere Benutzer unterscheiden sich nur in "
+              "der Schreibweise). Bitte den Namen exakt so angeben, wie er in der Liste steht.",
+              file=sys.stderr)
+        return 1
     user = db.get_user_by_username_raw(username)
 
     if user is None:
         if password is None:
             print(f"Benutzer '{username}' existiert nicht.", file=sys.stderr)
             return 1
+        try:
+            username = security.normalize_username(username)
+        except security.UsernameError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
         salt = secrets.token_hex(16)
         db.create_user(username, auth.hash_password(password, salt), salt, auth.ROLE_ADMIN)
         print(f"Benutzer '{username}' wurde neu als Administrator angelegt.")

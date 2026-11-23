@@ -39,6 +39,30 @@ class PasswordError(ValueError):
     pass
 
 
+class UsernameError(ValueError):
+    pass
+
+
+USERNAME_MAX_LENGTH = 64
+# Unicode letters/digits plus `.` `_` `-` `@` (e-mail-style names). `\w` excludes whitespace,
+# control and zero-width characters.
+_USERNAME_RE = re.compile(r"[\w.@-]+")
+
+
+def normalize_username(raw: str) -> str:
+    """Trims and validates a name for a NEW account. Case is kept (display), uniqueness and login
+    compare case-insensitively (db.username_taken / get_user_by_username_raw). Existing names that
+    break these rules stay valid -- the rule only applies when creating."""
+    name = unicodedata.normalize("NFC", (raw or "").strip())
+    if not name:
+        raise UsernameError("Der Benutzername darf nicht leer sein.")
+    if len(name) > USERNAME_MAX_LENGTH:
+        raise UsernameError(f"Der Benutzername darf höchstens {USERNAME_MAX_LENGTH} Zeichen lang sein.")
+    if not _USERNAME_RE.fullmatch(name):
+        raise UsernameError("Der Benutzername darf nur Buchstaben, Ziffern und . _ - @ enthalten.")
+    return name
+
+
 def _classes(password: str) -> int:
     return sum([
         bool(re.search(r"[a-zäöüß]", password)),
