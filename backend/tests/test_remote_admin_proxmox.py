@@ -225,3 +225,93 @@ def test_reboot_host_reports_failure(monkeypatch):
 
     assert not result["ok"]
     assert "Permission denied" in result["error"]
+
+
+# --- reboot_host: a dropped connection after the command is success ---------------------------
+
+
+
+class _RebootConnection:
+    def __init__(self, behaviour):
+        self.behaviour = behaviour
+
+    async def run(self, command, check=False):
+        return await self.behaviour()
+
+
+class _RebootContext:
+    def __init__(self, connection, exit_error=None):
+        self._connection = connection
+        self._exit_error = exit_error
+
+    async def __aenter__(self):
+        return self._connection
+
+    async def __aexit__(self, *exc_info):
+        if self._exit_error:
+            raise self._exit_error
+        return False
+
+
+def _reboot(monkeypatch, behaviour, exit_error=None):
+    import asyncio
+
+    from app import remote_admin
+    monkeypatch.setattr(asyncssh, "connect",
+                        lambda **kw: _RebootContext(_RebootConnection(behaviour), exit_error))
+    monkeypatch.setattr(remote_admin, "_decode_secret", lambda account: ("pw", ""))
+    monkeypatch.setattr(remote_admin, "_SSH_REBOOT_TIMEOUT", 0.05)
+    account = {"category": "login", "username": "root", "secretEnc": "", "port": 22}
+    return asyncio.run(remote_admin.reboot_host("10.0.0.5", account))
+
+
+class _Result:
+    def __init__(self, exit_status, stderr=""):
+        self.exit_status, self.stderr, self.stdout = exit_status, stderr, ""
+
+
+def test_reboot_host_treats_connection_loss_after_command_as_success(monkeypatch):
+    async def lost():
+        raise asyncssh.ConnectionLost("gone")
+    assert _reboot(monkeypatch, lost) == {"ok": True, "error": ""}
+
+
+def test_reboot_host_treats_missing_exit_status_as_success(monkeypatch):
+    async def none():
+        return _Result(None)
+    assert _reboot(monkeypatch, none)["ok"]
+
+
+def test_reboot_host_treats_timeout_after_command_as_success(monkeypatch):
+    import asyncio
+
+    async def hang():
+        await asyncio.sleep(3600)
+    assert _reboot(monkeypatch, hang)["ok"]
+
+
+def test_reboot_host_ignores_error_on_connection_close(monkeypatch):
+    async def ok():
+        return _Result(0)
+    assert _reboot(monkeypatch, ok, exit_error=OSError("reset"))["ok"]
+
+
+def test_reboot_host_still_fails_on_connect_error(monkeypatch):
+    import asyncio
+
+    from app import remote_admin
+
+    def boom(**kw):
+        raise OSError("no route")
+    monkeypatch.setattr(asyncssh, "connect", boom)
+    monkeypatch.setattr(remote_admin, "_decode_secret", lambda account: ("pw", ""))
+    account = {"category": "login", "username": "root", "secretEnc": "", "port": 22}
+    result = asyncio.run(remote_admin.reboot_host("10.0.0.5", account))
+    assert not result["ok"] and "fehlgeschlagen" in result["error"]
+
+
+def test_reboot_host_still_fails_on_nonzero_exit(monkeypatch):
+    async def bad():
+        return _Result(1, "permission denied")
+    result = _reboot(monkeypatch, bad)
+    assert not result["ok"] and "permission denied" in result["error"]
