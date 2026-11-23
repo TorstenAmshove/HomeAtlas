@@ -62,3 +62,40 @@ def test_pipeline_logs_discovery_warnings(temp_db, monkeypatch):
     scan = temp_db.latest_scan()
     blob = str(scan)
     assert blob.count("10.9.0.0/24: keine Adresse hat geantwortet") >= 1
+
+
+def _probe_with(temp_db, monkeypatch, results):
+    system = temp_db.create_system({"kind": "server", "name": "Hub", "ip": "10.0.0.9"})
+    temp_db.create_account({"systemId": system["id"], "label": "x", "category": "login", "allowProbe": 1})
+
+    async def fake_probe_system(sys_arg, accounts):
+        return {"ran": bool(results), "purpose": "", "reason": "", "results": results}
+
+    monkeypatch.setattr(probe_auth, "probe_system", fake_probe_system)
+    asyncio.run(pipeline._probe_with_credentials(lambda _m: None))
+    return system
+
+
+def test_http_rejection_creates_error_event(temp_db, monkeypatch):
+    system = _probe_with(temp_db, monkeypatch, {
+        "http:Web": {"ok": False, "facts": {}, "error": "Die Weboberfläche hat die Zugangsdaten abgelehnt"},
+    })
+    events = db.list_device_error_events(system["id"])
+    assert len(events) == 1 and "abgelehnt" in events[0]["message"]
+
+
+def test_superseded_failure_still_creates_error_event(temp_db, monkeypatch):
+    system = _probe_with(temp_db, monkeypatch, {
+        "ha:alt": {"ok": False, "facts": {}, "error": "Token abgelaufen", "superseded": True},
+        "ha:neu": {"ok": True, "error": "", "facts": {}},
+    })
+    assert any("Token abgelaufen" in e["message"] for e in db.list_device_error_events(system["id"]))
+
+
+def test_only_failures_still_stored_in_extra_probe(temp_db, monkeypatch):
+    system = _probe_with(temp_db, monkeypatch, {
+        "ssh:a": {"ok": False, "facts": {}, "error": "Timeout"},
+    })
+    stored = db.get_system(system["id"])["extra"]["probe"]
+    assert stored["ssh:a"]["error"] == "Timeout"
+    assert db.list_device_error_events(system["id"])

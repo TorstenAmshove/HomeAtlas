@@ -97,7 +97,9 @@ def _ssh_eligible(account: dict) -> bool:
     """Same eligibility test probe_auth.probe_system's SSH branch already uses. Deliberately NOT
     gated on `allowProbe`: that flag's own docstring scopes it to the read-only auto-probe
     feature specifically -- reusing it here would conflate two different consents an admin gave
-    for two different reasons."""
+    for two different reasons. The `login` port rule (only 22/unset; its port normally belongs to the
+    web UI) is deliberate and mirrored in probe_auth.probe_system -- keep both in sync, no import
+    (ADR-0011)."""
     return account.get("category") == "sshkey" or (
         account.get("category") == "login" and (account.get("port") or 0) in (22, 0)
     )
