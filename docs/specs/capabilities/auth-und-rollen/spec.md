@@ -328,7 +328,13 @@ Quelle: `backend/app/main.py:228`, `backend/app/security.py:85`
 `POST /api/auth/password` mit `{currentPassword, newPassword}` MUSS das aktuelle Passwort prüfen
 (ohne zweiten Faktor) und dann die Richtlinie. Falsches aktuelles Passwort → 400 „Das aktuelle
 Passwort stimmt nicht.“ + Protokoll `password.change` ok=false. Erfolg → `{ok: true}` + Protokoll
-`password.change`. Bestehende Sessions bleiben gültig. **[Muss]**
+`password.change` (mit der Zahl der beendeten Sitzungen). Alle *anderen* Sessions des Benutzers werden
+beendet, die aktuelle bleibt gültig; bei Fehlern (falsches Passwort, Richtlinie) bleibt jede Session
+unberührt. **[Muss]**
+
+#### Szenario: Passwortwechsel beendet andere Sessions
+- **WENN** ein Benutzer mit zwei Sessions A und B das Passwort in A ändert
+- **DANN** bleibt A gültig, B liefert 401; Sessions anderer Benutzer bleiben unberührt
 
 #### Szenario: Falsches aktuelles Passwort
 - **WENN** `currentPassword` falsch
@@ -386,13 +392,16 @@ Quelle: `backend/app/main.py:324`, `backend/app/main.py:354`
 
 ### Requirement: MFA-Reset durch Admin
 `POST /api/users/{id}/mfa/reset` MUSS das TOTP-Geheimnis löschen und `totpEnabled` = false setzen
-(404 wenn unbekannt), Protokoll `mfa.reset` mit Zielname. Offene Sessions des Ziels werden nicht
-gelöscht, sind aber sofort auf die Einrichtungs-Allowlist beschränkt; beim nächsten Request muss der
-Benutzer neu einrichten. **[Muss]**
+(404 wenn unbekannt), Protokoll `mfa.reset` mit Zielname. ALLE Sessions des Ziels werden beendet,
+ohne Ausnahme (auch beim Zurücksetzen des eigenen Faktors, wie die CLI). Sonst könnte eine offene
+Session den Faktor selbst neu einrichten. Der nächste Login mit Passwort führt in die Einrichtung.
+Ein Konto ohne aktiven Faktor bleibt bewusst unbefristet einrichtbar (Passwort-Besitz genügt): eine
+Frist bräuchte eine neue Spalte und einen Recovery-Weg und könnte den einzigen Admin aussperren
+(Entscheidung #116, bei Bedarf eigenes Issue). **[Muss]**
 
 #### Szenario: Telefon verloren
 - **WENN** ADMIN setzt den Faktor von X zurück
-- **DANN** X kann sich mit Passwort anmelden und muss sofort neu einrichten; eine offene Session von X erhält bei der nächsten Aktion 403 `enrollment-required`
+- **DANN** alle Sessions von X sind beendet (401); X meldet sich mit Passwort neu an und richtet den Faktor ein
 
 Quelle: `backend/app/main.py:363`
 
@@ -557,9 +566,6 @@ UI-Seite(n): `frontend/src/gates/Login.tsx` (ohne Session, jede Route),
 - > OFFEN: `DELETE /api/users/{id}` antwortet für unbekannte IDs mit `{ok: true}` statt 404 (PATCH/mfa-reset liefern 404). → #123
 - > OFFEN: PATCH `/api/users/{id}` ist nicht atomar: Anzeigename/Rolle werden gespeichert, bevor ein zu schwaches `newPassword` mit 400 abgelehnt wird. → #123
 - > OFFEN: POST `/api/users` mappt unbekannte Rollen still auf MEMBER, PATCH antwortet 400 – uneinheitlich. → #123
-- > OFFEN: Eigener Passwortwechsel beendet keine anderen Sessions (Admin-Reset schon) – gewollt? → #116
-- > OFFEN: Admin-MFA-Reset beendet keine Sessions, die CLI-Variante schon; eine offene Session des Ziels kann den Faktor danach selbst neu einrichten (nur Passwort-Besitz war nötig für die Session, ist aber u. U. ein Angreifer). → #116
-- > OFFEN: Ein Konto ohne aktiven Faktor (neu angelegt oder nach Reset) kann von jedem mit dem Passwort eingerichtet werden – bewusste Abwägung laut `reset_password.py`-Docstring, aber ohne Ablaufzeit. → #116
 - > OFFEN: AccessLogPage kennt Label `mfa.disable` (nie geschrieben). (`mfa.reset` hat seit PR 6 ein Label und gilt als sicherheitsrelevant.) → #122
 - > OFFEN: Session-Cookie ohne `Secure`-Flag, auch hinter TLS-Proxy. → #115
 - > OFFEN: `X-Real-IP` wird ungeprüft übernommen; sicher nur, solange das Backend ausschließlich über nginx erreichbar ist (ADR-0003). → #115
