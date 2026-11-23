@@ -4,7 +4,7 @@ import asyncio
 import pytest
 from fastapi.testclient import TestClient
 
-from app import auth, crypto, db, llm_providers, main, probe_auth, remote_admin
+from app import auth, crypto, llm_providers, main, probe_auth
 
 BAD = "gAAAAAB-kein-gueltiger-token"
 
@@ -40,22 +40,6 @@ def test_probe_http_and_ha_unreadable():
     acc = {"secretEnc": BAD, "username": "u"}
     assert "nicht lesbar" in asyncio.run(probe_auth.probe_http("http://192.0.2.1", acc))["error"]
     assert "nicht lesbar" in asyncio.run(probe_auth.probe_homeassistant("http://192.0.2.1", acc))["error"]
-
-
-def test_remote_admin_unreadable_returns_error():
-    r = asyncio.run(remote_admin.deploy_public_key("192.0.2.1", {"secretEnc": BAD}, "ssh-ed25519 AAAA"))
-    assert r["ok"] is False and "nicht lesbar" in r["error"]
-
-
-def test_ha_switch_unreadable_returns_409_and_logs(admin):
-    system = db.create_system({"name": "HA", "ip": "192.0.2.5"})
-    acc = db.create_account({"label": "HA", "category": "homeassistant", "secretEnc": BAD,
-                             "systemId": system["id"]})
-    r = admin.post(f"/api/systems/{system['id']}/ha-switch/on",
-                   params={"accountId": acc["id"], "entityId": "switch.x"})
-    assert r.status_code == 409 and BAD not in r.text
-    entries = [e for e in db.list_access_log() if e["action"] == "switch.ha"]
-    assert len(entries) == 1 and entries[0]["ok"] == 0
 
 
 def test_llm_unreadable_key():

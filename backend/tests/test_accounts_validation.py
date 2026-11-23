@@ -4,7 +4,7 @@ login category, 404 on delete)."""
 import pytest
 from fastapi.testclient import TestClient
 
-from app import auth, crypto, db, main, remote_admin
+from app import auth, crypto, db, main
 from tests.test_llm_defaults_and_accounts import admin, keyed  # noqa: F401
 
 
@@ -81,28 +81,3 @@ def test_delete_member_403(keyed):  # noqa: F811
     finally:
         main.app.dependency_overrides.clear()
 
-
-def _deploy_setup(login_category):
-    system = db.create_system({"name": "NAS", "kind": "nas", "ip": "192.168.1.20"})
-    private_pem, _ = remote_admin.generate_keypair(comment="homeatlas@NAS")
-    key = db.create_account({"systemId": system["id"], "label": "Key", "category": "sshkey",
-                             "secretEnc": crypto.encrypt(private_pem), "passphraseEnc": crypto.encrypt("")})
-    login = db.create_account({"systemId": system["id"], "label": "L", "category": login_category,
-                               "username": "root", "secretEnc": crypto.encrypt("pw")})
-    return key, login
-
-
-@pytest.mark.parametrize("category,status", [
-    ("snmp", 400), ("wifi", 400), ("apikey", 400), ("other", 400), ("login", 200), ("sshkey", 200)])
-def test_deploy_login_category(admin, monkeypatch, category, status):
-    called = []
-
-    async def fake_deploy(host, account, line, port=0):
-        called.append(1)
-        return {"ok": True, "changed": True, "error": ""}
-
-    monkeypatch.setattr(remote_admin, "deploy_public_key", fake_deploy)
-    key, login = _deploy_setup(category)
-    response = admin.post(f"/api/accounts/{key['id']}/deploy", json={"loginAccountId": login["id"]})
-    assert response.status_code == status
-    assert bool(called) == (status == 200)

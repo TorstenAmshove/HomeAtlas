@@ -31,8 +31,7 @@ from .routes.settings import _migrate_plaintext_secrets
 
 # Re-exported for tests and anything that used to import them from here: these are the very
 # objects the routes depend on, so `app.dependency_overrides[main.current_user]` keeps working.
-from .deps import _ws_authenticate, current_user, require_admin  # noqa: E402,F401
-from .routes.remote import _proxmox_account  # noqa: E402,F401
+from .deps import current_user, require_admin  # noqa: E402,F401
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
@@ -81,6 +80,6 @@ async def _secret_unreadable_handler(_request, exc: crypto.SecretUnreadable):
 
 # One router per capability group (see docs/specs/README.md). Order matters only where two
 # routes could match the same path; it is the order the routes had in this file before the split.
-for _routes in (routes.auth, routes.settings, routes.systems, routes.accounts, routes.remote, routes.docs,
+for _routes in (routes.auth, routes.settings, routes.systems, routes.accounts, routes.docs,
                 routes.scans, routes.diagnostics, routes.chat, routes.overview):
     app.include_router(_routes.router)
