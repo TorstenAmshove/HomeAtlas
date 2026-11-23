@@ -5,9 +5,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Response
 from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
-from .. import crypto, db, diagnostics, docs, llm_providers, topology
+from .. import crypto, db, diagnostics, discovery, docs, llm_providers, topology
 from .. import monitor as monitor_module
 from ..deps import current_user, require_admin
 
@@ -139,6 +139,11 @@ class SetupBody(BaseModel):
     accounts: list[SetupAccount] = Field(default_factory=list)
     scanSubnets: list[str] = Field(default_factory=list)
 
+    @field_validator("scanSubnets")
+    @classmethod
+    def _valid_scan_subnets(cls, value: list[str]) -> list[str]:
+        return discovery.validate_scan_subnets(value)
+
 
 @router.post("/api/setup")
 async def run_setup(body: SetupBody, _: dict = Depends(require_admin)) -> dict:
@@ -168,5 +173,5 @@ async def run_setup(body: SetupBody, _: dict = Depends(require_admin)) -> dict:
         created_accounts += 1
 
     db.update_settings({"homeName": body.homeName, "setupCompleted": True,
-                        "scanSubnets": [s.strip() for s in body.scanSubnets if s.strip()]})
+                        "scanSubnets": body.scanSubnets})
     return {"ok": True, "systems": created_systems, "accounts": created_accounts}

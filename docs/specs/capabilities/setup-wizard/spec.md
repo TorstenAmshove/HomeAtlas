@@ -165,12 +165,19 @@ Quelle: `backend/app/main.py:1679`, `backend/app/main.py:1686`, `backend/app/cry
 
 ### Requirement: Einstellungen und Abschluss-Flag
 Das Setup MUSS `homeName` (unverändert, auch leer), `setupCompleted = true` und `scanSubnets` (Einträge
-getrimmt, leere entfernt; überschreibt bisherige Liste) in den Einstellungen speichern. Nach
+getrimmt, leere entfernt, normalisiert, dedupliziert; überschreibt bisherige Liste) in den
+Einstellungen speichern. Jeder Eintrag MUSS ein gültiger IPv4-Netzbereich sein, sonst antwortet das
+System mit 422 und schreibt nichts (keine Systeme, Konten, kein `setupCompleted`). Nach
 erfolgreichem Setup erscheint der Wizard nicht mehr. **[Muss]**
 
 #### Szenario: Netzbereich angegeben
 - **WENN** `scanSubnets: [" 192.168.1.0/24 ", ""]`
 - **DANN** gespeichert `scanSubnets = ["192.168.1.0/24"]`, `setupCompleted = true`
+
+#### Szenario: Ungültiger Bereich
+- **WENN** `scanSubnets: ["bad"]`
+- **DANN** 422 mit Meldung, die den Eintrag nennt; nichts gespeichert
+  (Test: `backend/tests/test_setup_subnets.py::test_setup_invalid_subnet_422_no_side_effects`)
 
 Quelle: `backend/app/main.py:1692`
 
@@ -226,7 +233,6 @@ und `setupCompleted` false), Gating in `frontend/src/App.tsx`.
 
 - > OFFEN: `POST /api/setup` prüft nicht, ob das Setup schon abgeschlossen ist; erneuter Aufruf legt Geräte/Konten doppelt an und überschreibt `homeName`/`scanSubnets`. → #149
 - > OFFEN: Antwortfeld `accounts` zählt Gerätezugänge nicht mit – gewollt oder Ungenauigkeit? → #149
-- > OFFEN: Keine Validierung der `scanSubnets`-Einträge; ungültiger Freitext landet in den Einstellungen (Verhalten im Scan siehe [discovery-und-scan](../discovery-und-scan/spec.md)). → #137
 - > OFFEN: Leerer `homeName` wird gespeichert; Doku/Topologie/Assistent fallen dann teils auf Ersatztexte zurück. → #149
 - > OFFEN: `GET /api/health` ist ohne Login erreichbar und verrät `userCount`; das Frontend nutzt das Feld nicht. → #115
 - > OFFEN: Art→Wichtigkeit (`router/server/nas/heating` → kritisch) ist hart verdrahtet; `network` (Switch/AP) wird nicht kritisch – Absicht? → #149
