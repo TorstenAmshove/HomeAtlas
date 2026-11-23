@@ -238,6 +238,294 @@
         "title": "ProviderBody",
         "type": "object"
       },
+      "SettingsPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "claudeApiKey": {
+            "title": "Claudeapikey",
+            "type": "string"
+          },
+          "claudeBaseUrl": {
+            "title": "Claudebaseurl",
+            "type": "string"
+          },
+          "claudeModel": {
+            "title": "Claudemodel",
+            "type": "string"
+          },
+          "clearSecrets": {
+            "items": {
+              "enum": [
+                "claudeApiKey",
+                "openAiApiKey",
+                "geminiApiKey",
+                "deepseekApiKey",
+                "ollamaApiKey",
+                "defaultCredentialSecret",
+                "defaultCredentialPassphrase"
+              ],
+              "type": "string"
+            },
+            "title": "Clearsecrets",
+            "type": "array"
+          },
+          "configVersionKeep": {
+            "minimum": 0.0,
+            "title": "Configversionkeep",
+            "type": "integer"
+          },
+          "deepseekApiKey": {
+            "title": "Deepseekapikey",
+            "type": "string"
+          },
+          "deepseekBaseUrl": {
+            "title": "Deepseekbaseurl",
+            "type": "string"
+          },
+          "deepseekModel": {
+            "title": "Deepseekmodel",
+            "type": "string"
+          },
+          "defaultCredentialEnabled": {
+            "title": "Defaultcredentialenabled",
+            "type": "boolean"
+          },
+          "defaultCredentialIsKey": {
+            "title": "Defaultcredentialiskey",
+            "type": "boolean"
+          },
+          "defaultCredentialPassphrase": {
+            "title": "Defaultcredentialpassphrase",
+            "type": "string"
+          },
+          "defaultCredentialPort": {
+            "minimum": 0.0,
+            "title": "Defaultcredentialport",
+            "type": "integer"
+          },
+          "defaultCredentialSecret": {
+            "title": "Defaultcredentialsecret",
+            "type": "string"
+          },
+          "defaultCredentialUsername": {
+            "title": "Defaultcredentialusername",
+            "type": "string"
+          },
+          "dnsTestNames": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dnstestnames",
+            "type": "array"
+          },
+          "geminiApiKey": {
+            "title": "Geminiapikey",
+            "type": "string"
+          },
+          "geminiModel": {
+            "title": "Geminimodel",
+            "type": "string"
+          },
+          "hasDefaultCredentialPassphrase": {
+            "title": "Hasdefaultcredentialpassphrase",
+            "type": "boolean"
+          },
+          "hasDefaultCredentialSecret": {
+            "title": "Hasdefaultcredentialsecret",
+            "type": "boolean"
+          },
+          "homeName": {
+            "title": "Homename",
+            "type": "string"
+          },
+          "llmProvider": {
+            "enum": [
+              "CLAUDE",
+              "OPENAI",
+              "GEMINI",
+              "DEEPSEEK",
+              "OLLAMA"
+            ],
+            "title": "Llmprovider",
+            "type": "string"
+          },
+          "monitorEnabled": {
+            "title": "Monitorenabled",
+            "type": "boolean"
+          },
+          "monitorIntervalSeconds": {
+            "minimum": 0.0,
+            "title": "Monitorintervalseconds",
+            "type": "integer"
+          },
+          "monitorTimeoutMs": {
+            "minimum": 0.0,
+            "title": "Monitortimeoutms",
+            "type": "integer"
+          },
+          "ollamaApiKey": {
+            "title": "Ollamaapikey",
+            "type": "string"
+          },
+          "ollamaBaseUrl": {
+            "title": "Ollamabaseurl",
+            "type": "string"
+          },
+          "ollamaModel": {
+            "title": "Ollamamodel",
+            "type": "string"
+          },
+          "openAiApiKey": {
+            "title": "Openaiapikey",
+            "type": "string"
+          },
+          "openAiBaseUrl": {
+            "title": "Openaibaseurl",
+            "type": "string"
+          },
+          "openAiModel": {
+            "title": "Openaimodel",
+            "type": "string"
+          },
+          "providerModelCache": {
+            "additionalProperties": true,
+            "title": "Providermodelcache",
+            "type": "object"
+          },
+          "scanAutoEnabled": {
+            "title": "Scanautoenabled",
+            "type": "boolean"
+          },
+          "scanAutoIntervalHours": {
+            "minimum": 0.0,
+            "title": "Scanautointervalhours",
+            "type": "integer"
+          },
+          "scanConcurrency": {
+            "minimum": 0.0,
+            "title": "Scanconcurrency",
+            "type": "integer"
+          },
+          "scanControllerNetworkIds": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Scancontrollernetworkids",
+            "type": "array"
+          },
+          "scanControllerNetworksSeen": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Scancontrollernetworksseen",
+            "type": "array"
+          },
+          "scanEnableAdguard": {
+            "title": "Scanenableadguard",
+            "type": "boolean"
+          },
+          "scanEnableCloudflare": {
+            "title": "Scanenablecloudflare",
+            "type": "boolean"
+          },
+          "scanEnableDocker": {
+            "title": "Scanenabledocker",
+            "type": "boolean"
+          },
+          "scanEnableExposureFiles": {
+            "title": "Scanenableexposurefiles",
+            "type": "boolean"
+          },
+          "scanEnableFirewallNft": {
+            "title": "Scanenablefirewallnft",
+            "type": "boolean"
+          },
+          "scanEnableFirewallUnifi": {
+            "title": "Scanenablefirewallunifi",
+            "type": "boolean"
+          },
+          "scanEnableHttpBanner": {
+            "title": "Scanenablehttpbanner",
+            "type": "boolean"
+          },
+          "scanEnableMdns": {
+            "title": "Scanenablemdns",
+            "type": "boolean"
+          },
+          "scanEnableOmada": {
+            "title": "Scanenableomada",
+            "type": "boolean"
+          },
+          "scanEnableProxmox": {
+            "title": "Scanenableproxmox",
+            "type": "boolean"
+          },
+          "scanEnablePublicDns": {
+            "title": "Scanenablepublicdns",
+            "type": "boolean"
+          },
+          "scanEnableSsdp": {
+            "title": "Scanenablessdp",
+            "type": "boolean"
+          },
+          "scanEnableTraefik": {
+            "title": "Scanenabletraefik",
+            "type": "boolean"
+          },
+          "scanEnableUnifi": {
+            "title": "Scanenableunifi",
+            "type": "boolean"
+          },
+          "scanEnableUnifiClassic": {
+            "title": "Scanenableunificlassic",
+            "type": "boolean"
+          },
+          "scanExcludeIps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Scanexcludeips",
+            "type": "array"
+          },
+          "scanExtraTargets": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Scanextratargets",
+            "type": "array"
+          },
+          "scanSubnets": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Scansubnets",
+            "type": "array"
+          },
+          "scanTimeoutMs": {
+            "minimum": 0.0,
+            "title": "Scantimeoutms",
+            "type": "integer"
+          },
+          "scanUseCredentials": {
+            "title": "Scanusecredentials",
+            "type": "boolean"
+          },
+          "scanUseLlm": {
+            "title": "Scanusellm",
+            "type": "boolean"
+          },
+          "setupCompleted": {
+            "title": "Setupcompleted",
+            "type": "boolean"
+          },
+          "systemPromptOverride": {
+            "title": "Systempromptoverride",
+            "type": "string"
+          }
+        },
+        "title": "SettingsPatch",
+        "type": "object"
+      },
       "SetupAccount": {
         "properties": {
           "category": {
@@ -354,6 +642,242 @@
           "name"
         ],
         "title": "SetupSystem",
+        "type": "object"
+      },
+      "SystemWrite": {
+        "description": "Hand-maintainable device fields only (POST/PATCH /api/systems).\n\nSystem fields (status, lastSeen, openPorts, discoveryKey, extra, ...) belong to scan/monitor and\nare silently ignored (`extra=\"ignore\"`, so older clients that send the whole device keep\nworking). The handlers pass only `exclude_unset` values on, so a save never writes back stale\ncopies of fields the client did not change.",
+        "properties": {
+          "descriptionMd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descriptionmd"
+          },
+          "docLink": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doclink"
+          },
+          "docUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Docurl"
+          },
+          "hostname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hostname"
+          },
+          "importance": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Importance"
+          },
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "mac": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mac"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "monitorPorts": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monitorports"
+          },
+          "monitored": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monitored"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "os": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Os"
+          },
+          "parentId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parentid"
+          },
+          "purpose": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purpose"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "vendor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendor"
+          }
+        },
+        "title": "SystemWrite",
         "type": "object"
       },
       "TotpBody": {
@@ -2901,9 +3425,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Patch",
-                "type": "object"
+                "$ref": "#/components/schemas/SettingsPatch"
               }
             }
           },
@@ -3407,9 +3929,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Body",
-                "type": "object"
+                "$ref": "#/components/schemas/SystemWrite"
               }
             }
           },
@@ -3635,9 +4155,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Patch",
-                "type": "object"
+                "$ref": "#/components/schemas/SystemWrite"
               }
             }
           },

@@ -26,6 +26,17 @@ export function formOf(source: Partial<System>): DeviceForm {
   return form as DeviceForm;
 }
 
+/** Only the form fields whose value differs from the saved device (strict compare, so clearing a
+ * field still goes through). PATCH then writes nothing a scan changed in the meantime. */
+export function changedFields(form: Partial<System>, saved: System): DeviceForm {
+  const out: Record<string, unknown> = {};
+  for (const field of DEVICE_FORM_FIELDS) {
+    if (form[field] === undefined) continue;
+    if (JSON.stringify(form[field]) !== JSON.stringify(saved[field])) out[field] = form[field];
+  }
+  return out as DeviceForm;
+}
+
 /** Empty and missing count as the same ("" vs null, [] vs null, 0 vs undefined). */
 function normalized(value: unknown): unknown {
   if (value === null || value === undefined || value === "" || value === 0) return null;

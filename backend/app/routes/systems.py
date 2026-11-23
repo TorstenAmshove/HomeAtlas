@@ -6,13 +6,111 @@ from __future__ import annotations
 
 import asyncio
 
+from typing import Any
+
 from fastapi import APIRouter, Body, Depends, HTTPException
+from pydantic import BaseModel, ConfigDict, StrictInt, field_validator
 
 from .. import classify, crypto, db, discovery, docs, exposure, llm_providers, pipeline, probe_auth, unifi_probe
 from .. import monitor as monitor_module
 from ..deps import _public_account, current_user, require_admin
 
 router = APIRouter()
+
+
+class SystemWrite(BaseModel):
+    """Hand-maintainable device fields only (POST/PATCH /api/systems).
+
+    System fields (status, lastSeen, openPorts, discoveryKey, extra, ...) belong to scan/monitor and
+    are silently ignored (`extra="ignore"`, so older clients that send the whole device keep
+    working). The handlers pass only `exclude_unset` values on, so a save never writes back stale
+    copies of fields the client did not change."""
+    model_config = ConfigDict(extra="ignore")
+
+    kind: str | None = None
+    name: str | None = None
+    hostname: str | None = None
+    ip: str | None = None
+    mac: str | None = None
+    vendor: str | None = None
+    model: str | None = None
+    os: str | None = None
+    location: str | None = None
+    purpose: str | None = None
+    descriptionMd: str | None = None
+    url: str | None = None
+    docUrl: str | None = None
+    docLink: str | None = None
+    notes: str | None = None
+    importance: str | None = None
+    parentId: str | None = None
+    monitored: bool | StrictInt | None = None
+    monitorPorts: list[int] | None = None
+    tags: list[str] | None = None
+
+    @field_validator("kind")
+    @classmethod
+    def _kind(cls, v: str | None) -> str:
+        if v not in docs.KIND_LABELS:
+            raise ValueError("Unbekannte Geräteart.")
+        return v
+
+    @field_validator("importance")
+    @classmethod
+    def _importance(cls, v: str | None) -> str:
+        if v not in docs.IMPORTANCE_LABELS:
+            raise ValueError("importance muss critical, normal oder low sein.")
+        return v
+
+    @field_validator("monitored")
+    @classmethod
+    def _monitored(cls, v: Any) -> bool:
+        if v is None or (not isinstance(v, bool) and v not in (0, 1)):
+            raise ValueError("monitored muss ein Wahrheitswert sein.")
+        return bool(v)
+
+    @field_validator("monitorPorts", mode="before")
+    @classmethod
+    def _ports(cls, v: Any) -> Any:
+        if v is None:
+            return None
+        if not isinstance(v, list):
+            raise ValueError("monitorPorts muss eine Liste sein.")
+        if len(v) > 3:
+            raise ValueError("Höchstens 3 Ports.")
+        for port in v:
+            if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+                raise ValueError("Ports müssen ganze Zahlen von 1 bis 65535 sein.")
+        if len(set(v)) != len(v):
+            raise ValueError("Ports dürfen nicht doppelt vorkommen.")
+        return v
+
+    @field_validator("tags")
+    @classmethod
+    def _tags(cls, v: list[str] | None) -> list[str]:
+        return [t.strip() for t in (v or []) if t.strip()]
+
+    def to_fields(self) -> dict:
+        fields = self.model_dump(exclude_unset=True)
+        if fields.get("monitorPorts") is None and "monitorPorts" in fields:
+            fields["monitorPorts"] = []
+        return fields
+
+
+def _check_parent(system_id: str | None, parent_id: str | None) -> None:
+    """parentId must exist, not be the device itself and not close a cycle."""
+    if not parent_id:
+        return
+    if db.get_system(parent_id) is None:
+        raise HTTPException(status_code=422, detail="Das übergeordnete Gerät existiert nicht.")
+    seen: set[str] = set()
+    current: str | None = parent_id
+    while current and current not in seen:
+        if system_id is not None and current == system_id:
+            raise HTTPException(status_code=422, detail="Ein Gerät kann nicht (indirekt) sich selbst untergeordnet sein.")
+        seen.add(current)
+        node = db.get_system(current)
+        current = node.get("parentId") if node else None
 
 
 # ---------------------------------------------------------------------------------------------
@@ -71,16 +169,22 @@ async def get_system(system_id: str, _: dict = Depends(current_user)) -> dict:
 
 
 @router.post("/api/systems")
-async def create_system(body: dict = Body(...), _: dict = Depends(require_admin)) -> dict:
+async def create_system(body: SystemWrite, _: dict = Depends(require_admin)) -> dict:
+    fields = body.to_fields()
+    _check_parent(None, fields.get("parentId"))
     # confirmed=1: anything a human typed is protected from being overwritten by the next scan.
-    system = db.create_system({**body, "confirmed": 1, "discovered": 0})
+    system = db.create_system({**fields, "confirmed": 1, "discovered": 0})
     db.ensure_monitoring_for_critical()
     return {"system": db.get_system(system["id"])}
 
 
 @router.patch("/api/systems/{system_id}")
-async def update_system(system_id: str, patch: dict = Body(...), _: dict = Depends(require_admin)) -> dict:
-    system = db.update_system(system_id, {**patch, "confirmed": 1})
+async def update_system(system_id: str, patch: SystemWrite, _: dict = Depends(require_admin)) -> dict:
+    fields = patch.to_fields()
+    if db.get_system(system_id) is None:
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
+    _check_parent(system_id, fields.get("parentId"))
+    system = db.update_system(system_id, {**fields, "confirmed": 1})
     if system is None:
         raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
     # Marking something critical in the UI has to start the monitoring right away, not at the next

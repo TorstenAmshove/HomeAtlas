@@ -20,7 +20,8 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "geminiApiKey": "", "geminiModel": "auto",
     "claudeApiKey": "", "claudeModel": "auto", "claudeBaseUrl": "",
     "openAiApiKey": "", "openAiModel": "auto", "openAiBaseUrl": "",
-    "deepseekApiKey": "", "deepseekModel": "auto",
+    "deepseekApiKey": "", "deepseekModel": "auto", "deepseekBaseUrl": "",
+    "ollamaApiKey": "", "ollamaModel": "auto", "ollamaBaseUrl": "",
     "providerModelCache": {},
     "systemPromptOverride": "",
     # Discovery
