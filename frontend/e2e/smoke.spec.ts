@@ -470,6 +470,10 @@ test("login, MFA enrollment, setup and main routes render without errors", async
     await expect(technik).toHaveAttribute("aria-current", "page");
     await page.reload();
     await expect(technik).toHaveAttribute("aria-current", "page");
+    // Remote administration is gone (#217): no "Steuern" tab, and its old URL lands on the overview.
+    await expect(page.locator(".dv-tabs").getByRole("link", { name: "Steuern" })).toHaveCount(0);
+    await page.goto(`/geraete/${device!.id}?tab=steuern`);
+    await expect(page.locator(".dv-tabs").getByRole("link", { name: "Überblick" })).toHaveAttribute("aria-current", "page");
 
     await page.goto(`/geraete/${device!.id}?edit=1`);
     const name = page.locator("#device-name");

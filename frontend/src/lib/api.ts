@@ -38,13 +38,6 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await response.json()) as T;
 }
 
-// Same-origin WS URL for the interactive console routes. `path` already includes the leading
-// `/api/...` (unlike `request()`'s paths, which get it prepended). No token in the URL: a
-// same-origin WebSocket handshake carries the session cookie automatically, same as `fetch`.
-export function wsUrl(path: string): string {
-  return `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}${path}`;
-}
-
 const get = <T,>(path: string) => request<T>(path);
 const post = <T,>(path: string, body?: unknown) =>
   request<T>(path, { method: "POST", body: JSON.stringify(body ?? {}) });
@@ -255,28 +248,6 @@ export interface DocVersion {
   size: number;
   bodyMd?: string;
   manualMd?: string;
-}
-
-export interface RemoteContainer {
-  id: string;
-  name: string;
-  image: string;
-  state: string;
-  status: string;
-  /** Proxmox guests only (empty string for Docker containers). IP is only populated when the
-   *  guest was found via the Proxmox REST API, not the pct/qm SSH fallback (see backend
-   *  remote_admin._parse_pct_list/_parse_qm_list). `node` is likewise only known via REST --
-   *  it gates the web-console link and the REST-only task-log view. */
-  ip?: string;
-  node?: string;
-  vmid?: string;
-  kind?: "vm" | "container";
-}
-
-export interface HaEntity {
-  entityId: string;
-  name: string;
-  state: string;
 }
 
 export interface ApiToken {
@@ -531,47 +502,6 @@ export const api = {
   listAccountAssignments: (id: string) => get<{ assignments: AccountAssignment[] }>(`/accounts/${id}/assignments`),
   setAccountAssignments: (id: string, assignments: { targetType: string; targetValue: string }[]) =>
     put<{ assignments: AccountAssignment[] }>(`/accounts/${id}/assignments`, assignments),
-  generateSshKey: (systemId: string, label: string) =>
-    post<{ account: Account; publicKey: string }>(`/systems/${systemId}/ssh-keys`, { label }),
-  deploySshKey: (accountId: string, loginAccountId: string, port = 0) =>
-    post<{ ok: boolean; changed: boolean }>(`/accounts/${accountId}/deploy`, { loginAccountId, port }),
-  sshConsoleWsUrl: (systemId: string, accountId: string) =>
-    wsUrl(`/api/ws/systems/${systemId}/ssh-console?accountId=${accountId}`),
-
-  startContainer: (id: string) => post<{ ok: boolean }>(`/systems/${id}/container/start`),
-  stopContainer: (id: string) => post<{ ok: boolean }>(`/systems/${id}/container/stop`),
-  restartContainer: (id: string) => post<{ ok: boolean }>(`/systems/${id}/container/restart`),
-  containerLogsUrl: (id: string) => `/api/systems/${id}/container/logs`,
-  dockerConsoleWsUrl: (systemId: string) => wsUrl(`/api/ws/systems/${systemId}/docker-console`),
-
-  listRemoteContainers: (systemId: string, accountId: string) =>
-    get<{ containers: RemoteContainer[]; proxmoxUrl: string }>(
-      `/systems/${systemId}/remote-containers?accountId=${accountId}`,
-    ),
-  remoteContainerAction: (systemId: string, containerId: string, action: "start" | "stop" | "restart", accountId: string) =>
-    post<{ ok: boolean }>(
-      `/systems/${systemId}/remote-containers/${encodeURIComponent(containerId)}/${action}?accountId=${accountId}`,
-    ),
-  remoteContainerLogs: (systemId: string, containerId: string, accountId: string, mode: "" | "journal" = "") =>
-    get<{ text: string }>(
-      `/systems/${systemId}/remote-containers/${encodeURIComponent(containerId)}/logs`
-      + `?accountId=${accountId}${mode ? `&mode=${mode}` : ""}`,
-    ),
-  remoteDockerConsoleWsUrl: (systemId: string, accountId: string, containerId: string) =>
-    wsUrl(`/api/ws/systems/${systemId}/remote-docker-console?accountId=${accountId}&containerId=${encodeURIComponent(containerId)}`),
-
-  rebootSystem: (systemId: string, accountId: string) =>
-    post<{ ok: boolean }>(`/systems/${systemId}/reboot?accountId=${accountId}`),
-
-  shellySwitch: (systemId: string, action: "on" | "off", channel = 0) =>
-    post<{ ok: boolean }>(`/systems/${systemId}/shelly-switch/${action}?channel=${channel}`),
-  listHaSwitchables: (systemId: string, accountId: string) =>
-    get<{ entities: HaEntity[] }>(`/systems/${systemId}/ha-switchables?accountId=${accountId}`),
-  haSwitch: (systemId: string, action: "on" | "off", accountId: string, entityId: string) =>
-    post<{ ok: boolean }>(
-      `/systems/${systemId}/ha-switch/${action}?accountId=${accountId}&entityId=${encodeURIComponent(entityId)}`,
-    ),
-
   listDocs: () => get<{ pages: Omit<DocPage, "bodyMd">[] }>("/docs"),
   getDoc: (slug: string) => get<{ page: DocPage }>(`/docs/${slug}`),
   saveDoc: (slug: string, bodyMd: string) => put<{ page: DocPage }>(`/docs/${slug}`, { bodyMd }),

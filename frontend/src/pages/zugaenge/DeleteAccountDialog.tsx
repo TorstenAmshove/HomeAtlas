@@ -72,7 +72,7 @@ export default function DeleteAccountDialog({ account, systemName, kindLabels, o
       ? [<>Netze und WLANs, die über diesen Zugang kamen, gelten danach als nicht mehr aktuell.</>]
       : []),
     ...(account.category === "sshkey"
-      ? [<>Ein schon eingespielter öffentlicher Schlüssel bleibt auf dem Gerät eingetragen; HomeAtlas entfernt dort nichts.</>]
+      ? [<>Ein auf dem Gerät eingetragener öffentlicher Schlüssel bleibt dort; HomeAtlas entfernt dort nichts.</>]
       : []),
   ];
 

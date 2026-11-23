@@ -107,21 +107,10 @@
 .app-shell .device-page .dv-row-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 .app-shell .device-page .dv-port { display: inline-block; min-width: 3.5em; color: var(--c-muted); }
 
-/* ---------------------------------------------------------------- controls (Steuern) */
-
-.app-shell .device-page .dv-control { display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; padding: 6px 0; }
-.app-shell .device-page .dv-control-state { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; color: var(--c-muted); font-size: 14px; }
-.app-shell .device-page .dv-control-buttons { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.app-shell .device-page .dv-control-buttons button,
-.app-shell .device-page .dv-control > button { min-height: var(--dv-target); }
-.app-shell .device-page .dv-control-buttons button.dv-btn-small { min-height: 36px; }
-.app-shell .device-page .dv-select { width: auto; min-height: 36px; padding: 4px 10px; }
-
 .app-shell .device-page .dv-log {
   margin: 10px 0 0; width: 100%; max-height: 360px; overflow: auto; padding: 12px; border-radius: 8px;
   background: var(--c-surface-2); color: var(--c-text); font-size: 12.5px; white-space: pre-wrap; overflow-wrap: anywhere;
 }
-.app-shell .device-page .dv-terminal { margin-top: 12px; width: 100%; min-width: 0; }
 
 /* ---------------------------------------------------------------- secrets, supplies, probe */
 

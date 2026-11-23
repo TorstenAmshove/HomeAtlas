@@ -20,7 +20,6 @@ import UeberblickTab, { recentHistory } from "./UeberblickTab";
 import TechnikTab from "./TechnikTab";
 import VerlaufTab from "./VerlaufTab";
 import ZugaengeTab from "./ZugaengeTab";
-import SteuernTab from "./SteuernTab";
 import "./device.css";
 
 /**
@@ -30,14 +29,14 @@ import "./device.css";
  * Summary first, on the overview tab only: one strip (status · since · address · source ·
  * importance), then exactly one primary next action that depends on the state, quiet secondary
  * buttons and "⋯" for the rest. The sections are split into tabs
- * kept in `?tab=` (Überblick · Technik · Verlauf · Zugänge · Steuern); nothing was dropped, see the
- * route-map table in the PR.
+ * kept in `?tab=` (Überblick · Technik · Verlauf · Zugänge). An unknown `?tab=` (e.g. the removed "steuern")
+ * falls back to the overview.
  *
  * Status follows the Start page's rule: a live chip only when the monitor is on and watches this
  * device (`/api/monitor`), otherwise "Stand letzter Scan".
  */
 
-type TabId = "ueberblick" | "technik" | "verlauf" | "zugaenge" | "steuern";
+type TabId = "ueberblick" | "technik" | "verlauf" | "zugaenge";
 
 const IMPORTANCE_WORD: Record<System["importance"], string> = { critical: "kritisch", normal: "normal", low: "gering" };
 const SCAN_WORD: Record<string, string> = { online: "erreichbar", offline: "nicht erreichbar" };
@@ -398,7 +397,7 @@ export default function DevicePage() {
     { id: "ueberblick", label: "Überblick" },
     { id: "technik", label: "Technik" },
     { id: "verlauf", label: "Verlauf" },
-    ...(isAdmin ? [{ id: "zugaenge" as const, label: "Zugänge" }, { id: "steuern" as const, label: "Steuern" }] : []),
+    ...(isAdmin ? [{ id: "zugaenge" as const, label: "Zugänge" }] : []),
   ];
   const tab: TabId = tabs.some((t) => t.id === tabParam) ? (tabParam as TabId) : "ueberblick";
   const history = errorEvents === null ? null : recentHistory(monitorEvents, errorEvents);
@@ -640,7 +639,7 @@ export default function DevicePage() {
             <UeberblickTab system={system} derived={derived} accounts={accounts} isAdmin={isAdmin} history={history} />
           )}
           {tab === "technik" && (
-            <TechnikTab system={system} monitorPorts={monitorPorts} aliases={aliases} isAdmin={isAdmin}
+            <TechnikTab system={system} monitorPorts={monitorPorts} aliases={aliases}
                         canProbe={canProbe} probing={probing} probeNotice={probeNotice} onProbe={() => void probe()} />
           )}
           {tab === "verlauf" && (
@@ -651,12 +650,7 @@ export default function DevicePage() {
                         showConfig={isAdmin && hasConfigHistory(system)} />
           )}
           {tab === "zugaenge" && isAdmin && (
-            <ZugaengeTab systemId={id} systemName={system.name} accounts={accounts}
-                         onAccountsChanged={async () => { await loadSystem(); }} />
-          )}
-          {tab === "steuern" && isAdmin && (
-            <SteuernTab system={system} status={status} accounts={accounts}
-                        onSystemChanged={async () => { await loadSystem(); }} />
+            <ZugaengeTab accounts={accounts} />
           )}
         </>
       )}
