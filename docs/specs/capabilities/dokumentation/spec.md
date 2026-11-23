@@ -196,9 +196,14 @@ Quelle: `backend/app/docs.py:460`, `backend/app/docs.py:541`
 ### Requirement: Notfall-Checkliste
 Das System MUSS im Kapitel `notfall` eine feste, unter Zeitdruck lesbare Checkliste ausgeben:
 Problemgröße eingrenzen (ein Gerät / nur Internet / gar nichts), Router mit Name, IP und
-Weboberfläche (erstes Gerät der Kategorie `router`), Anleitung Router-Neustart (30 s stromlos,
+Weboberfläche (bei mehreren Routern: bevorzugt der als „kritisch“ markierte, sonst der als Standard-Gateway erkannte (`extra.isGateway`), sonst der erste der Inventarreihenfolge; bei mehr als einem Router nennt eine Zeile „Weitere Router“ die übrigen), Anleitung Router-Neustart (30 s stromlos,
 2–3 Minuten warten), Liste aller als „kritisch“ markierten Geräte mit IP und Zweck, Verweis auf den
 KI-Assistenten. Dieses Kapitel nutzt nie ein LLM. **[Muss]**
+
+#### Szenario: Mehrere Router
+- **WENN** drei Router existieren und der zweite als „kritisch“ markiert ist
+- **DANN** nennt die Seite diesen als „Der Router“ und führt die beiden anderen unter „Weitere Router“ auf
+- **UND** ohne „kritisch“ gewinnt der Router mit `extra.isGateway`, sonst der erste
 
 #### Szenario: Kein Router bekannt
 - **WENN** kein Gerät die Kategorie `router` hat
@@ -270,8 +275,9 @@ sofort neu erzeugen können. Die eigenen Notizen (`manualMd`) bleiben dabei unve
 überschriebene Text wird nur dann als Version („automatisch neu erzeugt“) gesichert, wenn der neu
 erzeugte Text sich von ihm unterscheidet; ist er gleich, entsteht kein Snapshot. **[Muss]**
 
-Heute **[Impl]**: Reset setzt den Modus und erzeugt danach **alle** Kapitel neu (KI gemäß `scanUseLlm`),
-Antwort ist die zurückgesetzte Seite.
+Der Reset erzeugt nur das gewählte Kapitel neu (KI gemäß `scanUseLlm`); andere Kapitel werden weder
+gerendert noch versioniert noch an die KI geschickt (entschieden in #141). Andere von Hand fixierte
+Seiten bleiben unberührt. Antwort ist die zurückgesetzte Seite.
 
 #### Szenario: Reset
 - **WENN** ein Admin bei der manuell bearbeiteten Seite `notfall` „Neu erzeugen“ wählt
@@ -313,8 +319,12 @@ Quelle: `backend/app/db.py:1596`, `backend/app/main.py:1318`, `backend/app/main.
 
 ### Requirement: Version wiederherstellen
 Das System MUSS eine alte Version wiederherstellen können: zuerst wird der aktuelle Stand gesichert
-(Anlass „vor Wiederherstellung“), dann werden Text **und** Notizen der Version übernommen und die Seite
-als manuell markiert, damit die nächste Generierung den gewählten Stand nicht überschreibt. **[Muss]**
+(Anlass „vor Wiederherstellung“), dann wird nur der **Text** der Version übernommen (die aktuellen eigenen Notizen bleiben unverändert,
+sie haben ihren eigenen Verlauf; entschieden in #141) und die Seite als manuell markiert, damit die nächste Generierung den gewählten Stand nicht überschreibt. **[Muss]**
+
+#### Szenario: Wiederherstellen lässt Notizen unberührt
+- **WENN** nach der Version die Notizen geändert wurden und ein Admin die Version wiederherstellt
+- **DANN** hat die Seite den alten Text und weiterhin die aktuellen Notizen
 
 #### Szenario: Wiederherstellen ist rückgängig machbar
 - **WENN** ein Admin eine alte Version wiederherstellt
@@ -322,11 +332,26 @@ als manuell markiert, damit die nächste Generierung den gewählten Stand nicht 
 
 Quelle: `backend/app/db.py:1610`, `backend/app/main.py:1331`
 
+### Requirement: Eine Generierung gleichzeitig
+Das System MUSS Generierungen über eine Prozess-Sperre serialisieren (`docs._generate_lock`). Die manuellen
+Routen `POST /api/docs/generate` und `POST /api/docs/{slug}/reset` antworten bei laufender Generierung mit
+HTTP 409 „Die Dokumentation wird gerade erzeugt."; der Reset ändert die Seite dann nicht. Die Scan-Pipeline
+wartet auf die Sperre. **[Muss]**
+
+#### Szenario: Doppelklick auf „Neu erzeugen“
+- **WENN** eine Generierung läuft und `POST /api/docs/generate` kommt
+- **DANN** HTTP 409, keine zweite Generierung, keine doppelten Versionen
+
+#### Szenario: Scan trifft auf manuellen Lauf
+- **WENN** die Scan-Pipeline generiert, während ein manueller Lauf die Sperre hält
+- **DANN** wartet die Pipeline und läuft danach durch
+
 ### Requirement: Auslöser der Generierung
 Das System MUSS die Doku (a) am Ende jedes Netzwerk-Scans und (b) auf Admin-Anforderung neu erzeugen.
 Bei (a) DARF ein Fehler der Doku-Generierung den Scan nicht scheitern lassen, sondern wird als
 Warnung im Scan-Ergebnis vermerkt. Bei (b) bestimmt der Parameter `useLlm` die KI-Nutzung, Default
-ist der Wert von `scanUseLlm`. Die Antwort nennt die geschriebenen Slugs in Kapitelreihenfolge.
+ist der Wert von `scanUseLlm`. `scanUseLlm` ist der Hauptschalter: `useLlm: false` schaltet die KI ab,
+`useLlm: true` erzwingt sie bei abgeschalteter Einstellung nicht (entschieden in #141). Die Antwort nennt die geschriebenen Slugs in Kapitelreihenfolge.
 **[Muss]**
 
 #### Szenario: Scan mit Doku-Fehler
@@ -396,7 +421,7 @@ Siehe [data-model](../../contracts/data-model.md).
 | Methode | Pfad | Rolle | Zweck |
 |---|---|---|---|
 | GET | /api/docs | MEMBER | Kapitelliste ohne `bodyMd` |
-| POST | /api/docs/generate | ADMIN | Alle Kapitel neu erzeugen; Body `{useLlm?: bool}` → `{generated: [slug]}` |
+| POST | /api/docs/generate | ADMIN | Alle Kapitel neu erzeugen; Body `{useLlm?: bool}` (kann die KI nur abschalten, nicht gegen `scanUseLlm` erzwingen) → `{generated: [slug]}` |
 | GET | /api/docs/{slug} | MEMBER | Ein Kapitel; 404 wenn unbekannt |
 | PUT | /api/docs/{slug} | ADMIN | Ganze Seite überschreiben `{bodyMd}` → Seite manuell |
 | PUT | /api/docs/{slug}/manual | ADMIN | Eigene Notizen setzen `{manualMd}` |
@@ -430,13 +455,8 @@ für den offenen Verlauf).
 
 ## OFFEN
 
-- > OFFEN: Reset eines Kapitels erzeugt alle 13 Kapitel neu (Laufzeit/KI-Kosten, neue Versionen auf anderen Seiten). Absicht oder sollte nur das eine Kapitel neu entstehen? → #141
 - > OFFEN: `POST /api/docs/{slug}/reset` mit unbekanntem Slug liefert 200 mit `page: null` statt 404. → #140
 - > OFFEN: `GET /api/docs/{slug}/versions` mit unbekanntem Slug liefert leere Liste statt 404. → #140
 - > OFFEN: `PUT /api/docs/{slug}` ohne Feld `bodyMd` speichert leeren Text (keine Validierung). → #140
-- > OFFEN: Wiederherstellen überschreibt auch die eigenen Notizen mit dem alten Stand — gewollt, obwohl Notizen „nie angefasst“ werden sollen (gilt laut Code nur für die Automatik)? → #141
 - > OFFEN: Kapitel, deren Slug nicht mehr definiert ist, werden nie gelöscht (`db.delete_doc_page` ungenutzt). → #140
 - > OFFEN: Benutzernamen und URLs von Zugängen sind über die Doku für MEMBER sichtbar, obwohl die Zugangs-API admin-only ist. Ebenso Gerätenotizen und ausgelesene Gerätewerte — falls dort Geheimnisse stehen, landen sie in der Doku. → entschieden in #48: in Ordnung, solange keine Secrets
-- > OFFEN: Keine Sperre gegen gleichzeitige Generierungen (Scan + manueller Lauf) — mögliche doppelte Versionen/Race. → #129
-- > OFFEN: Bei mehreren Routern nimmt die Notfall-Seite den ersten aus der Inventarreihenfolge. → #141
-- > OFFEN: `useLlm: true` im Request wird ignoriert, wenn `scanUseLlm` aus ist (die Einleitung prüft die Einstellung erneut). → #141

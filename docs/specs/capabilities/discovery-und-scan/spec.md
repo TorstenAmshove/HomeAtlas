@@ -36,11 +36,17 @@ Quelle: `backend/app/main.py:1431`, `backend/app/pipeline.py:347`, `backend/app/
 
 ### Requirement: Höchstens ein Scan gleichzeitig
 Das System MUSS einen zweiten Scan ablehnen, solange einer läuft (manuell: HTTP 409 „Es läuft
-bereits ein Scan."; Zeitplan: still überspringen). **[Muss]**
+bereits ein Scan."; Zeitplan: still überspringen). Prüfung und Anlegen sind ein einziger atomarer
+SQL-Befehl (`db.create_scan_if_idle`), zwei gleichzeitige Starts erzeugen also nie zwei `running`-Scans;
+ein abgelehnter Start wird nicht als `scan.start` protokolliert. **[Muss]**
 
 #### Szenario: Doppelstart
 - **WENN** ein Scan `running` ist und erneut `POST /api/scans` kommt
 - **DANN** HTTP 409, kein neuer Scan
+
+#### Szenario: Gleichzeitiger Start (Zeitplan und manuell)
+- **WENN** zwei Starts gleichzeitig `create_scan_if_idle` aufrufen
+- **DANN** legt genau einer den Scan an, der andere erhält 409 bzw. der Zeitplan kehrt ohne Scan zurück
 
 Quelle: `backend/app/main.py:1433`, `backend/app/pipeline.py:602`
 
@@ -520,14 +526,16 @@ anderer Zugang desselben Geräts erfolgreich war. Details:
 Quelle: `backend/app/pipeline.py:103`, Test: `backend/tests/test_pipeline_probe_warnings.py::test_probe_with_credentials_logs_failure_even_when_another_credential_on_same_system_succeeds`
 
 ### Requirement: Kritische Geräte überwachen
-Nach dem Zusammenführen MUSS jedes Gerät mit Wichtigkeit `critical` und IP für die Dauerüberwachung
-markiert werden (siehe [monitoring](../monitoring/spec.md)). **[Muss]**
+Der Scan MUSS kein `monitored` zwangsweise setzen. Wird ein Gerät durch den Scan neu zu `critical`
+(Übergang, auch das neu angelegte Gateway), schaltet die Übergangsregel aus
+[inventar](../inventar/spec.md) die Überwachung einmalig ein (nur mit Adresse); ein späterer Scan
+ohne Übergang ändert `monitored` nicht. **[Muss]**
 
 #### Szenario: Gateway neu gefunden
 - **WENN** das Gateway erstmals gefunden wird
-- **DANN** `monitored=1`, Protokollzeile „1 wichtige Geräte zur Dauerüberwachung hinzugefügt“
+- **DANN** `monitored=1`
 
-Quelle: `backend/app/pipeline.py:512`
+Quelle: `backend/app/db/systems.py::_enables_monitoring_on_critical`
 
 ### Requirement: Scan-Ergebnis
 Ein erfolgreicher Scan MUSS `summary = {devicesFound, created, updated, probed, routedTargets,
@@ -631,5 +639,3 @@ solange der Scan läuft und der Tab sichtbar ist). Scan-Einstellungen in `fronte
 - > OFFEN: Ungültiger Freitext-Bereich (z. B. „bad“) plus ein mDNS/SSDP-Fund außerhalb von
   `alive` führt in `discovery.py:859` zu `ValueError` aus `ip_network` und lässt den ganzen Scan
   scheitern. → #137
-- > OFFEN: Start-Prüfung „läuft schon ein Scan“ und Anlegen sind nicht atomar (Rennen
-  Zeitplan/manuell theoretisch möglich). → #129

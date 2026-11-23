@@ -546,7 +546,7 @@ export default function DocsPage() {
         title="Alten Stand wiederherstellen?"
         consequences={pending?.kind === "restore" ? [
           <>Das Kapitel bekommt den Text vom {new Date(pending.version.createdAt).toLocaleString("de-DE")} zurück.</>,
-          "Auch die eigenen Notizen werden auf den damaligen Stand gesetzt.",
+          "Die eigenen Notizen bleiben unverändert.",
           "Der aktuelle Text und die aktuellen Notizen werden vorher als Version gesichert.",
           "Das Kapitel gilt danach als von Hand bearbeitet und wird nicht mehr automatisch erneuert.",
         ] : []}

@@ -295,6 +295,29 @@ ohne Hinweis erscheinen. **[Muss]**
 
 Quelle: `backend/app/version.py`, `backend/app/routes/settings.py`, `frontend/src/pages/SettingsPage.tsx`
 
+### Requirement: Server-Adresse des Anbieters wird eingeschränkt
+Die frei eingebbare Server-Adresse (Ollama, Claude-Basis-URL, OpenAI-kompatible Anbieter) bleibt
+Admin-only; das genügt als Absicherung, weil Ollama im LAN der Normalfall ist. Zusätzlich MUSS
+`base_url_for` (genutzt von Testen, Modelle laden und Chat) die Adresse ablehnen, wenn Schema nicht
+`http`/`https` ist, der Host fehlt, Zugangsdaten enthalten sind oder der Host eine Literal-IP aus
+Link-Local (u. a. 169.254.169.254), Multicast, unspezifiziert oder reserviert ist. Loopback und
+LAN-Adressen bleiben erlaubt. Verstoß → `ProviderError` mit verständlicher Meldung (bei „Modelle
+laden“ und „Testen“ als `ok: false`, ohne Request). Weiterleitungen folgt der Client nicht. **[Muss]**
+Numerische IPv4-Sonderformen, die der Resolver annimmt (`2852039166`, `0xa9fea9fe`, `169.254.43518`,
+abschließender Punkt), werden wie die übliche Schreibweise geprüft.
+Restrisiko: Hostnamen werden nicht aufgelöst; ein Name, der auf Link-Local zeigt, umgeht die Prüfung.
+
+#### Szenario: Metadaten-Adresse
+- **WENN** ein Admin `http://169.254.169.254/v1` einträgt und „Testen“ wählt
+- **DANN** meldet das System einen Adressfehler und sendet nichts
+
+#### Szenario: Standard-Ollama
+- **WENN** die Adresse `http://localhost:11434/v1` lautet
+- **DANN** wird sie akzeptiert
+
+Quelle: `backend/app/llm_providers.py` (`base_url_for`), `backend/app/netguard.py`, Tests:
+`backend/tests/test_llm_base_url.py`
+
 ## Daten
 
 Siehe [data-model](../../contracts/data-model.md).
@@ -338,4 +361,3 @@ Admins; Konto und Über für alle; Darstellung (System · Hell · Dunkel, pro Br
 
 ## OFFEN
 
-- > OFFEN: Test/Modelle-Laden schicken Anfragen an eine frei eingebbare Server-Adresse (Admin-only, aber serverseitige Anfrage an beliebige URL). → #114

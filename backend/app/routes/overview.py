@@ -51,7 +51,7 @@ async def monitor_status(_: dict = Depends(current_user)) -> dict:
 @router.post("/api/monitor/run")
 async def monitor_run_now(_: dict = Depends(require_admin)) -> dict:
     """Forces one round immediately instead of waiting for the next tick."""
-    changes = await monitor_module.monitor.run_once()
+    changes = await monitor_module.monitor.run_once(manual=True)
     return {"changes": changes}
 
 

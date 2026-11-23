@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { api, DUPLICATE_REASON_LABEL, type DuplicateCandidate, type System } from "../../lib/api";
+import { api, ApiError, DUPLICATE_REASON_LABEL, type DuplicateCandidate, type System } from "../../lib/api";
 import { useAuth } from "../../App";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import { Skeleton } from "../../components/Skeleton";
@@ -329,8 +329,12 @@ export default function InventoryPage() {
     setBusy(true);
     // allSettled, not all -- one failing delete (a stale row already gone server-side, a timeout)
     // must not stop the successful ones from being reflected in the UI.
-    const results = await Promise.allSettled(ids.map((id) => api.deleteSystem(id)));
-    const deleted = new Set(ids.filter((_, i) => results[i].status === "fulfilled"));
+    const results = await Promise.allSettled(ids.map((id) => api.deleteSystem(id, true)));
+    const deleted = new Set(ids.filter((_, i) => {
+      const r = results[i];
+      // A 404 means the row is already gone: done, not a failure.
+      return r.status === "fulfilled" || (r.reason instanceof ApiError && r.reason.status === 404);
+    }));
     setSystems((current) => (current ?? []).filter((s) => !deleted.has(s.id))
       .map((s) => (s.parentId && deleted.has(s.parentId) ? { ...s, parentId: null } : s)));
     setSelected((current) => new Set([...current].filter((id) => !deleted.has(id))));

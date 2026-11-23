@@ -22,6 +22,7 @@ import httpx
 
 from . import crypto
 from . import model_catalog as catalog
+from . import netguard
 
 _TIMEOUT = httpx.Timeout(120.0, connect=10.0)
 # Low but non-zero for the providers that still accept it. This assistant reports facts about the
@@ -82,7 +83,13 @@ def live_models_for(provider_type: str, settings: dict) -> list[str] | None:
 
 def base_url_for(provider_type: str, settings: dict) -> str:
     field_name, default = _BASE_URL_SETTING_FIELD.get(provider_type, ("", ""))
-    return (settings.get(field_name) or default).rstrip("/") if field_name else ""
+    url = (settings.get(field_name) or default).rstrip("/") if field_name else ""
+    if url:
+        try:
+            netguard.check_llm_base_url(url)
+        except netguard.BlockedTarget as exc:
+            raise ProviderError(str(exc)) from None
+    return url
 
 
 def api_key_for(provider_type: str, settings: dict) -> str:
@@ -459,6 +466,9 @@ async def refresh_models(provider_type: str, settings: dict) -> tuple[bool, str,
                 seen_tokens.add(token)
                 if page == _MAX_MODEL_PAGES - 1:
                     truncated = True
+    except ProviderError as exc:
+        # e.g. a blocked base URL (netguard.check_llm_base_url via base_url_for)
+        return False, str(exc), []
     except httpx.HTTPError as exc:
         return False, f"Netzwerkfehler: {exc}", []
 

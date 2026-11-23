@@ -37,11 +37,18 @@ def claim_totp_counter(user_id: str, counter: int) -> bool:
         return cursor.rowcount == 1
 
 
-def invalidate_user_sessions(user_id: str) -> None:
-    """Forces re-login. Used after an admin resets someone's password -- otherwise an already-open
-    session keeps working with the old credential, which is not what "reset" is expected to mean."""
+def invalidate_user_sessions(user_id: str, keep_token: str | None = None) -> int:
+    """Forces re-login and returns how many sessions were ended. Used after an admin resets a
+    password or a second factor, and after a user changes their own password (there with
+    `keep_token` = the current session) -- otherwise an already-open session keeps working with
+    the replaced credential, which is not what "reset" is expected to mean."""
     with _conn() as conn:
-        conn.execute("DELETE FROM sessions WHERE userId = ?", (user_id,))
+        if keep_token is None:
+            cursor = conn.execute("DELETE FROM sessions WHERE userId = ?", (user_id,))
+        else:
+            cursor = conn.execute("DELETE FROM sessions WHERE userId = ? AND token != ?",
+                                  (user_id, keep_token))
+        return cursor.rowcount
 
 
 def count_users() -> int:

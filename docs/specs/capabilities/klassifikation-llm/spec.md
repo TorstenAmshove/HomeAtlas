@@ -230,14 +230,34 @@ Kuratierte Links werden nicht geprüft. **[Muss]**
 Quelle: `backend/app/classify.py:168`, `backend/app/vendor_docs.py:77`, `backend/app/vendor_docs.py:92`
 
 ### Requirement: Wirkung der KI-Wichtigkeit
-Eine übernommene Wichtigkeit `critical` MUSS (über den Scan) zur Dauerüberwachung des Geräts führen,
+Eine übernommene Wichtigkeit `critical` MUSS beim Übergang einmalig die Dauerüberwachung des Geräts einschalten (nur mit Adresse, später abwählbar),
 siehe [discovery-und-scan](../discovery-und-scan/spec.md) und [monitoring](../monitoring/spec.md). **[Muss]**
 
 #### Szenario: Heizungssteuerung kritisch
 - **WENN** das Modell `importance="critical"` für ein unbestätigtes Gerät mit IP liefert
 - **DANN** ist es nach dem Scan `monitored=1`
 
-Quelle: `backend/app/pipeline.py:512`
+Quelle: `backend/app/db/systems.py::_enables_monitoring_on_critical`
+
+### Requirement: Link-Prüfung ruft keine internen Ziele ab
+Die Prüfung eines vom Modell gelieferten Doku-Links (`vendor_docs.validate`) MUSS nur öffentlich
+erreichbare `http`/`https`-Ziele abrufen. Start-URL und jeder Weiterleitungsschritt (von Hand
+gefolgt, höchstens 5) werden geprüft: Loopback, Link-Local, private Netze (RFC1918, `fc00::/7`,
+100.64.0.0/10), unspezifizierte, Multicast- und reservierte Adressen sowie URLs mit Zugangsdaten
+gelten als gesperrt; bei Namen zählt jede aufgelöste Adresse. Ein gesperrtes Ziel zählt wie „nicht
+erreichbar“, der Link wird verworfen und in die bestehende Warnung eingerechnet. **[Muss]**
+Restrisiko: DNS-Rebinding zwischen Prüfung und Verbindung.
+
+#### Szenario: Link auf eine LAN-Adresse
+- **WENN** das Modell `http://192.168.1.1/` oder `http://127.0.0.1:8281/` als Doku-Link liefert
+- **DANN** wird kein Request gesendet und der Link verworfen
+
+#### Szenario: Weiterleitung nach intern
+- **WENN** eine öffentliche URL auf `http://127.0.0.1:8281/` weiterleitet
+- **DANN** gilt der Link als nicht erreichbar
+
+Quelle: `backend/app/vendor_docs.py` (`validate`), `backend/app/netguard.py`, Tests:
+`backend/tests/test_vendor_docs.py`
 
 ## Daten
 
@@ -284,8 +304,6 @@ Warnungen in `frontend/src/pages/mehr/ScanPage.tsx` (Route `/scan`).
   korrekte Regel-Art wie `router`. → #142
 - > OFFEN: Ein sicher erkanntes Gerät wird schon Kandidat, wenn nur der Doku-Link fehlt. → #142
 - > OFFEN: Nur exakt `"low"` wird verworfen; „LOW“, „niedrig“ o. Ä. gelten als akzeptiert. → #142
-- > OFFEN: Die Link-Prüfung führt GET auf beliebige vom Modell gelieferte URLs vom Server aus,
-  auch auf LAN-Adressen (SSRF-artig); kein Ausschluss privater Ziele. → #114
 - > OFFEN: Gleiche IP in mehreren Funden (Netzwerk-Fund plus UniFi/Omada/Proxmox/AdGuard) –
   mehrere Belegsätze pro IP im selben Stapel möglich, der letzte gewinnt, und das Ergebnis wird auf
   alle Funde dieser IP angewandt. → #142
