@@ -310,8 +310,17 @@ UI-Seite(n): `frontend/src/pages/device/SteuernTab.tsx` (Route `/geraete/:id`), 
 - UI hält Live-Logs auf die letzten 20 000 Zeichen begrenzt.
 - SSH-Proxmox-Einträge haben leeren `node`; deshalb kein Task-Log und kein noVNC-Link für sie.
 
+## Tests (#148)
+
+Die schreibenden Pfade sind mit gemockten Gegenstellen getestet, jeweils Erfolgs- und Ablehnungsfall, ADMIN gegen MEMBER:
+
+- WebSocket-Gate und Zielprüfungen aller drei Konsolen (Origin fehlt/`null`/fremd, Session, Rolle, MFA): `backend/tests/test_remote_ws_auth.py`
+- Relay, Aufräumen, Fehlerpfad und Zugriffsprotokoll der Konsolen: `backend/tests/test_remote_ws_consoles.py`
+- `docker_admin` gegen eine Fake-Docker-API und einen Fake-Unix-Socket: `backend/tests/test_docker_admin.py`
+- Container-Routen: `backend/tests/test_remote_container_routes.py`
+- Shelly-/Home-Assistant-Schalten (`switch_admin`, REST-Routen, `set_switch`): `backend/tests/test_switching.py`
+
 ## OFFEN
 
 - > OFFEN: Prompt-Injection-Risiko: Inhalte aus Inventar/Doku könnten das Modell zu `set_switch` ohne Rückfrage verleiten. → entschieden in #43
 - > OFFEN: Assistent schaltet bei Shelly immer Kanal 0 (bewusst; ein Kanalparameter für `set_switch` erweitert die ADR-Ausnahme). Bereichsprüfung der REST-Route behoben (#147).
-- > OFFEN: Keine Tests für die drei WebSocket-Konsolen, lokale Container-Aktionen, Shelly/HA-Schalten und die Origin-Prüfung. → #148
