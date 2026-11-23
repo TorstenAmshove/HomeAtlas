@@ -52,18 +52,45 @@ function StartSkeleton() {
 
 type CriticalSystem = Dashboard["criticalSystems"][number];
 
-function CriticalRow({ s, live, monitor }: { s: CriticalSystem; live: boolean; monitor: MonitorState }) {
+function CriticalRow({ s, live, monitor, monitorEnabled }: {
+  s: CriticalSystem; live: boolean; monitor: MonitorState; monitorEnabled: boolean;
+}) {
   const address = s.ip || s.hostname;
   const probe = s.monitorPortsEffective && s.monitorPortsEffective.length > 0
     ? `Port ${s.monitorPortsEffective.join(", ")}`
     : "Ping";
   let chip;
+  const lastScan = `Letzter Stand vom Scan: ${STATUS_WORD[s.status] ?? "unbekannt"}`;
   if (!live) {
-    chip = (
-      <span className="start-chip" title="Wird nicht laufend geprüft – Zustand vom letzten Scan">
-        Stand letzter Scan
-      </span>
-    );
+    // Why there is no live result decides what the admin has to do: nothing, enter an address, or
+    // tick the box. The global switch is reported by the section header already.
+    if (!address) {
+      chip = (
+        <span className="start-chip warn"
+              title={`Adresse eintragen, dann kann das Gerät geprüft werden. ${lastScan}`}>
+          nicht überwachbar – keine Adresse
+        </span>
+      );
+    } else if (!s.monitored) {
+      chip = (
+        <span className="start-chip"
+              title={`Dauerüberwachung ist für dieses Gerät abgeschaltet (Gerät bearbeiten). ${lastScan}`}>
+          Überwachung aus
+        </span>
+      );
+    } else if (!monitorEnabled) {
+      chip = (
+        <span className="start-chip" title="Wird nicht laufend geprüft – Zustand vom letzten Scan">
+          Stand letzter Scan
+        </span>
+      );
+    } else {
+      chip = (
+        <span className="start-chip" title={lastScan}>
+          <span className="dot" aria-hidden="true" />wird geprüft …
+        </span>
+      );
+    }
   } else if (s.status === "online") {
     chip = <span className="start-chip ok"><span className="dot" aria-hidden="true" />erreichbar</span>;
   } else if (s.status === "offline") {
@@ -318,7 +345,7 @@ export default function StartPage() {
           ) : (
             <ul className="start-list">
               {data.criticalSystems.map((s) => (
-                <CriticalRow key={s.id} s={s} live={isLive(s)} monitor={monitor} />
+                <CriticalRow key={s.id} s={s} live={isLive(s)} monitor={monitor} monitorEnabled={data.monitorEnabled} />
               ))}
             </ul>
           )}

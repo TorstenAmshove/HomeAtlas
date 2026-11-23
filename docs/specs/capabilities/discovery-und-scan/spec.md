@@ -520,14 +520,16 @@ anderer Zugang desselben Geräts erfolgreich war. Details:
 Quelle: `backend/app/pipeline.py:103`, Test: `backend/tests/test_pipeline_probe_warnings.py::test_probe_with_credentials_logs_failure_even_when_another_credential_on_same_system_succeeds`
 
 ### Requirement: Kritische Geräte überwachen
-Nach dem Zusammenführen MUSS jedes Gerät mit Wichtigkeit `critical` und IP für die Dauerüberwachung
-markiert werden (siehe [monitoring](../monitoring/spec.md)). **[Muss]**
+Der Scan MUSS kein `monitored` zwangsweise setzen. Wird ein Gerät durch den Scan neu zu `critical`
+(Übergang, auch das neu angelegte Gateway), schaltet die Übergangsregel aus
+[inventar](../inventar/spec.md) die Überwachung einmalig ein (nur mit Adresse); ein späterer Scan
+ohne Übergang ändert `monitored` nicht. **[Muss]**
 
 #### Szenario: Gateway neu gefunden
 - **WENN** das Gateway erstmals gefunden wird
-- **DANN** `monitored=1`, Protokollzeile „1 wichtige Geräte zur Dauerüberwachung hinzugefügt“
+- **DANN** `monitored=1`
 
-Quelle: `backend/app/pipeline.py:512`
+Quelle: `backend/app/db/systems.py::_enables_monitoring_on_critical`
 
 ### Requirement: Scan-Ergebnis
 Ein erfolgreicher Scan MUSS `summary = {devicesFound, created, updated, probed, routedTargets,

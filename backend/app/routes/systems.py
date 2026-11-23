@@ -174,7 +174,6 @@ async def create_system(body: SystemWrite, _: dict = Depends(require_admin)) -> 
     _check_parent(None, fields.get("parentId"))
     # confirmed=1: anything a human typed is protected from being overwritten by the next scan.
     system = db.create_system({**fields, "confirmed": 1, "discovered": 0})
-    db.ensure_monitoring_for_critical()
     return {"system": db.get_system(system["id"])}
 
 
@@ -187,9 +186,7 @@ async def update_system(system_id: str, patch: SystemWrite, _: dict = Depends(re
     system = db.update_system(system_id, {**fields, "confirmed": 1})
     if system is None:
         raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
-    # Marking something critical in the UI has to start the monitoring right away, not at the next
-    # scan -- that gap is why the dashboard used to show "unbekannt" for the important devices.
-    db.ensure_monitoring_for_critical()
+    # Marking a device critical switches monitoring on once (db.update_system); it can be switched off again.
     return {"system": db.get_system(system_id)}
 
 
@@ -224,7 +221,6 @@ async def merge_system(system_id: str, body: dict = Body(...), _: dict = Depends
     merged = db.merge_systems(system_id, remove_id)
     if merged is None:
         raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
-    db.ensure_monitoring_for_critical()
     return {"system": merged}
 
 

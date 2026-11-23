@@ -33,10 +33,31 @@ def get_system(system_id: str) -> dict | None:
         return _row(conn.execute("SELECT * FROM systems WHERE id = ?", (system_id,)).fetchone())
 
 
+def _has_address(system: dict) -> bool:
+    return bool((system.get("ip") or "").strip() or (system.get("hostname") or "").strip())
+
+
+def _enables_monitoring_on_critical(current: dict, patch: dict) -> bool:
+    """True when this write is the transition "not critical -> critical" for a device with an address.
+
+    "Critical implies monitored" is only a default applied once, at the moment of marking: later
+    an admin may switch monitoring off and it stays off. A `monitored` value in the same write is
+    explicit and always wins over the default, even when it equals the stored one -- the edit form
+    sends only changed fields, plus `monitored` whenever the importance changes (deviceDraft.ts).
+    """
+    if patch.get("importance") != "critical" or current.get("importance") == "critical":
+        return False
+    if patch.get("monitored") is not None:
+        return False
+    return _has_address({**current, **patch})
+
+
 def create_system(data: dict) -> dict:
     system_id = data.get("id") or _new_id()
     now = _now()
     values = {f: data.get(f) for f in _SYSTEM_FIELDS}
+    if data.get("monitored") is None and _enables_monitoring_on_critical({}, data):
+        values["monitored"] = 1
     with _conn() as conn:
         conn.execute(
             f"INSERT INTO systems(id, {', '.join(_SYSTEM_FIELDS)}, firstSeen, lastSeen, updatedAt) "
@@ -66,6 +87,8 @@ def update_system(system_id: str, patch: dict) -> dict | None:
     current = get_system(system_id)
     if current is None:
         return None
+    if _enables_monitoring_on_critical(current, patch):
+        patch = {**patch, "monitored": 1}
     fields = [f for f in _SYSTEM_FIELDS if f in patch]
     if fields:
         merged = {**current, **patch}
