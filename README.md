@@ -424,7 +424,8 @@ kann also niemanden aussperren. Selbst abschalten lässt er sich nicht; geht das
 setzt ein Administrator den zweiten Faktor des Kontos zurück, und beim nächsten Anmelden wird er
 neu eingerichtet.
 
-**Zugriffsprotokoll.** Anmeldungen, Fehlversuche, Benutzeränderungen und *jedes Anzeigen eines
+**Zugriffsprotokoll.** Anmeldungen, Fehlversuche, Benutzeränderungen, das Anlegen, Ändern und Löschen von
+Zugängen (ohne Passwörter), Änderungen an Netzwerk-Notizen und *jedes Anzeigen eines
 gespeicherten Passworts* landen im Protokoll. Gerade Letzteres ist für einen Zugangsspeicher der
 Eintrag, den man später wirklich sucht.
 

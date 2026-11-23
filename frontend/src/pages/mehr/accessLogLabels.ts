@@ -5,13 +5,16 @@ export const ACTION_LABEL: Record<string, string> = {
   "login.mfa": "Zwei-Faktor-Abfrage",
   "password.change": "Passwort geändert",
   "mfa.enable": "Zwei-Faktor aktiviert",
-  "mfa.disable": "Zwei-Faktor abgeschaltet",
   "mfa.reset": "Zwei-Faktor zurückgesetzt",
   "user.create": "Benutzer angelegt",
   "user.update": "Benutzer geändert",
   "user.delete": "Benutzer gelöscht",
   "secret.reveal": "Passwort angezeigt",
+  "account.create": "Zugang angelegt",
+  "account.update": "Zugang geändert",
+  "account.delete": "Zugang gelöscht",
+  "networkresource.update": "Netzwerk-Notiz geändert",
   "scan.start": "Netzwerk-Scan gestartet",
 };
 
-export const CRITICAL_ACTIONS = new Set(["secret.reveal", "mfa.disable", "mfa.reset", "user.create", "user.update", "user.delete"]);
+export const CRITICAL_ACTIONS = new Set(["secret.reveal", "account.create", "account.update", "account.delete", "mfa.reset", "user.create", "user.update", "user.delete"]);

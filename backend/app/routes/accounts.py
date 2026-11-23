@@ -64,6 +64,14 @@ class NetworkResourceManualBody(BaseModel):
     manualMd: str = Field("", max_length=2000)
 
 
+# Field -> German word for the `account.update` log detail. Only names ever reach the log, never values.
+_FIELD_LABEL = {
+    "secretEnc": "Passwort", "passphraseEnc": "Passphrase", "username": "Benutzername",
+    "label": "Bezeichnung", "category": "Kategorie", "systemId": "Gerät", "url": "URL",
+    "notes": "Notiz", "allowProbe": "Scan-Freigabe", "port": "Port",
+}
+
+
 @router.get("/api/network-resources")
 async def list_network_resources(kind: str | None = None, activeOnly: bool = False,
                                  _: dict = Depends(current_user)) -> dict:
@@ -72,10 +80,14 @@ async def list_network_resources(kind: str | None = None, activeOnly: bool = Fal
 
 @router.patch("/api/network-resources/{resource_id}")
 async def update_network_resource(resource_id: str, body: NetworkResourceManualBody,
-                                  _: dict = Depends(require_admin)) -> dict:
+                                  request: Request, admin: dict = Depends(require_admin)) -> dict:
     resource = db.update_network_resource_manual(resource_id, body.manualMd)
     if resource is None:
         raise HTTPException(status_code=404, detail="Netzwerkressource nicht gefunden.")
+    ip, agent = _client(request)
+    # Name only, not the note text: free text, and the assistant merely reads it.
+    db.log_access("networkresource.update", user=admin, ip=ip, user_agent=agent,
+                  detail=resource["name"])
     return {"resource": resource}
 
 
@@ -89,17 +101,20 @@ async def list_accounts(_: dict = Depends(require_admin)) -> dict:
 
 
 @router.post("/api/accounts")
-async def create_account(body: AccountBody, _: dict = Depends(require_admin)) -> dict:
+async def create_account(body: AccountBody, request: Request,
+                         admin: dict = Depends(require_admin)) -> dict:
     _require_system(body.systemId)
     account = db.create_account({**body.model_dump(exclude={"secret", "passphrase"}),
                                  "secretEnc": crypto.encrypt(body.secret),
                                  "passphraseEnc": crypto.encrypt(body.passphrase)})
+    ip, agent = _client(request)
+    db.log_access("account.create", user=admin, ip=ip, user_agent=agent, detail=account["label"])
     return {"account": _public_account(account)}
 
 
 @router.patch("/api/accounts/{account_id}")
-async def update_account(account_id: str, body: AccountPatchBody,
-                         _: dict = Depends(require_admin)) -> dict:
+async def update_account(account_id: str, body: AccountPatchBody, request: Request,
+                         admin: dict = Depends(require_admin)) -> dict:
     # Only the fields the client actually sent (#47): a partial body must not reset the others --
     # least of all `allowProbe`, the opt-in that decides whether a credential is used at all.
     patch = body.model_dump(exclude={"secret", "passphrase", "clearSecrets"},
@@ -110,17 +125,27 @@ async def update_account(account_id: str, body: AccountPatchBody,
         patch["secretEnc"] = crypto.encrypt(body.secret)
     if body.passphrase:
         patch["passphraseEnc"] = crypto.encrypt(body.passphrase)
+    cleared: list[str] = []
     for name in body.clearSecrets or []:
         if getattr(body, name):
             # Checked here, not in a pydantic validator: its 422 would echo the secret as `input`.
             raise HTTPException(status_code=422, detail=f"{name}: Entfernen und neuer Wert gleichzeitig.")
         patch[f"{name}Enc"] = crypto.encrypt("")
+        cleared.append("Passwort entfernt" if name == "secret" else "Passphrase entfernt")
     if db.get_account(account_id) is None:
         raise HTTPException(status_code=404, detail="Zugang nicht gefunden.")
     _require_system(patch.get("systemId"))
     account = db.update_account(account_id, patch)
     if account is None:
         raise HTTPException(status_code=404, detail="Zugang nicht gefunden.")
+    # Field names only -- a sent field counts as changed, same as the route itself.
+    cleared_keys = {f"{n}Enc" for n in body.clearSecrets or []}
+    fields = [_FIELD_LABEL[k] for k in patch if k in _FIELD_LABEL and k not in cleared_keys]
+    fields += cleared
+    if fields:
+        ip, agent = _client(request)
+        db.log_access("account.update", user=admin, ip=ip, user_agent=agent,
+                      detail=f"{account['label']}: {', '.join(fields)}")
     return {"account": _public_account(account)}
 
 
@@ -142,10 +167,14 @@ async def reveal_secret(account_id: str, request: Request, user: dict = Depends(
 
 
 @router.delete("/api/accounts/{account_id}")
-async def delete_account(account_id: str, _: dict = Depends(require_admin)) -> dict:
-    if db.get_account(account_id) is None:
+async def delete_account(account_id: str, request: Request,
+                         admin: dict = Depends(require_admin)) -> dict:
+    account = db.get_account(account_id)
+    if account is None:
         raise HTTPException(status_code=404, detail="Zugang nicht gefunden.")
     db.delete_account(account_id)
+    ip, agent = _client(request)
+    db.log_access("account.delete", user=admin, ip=ip, user_agent=agent, detail=account["label"])
     return {"ok": True}
 
 

@@ -50,3 +50,23 @@ def test_network_resource_note_length_is_limited(client):
     assert client.patch(url, json={"manualMd": "ä" * 2000}).status_code == 200
     assert client.patch(url, json={"manualMd": "ä" * 2001}).status_code == 422
     assert client.patch(url, json={}).json()["resource"]["manualMd"] == ""
+
+
+def _resource():
+    account = db.create_account({"label": "UCG", "category": "unifi"})
+    return db.sync_network_resources(account["id"], [{
+        "source": "unifi", "siteExternalId": "site-1", "siteName": "Haus", "kind": "network",
+        "externalId": "vlan-20", "name": "IoT", "facts": {"vlanId": 20},
+    }], [("site-1", "network")])[0]
+
+
+def test_manual_note_update_is_logged(client):
+    resource = _resource()
+    client.patch(f"/api/network-resources/{resource['id']}", json={"manualMd": "Nur IoT"})
+    (entry,) = db.list_access_log(action="networkresource.update")
+    assert entry["detail"] == "IoT" and "Nur IoT" not in str(entry)
+
+
+def test_manual_note_404_is_not_logged(client):
+    client.patch("/api/network-resources/missing", json={"manualMd": "Notiz"})
+    assert db.list_access_log(action="networkresource.update") == []

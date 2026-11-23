@@ -37,16 +37,14 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (18)
+## Alle Punkte je Fähigkeit (14)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (1)
 
 1. `list_switches` fragt bei jedem Aufruf live alle freigegebenen HA-Instanzen ab (kein Cache). → #121
 
-### [auth-und-rollen](capabilities/auth-und-rollen/spec.md) (2)
+### [auth-und-rollen](capabilities/auth-und-rollen/spec.md) (0)
 
-1. `DELETE /api/users/{id}` schreibt keinen Protokolleintrag, obwohl die AccessLogPage ein Label `user.delete` kennt und README „Benutzeränderungen“ als protokolliert nennt (wirkt wie Bug). → #122
-2. AccessLogPage kennt Label `mfa.disable` (nie geschrieben). (`mfa.reset` hat seit PR 6 ein Label und gilt als sicherheitsrelevant.) → #122
 
 ### [credentialed-probing](capabilities/credentialed-probing/spec.md) (4)
 
@@ -72,11 +70,10 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 1. `GET /api/systems/{id}` liefert MEMBER die Zugangs-Metadaten (Label, Benutzername, URL, Notizen) des Geräts; nur die UI blendet sie aus. Gewollt? → entschieden in #48: in Ordnung, solange keine Secrets
 
-### [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) (3)
+### [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) (2)
 
 1. Fähigkeitsbeschreibung nennt Omada und Discovery-Subnetze als Quelle; im Code liefert nur UniFi Netzwerkressourcen. Soll eine Alternative Omada-Netze übernehmen?
-2. Notiz-Änderung erzeugt keinen Eintrag im Zugriffsprotokoll. → #122
-3. Der manuelle Abgleich beim Verbindungstest (`backend/app/routes/systems.py:262`) nutzt dieselbe `sync_network_resources` und zählt `emptyScans` mit; zwei Klicks bei leer gemeldetem Bereich deaktivieren dessen Ressourcen also ebenso wie zwei Scans. Gewollt?
+2. Der manuelle Abgleich beim Verbindungstest (`backend/app/routes/systems.py:262`) nutzt dieselbe `sync_network_resources` und zählt `emptyScans` mit; zwei Klicks bei leer gemeldetem Bereich deaktivieren dessen Ressourcen also ebenso wie zwei Scans. Gewollt?
 
 ### [remote-admin](capabilities/remote-admin/spec.md) (3)
 
@@ -88,7 +85,6 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 1. ADR-0008 und CLAUDE.md beschreiben die Ebenen „Server → Endgeräte“ und „Container innerhalb ihres Hosts“; das Bild zeichnet aber nur „Wichtige Geräte“, Server/Endgeräte stehen als HTML-Listen darunter, Container nur als Zähler bei kritischen Hosts. Spec folgt dem Code; ADR-0009 hält diesen Stand fest. → kein Issue, ADR-0009 hält den Stand fest
 
-### [zugangsdaten](capabilities/zugangsdaten/spec.md) (2)
+### [zugangsdaten](capabilities/zugangsdaten/spec.md) (1)
 
-1. Anlegen, Ändern und Löschen von Zugängen werden nicht im Zugriffsprotokoll erfasst, nur Abruf, Erzeugung und Ausrollen. → #122
-2. MEMBER sehen über Geräteansicht und Doku Benutzernamen, URLs und Notizen aller Zugänge; ob Notizen sensibel sein dürfen, ist nicht geregelt. → entschieden in #48: in Ordnung, solange keine Secrets
+1. MEMBER sehen über Geräteansicht und Doku Benutzernamen, URLs und Notizen aller Zugänge; ob Notizen sensibel sein dürfen, ist nicht geregelt. → entschieden in #48: in Ordnung, solange keine Secrets

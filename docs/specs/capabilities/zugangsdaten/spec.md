@@ -354,9 +354,18 @@ UI-Seite(n): `frontend/src/pages/zugaenge/AccountsPage.tsx`, `frontend/src/pages
 - Öffentlicher Schlüssel lebt im Notizfeld; dadurch braucht es keine eigene Abruf-Route.
 - UI zeigt beim Ausrollen nur Login-Zugänge desselben Geräts mit `hasSecret`.
 
+### Requirement: Zugangsänderungen werden protokolliert
+Das System MUSS erfolgreiches Anlegen, Ändern und Löschen eines Zugangs als `account.create`,
+`account.update` und `account.delete` ins Zugriffsprotokoll schreiben (Aktor: handelnder ADMIN). Das
+Detail enthält die Bezeichnung, bei `account.update` zusätzlich die Namen der gesendeten Felder
+(`<Bezeichnung>: Passwort, Scan-Freigabe`, `Passwort entfernt` bei `clearSecrets`), nie einen Wert.
+Ein leerer Patch, 404, 422 und 403 erzeugen keinen Eintrag. **[Muss]**
+
+#### Szenario: Passwort ändern
+- **WENN** ein ADMIN nur `secret` per PATCH sendet
+- **DANN** steht `account.update` mit Detail `<Bezeichnung>: Passwort` im Protokoll, ohne das Passwort
+
 ## OFFEN
 
-- > OFFEN: Anlegen, Ändern und Löschen von Zugängen werden nicht im Zugriffsprotokoll erfasst,
-  nur Abruf, Erzeugung und Ausrollen. → #122
 - > OFFEN: MEMBER sehen über Geräteansicht und Doku Benutzernamen, URLs und Notizen aller Zugänge;
   ob Notizen sensibel sein dürfen, ist nicht geregelt. → entschieden in #48: in Ordnung, solange keine Secrets
