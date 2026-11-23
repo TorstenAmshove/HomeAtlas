@@ -183,6 +183,15 @@ async def update_system(system_id: str, patch: SystemWrite, _: dict = Depends(re
     if db.get_system(system_id) is None:
         raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
     _check_parent(system_id, fields.get("parentId"))
+    if "parentId" in fields:
+        # A human-set parent wins over controller links (db.set_parent_from_source); clearing it
+        # hands the decision back to the scan.
+        extra = {**(db.get_system(system_id).get("extra") or {})}
+        if fields["parentId"]:
+            extra["parentSource"] = "manual"
+        else:
+            extra.pop("parentSource", None)
+        fields["extra"] = extra
     system = db.update_system(system_id, {**fields, "confirmed": 1})
     if system is None:
         raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
