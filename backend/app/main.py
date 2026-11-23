@@ -11,8 +11,8 @@ Two cross-cutting rules the routes below implement consistently:
   mutating and every secret-revealing route -- with one deliberate exception: the chat assistant's
   `set_switch` tool (see `tools.py`) lets any authenticated role, and any external MCP client, turn
   a known switch/light on or off or move a shutter (never a garage door/gate, ADR-0013). That's a scoped, explicit product decision (see `switch_admin.py`
-  and `tools.py`'s module docstrings), not an oversight -- the direct REST routes below
-  (`/shelly-switch`, `/ha-switch`) stay admin-gated like everything else.
+  and `tools.py`'s module docstrings), not an oversight. There are no direct REST switching routes
+  (ADR-0023): switching happens only through that tool.
 """
 from __future__ import annotations
 

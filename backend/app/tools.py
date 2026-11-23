@@ -5,7 +5,7 @@ Two rules shape what is exposed here:
 * **Read-only, plus bounded live measurements -- with one explicit exception.** The model can look
   things up and run the diagnostics in `diagnostics.py`; it cannot edit the inventory, rewrite
   documentation, touch a container, or reboot a device -- HomeAtlas has no remote administration at all
-  (ADR-0022). The one deliberate exception is `set_switch`: turning a Home
+  (ADR-0023). The one deliberate exception is `set_switch`: turning a Home
   Assistant `switch`/`light` entity on or off (or moving a shutter-class `cover`), on request, no confirmation step. That was an
   explicit product decision (every role, and every external MCP client, gets this -- not just
   admins, see `main.py`'s module docstring), traded off against the read-only rule because
