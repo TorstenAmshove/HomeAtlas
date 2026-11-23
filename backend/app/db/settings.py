@@ -15,6 +15,8 @@ from ._core import _conn, _dump
 DEFAULT_SETTINGS: dict[str, Any] = {
     "homeName": "Mein Zuhause",
     "setupCompleted": False,
+    # Deep links from a device page into Portainer / the Proxmox UI (admin only, see admin_links.py)
+    "portainerUrl": "", "portainerEnvId": "", "proxmoxWebUrl": "",
     # LLM
     "llmProvider": "DEEPSEEK",
     "geminiApiKey": "", "geminiModel": "auto",

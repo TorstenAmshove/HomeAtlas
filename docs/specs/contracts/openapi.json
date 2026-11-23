@@ -482,10 +482,22 @@
             "title": "Openaimodel",
             "type": "string"
           },
+          "portainerEnvId": {
+            "title": "Portainerenvid",
+            "type": "string"
+          },
+          "portainerUrl": {
+            "title": "Portainerurl",
+            "type": "string"
+          },
           "providerModelCache": {
             "additionalProperties": true,
             "title": "Providermodelcache",
             "type": "object"
+          },
+          "proxmoxWebUrl": {
+            "title": "Proxmoxweburl",
+            "type": "string"
           },
           "scanAutoEnabled": {
             "title": "Scanautoenabled",
@@ -4291,6 +4303,64 @@
           }
         },
         "summary": "Update System"
+      }
+    },
+    "/api/systems/{system_id}/admin-links": {
+      "get": {
+        "description": "Deep links into Portainer / the Proxmox UI; an empty list (not 404) when none apply.",
+        "operationId": "system_admin_links_api_systems__system_id__admin_links_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "system_id",
+            "required": true,
+            "schema": {
+              "title": "System Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "homeatlas_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Homeatlas Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response System Admin Links Api Systems  System Id  Admin Links Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "System Admin Links"
       }
     },
     "/api/systems/{system_id}/aliases": {

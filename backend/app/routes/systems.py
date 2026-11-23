@@ -11,7 +11,7 @@ from typing import Any
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, StrictInt, field_validator
 
-from .. import classify, crypto, db, discovery, docs, exposure, llm_providers, pipeline, probe_auth
+from .. import admin_links, classify, crypto, db, discovery, docs, exposure, llm_providers, pipeline, probe_auth
 from .. import monitor as monitor_module
 from ..deps import _public_account, current_user, require_admin
 
@@ -166,6 +166,18 @@ async def get_system(system_id: str, _: dict = Depends(current_user)) -> dict:
             # Derived rather than stored, so it stays correct as the device's data fills in.
             "description": docs.describe_device(system),
             "monitorPortsEffective": monitor_module.effective_ports(system)[0]}
+
+
+@router.get("/api/systems/{system_id}/admin-links")
+async def system_admin_links(system_id: str, _: dict = Depends(require_admin)) -> dict:
+    """Deep links into Portainer / the Proxmox UI; an empty list (not 404) when none apply."""
+    system = db.get_system(system_id)
+    if system is None:
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
+    parent = db.get_system(system["parentId"]) if system.get("parentId") else None
+    urls = [a.get("url") or "" for a in db.list_accounts(system["parentId"])
+            if a.get("category") == "proxmox"] if parent else []
+    return {"links": admin_links.build(system, db.get_settings(), parent, urls)}
 
 
 @router.post("/api/systems")
