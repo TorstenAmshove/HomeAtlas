@@ -102,7 +102,7 @@ Das System MUSS die Logs eines lokalen Containers als fortlaufenden Text-Stream 
 Quelle: `backend/app/main.py:921`, `backend/app/docker_admin.py:98`–`backend/app/docker_admin.py:110`
 
 ### Requirement: Terminal-Protokoll der Konsolen
-Das System MUSS für alle drei Konsolen dasselbe WebSocket-Protokoll sprechen: Binärframes tragen rohe Terminal-Bytes in beide Richtungen; Textframes sind JSON-Steuernachrichten. Client→Server: `{"type":"resize","cols":n,"rows":n}` (Defaults 80/24). Server→Client: `{"type":"error","message":"…"}` bei Fehlschlag des Sitzungsaufbaus, danach Close 1011. Validierungs-/Authentifizierungsfehler: Close 1008 ohne Nachricht. Endet eine Seite (Prozessende oder Browser trennt), wird die Sitzung vollständig geschlossen. **[Muss]**
+Das System MUSS für alle drei Konsolen dasselbe WebSocket-Protokoll sprechen: Binärframes tragen rohe Terminal-Bytes in beide Richtungen; Textframes sind JSON-Steuernachrichten. Client→Server: `{"type":"resize","cols":n,"rows":n}` (Defaults 80/24). Server→Client: `{"type":"error","message":"…"}` bei Fehlschlag des Sitzungsaufbaus, danach Close 1011; `{"type":"exit"}`, sobald der Prozess endet (EOF), bevor die Sitzung geschlossen wird. Validierungs-/Authentifizierungsfehler: Close 1008 ohne Nachricht. Endet eine Seite (Prozessende oder Browser trennt), wird die Sitzung vollständig geschlossen. **[Muss]**
 
 #### Szenario: Verbindungsaufbau scheitert
 - **WENN** die SSH-Anmeldung am Zielgerät fehlschlägt
@@ -111,6 +111,10 @@ Das System MUSS für alle drei Konsolen dasselbe WebSocket-Protokoll sprechen: B
 #### Szenario: Fenstergröße ändert sich
 - **WENN** der Client `{"type":"resize","cols":120,"rows":40}` sendet
 - **DANN** wird das entfernte Terminal auf 120×40 gesetzt; andere Textframes und ungültiges JSON werden ignoriert
+
+#### Szenario: Prozess endet
+- **WENN** der Prozess der Sitzung endet (EOF)
+- **DANN** sendet der Server `{"type":"exit"}` und baut die Sitzung ab; ist der Client schon getrennt, entsteht kein Fehler
 
 Quelle: `backend/app/main.py:842`–`backend/app/main.py:882`, `backend/app/main.py:825`, `frontend/src/components/Terminal.tsx`
 
@@ -185,7 +189,11 @@ Das System MUSS einen Geräte-Neustart über genau einen von zwei Wegen auslöse
 Quelle: `backend/app/main.py:1132`–`backend/app/main.py:1167`, `backend/app/remote_admin.py:419`–`backend/app/remote_admin.py:479`, Tests: `backend/tests/test_main_reboot_and_logs.py::test_reboot_uses_ssh_for_a_generic_host`, `::test_reboot_uses_tr064_for_a_router`, `::test_reboot_rejects_ssh_account_for_a_router`, `::test_reboot_rejects_non_ssh_account_for_a_generic_host`, `::test_reboot_404s_for_unknown_account`, `backend/tests/test_remote_admin_reboot_and_logs.py::test_reboot_fritzbox_posts_the_reboot_soap_action`, `backend/tests/test_remote_admin_proxmox.py::test_reboot_host_tries_passwordless_sudo_then_plain_reboot`
 
 ### Requirement: Shelly-Relais schalten
-Das System MUSS ein Relais (`channel`, Default 0) eines Shelly-Geräts ein- oder ausschalten und dazu die Gerätegeneration bei jedem Aufruf frisch über `GET /shelly` ermitteln: Gen1 `GET /relay/{ch}?turn=on|off`, Gen2+ `GET /rpc/Switch.Set?id={ch}&on=true|false`. Antwortet das Ziel nicht wie ein Shelly oder mit HTTP ≥ 400: 400 mit Meldung. **[Muss]**
+Das System MUSS ein Relais (`channel`, Default 0, erlaubt 0–3, sonst 422 vor jedem Gerätezugriff) eines Shelly-Geräts ein- oder ausschalten und dazu die Gerätegeneration bei jedem Aufruf frisch über `GET /shelly` ermitteln: Gen1 `GET /relay/{ch}?turn=on|off`, Gen2+ `GET /rpc/Switch.Set?id={ch}&on=true|false`. Antwortet das Ziel nicht wie ein Shelly oder mit HTTP ≥ 400: 400 mit Meldung. **[Muss]**
+
+#### Szenario: Kanal außerhalb des Bereichs
+- **WENN** `channel=4` (oder negativ bzw. keine Zahl) übergeben wird
+- **DANN** 422, kein Gerätezugriff und kein Zugriffsprotokoll-Eintrag
 
 #### Szenario: Gen2-Gerät
 - **WENN** `/shelly` `{"gen":2}` liefert und `on` angefordert wird
@@ -289,12 +297,10 @@ UI-Seite(n): `frontend/src/pages/device/SteuernTab.tsx` (Route `/geraete/:id`), 
 ## OFFEN
 
 - > OFFEN: Prompt-Injection-Risiko: Inhalte aus Inventar/Doku könnten das Modell zu `set_switch` ohne Rückfrage verleiten. → entschieden in #43
-- > OFFEN: Assistent schaltet bei Shelly immer Kanal 0; REST-Route akzeptiert beliebige `channel`-Ganzzahl ohne Bereichsprüfung. → #147
+- > OFFEN: Assistent schaltet bei Shelly immer Kanal 0 (bewusst; ein Kanalparameter für `set_switch` erweitert die ADR-Ausnahme). Bereichsprüfung der REST-Route behoben (#147).
 - > OFFEN: Proxmox-Steuerung fällt bei *jedem* API-Fehler auf SSH zurück – auch bei fachlichen Fehlern der API (z. B. Gast bereits gestoppt); mögliche Doppelausführung/irreführende Meldung. (`backend/app/main.py:1061`) → #146
 - > OFFEN: Reboot meldet evtl. Fehler, obwohl der Neustart ausgelöst wurde (SSH-Verbindung bricht beim Reboot ab, bevor ein Exit-Status kommt). Nicht durch Tests abgedeckt. → #146
 - > OFFEN: Kategorie `router` wird im Reboot-Pfad akzeptiert, existiert aber in der UI-Kategorieliste nicht (`frontend/src/pages/zugaenge/AccountFormPage.tsx`) – toter Zweig oder Altbestand? → #134
 - > OFFEN: SSH-Befehle (`connection.run`) haben kein Gesamt-Timeout; ein hängender Befehl blockiert die Anfrage unbegrenzt. → #146
 - > OFFEN: Nicht-numerische `cols`/`rows` in einer Resize-Nachricht lösen eine Ausnahme aus und beenden die Sitzung statt ignoriert zu werden. (`backend/app/main.py:864`) → #146
-- > OFFEN: `Terminal.tsx` erwartet laut Kommentar eine Server-Nachricht `{"type":"exit"}`, die das Backend nie sendet. → #147
-- > OFFEN: Frontend kodiert `containerId` in der URL der Remote-Docker-Konsole nicht (`frontend/src/lib/api.ts:528`), anders als bei Aktion/Logs. → #147
 - > OFFEN: Keine Tests für die drei WebSocket-Konsolen, lokale Container-Aktionen, Shelly/HA-Schalten und die Origin-Prüfung. → #148

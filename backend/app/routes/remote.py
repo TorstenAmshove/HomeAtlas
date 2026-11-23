@@ -9,7 +9,7 @@ import asyncio
 import json
 import time
 
-from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -151,7 +151,8 @@ async def ssh_console(websocket: WebSocket, system_id: str) -> None:
 
 async def _relay_terminal(websocket: WebSocket, *, read, write, resize) -> None:
     """Binary WS frames = raw terminal bytes, unmodified, both directions. Text WS frames = JSON
-    control messages -- currently only `{"type":"resize","cols":n,"rows":n}`. Two concurrent
+    control messages -- browser to server `{"type":"resize","cols":n,"rows":n}`, server to browser
+    `{"type":"exit"}` once the process reached EOF. Two concurrent
     tasks; either one finishing (EOF from the process, or the browser disconnecting) tears down
     both, which unwinds the `finally` blocks in the caller and closes the underlying session."""
     async def from_client() -> None:
@@ -179,6 +180,12 @@ async def _relay_terminal(websocket: WebSocket, *, read, write, resize) -> None:
         while True:
             data = await read(4096)
             if not data:
+                # EOF: tell the browser the session ended. The client may already be gone; the
+                # session is torn down right after either way.
+                try:
+                    await websocket.send_json({"type": "exit"})
+                except Exception:
+                    pass
                 return
             await websocket.send_bytes(data)
 
@@ -483,7 +490,7 @@ async def reboot_system(system_id: str, accountId: str, request: Request,
 # ---------------------------------------------------------------------------------------------
 
 @router.post("/api/systems/{system_id}/shelly-switch/{action}")
-async def shelly_switch(system_id: str, action: str, request: Request, channel: int = 0,
+async def shelly_switch(system_id: str, action: str, request: Request, channel: int = Query(0, ge=0, le=switch_admin.SHELLY_MAX_CHANNEL),
                         user: dict = Depends(require_admin)) -> dict:
     if action not in ("on", "off"):
         raise HTTPException(status_code=404, detail="Unbekannte Aktion.")
