@@ -58,11 +58,32 @@ def is_encrypted(value: str) -> bool:
         return False
 
 
+class SecretUnreadable(Exception):
+    """A stored secret can't be decrypted (key file replaced or lost). The message never contains
+    the token or any plaintext."""
+
+    def __init__(self, message: str = "Secret nicht lesbar – Schlüsseldatei geändert?") -> None:
+        super().__init__(message)
+
+
+def decrypt_strict(token: str) -> str:
+    """Like `decrypt`, but raises `SecretUnreadable` instead of returning "" for a token the key
+    can't open. Use this wherever a secret is *used or handed out* (reveal route, probing,
+    controller/remote-admin connections, LLM keys): silently continuing with an empty password
+    hides the real problem. An empty token still yields "" (no secret stored)."""
+    if not token:
+        return ""
+    try:
+        return _fernet().decrypt(token.encode()).decode()
+    except (InvalidToken, ValueError):
+        raise SecretUnreadable() from None
+
+
 def decrypt(token: str) -> str:
-    """Returns "" for an unreadable value rather than raising: a secret that can't be decrypted
-    (key file replaced, volume restored without it) must not take down the whole inventory view --
-    the UI shows the entry with an empty secret, which is a recoverable state the user can fix by
-    re-entering the password."""
+    """Lenient variant: returns "" for an unreadable value rather than raising: a secret that
+    can't be decrypted (key file replaced, volume restored without it) must not take down the
+    whole inventory view -- the UI shows the entry with an empty secret. Only for display/listing/
+    comparison paths; anything that uses the secret must call `decrypt_strict`."""
     if not token:
         return ""
     try:

@@ -37,7 +37,7 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (101)
+## Alle Punkte je Fähigkeit (100)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (3)
 
@@ -176,14 +176,13 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 5. Erweiterbar-Markierung nur für Hosts der Art server/nas; ein Docker-Host der Art `pc` bekommt Container zugeordnet, aber keinen Zähler. → #144
 6. Mischt ein Router /24-Näherungen aus Probe-Fakten mit exakten Controller-CIDRs (z. B. /26), können beide als getrennte Subnetze in die Ketteninferenz eingehen. → #144
 
-### [zugangsdaten](capabilities/zugangsdaten/spec.md) (9)
+### [zugangsdaten](capabilities/zugangsdaten/spec.md) (8)
 
-1. Ein nicht entschlüsselbares Secret wird als leerer String ausgeliefert und als erfolgreicher Abruf (`ok=1`) protokolliert; Admin und Protokoll sehen nicht, dass der Schlüssel fehlt (`backend/app/crypto.py:49`). → #118
-2. Kategorie wird serverseitig nicht validiert; beliebige Werte werden gespeichert. → #128
-3. Secret und Passphrase lassen sich über die API nicht mehr leeren (leer = unverändert). → #128
-4. Ausrollen akzeptiert jede Kategorie als Login-Zugang (z. B. `snmp`, `wifi`); das Secret wird dann als SSH-Passwort benutzt. → #128
-5. `systemId` wird beim Anlegen/Ändern nicht auf Existenz geprüft. → #128
-6. Löschen eines unbekannten Zugangs liefert `{ok: true}` statt 404. → #128
-7. Anlegen, Ändern und Löschen von Zugängen werden nicht im Zugriffsprotokoll erfasst, nur Abruf, Erzeugung und Ausrollen. → #122
-8. MEMBER sehen über Geräteansicht und Doku Benutzernamen, URLs und Notizen aller Zugänge; ob Notizen sensibel sein dürfen, ist nicht geregelt. → entschieden in #48: in Ordnung, solange keine Secrets
-9. Löschen eines Geräts löscht dessen Zugänge unwiderruflich mit, ohne Rückfrage auf API-Ebene. → #127
+1. Kategorie wird serverseitig nicht validiert; beliebige Werte werden gespeichert. → #128
+2. Secret und Passphrase lassen sich über die API nicht mehr leeren (leer = unverändert). → #128
+3. Ausrollen akzeptiert jede Kategorie als Login-Zugang (z. B. `snmp`, `wifi`); das Secret wird dann als SSH-Passwort benutzt. → #128
+4. `systemId` wird beim Anlegen/Ändern nicht auf Existenz geprüft. → #128
+5. Löschen eines unbekannten Zugangs liefert `{ok: true}` statt 404. → #128
+6. Anlegen, Ändern und Löschen von Zugängen werden nicht im Zugriffsprotokoll erfasst, nur Abruf, Erzeugung und Ausrollen. → #122
+7. MEMBER sehen über Geräteansicht und Doku Benutzernamen, URLs und Notizen aller Zugänge; ob Notizen sensibel sein dürfen, ist nicht geregelt. → entschieden in #48: in Ordnung, solange keine Secrets
+8. Löschen eines Geräts löscht dessen Zugänge unwiderruflich mit, ohne Rückfrage auf API-Ebene. → #127

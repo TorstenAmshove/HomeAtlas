@@ -106,7 +106,7 @@ async def _run(connection, command: str, timeout: float | None = None):
 def _decode_secret(account: dict) -> tuple[str, str]:
     """Local copy of probe_auth._decode_secret's logic -- see module docstring for why this isn't
     a shared import."""
-    return crypto.decrypt(account.get("secretEnc") or ""), crypto.decrypt(account.get("passphraseEnc") or "")
+    return crypto.decrypt_strict(account.get("secretEnc") or ""), crypto.decrypt_strict(account.get("passphraseEnc") or "")
 
 
 def _docker_error(stderr: str, username: str) -> str:
@@ -164,7 +164,7 @@ async def deploy_public_key(host: str, account: dict, public_key: str, port: int
     public_key = public_key.strip()
     try:
         connect_args = _connect_args(host, account, port)
-    except (ValueError, KeyError) as exc:
+    except (ValueError, KeyError, crypto.SecretUnreadable) as exc:
         return {"ok": False, "changed": False, "error": f"Der hinterlegte Zugang ließ sich nicht lesen: {exc}"}
 
     try:
@@ -225,7 +225,7 @@ async def list_remote_containers(host: str, account: dict, port: int = 0) -> dic
 
     try:
         connect_args = _connect_args(host, account, port)
-    except (ValueError, KeyError) as exc:
+    except (ValueError, KeyError, crypto.SecretUnreadable) as exc:
         return {"ok": False, "error": f"Der hinterlegte Zugang ließ sich nicht lesen: {exc}", "containers": []}
 
     command = "docker ps -a --format '{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.State}}\t{{.Status}}'"
@@ -258,7 +258,7 @@ async def remote_container_logs(host: str, account: dict, container_id: str, por
 
     try:
         connect_args = _connect_args(host, account, port)
-    except (ValueError, KeyError) as exc:
+    except (ValueError, KeyError, crypto.SecretUnreadable) as exc:
         return {"ok": False, "error": f"Der hinterlegte Zugang ließ sich nicht lesen: {exc}", "text": ""}
 
     command = f"docker logs --tail {int(tail)} {shlex.quote(container_id)} 2>&1"
@@ -326,7 +326,7 @@ async def list_remote_proxmox_guests(host: str, account: dict, port: int = 0) ->
 
     try:
         connect_args = _connect_args(host, account, port)
-    except (ValueError, KeyError) as exc:
+    except (ValueError, KeyError, crypto.SecretUnreadable) as exc:
         return {"ok": False, "error": f"Der hinterlegte Zugang ließ sich nicht lesen: {exc}", "containers": []}
 
     try:
@@ -368,7 +368,7 @@ async def run_remote_proxmox_guest_command(host: str, account: dict, kind: str, 
         return {"ok": False, "error": f"Unbekannte Aktion '{action}'."}
     try:
         connect_args = _connect_args(host, account, port)
-    except (ValueError, KeyError) as exc:
+    except (ValueError, KeyError, crypto.SecretUnreadable) as exc:
         return {"ok": False, "error": f"Der hinterlegte Zugang ließ sich nicht lesen: {exc}"}
 
     tool = "pct" if kind == "container" else "qm"
@@ -394,7 +394,7 @@ async def run_remote_lxc_journalctl(host: str, account: dict, vmid: str, port: i
 
     try:
         connect_args = _connect_args(host, account, port)
-    except (ValueError, KeyError) as exc:
+    except (ValueError, KeyError, crypto.SecretUnreadable) as exc:
         return {"ok": False, "error": f"Der hinterlegte Zugang ließ sich nicht lesen: {exc}", "text": ""}
 
     command = f"pct exec {shlex.quote(str(vmid))} -- journalctl -n {int(lines)} --no-pager"
@@ -419,7 +419,7 @@ async def run_remote_docker_command(host: str, account: dict, action: str, conta
         return {"ok": False, "error": f"Unbekannte Aktion '{action}'."}
     try:
         connect_args = _connect_args(host, account, port)
-    except (ValueError, KeyError) as exc:
+    except (ValueError, KeyError, crypto.SecretUnreadable) as exc:
         return {"ok": False, "error": f"Der hinterlegte Zugang ließ sich nicht lesen: {exc}"}
 
     command = f"docker {action} {shlex.quote(container_id)}"
@@ -468,7 +468,7 @@ async def reboot_host(host: str, account: dict, port: int = 0) -> dict:
 
     try:
         connect_args = _connect_args(host, account, port)
-    except (ValueError, KeyError) as exc:
+    except (ValueError, KeyError, crypto.SecretUnreadable) as exc:
         return {"ok": False, "error": f"Der hinterlegte Zugang ließ sich nicht lesen: {exc}"}
 
     command = "sudo -n reboot 2>/dev/null || reboot"
@@ -507,7 +507,10 @@ async def reboot_fritzbox(host: str, account: dict, port: int = 0) -> dict:
     `port` is accepted for signature symmetry with every other function here but ignored -- TR-064
     is always on 49000, never the account's own `port` field (that's the login's SSH/HTTP port,
     a different, unrelated setting)."""
-    secret, _ = _decode_secret(account)
+    try:
+        secret, _ = _decode_secret(account)
+    except crypto.SecretUnreadable as exc:
+        return {"ok": False, "error": str(exc)}
     username = (account.get("username") or "").strip()
     envelope = (
         '<?xml version="1.0" encoding="utf-8"?>'

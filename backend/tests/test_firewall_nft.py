@@ -152,7 +152,7 @@ def _fake_ssh(monkeypatch, result, calls):
         import_private_key=lambda s, p=None: object(),
         connect=lambda **kw: _Conn(result, calls))
     monkeypatch.setitem(sys.modules, "asyncssh", mod)
-    monkeypatch.setattr(nft.crypto, "decrypt", lambda v: "k")
+    monkeypatch.setattr(nft.crypto, "decrypt_strict", lambda v: "k")
 
 
 def _probe(monkeypatch, result):

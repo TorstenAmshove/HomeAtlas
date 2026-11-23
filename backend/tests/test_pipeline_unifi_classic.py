@@ -11,7 +11,7 @@ def _scan(db, monkeypatch):
                 "routedTargets": [], "counts": {}}
 
     monkeypatch.setattr(pipeline.discovery, "discover", fake_discover)
-    monkeypatch.setattr(pipeline.crypto, "decrypt", lambda value: KEY)
+    monkeypatch.setattr(pipeline.crypto, "decrypt_strict", lambda value: KEY)
     asyncio.run(pipeline.run_full_scan(db.create_scan("test")))
 
 

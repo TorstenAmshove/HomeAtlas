@@ -101,3 +101,27 @@ def test_remote_container_action_unknown_node_uses_ssh(temp_db, monkeypatch):
     system, ssh, calls = _setup_proxmox(temp_db, monkeypatch, None)
     assert _act(system, ssh, "lxc:101") == {"ok": True}
     assert calls == {"api": 0, "ssh": 1}
+
+
+def _unreadable(value):
+    raise crypto.SecretUnreadable()
+
+
+def test_remote_container_action_unreadable_token_without_ssh_is_409_and_logged(temp_db, monkeypatch):
+    system, _ssh, calls = _setup_proxmox(temp_db, monkeypatch, {"ok": True, "error": "", "fallback": False})
+    monkeypatch.setattr(crypto, "decrypt_strict", _unreadable)
+    request = SimpleNamespace(headers={}, client=SimpleNamespace(host="127.0.0.1"))
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(remote_routes.remote_container_action(
+            system["id"], "pve:lxc:101", "stop", "", request, user={"id": "u"}))
+    assert exc.value.status_code == 409
+    assert calls == {"api": 0, "ssh": 0}
+    entry = next(e for e in temp_db.list_access_log() if e["action"] == "container.proxmox.stop")
+    assert not entry["ok"]
+
+
+def test_remote_container_action_unreadable_token_falls_back_to_ssh(temp_db, monkeypatch):
+    system, ssh, calls = _setup_proxmox(temp_db, monkeypatch, {"ok": True, "error": "", "fallback": False})
+    monkeypatch.setattr(crypto, "decrypt_strict", _unreadable)
+    assert _act(system, ssh) == {"ok": True}
+    assert calls == {"api": 0, "ssh": 1}
