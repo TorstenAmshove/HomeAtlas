@@ -144,6 +144,7 @@ from .accounts import (  # noqa: E402
 from .docs import (  # noqa: E402
     _DOC_VERSION_KEEP,
     delete_doc_page,
+    delete_doc_versions,
     get_doc_page,
     get_doc_version,
     list_doc_pages,
@@ -259,6 +260,7 @@ __all__ = [
     "delete_chat_messages_after",
     "delete_db_session",
     "delete_doc_page",
+    "delete_doc_versions",
     "delete_system",
     "delete_user",
     "dismiss_duplicate",

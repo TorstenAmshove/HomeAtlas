@@ -815,4 +815,20 @@ async def _generate(settings: dict, use_llm: bool, log, only_slug: str | None) -
         written.append(topic.slug)
         if log:
             log(f"Kapitel geschrieben: {topic.title}")
+    if only_slug is None:
+        _remove_stale_pages(log)
     return written
+
+
+def _remove_stale_pages(log) -> None:
+    """Drops auto-generated chapters whose slug is no longer defined. Pages with the household's
+    own content (pinned body or non-blank notes) are kept. Versions go with the page: they would
+    be unreachable, since the versions route answers 404 for unknown slugs."""
+    known = {t.slug for t in TOPICS}
+    for page in db.list_doc_pages():
+        if page["slug"] in known or not page["generated"] or (page["manualMd"] or "").strip():
+            continue
+        db.delete_doc_page(page["slug"])
+        db.delete_doc_versions(page["slug"])
+        if log:
+            log(f"Veraltetes Kapitel entfernt: {page['title']}")

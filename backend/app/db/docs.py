@@ -133,3 +133,8 @@ def reset_doc_page(slug: str) -> None:
 def delete_doc_page(slug: str) -> None:
     with _conn() as conn:
         conn.execute("DELETE FROM docPages WHERE slug = ?", (slug,))
+
+
+def delete_doc_versions(slug: str) -> None:
+    with _conn() as conn:
+        conn.execute("DELETE FROM docPageVersions WHERE slug = ?", (slug,))

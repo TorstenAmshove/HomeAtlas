@@ -267,6 +267,10 @@ nicht ändern (nur Titel, Thema und Reihenfolge werden nachgezogen). **[Muss]**
 - **WENN** ein Text für einen nicht existierenden Slug gespeichert wird
 - **DANN** antwortet das System mit 404
 
+#### Szenario: Feld `bodyMd` fehlt
+- **WENN** `PUT /api/docs/{slug}` ohne Feld `bodyMd` (oder mit `null`) aufgerufen wird
+- **DANN** antwortet das System mit 422 und ändert die Seite nicht; `""` bleibt erlaubt und pinnt die Seite
+
 Quelle: `backend/app/db.py:1667`, `backend/app/db.py:1660`, `backend/app/main.py:1285`
 
 ### Requirement: Seite zurücksetzen
@@ -360,6 +364,21 @@ ist der Wert von `scanUseLlm`. `scanUseLlm` ist der Hauptschalter: `useLlm: fals
 
 Quelle: `backend/app/pipeline.py:532`, `backend/app/main.py:1310`, `backend/app/docs.py:510`
 
+### Requirement: Veraltete Kapitel entfallen
+Bei der vollständigen Generierung (ohne `only_slug`) MUSS das System Kapitel entfernen, deren Slug
+nicht mehr zu den definierten Kapiteln gehört, sofern die Seite automatisch erzeugt ist
+(`generated=1`) und keine nicht-leeren eigenen Notizen hat. Ihre gespeicherten Versionen werden
+mitgelöscht. Seiten mit eigenem Inhalt bleiben stehen. Das Zurücksetzen eines einzelnen Kapitels
+räumt nicht auf. **[Muss]**
+
+#### Szenario: Veraltetes Kapitel
+- **WENN** eine automatisch erzeugte Seite mit nicht mehr definiertem Slug existiert und alles neu erzeugt wird
+- **DANN** sind Seite und Versionen gelöscht
+
+#### Szenario: Veraltetes Kapitel mit Notizen
+- **WENN** die Seite eigene Notizen oder einen von Hand geschriebenen Text hat
+- **DANN** bleibt sie bestehen
+
 ### Requirement: Kapitelliste
 Das System MUSS die Kapitel sortiert nach Reihenfolge, dann Titel (ohne Groß-/Kleinschreibung)
 liefern, ohne den Haupttext (Metadaten und Notizen sind enthalten). Ein unbekannter Slug beim Lesen
@@ -423,10 +442,10 @@ Siehe [data-model](../../contracts/data-model.md).
 | GET | /api/docs | MEMBER | Kapitelliste ohne `bodyMd` |
 | POST | /api/docs/generate | ADMIN | Alle Kapitel neu erzeugen; Body `{useLlm?: bool}` (kann die KI nur abschalten, nicht gegen `scanUseLlm` erzwingen) → `{generated: [slug]}` |
 | GET | /api/docs/{slug} | MEMBER | Ein Kapitel; 404 wenn unbekannt |
-| PUT | /api/docs/{slug} | ADMIN | Ganze Seite überschreiben `{bodyMd}` → Seite manuell |
+| PUT | /api/docs/{slug} | ADMIN | Ganze Seite überschreiben `{bodyMd}` (Pflicht, sonst 422) → Seite manuell; 404 wenn unbekannt |
 | PUT | /api/docs/{slug}/manual | ADMIN | Eigene Notizen setzen `{manualMd}` |
-| POST | /api/docs/{slug}/reset | ADMIN | Zurück in Automatik + Neuerzeugung |
-| GET | /api/docs/{slug}/versions | MEMBER | Versionsliste (Metadaten, `size`) |
+| POST | /api/docs/{slug}/reset | ADMIN | Zurück in Automatik + Neuerzeugung; 404 wenn unbekannt |
+| GET | /api/docs/{slug}/versions | MEMBER | Versionsliste (Metadaten, `size`); 404 wenn unbekannt |
 | GET | /api/docs/{slug}/versions/{version_id} | MEMBER | Eine Version vollständig |
 | POST | /api/docs/{slug}/versions/{version_id}/restore | ADMIN | Version wiederherstellen |
 
@@ -455,8 +474,4 @@ für den offenen Verlauf).
 
 ## OFFEN
 
-- > OFFEN: `POST /api/docs/{slug}/reset` mit unbekanntem Slug liefert 200 mit `page: null` statt 404. → #140
-- > OFFEN: `GET /api/docs/{slug}/versions` mit unbekanntem Slug liefert leere Liste statt 404. → #140
-- > OFFEN: `PUT /api/docs/{slug}` ohne Feld `bodyMd` speichert leeren Text (keine Validierung). → #140
-- > OFFEN: Kapitel, deren Slug nicht mehr definiert ist, werden nie gelöscht (`db.delete_doc_page` ungenutzt). → #140
 - > OFFEN: Benutzernamen und URLs von Zugängen sind über die Doku für MEMBER sichtbar, obwohl die Zugangs-API admin-only ist. Ebenso Gerätenotizen und ausgelesene Gerätewerte — falls dort Geheimnisse stehen, landen sie in der Doku. → entschieden in #48: in Ordnung, solange keine Secrets
