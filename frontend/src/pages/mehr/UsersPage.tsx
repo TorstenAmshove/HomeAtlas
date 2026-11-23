@@ -24,7 +24,7 @@ function errorText(e: unknown) {
 }
 
 export default function UsersPage() {
-  const { user: me } = useAuth();
+  const { user: me, setUser } = useAuth();
   const [users, setUsers] = useState<User[] | null>(null);
   const [error, setError] = useState("");
   const [rolesOpen, setRolesOpen] = useState(false);
@@ -100,7 +100,13 @@ export default function UsersPage() {
       const body: { displayName?: string; role?: Role; newPassword?: string } = { displayName: editName, role: editRole };
       if (editPassword) body.newPassword = editPassword;
       const r = await api.updateUser(editing.id, body);
-      await reload();
+      if (me && r.user.id === me.id && r.user.role !== me.role) {
+        // Own role changed: update the session user so the route guard leaves this admin-only
+        // page right away (the list call would be refused now).
+        setUser(r.user);
+      } else {
+        await reload();
+      }
       showToast({ message: r.changes.length > 0 ? `„${editing.username}“: ${r.changes.join(", ")}.` : "Es gab nichts zu ändern." });
       setEditing(null);
     } catch (e) {

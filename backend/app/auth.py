@@ -93,7 +93,7 @@ def verify_login(username: str, password: str, totp_code: str = "") -> dict | No
     password was right but the second factor is still needed. Keeping those three cases distinct
     matters: the caller must not reveal that a password was correct by wording alone, but it does
     need to know when to show the code field."""
-    user = db.get_user_by_username_raw(username)
+    user = db.get_user_by_username_raw((username or "").strip())
     if user is None:
         # Hash anyway so a missing account doesn't answer measurably faster than a wrong password.
         hash_password(password, "dummy-salt")

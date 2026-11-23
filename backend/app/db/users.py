@@ -81,9 +81,38 @@ def get_user_raw(user_id: str) -> dict | None:
         return _row(conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone())
 
 
+def _fold(name: str) -> str:
+    return (name or "").strip().casefold()
+
+
 def get_user_by_username_raw(username: str) -> dict | None:
+    """Exact match wins; otherwise a case-insensitive match, but only if it is unambiguous (legacy
+    installs may hold names that differ only in case). Folding happens in Python because SQLite
+    NOCASE only folds ASCII; the user table is tiny."""
     with _conn() as conn:
-        return _row(conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone())
+        exact = _row(conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone())
+        if exact is not None:
+            return exact
+        folded = _fold(username)
+        if not folded:
+            return None
+        rows = _rows(conn.execute("SELECT * FROM users"))
+    matches = [r for r in rows if _fold(r["username"]) == folded]
+    return matches[0] if len(matches) == 1 else None
+
+
+def username_taken(username: str) -> bool:
+    folded = _fold(username)
+    with _conn() as conn:
+        return any(_fold(r["username"]) == folded for r in conn.execute("SELECT username FROM users"))
+
+
+def username_ambiguous(username: str) -> bool:
+    """True if several accounts match case-insensitively and none exactly."""
+    folded = _fold(username)
+    with _conn() as conn:
+        names = [r["username"] for r in conn.execute("SELECT username FROM users")]
+    return username not in names and sum(_fold(n) == folded for n in names) > 1
 
 
 def set_user_password(user_id: str, password_hash: str, salt: str) -> None:
