@@ -3798,7 +3798,7 @@
     },
     "/api/setup": {
       "post": {
-        "description": "Stores what the first-run wizard collected. Each system with a password gets a matching\naccount row, so the credential lands encrypted rather than in a free-text note.",
+        "description": "Stores what the first-run wizard collected. Each system with a password gets a matching\naccount row, so the credential lands encrypted rather than in a free-text note.\n\nRuns once: afterwards 409 (auth and validation come first). No `await` between the check and\nthe write, so concurrent calls cannot both pass. A device whose IP matches exactly one\nexisting non-container row updates that row instead of adding a duplicate.",
         "operationId": "run_setup_api_setup_post",
         "parameters": [
           {

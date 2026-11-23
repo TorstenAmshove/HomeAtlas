@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { api } from "../lib/api";
+import { ApiError, api } from "../lib/api";
 import { useAuth } from "../App";
 import ConfirmDialog from "../components/ConfirmDialog";
 import GateShell, { GateBrand } from "./GateShell";
@@ -66,6 +66,12 @@ export default function Setup({ onDone }: { onDone: () => void }) {
       clearSetupDraft();
       onDone();
     } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        // Setup was finished elsewhere (second tab): leave the wizard instead of showing it again.
+        clearSetupDraft();
+        onDone();
+        return;
+      }
       setError(err instanceof Error ? err.message : "Speichern fehlgeschlagen.");
       setBusy(false);
       window.setTimeout(() => errorRef.current?.focus(), 0);
@@ -75,6 +81,11 @@ export default function Setup({ onDone }: { onDone: () => void }) {
   function submit(event: FormEvent) {
     event.preventDefault();
     if (busy) return;
+    if (!form.homeName.trim()) {
+      setStep(0);
+      setError("Bitte gib deinem Zuhause einen Namen.");
+      return;
+    }
     if (step < STEPS.length - 1) setStep(step + 1);
     else void finish();
   }
@@ -136,7 +147,7 @@ export default function Setup({ onDone }: { onDone: () => void }) {
             </p>
             <div className="gate-field">
               <label htmlFor="homeName">Wie soll dein Zuhause heißen?</label>
-              <input id="homeName" value={form.homeName} autoFocus enterKeyHint="next"
+              <input id="homeName" required value={form.homeName} autoFocus enterKeyHint="next"
                      onChange={(e) => patch({ homeName: e.target.value })} />
               <div className="gate-hint">Erscheint als Überschrift in der Dokumentation, z. B. „Familie Meier".</div>
             </div>
