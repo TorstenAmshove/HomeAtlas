@@ -170,7 +170,6 @@
   nach unten. Heute: Internet → Router → Verteilung → Wichtige Geräte; alle übrigen Geräte stehen
   gruppiert als Liste unter dem Bild ([topologie](capabilities/topologie/spec.md)).
   ([ADR-0009](../adr/0009-netzplan-ebenen-ist-stand.md), ersetzt ADR-0008.)
-  > OFFEN: Im Kasten ist Farbe heute das einzige Statussignal; ADR-0008/0009 verlangen ein zweites.
 - **D5 [Impl]** Netzplan wird serverseitig als SVG erzeugt, ohne Graph-Bibliothek im Browser,
   ohne Zoomen/Ziehen. ([ADR-0009](../adr/0009-netzplan-ebenen-ist-stand.md))
 - **D6 [Impl]** Frontend: React + react-router ohne State-Bibliothek, ein zentraler typisierter
