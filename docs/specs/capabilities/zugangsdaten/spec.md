@@ -227,7 +227,8 @@ Quelle: `backend/app/tools.py:316`, `backend/app/docs.py:355`, `backend/app/main
 
 ### Requirement: Zugänge folgen dem Gerät
 Das System MUSS beim Löschen eines Geräts dessen direkt angehängte Zugänge samt deren Zuordnungen
-und alle `system`-Zuordnungen auf dieses Gerät löschen; beim Zusammenführen zweier Geräte werden
+und alle `system`-Zuordnungen auf dieses Gerät löschen, über die API aber nur mit
+`?withAccounts=true` (sonst 409 mit der Anzahl, nichts wird gelöscht); beim Zusammenführen zweier Geräte werden
 Zugänge und `system`-Zuordnungen auf das verbleibende Gerät umgehängt. **[Muss]**
 
 #### Szenario: Gerät gelöscht
@@ -354,4 +355,3 @@ UI-Seite(n): `frontend/src/pages/zugaenge/AccountsPage.tsx`, `frontend/src/pages
   nur Abruf, Erzeugung und Ausrollen. → #122
 - > OFFEN: MEMBER sehen über Geräteansicht und Doku Benutzernamen, URLs und Notizen aller Zugänge;
   ob Notizen sensibel sein dürfen, ist nicht geregelt. → entschieden in #48: in Ordnung, solange keine Secrets
-- > OFFEN: Löschen eines Geräts löscht dessen Zugänge unwiderruflich mit, ohne Rückfrage auf API-Ebene. → #127

@@ -13,6 +13,7 @@ would be worse than useless.
 """
 from __future__ import annotations
 
+import asyncio
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -729,9 +730,25 @@ def _pick_router(systems: list[dict]) -> tuple[dict | None, list[dict]]:
     return primary, [s for s in routers if s is not primary]
 
 
+# One generation at a time (scan pipeline vs. manual run): two overlapping runs would write
+# duplicate page versions and double the LLM cost. Manual routes check is_generating() and answer
+# 409; the scan pipeline simply waits on the lock.
+_generate_lock = asyncio.Lock()
+
+
+def is_generating() -> bool:
+    return _generate_lock.locked()
+
+
 async def generate(settings: dict, use_llm: bool = True, log=None, only_slug: str | None = None) -> list[str]:
     """Regenerates every chapter, or only `only_slug` (chapter reset). Chapters that are skipped
-    are neither rendered, nor sent to the LLM, nor versioned. Returns the slugs written."""
+    are neither rendered, nor sent to the LLM, nor versioned. Returns the slugs written.
+    Serialised by `_generate_lock`."""
+    async with _generate_lock:
+        return await _generate(settings, use_llm, log, only_slug)
+
+
+async def _generate(settings: dict, use_llm: bool, log, only_slug: str | None) -> list[str]:
     all_systems = db.list_systems()
     by_id = {s["id"]: s for s in all_systems}
     children_by_parent: dict[str, list[dict]] = {}

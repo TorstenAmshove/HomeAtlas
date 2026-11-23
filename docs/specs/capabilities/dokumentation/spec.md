@@ -332,6 +332,20 @@ sie haben ihren eigenen Verlauf; entschieden in #141) und die Seite als manuell 
 
 Quelle: `backend/app/db.py:1610`, `backend/app/main.py:1331`
 
+### Requirement: Eine Generierung gleichzeitig
+Das System MUSS Generierungen über eine Prozess-Sperre serialisieren (`docs._generate_lock`). Die manuellen
+Routen `POST /api/docs/generate` und `POST /api/docs/{slug}/reset` antworten bei laufender Generierung mit
+HTTP 409 „Die Dokumentation wird gerade erzeugt."; der Reset ändert die Seite dann nicht. Die Scan-Pipeline
+wartet auf die Sperre. **[Muss]**
+
+#### Szenario: Doppelklick auf „Neu erzeugen“
+- **WENN** eine Generierung läuft und `POST /api/docs/generate` kommt
+- **DANN** HTTP 409, keine zweite Generierung, keine doppelten Versionen
+
+#### Szenario: Scan trifft auf manuellen Lauf
+- **WENN** die Scan-Pipeline generiert, während ein manueller Lauf die Sperre hält
+- **DANN** wartet die Pipeline und läuft danach durch
+
 ### Requirement: Auslöser der Generierung
 Das System MUSS die Doku (a) am Ende jedes Netzwerk-Scans und (b) auf Admin-Anforderung neu erzeugen.
 Bei (a) DARF ein Fehler der Doku-Generierung den Scan nicht scheitern lassen, sondern wird als
@@ -446,4 +460,3 @@ für den offenen Verlauf).
 - > OFFEN: `PUT /api/docs/{slug}` ohne Feld `bodyMd` speichert leeren Text (keine Validierung). → #140
 - > OFFEN: Kapitel, deren Slug nicht mehr definiert ist, werden nie gelöscht (`db.delete_doc_page` ungenutzt). → #140
 - > OFFEN: Benutzernamen und URLs von Zugängen sind über die Doku für MEMBER sichtbar, obwohl die Zugangs-API admin-only ist. Ebenso Gerätenotizen und ausgelesene Gerätewerte — falls dort Geheimnisse stehen, landen sie in der Doku. → entschieden in #48: in Ordnung, solange keine Secrets
-- > OFFEN: Keine Sperre gegen gleichzeitige Generierungen (Scan + manueller Lauf) — mögliche doppelte Versionen/Race. → #129

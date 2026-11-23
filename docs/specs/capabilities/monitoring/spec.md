@@ -21,17 +21,18 @@ nur echte Ausfälle und Wiederkehr – ohne Fehlalarm bei einzelnen verlorenen W
 ## Anforderungen
 
 ### Requirement: Menge der überwachten Geräte
-Das System MUSS genau die Geräte überwachen, die als „überwacht“ markiert sind und eine IP-Adresse oder einen Hostnamen haben. Geräte mit Bedeutung „kritisch“ und Adresse MÜSSEN automatisch als überwacht markiert werden – beim Start, vor jeder Prüfrunde, beim Anlegen/Ändern/Zusammenführen eines Geräts und nach jedem Scan. Reihenfolge: kritisch, normal, sonstige; dann Name. **[Muss]**
+Das System MUSS genau die Geräte überwachen, die als „überwacht“ markiert sind und eine IP-Adresse oder einen Hostnamen haben. Beim Markieren als „kritisch“ wird ein Gerät mit Adresse einmalig als überwacht markiert (siehe [inventar](../inventar/spec.md)); danach ist die Markierung abwählbar und wird nie automatisch zurückgesetzt. Reihenfolge: kritisch, normal, sonstige; dann Name. **[Muss]**
 
 #### Szenario: Gerät wird als kritisch markiert
 - **WENN** ein Admin ein Gerät mit IP auf „kritisch“ setzt
-- **DANN** wird es spätestens in der nächsten Runde geprüft, ohne Scan abzuwarten
+- **DANN** ist es sofort überwacht und wird spätestens in der nächsten Runde geprüft
+- **UND** wählt der Admin die Überwachung ab, bleibt sie aus
 
 #### Szenario: Gerät ohne Adresse
 - **WENN** ein überwachtes Gerät weder IP noch Hostname hat
 - **DANN** taucht es in der Überwachung nicht auf
 
-Quelle: `backend/app/db.py:1890`–`backend/app/db.py:1910`, `backend/app/monitor.py:144`, `backend/app/main.py:56`, `backend/app/main.py:563`, `backend/app/main.py:574`, `backend/app/main.py:598`, `backend/app/pipeline.py:512`
+Quelle: `backend/app/db/monitor.py::list_monitored_systems`, `backend/app/db/systems.py::_enables_monitoring_on_critical`
 
 ### Requirement: Prüfintervall und Abschalten
 Das System MUSS im Hintergrund alle `monitorIntervalSeconds` Sekunden (Default 10, wirksam begrenzt auf 5–600) eine Prüfrunde über alle überwachten Geräte ausführen, sofern `monitorEnabled` (Default an) gesetzt ist. Ist es aus, finden keine automatischen Runden statt; Einstellungsänderungen wirken ab der nächsten Runde ohne Neustart. **[Muss]** (Grenzen 5/600 **[Impl]**)
@@ -121,11 +122,15 @@ Das System MUSS jedem angemeldeten Benutzer liefern: `enabled`, `intervalSeconds
 Quelle: `backend/app/main.py:1557`–`backend/app/main.py:1573`, `backend/app/monitor.py:176`, `backend/app/db.py:1930`
 
 ### Requirement: Prüfrunde manuell auslösen
-Das System MUSS einem ADMIN erlauben, sofort eine Prüfrunde auszuführen, und die in dieser Runde übernommenen Statuswechsel zurückgeben (`changes`: `systemId`, `name`, `status`, `detail`). Die manuelle Runde gilt unabhängig von `monitorEnabled` und zählt für die Ausfallbestätigung wie eine automatische. **[Muss]**
+Das System MUSS einem ADMIN erlauben, sofort eine Prüfrunde auszuführen, und die in dieser Runde übernommenen Statuswechsel zurückgeben (`changes`: `systemId`, `name`, `status`, `detail`). Die manuelle Runde gilt unabhängig von `monitorEnabled`. Runden laufen nie parallel (Sperre in `Monitor`; eine manuelle wartet auf eine laufende Hintergrundrunde). Eine manuelle Runde bestätigt keinen Ausfall und ändert den Fehlerzähler bei `offline` nicht; Ausfälle bestätigt nur die Hintergrundschleife nach `_FAILURES_BEFORE_DOWN` Runden. `online`/`unknown` gelten sofort wie bisher. **[Muss]**
 
 #### Szenario: Admin klickt „Jetzt prüfen“
 - **WENN** `POST /api/monitor/run` aufgerufen wird
 - **DANN** antwortet das System nach Abschluss der Runde mit `{"changes": [...]}`; MEMBER erhält 403
+
+#### Szenario: Manuelle Runde findet ein Gerät offline
+- **WENN** die Hintergrundschleife erst einen Fehlschlag gezählt hat und „Jetzt prüfen“ ebenfalls offline meldet
+- **DANN** bleibt Status und Fehlerzähler unverändert
 
 Quelle: `backend/app/main.py:1576`–`backend/app/main.py:1580`, `frontend/src/pages/geraete/PlanPage.tsx`
 
@@ -141,7 +146,7 @@ Quelle: `backend/app/monitor.py:130`–`backend/app/monitor.py:137`, `backend/ap
 ## Daten
 
 Aus [data-model](../../contracts/data-model.md):
-- `systems` lesend: `id`, `name`, `kind`, `ip`, `hostname`, `importance`, `openPorts`, `monitorPorts`, `monitored`; schreibend: `status`, `lastSeen`, `monitored` (Auto-Aufnahme kritischer Geräte).
+- `systems` lesend: `id`, `name`, `kind`, `ip`, `hostname`, `importance`, `openPorts`, `monitorPorts`, `monitored`; schreibend: `status`, `lastSeen`, `monitored`.
 - `monitorEvents` schreibend/lesend: `id`, `systemId`, `at`, `status`, `detail` (max. 300 Zeichen). Keine Aufbewahrungsgrenze.
 - `deviceErrorEvents` schreibend: `systemId`, `level=warning`, `message`, `createdAt`; max. 100 je Gerät.
 - Settings (nur lesend; geschrieben über [einstellungen-und-llm-provider](../einstellungen-und-llm-provider/spec.md)): `monitorEnabled` (Default `true`), `monitorIntervalSeconds` (Default 10), `monitorTimeoutMs` (Default 1500).
@@ -169,14 +174,11 @@ UI-Seite(n): `frontend/src/pages/geraete/PlanPage.tsx` (Route `/plan`, Überwach
 
 - Ein einzelner asyncio-Task im Backend-Prozess; Fehlerzähler liegen nur im Speicher und gehen bei Neustart verloren.
 - Port- und Ping-Prüfung nutzen dieselben Funktionen wie die [diagnose](../diagnose/spec.md) (`diagnostics.check_port`, `diagnostics.ping` mit `count=1`).
-- `ensure_monitoring_for_critical` ist ein billiges UPDATE vor jeder Runde.
 - Detailtexte enthalten Port-Bezeichnungen aus dem Port-Katalog (`ports.label_for`).
 
 ## OFFEN
 
-- > OFFEN: Kritische Geräte werden vor jeder Runde zwangsweise wieder auf „überwacht“ gesetzt – ein Admin kann die Überwachung eines kritischen Geräts nicht abschalten; das Abwählen wird stillschweigend rückgängig gemacht. Absicht? (`backend/app/db.py:1890`) → #131
 - > OFFEN: `unknown` (z. B. Ping-Aufruf wirft) setzt den Fehlerzähler zurück und wird sofort übernommen; ein Gerät kann so `offline → unknown → offline` flattern und jeweils Ereignisse erzeugen. → #130
-- > OFFEN: Manuelle Runde und Hintergrundschleife teilen sich den Fehlerzähler und können parallel laufen; ein Klick auf „Jetzt prüfen“ kann einen Ausfall daher schneller „bestätigen“ als zwei Intervalle. → #129
 - > OFFEN: `monitorEvents` hat keine Aufbewahrungsgrenze (im Gegensatz zu `deviceErrorEvents`/`accessLog`); wächst bei flatternden Geräten unbegrenzt. → #130
 - > OFFEN: Rückkehr auf `online` nach Ausfall erzeugt kein Fehler-/Info-Ereignis am Gerät, nur ein `monitorEvents`-Eintrag – gewollt? → #130
 - > OFFEN: `intervalSeconds` in `GET /api/monitor` ist der ungeklemmte Einstellungswert, nicht das tatsächlich verwendete Intervall; `monitorTimeoutMs` hat serverseitig keine Obergrenze. → #130
