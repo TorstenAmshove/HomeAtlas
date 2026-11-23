@@ -46,3 +46,79 @@ def test_count_error_events_by_system_is_one_query_for_all_devices(temp_db):
     assert counts[a["id"]] == 2
     assert counts[b["id"]] == 1
     assert c["id"] not in counts  # untouched dict.get(..., 0) on the caller side handles the absence
+
+
+def _two_events(temp_db):
+    s = temp_db.create_system({"kind": "server", "name": "H"})
+    a = temp_db.add_device_error_event(s["id"], "error", "a")
+    b = temp_db.add_device_error_event(s["id"], "error", "b")
+    return s, a, b
+
+
+def test_acknowledge_single_event_sets_timestamp(temp_db):
+    s, a, b = _two_events(temp_db)
+    assert temp_db.acknowledge_device_error_events(s["id"], a["id"]) == 1
+    by_id = {e["id"]: e for e in temp_db.list_device_error_events(s["id"])}
+    assert by_id[a["id"]]["acknowledgedAt"]
+    assert by_id[b["id"]]["acknowledgedAt"] is None
+
+
+def test_acknowledge_is_idempotent_and_keeps_first_timestamp(temp_db):
+    s, a, _ = _two_events(temp_db)
+    temp_db.acknowledge_device_error_events(s["id"], a["id"])
+    first = {e["id"]: e for e in temp_db.list_device_error_events(s["id"])}[a["id"]]["acknowledgedAt"]
+    assert temp_db.acknowledge_device_error_events(s["id"], a["id"]) == 0
+    again = {e["id"]: e for e in temp_db.list_device_error_events(s["id"])}[a["id"]]["acknowledgedAt"]
+    assert first == again
+
+
+def test_acknowledge_all_only_touches_that_device(temp_db):
+    s, _, _ = _two_events(temp_db)
+    other = temp_db.create_system({"kind": "server", "name": "O"})
+    temp_db.add_device_error_event(other["id"], "error", "x")
+    assert temp_db.acknowledge_device_error_events(s["id"]) == 2
+    assert temp_db.count_error_events_by_system() == {other["id"]: 1}
+
+
+def test_acknowledge_event_of_other_device_is_untouched(temp_db):
+    s, a, _ = _two_events(temp_db)
+    other = temp_db.create_system({"kind": "server", "name": "O"})
+    assert temp_db.acknowledge_device_error_events(other["id"], a["id"]) == 0
+    assert temp_db.count_error_events_by_system()[s["id"]] == 2
+
+
+def test_count_ignores_acknowledged_and_new_event_counts_again(temp_db):
+    s, a, _ = _two_events(temp_db)
+    temp_db.acknowledge_device_error_events(s["id"], a["id"])
+    assert temp_db.count_error_events_by_system()[s["id"]] == 1
+    temp_db.acknowledge_device_error_events(s["id"])
+    assert s["id"] not in temp_db.count_error_events_by_system()
+    temp_db.add_device_error_event(s["id"], "error", "again")
+    assert temp_db.count_error_events_by_system()[s["id"]] == 1
+
+
+def test_cap_trims_regardless_of_acknowledged(temp_db, monkeypatch):
+    monkeypatch.setattr(db, "_ERROR_EVENT_KEEP", 2)
+    s = temp_db.create_system({"kind": "server", "name": "H"})
+    first = temp_db.add_device_error_event(s["id"], "error", "0")
+    temp_db.acknowledge_device_error_events(s["id"], first["id"])
+    for i in range(1, 4):
+        temp_db.add_device_error_event(s["id"], "error", str(i))
+    events = temp_db.list_device_error_events(s["id"], limit=10)
+    assert [e["message"] for e in events] == ["3", "2"]
+
+
+def test_init_db_adds_column_to_legacy_table(temp_db):
+    import sqlite3
+
+    s = temp_db.create_system({"kind": "server", "name": "H"})
+    con = sqlite3.connect(db.DB_PATH)
+    con.execute("DROP TABLE deviceErrorEvents")
+    con.execute("CREATE TABLE deviceErrorEvents (id TEXT PRIMARY KEY, systemId TEXT NOT NULL, "
+                "level TEXT NOT NULL DEFAULT 'error', message TEXT NOT NULL, createdAt TEXT NOT NULL)")
+    con.execute("INSERT INTO deviceErrorEvents VALUES('e1', ?, 'error', 'm', '2024-01-01')", (s["id"],))
+    con.commit()
+    con.close()
+    temp_db.init_db()
+    events = temp_db.list_device_error_events(s["id"])
+    assert events[0]["acknowledgedAt"] is None

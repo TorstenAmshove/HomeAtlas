@@ -346,7 +346,9 @@ CREATE TABLE IF NOT EXISTS deviceErrorEvents (
     systemId TEXT NOT NULL,
     level TEXT NOT NULL DEFAULT 'error',
     message TEXT NOT NULL,
-    createdAt TEXT NOT NULL
+    createdAt TEXT NOT NULL,
+    -- NULL = open; set by an admin acknowledging it. Only open events count toward the badge.
+    acknowledgedAt TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_errorevents_system ON deviceErrorEvents(systemId, createdAt DESC);
 CREATE INDEX IF NOT EXISTS idx_configversions_system ON deviceConfigVersions(systemId, createdAt DESC);
@@ -407,6 +409,7 @@ CREATE INDEX IF NOT EXISTS idx_chatmsg_chat ON chatMessages(chatId);
 # already exists, so an installation that predates a column would keep the old shape and every
 # query naming it would fail -- these are applied explicitly on startup.
 _ADDED_COLUMNS: tuple[tuple[str, str, str], ...] = (
+    ("deviceErrorEvents", "acknowledgedAt", "TEXT"),
     ("systems", "docUrl", "TEXT NOT NULL DEFAULT ''"),
     ("accounts", "passphraseEnc", "TEXT NOT NULL DEFAULT ''"),
     ("accounts", "allowProbe", "INTEGER NOT NULL DEFAULT 0"),

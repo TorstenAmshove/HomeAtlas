@@ -14,7 +14,7 @@ export function recentHistory(monitorEvents: MonitorEvent[], errorEvents: Device
       key: `m-${e.id}`, at: e.at, tone: (e.status === "online" ? "ok" : e.status === "offline" ? "bad" : "") as HistoryItem["tone"],
       title: MONITOR_WORD[e.status] ?? e.status, text: e.detail,
     })),
-    ...(errorEvents ?? []).map((e) => ({
+    ...(errorEvents ?? []).filter((e) => !e.acknowledgedAt).map((e) => ({
       key: `e-${e.id}`, at: e.createdAt, tone: (e.level === "error" ? "bad" : e.level === "warning" ? "warn" : "") as HistoryItem["tone"],
       title: LEVEL_WORD[e.level] ?? e.level, text: e.message,
     })),
