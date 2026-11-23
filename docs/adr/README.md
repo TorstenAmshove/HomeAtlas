@@ -40,4 +40,5 @@ Menschen und für KI-Agenten, die sonst bewusste Entscheidungen „wegrefaktorie
 | [0018](0018-wan-status-und-lesepfade.md) | WAN-Status lesen, HA-Systemprotokoll, Dachfenster gesperrt | Ersetzt durch ADR-0019 |
 | [0019](0019-firewall-zonen-subnetze.md) | Firewall-Zonen über die Subnetze aus `networkconf` zuordnen | Ersetzt durch ADR-0021 |
 | [0020](0020-llm-client-ohne-schwesterprojekt.md) | Providerneutraler LLM-Client ohne Vendor-SDK, ohne Schwesterprojekt | Akzeptiert |
-| [0021](0021-proxmox-live-lesepfade.md) | Lesender Live-Zugriff auf die Proxmox-API für den Assistenten | Akzeptiert |
+| [0021](0021-proxmox-live-lesepfade.md) | Lesender Live-Zugriff auf die Proxmox-API für den Assistenten | Ersetzt durch ADR-0022 |
+| [0022](0022-container-live-status.md) | Live-Status lokaler Docker-Container für den Assistenten, ohne Inspect | Akzeptiert |

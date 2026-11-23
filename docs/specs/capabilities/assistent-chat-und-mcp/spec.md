@@ -207,13 +207,13 @@ Quelle: `backend/app/tools.py:415`, `backend/app/tools.py:428`, `backend/app/pro
 ### Requirement: Fähigkeitsgrenze des Assistenten
 Das System MUSS die Fähigkeiten des LLM auf eine feste Werkzeugliste begrenzen, die für In-App-Chat
 und MCP identisch ist: lesender Zugriff auf Inventar, Dokumentation, Zugangs-Metadaten und Container,
-begrenzte Live-Diagnosen, lesende Live-Abfragen an Home Assistant (siehe unten) sowie als einzige
+begrenzte Live-Diagnosen, lesende Live-Abfragen an Home Assistant und den lokalen Docker-Host (siehe unten) sowie als einzige
 verändernde Fähigkeit `set_switch`. Kein Werkzeug DARF
 Inventar, Dokumentation, Zugänge, Einstellungen, Container oder Hosts verändern. Eine neue
 verändernde Fähigkeit erfordert eine neue Architekturentscheidung (ADR 0004). **[Muss]**
 
 Werkzeuggruppen (Details, Schemas und Grenzen: [llm-tools](../../contracts/llm-tools.md)):
-- Inventar: `list_systems` (Filter `kind`, `query`, `onlyOnline`), `get_system`, `network_overview`, `list_containers`
+- Inventar: `list_systems` (Filter `kind`, `query`, `onlyOnline`), `get_system`, `network_overview`, `list_containers` (Stand des letzten Scans)
 - Dokumentation: `list_documentation`, `get_documentation`
 - Zugänge: `list_accounts` (ohne Passwörter)
 - Erreichbarkeit: `list_exposure` (nur aus der Datenbank, begrenzt auf 15 Zeilen je Liste mit Kürzungshinweis, Filter `host`, ohne Geheimnisse und ohne Quell-Zugangs-IDs, kein Live-DNS)
@@ -222,6 +222,7 @@ Werkzeuggruppen (Details, Schemas und Grenzen: [llm-tools](../../contracts/llm-t
 - Home Assistant live (nur lesend): `get_ha_state`, `get_ha_history`, `get_ha_logbook`, `get_ha_error_log`, `list_ha_traces`, `get_ha_trace`
 - UniFi live (nur lesend): `get_unifi_client`, `get_unifi_device`, `get_unifi_network`, `get_unifi_events`
 - Proxmox live (nur lesend): `get_proxmox_guest`, `get_proxmox_node`
+- Docker live (nur lesend, nur lokaler Host): `get_container_status`
 - Diagnose: `internet_check`, `ping_host` (1–10 Versuche, Standard 3), `check_port`, `dns_lookup`, `reverse_dns`, `http_check`, `traceroute` (1–30 Hops, Standard 15); Ausführung siehe [diagnose](../diagnose/spec.md)
 
 #### Szenario: Kein Schreibwerkzeug
@@ -385,6 +386,44 @@ Quelle: `backend/app/tools.py` (`_dispatch_proxmox_live`, `_pick_proxmox_account
 - **DANN** nennt die Antwort das, und es geht kein Netzwerkaufruf raus
 
 > OFFEN: Noch nicht gegen eine echte Proxmox-Instanz abgenommen (Version nach der Abnahme hier vermerken).
+
+### Requirement: Live-Status lokaler Container
+Das System MUSS dem Assistenten (jede Rolle, jeder MCP-Client) mit `get_container_status` den Live-Zustand der
+Docker-Container des HomeAtlas-Hosts anbieten ([ADR-0022](../../../adr/0022-container-live-status.md)). Die einzige
+Anfrage an die Docker-API ist `GET /containers/json?all=1` (`docker_probe.live_containers`); der Inspect-Pfad
+`/containers/{id}/json` und jede andere Methode als GET DÜRFEN dafür nie verwendet werden. Das Ergebnis enthält je
+Container nur: Name, Image (ohne `user:pass@`), State, Status-Text, Exit-Code mit kurzer Einordnung (z. B. 137 „vom
+System beendet, oft Speicher voll“, 0 „regulär beendet“), Health (healthy/unhealthy/starting, leer ohne
+Healthcheck), „seit“ (z. B. „Up 2 hours“, „Exited 3 minutes ago“) und Compose-Projekt. Env-Werte, Command,
+Entrypoint, Mounts, Ports und alle Labels außer dem Compose-Projekt DÜRFEN nie ausgegeben werden. Der Parameter
+`container` (optional, höchstens 100 Zeichen; Name, Compose-Dienst, Inventar-ID oder Teilstring des Namens) wird nur
+mit der Live-Liste verglichen, nie in einen Pfad eingesetzt; leer liefert alle. Höchstens 50 Container pro Antwort,
+eine Kürzung wird angezeigt. Ohne Docker-Socket, bei Verbindungs- oder HTTP-Fehlern (auch 403 eines Socket-Proxys)
+oder ungültiger Antwort MUSS eine feste, verständliche Meldung statt eines Fehlers kommen. Kein Log, keine
+Steuerung, keine Container entfernter Hosts (dort gilt `list_containers`).
+
+Die Regel in `prompts.py` (`CHAT_SYSTEM`) MUSS verlangen: Kann der Assistent etwas nicht selbst tun, erklärt er die
+vermutliche Ursache aus dem gemessenen Status, sagt klar, dass der Admin es erledigen muss, formuliert eine kurze
+Nachricht an den Admin (Gerät/Dienst, Symptom, Zeitpunkt, Status) und behauptet nie, etwas ausgeführt zu haben. Das
+gilt für alle Rollen. MCP bietet keine Prompts; dort trägt die Werkzeugbeschreibung den Hinweis. **[Muss]**
+
+Quelle: `backend/app/docker_probe.py` (`live_containers`, `_live_row`, `_parse_status`), `backend/app/tools.py` (`_container_status`), `backend/app/prompts.py`, Tests: `backend/tests/test_docker_probe.py`, `backend/tests/test_tools_container_status.py`
+
+#### Szenario: Gestoppter Container
+- **WENN** der Assistent `get_container_status` für einen Container mit Status „Exited (137) 3 minutes ago“ aufruft
+- **DANN** nennt das Ergebnis State `exited`, Exit-Code 137 mit der Einordnung „vom System beendet, oft Speicher voll“
+
+#### Szenario: Neu startender und kranker Container
+- **WENN** ein Container „Restarting (1) 5 seconds ago“ bzw. „Up 2 hours (unhealthy)“ meldet
+- **DANN** zeigt das Ergebnis State `restarting` mit Exit-Code 1 bzw. Health `unhealthy`
+
+#### Szenario: Nur erlaubte Felder
+- **WENN** die Docker-Antwort Env, Command, Mounts und zusätzliche Labels mit Geheimnissen enthält
+- **DANN** kommt nichts davon im Ergebnis vor, nur das Compose-Projekt
+
+#### Szenario: Kein Socket
+- **WENN** der Docker-Socket nicht eingebunden ist oder die Docker-API nicht antwortet
+- **DANN** nennt die Antwort das verständlich, und es wird keine Ausnahme geworfen
 
 ### Requirement: Live-Lesen von Home Assistant
 Das System MUSS dem Assistenten (jede Rolle, jeder MCP-Client) lesende Live-Abfragen an Home

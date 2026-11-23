@@ -277,6 +277,14 @@ HomeAtlas kann die Rechte des Tokens nicht prüfen, die feste Pfadliste im Code 
 Notizen, Tags und Log-Text der Aufgaben werden nie weitergegeben, nichts wird gespeichert; die Abfrage steht
 allen Rollen und MCP-Clients offen (ADR-0021).
 
+**Container live lesen.** Mit `get_container_status` sieht der Assistent den aktuellen Zustand der Docker-Container
+des HomeAtlas-Hosts (läuft, beendet mit Exit-Code und Einordnung, startet neu, unhealthy, seit wann). Es ist genau
+eine Abfrage, `GET /containers/json?all=1`, ohne Inspect: Umgebungsvariablen (mögliche Geheimnisse), Befehle, Mounts
+und Labels außer dem Compose-Projekt erreichen HomeAtlas nie. Keine Logs, keine Steuerung, keine entfernten
+Docker-Hosts. Kann der Assistent etwas nicht selbst beheben, erklärt er die Ursache und formuliert eine Nachricht an
+den Admin zum Weitergeben (ADR-0022). Ein Docker-Socket-Proxy braucht dafür nur `GET /containers/json`;
+`/containers/{id}/json` kann gesperrt bleiben.
+
 **Erreichbarkeit im Assistenten und auf der Geräteseite.** Das Werkzeug `list_exposure` beantwortet
 Fragen wie „warum ist app2.example.net nicht erreichbar?“. Es liest nur die beim letzten Scan
 gespeicherten Fakten (kein Live-DNS, keine Geheimnisse, höchstens 15 Zeilen je Liste mit Hinweis auf
