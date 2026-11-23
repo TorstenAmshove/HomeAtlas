@@ -49,12 +49,15 @@ async def edit_doc_manual(slug: str, body: dict = Body(...), _: dict = Depends(r
 async def reset_doc(slug: str, _: dict = Depends(require_admin)) -> dict:
     db.reset_doc_page(slug)
     settings = db.get_settings()
-    await docs.generate(settings, use_llm=settings.get("scanUseLlm", True))
+    await docs.generate(settings, use_llm=settings.get("scanUseLlm", True), only_slug=slug)
     return {"page": db.get_doc_page(slug)}
 
 
 @router.post("/api/docs/generate")
 async def generate_docs(body: dict = Body(default={}), _: dict = Depends(require_admin)) -> dict:
+    """Regenerates all chapters. The setting `scanUseLlm` is the master switch: `useLlm: false` in
+    the request can turn the AI intros off, but `useLlm: true` does not force them on while the
+    setting is off."""
     settings = db.get_settings()
     use_llm = body.get("useLlm", settings.get("scanUseLlm", True))
     slugs = await docs.generate(settings, use_llm=use_llm)

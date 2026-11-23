@@ -59,15 +59,19 @@ def get_doc_version(version_id: str) -> dict | None:
 def restore_doc_version(version_id: str) -> dict | None:
     """Restoring is itself a change, so the state being replaced is snapshotted first -- an
     accidental restore stays undoable. The page becomes `generated = 0`: a deliberately chosen old
-    text must not be overwritten by the next automatic run."""
+    text must not be overwritten by the next automatic run.
+
+    Only the chapter text is restored. The household's own notes keep their current content: they
+    are independent of the text (see `set_doc_page_manual`) and have their own history, so a
+    restore must not silently discard them. The snapshot above still contains both."""
     version = get_doc_version(version_id)
     if version is None:
         return None
     snapshot_doc_page(version["slug"], "vor Wiederherstellung")
     with _conn() as conn:
         conn.execute(
-            "UPDATE docPages SET bodyMd = ?, manualMd = ?, generated = 0, updatedAt = ? WHERE slug = ?",
-            (version["bodyMd"], version["manualMd"] or "", _now(), version["slug"]),
+            "UPDATE docPages SET bodyMd = ?, generated = 0, updatedAt = ? WHERE slug = ?",
+            (version["bodyMd"], _now(), version["slug"]),
         )
     return get_doc_page(version["slug"])
 
