@@ -35,8 +35,8 @@
 | `get_documentation` | **`slug`** | vollständiger Text eines Kapitels |
 | `list_accounts` | `systemId` | Zugänge **ohne Passwörter**: Bezeichnung, Benutzername, Adresse, Notiz |
 | `list_containers` | – | Docker-Container des Servers: Image, Status, Ports, Volumes |
-| `list_switches` | – | schaltbare Shelly-Geräte und Home-Assistant-Entities (nur `switch`/`light`) mit IDs für `set_switch` |
-| `set_switch` | **`kind`** (`shelly`\|`ha`), `systemId`, `accountId`, `entityId`, **`on`** | Ein/Aus schalten, sofort und ohne Rückfrage. **Einzige schreibende Aktion.** Nicht für Schlösser, Rollläden, Heizung, Alarmanlage |
+| `list_switches` | – | schaltbare Home-Assistant-Entities (`switch`/`light` und Rollos) mit IDs für `set_switch` |
+| `set_switch` | **`kind`** (`ha`), `accountId`, `entityId`, `on`, `action` | Ein/Aus schalten, sofort und ohne Rückfrage. **Einzige schreibende Aktion.** Nicht für Schlösser, Tore, Fenster, Heizung, Alarmanlage |
 | `internet_check` | – | Internet in drei Schichten prüfen: Erreichbarkeit, Namensauflösung, Webseiten |
 | `ping_host` | **`host`**, `count` | Erreichbarkeit und Stabilität |
 | `check_port` | **`host`**, **`port`** | ist ein Dienst-Port erreichbar |
@@ -49,6 +49,6 @@ Die Beschreibungstexte, die das Modell sieht, stehen auf Deutsch in `backend/app
 Teil des Verhaltens: Sie sagen dem Modell, welches Werkzeug es zuerst nehmen soll (z. B.
 `internet_check` bei „Internet geht nicht“, `list_switches` vor `set_switch`).
 
-`set_switch` ist die in ADR 0011 und ADR 0004 dokumentierte einzige Ausnahme von der Lese-Regel:
-für alle Rollen und alle MCP-Clients, ohne Bestätigung (bestätigt in #43). Es erreicht nur Geräte,
-die als Shelly erkannt sind, und protokolliert den Auslöser (Benutzer bzw. MCP-Token).
+`set_switch` ist die in ADR 0013 und ADR 0023 dokumentierte einzige Ausnahme von der Lese-Regel:
+für alle Rollen und alle MCP-Clients, ohne Bestätigung (bestätigt in #43). Es erreicht nur Home-Assistant-Entities
+(`switch`/`light`, Rollos der Allowlist; kein Shelly mehr, ADR-0023) und protokolliert den Auslöser (Benutzer bzw. MCP-Token).

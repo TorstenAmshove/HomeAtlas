@@ -24,12 +24,12 @@
 - **P1 [Muss]** Selbst gehostet, eine Instanz pro Haushalt, Betrieb im eigenen LAN. Kein Cloud-Zwang;
   optionale Außenkontakte sind der gewählte LLM-Anbieter (mit Ollama: keiner) sowie, je einzeln
   abschaltbar und standardmäßig aus, die Cloudflare-API und die öffentliche DNS-Auflösung für die
-  Erreichbarkeits-Ketten (nur lesend). ([ADR-0022](../adr/0022-container-live-status.md))
+  Erreichbarkeits-Ketten (nur lesend). ([ADR-0023](../adr/0023-keine-fernwartung.md))
 - **P2 [Muss]** Zielgruppe der Ausgaben (Doku, Netzplan, Assistent) sind **technische Laien** im
   Haushalt. Sprache der Oberfläche und der Doku: Deutsch, verständlich, ohne Fachjargon wo vermeidbar.
 - **P3 [Muss]** Die App dokumentiert das Netz; sie ist **kein Passwort-Manager** für persönliche
-  Zugänge und **kein** Netzwerk-Management-System. Schreibende Gerätefunktionen sind Ausnahmen für
-  Administratoren (siehe 3).
+  Zugänge und **kein** Netzwerk-Management-System. Die einzige Steuerung ist das Schalten über
+  Home Assistant (siehe 3); es gibt keine Fernwartung.
 - **P4 [Muss]** Erkennung aus **mehreren unabhängigen Quellen**, weil keine allein alles sieht
   (Ping/ARP, Portscan, Reverse-DNS, mDNS, SSDP/UPnP, HTTP-Banner, Docker, Controller-APIs).
 - **P5 [Muss]** Was ein Mensch von Hand gepflegt hat, überschreibt keine Automatik
@@ -37,7 +37,7 @@
 
 ## 2. Rollen und Anmeldung
 
-- **R1 [Muss]** Zwei Rollen: **ADMIN** (alles, inkl. Secrets und schreibender Gerätezugriff) und
+- **R1 [Muss]** Zwei Rollen: **ADMIN** (alles, inkl. Secrets) und
   **MEMBER** (Doku, Inventar lesen, Assistent; nie ein Klartext-Secret). Benutzernamen, URLs und
   Notizen von Zugängen dürfen MEMBER und das LLM sehen (#48). Unterhaltungen mit dem Assistenten
   sind je Benutzer getrennt, ADMIN sieht alle (#49).
@@ -59,14 +59,12 @@
   Anzeigen eines gespeicherten Passworts**, mit Zeit, Benutzer, IP, User-Agent und Erfolg.
 - **R7 [Muss]** Erst-Admin: Gibt es noch keinen Benutzer, wird einer angelegt (Name/Passwort aus
   der Konfiguration, sofern es R5 erfüllt, sonst generiert und **einmalig** im Log ausgegeben).
-- **R8 [Muss]** WebSocket-Verbindungen (Konsolen) prüfen Sitzung, Rolle und Herkunft (Origin) wie
-  normale Anfragen; ein fehlender Origin wird abgelehnt.
 
 ## 3. Lesen vs. Schreiben an Geräten
 
 - **L1 [Muss]** Lesender und schreibender Gerätezugriff sind getrennte Pfade. Kein lesender Pfad
   kann über eine Einstellung, einen Parameter oder ein KI-Werkzeug schreibend werden.
-  ([ADR-0022](../adr/0022-container-live-status.md))
+  ([ADR-0023](../adr/0023-keine-fernwartung.md))
 - **L2 [Muss]** Credentialed Probing ist **streng lesend**: SSH nur aus einer festen, im Code
   stehenden Befehlsliste (nicht erweiterbar, nicht interaktiv, kein `sudo` (einzige Ausnahme: der feste Befehl `nft -j list ruleset` der Firewall-Quelle, per `authorized_keys` und sudoers nur dafür freigegeben), kein Paketmanager, keine
   Dienststeuerung, keine schreibende Umleitung in Dateien; Pipes zu Lesewerkzeugen wie `base64` und
@@ -74,7 +72,7 @@
   Ausnahme: Dateilesen per SSH-Forced-Command aus festen Befehlskonstanten je Quelltyp (kein Pfad,
   kein Parameter; Erreichbarkeits- und Firewall-Quellen); HTTP nur GET (Ausnahme: im Live-Zugriff `unifi_live.py` höchstens ein lesender POST für Events, L8; Proxmox-Live, L9, nur GET); TR-064/IGD nur `Get*`-Aktionen (die öffentliche Adresse der FRITZ!Box ohne Zugangsdaten); Docker-API nur GET; Home-Assistant-WebSocket nur
   `trace/list`, `trace/get` und `system_log/list`.
-  ([ADR-0022](../adr/0022-container-live-status.md))
+  ([ADR-0023](../adr/0023-keine-fernwartung.md))
 - **L3 [Muss]** Ein Zugang wird nur benutzt, wenn er **ausdrücklich zum Auslesen freigegeben**
   ist (Opt-in je Zugang, Default aus). Das Auslesen pro Gerät lässt sich global abschalten
   (`scanUseCredentials`); Controller-Abfragen (UniFi, Omada, Proxmox, AdGuard) haben eigene Schalter.
@@ -83,26 +81,26 @@
 - **L3a [Muss]** Manche Plattformen brauchen zum Lesen einen Befehl, der formal in einen
   Konfigurationsmodus wechselt (TP-Link `configure` / `no clipaging` gegen Seitenumbruch). Erlaubt
   ist das nur, um die Ausgabe lesbar zu machen, nie, um etwas zu ändern.
-- **L4 [Muss]** Schreibende Funktionen (Container steuern, Reboot, SSH-Konsole, Schlüssel ausrollen,
-  Proxmox-Aktionen) sind nur für ADMIN und nur über die Oberfläche/API erreichbar, nie über
-  Scan-Pipeline, Probes oder KI-Werkzeuge. ([ADR-0022](../adr/0022-container-live-status.md))
-- **L5 [Muss]** Einzige Ausnahme: Ein/Aus-Schalten von Shelly-Relais und Home-Assistant
-  `switch`/`light` sowie Auf/Zu/Stopp (keine Position) von Home-Assistant-Rollos (`cover` mit
-  `device_class` blind/shade/shutter/curtain/awning; Garagen-/Hoftore, Türen, Fenster und Entities ohne
+- **L4 [Muss]** HomeAtlas hat keine Fernwartung: kein Befehl auf Geräten, keine Konsole, keine
+  Container-/Proxmox-Steuerung, kein Neustart, kein Erzeugen oder Verteilen von SSH-Schlüsseln.
+  Verwaltung erfolgt über externe Werkzeuge. ([ADR-0023](../adr/0023-keine-fernwartung.md))
+- **L5 [Muss]** Einzige Schreibfähigkeit: Ein/Aus-Schalten von Home-Assistant `switch`/`light` sowie
+  Auf/Zu/Stopp (keine Position) von Home-Assistant-Rollos (`cover` mit `device_class`
+  blind/shade/shutter/curtain/awning; Garagen-/Hoftore, Türen, Fenster und Entities ohne
   `device_class` gesperrt) per KI-Werkzeug `set_switch`, für alle Rollen und MCP-Clients, ohne
-  Rückfrage (bestätigt in #43, #99). Nur echte Shelly-Geräte; jeder Vorgang wird mit Auslöser
-  protokolliert.
-  Erweiterungen brauchen ein neues ADR. ([ADR-0022](../adr/0022-container-live-status.md))
-- **L6 [Impl]** Lese- und Schreibseite sind getrennte Module, die einander nicht importieren;
-  gemeinsamer Code wird eher dupliziert als geteilt. ([ADR-0022](../adr/0022-container-live-status.md))
+  Rückfrage (bestätigt in #43, #99). Kein direktes Schalten von Shelly-Geräten; jeder Vorgang wird mit
+  Auslöser protokolliert. Weitere Aktionen nur nativ in `switch_admin.py`, nur über `tools.py`, je Aktion
+  mit eigenem ADR und fester Allowlist. ([ADR-0023](../adr/0023-keine-fernwartung.md))
+- **L6 [Impl]** Lese- und Schreibseite (`switch_admin.py`) sind getrennte Module, die einander nicht importieren;
+  gemeinsamer Code wird eher dupliziert als geteilt. ([ADR-0023](../adr/0023-keine-fernwartung.md))
 - **L8 [Muss]** Live-Zugriff auf die klassische UniFi-API (`unifi_live.py`) ist nur lesend: Auth
   allein per `X-API-Key`, feste Endpunkt-Allowlist (GET plus genau ein lesender POST für Events, `get_unifi_events`), Feld-Positivliste,
   höchstens 7 Tage, begrenzte Menge, nichts wird gespeichert. Importiert kein `*_admin`-Modul und
-  wird nicht von Scan-Modulen importiert. ([ADR-0022](../adr/0022-container-live-status.md))
+  wird nicht von Scan-Modulen importiert. ([ADR-0023](../adr/0023-keine-fernwartung.md))
 - **L9 [Muss]** Live-Zugriff auf die Proxmox-API (`proxmox_live.py`) ist nur lesend: nur GET auf eine feste
   Pfad-Allowlist, Auth allein mit dem API-Token des Zugangs der Kategorie `proxmox` (mit Opt-in), Feld-Positivliste,
   kein Freitext des Gasts, kein Aufgaben-Log-Text, begrenzte Menge, nichts wird gespeichert. Importiert kein
-  `*_admin`- und kein Scan-Modul; höchstens `tools.py` importiert es. ([ADR-0022](../adr/0022-container-live-status.md))
+  `*_admin`- und kein Scan-Modul; höchstens `tools.py` importiert es. ([ADR-0023](../adr/0023-keine-fernwartung.md))
 - **L7 [Muss, bewusste Abwägung]** SSH-Hostschlüssel werden nicht geprüft (kein Vertrauensspeicher;
   sonst wäre die Funktion im Zielnetz unbrauchbar). Eine Alternative darf das verbessern
   (z. B. Trust-on-first-use), muss es aber nicht.
@@ -110,12 +108,12 @@
 ## 4. KI-Assistent
 
 - **K1 [Muss]** Die Werkzeugliste ist die **vollständige** Fähigkeitsgrenze des Modells: lesend
-  plus begrenzte Live-Diagnosen plus die eine Ausnahme `set_switch` (L5) die lesenden UniFi-Live-Abfragen (L8) und die lesenden Proxmox-Live-Abfragen (L9) und den lesenden Live-Status lokaler Container (`get_container_status`, nur `GET /containers/json`, kein Inspect). ([ADR-0022](../adr/0022-container-live-status.md),
+  plus begrenzte Live-Diagnosen plus die eine Ausnahme `set_switch` (L5) die lesenden UniFi-Live-Abfragen (L8) und die lesenden Proxmox-Live-Abfragen (L9) und den lesenden Live-Status lokaler Container (`get_container_status`, nur `GET /containers/json`, kein Inspect). ([ADR-0023](../adr/0023-keine-fernwartung.md),
   [llm-tools](contracts/llm-tools.md))
 - **K2 [Muss]** Gespeicherte Secrets erreichen **nie** ein Modell, einen Prompt, Anbieter-Logs oder
-  den Chatverlauf. Werkzeuge, die ein Secret brauchen, nutzen es serverseitig. ([ADR-0022](../adr/0022-container-live-status.md))
+  den Chatverlauf. Werkzeuge, die ein Secret brauchen, nutzen es serverseitig. ([ADR-0023](../adr/0023-keine-fernwartung.md))
 - **K3 [Muss]** Live-Diagnosen laufen ohne Shell (Argumentliste), mit Timeout und mit strikt
-  validierten Zielen (Hostname/IP/URL nach Muster). ([ADR-0022](../adr/0022-container-live-status.md))
+  validierten Zielen (Hostname/IP/URL nach Muster). ([ADR-0023](../adr/0023-keine-fernwartung.md))
 - **K4 [Muss]** Werkzeugergebnisse sind in der Größe begrenzt; eine Kürzung wird dem Modell
   mitgeteilt. Die Zahl der LLM-Aufrufe pro Antwort ist begrenzt.
 - **K5 [Muss]** Anbieter frei wählbar: Anthropic Claude, OpenAI, Google Gemini, DeepSeek, lokales
@@ -155,9 +153,8 @@
 - **B3 [Impl]** Zwei Container mit `network_mode: host`; Backend bindet an `127.0.0.1:8281`, nginx
   im Frontend-Container auf `:8280` leitet `/api/*` weiter. ([ADR-0003](../adr/0003-host-netzwerk-und-loopback-backend.md))
 - **B4 [Muss]** Kein HTTPS eingebaut; Zugriff von außen nur hinter einem Reverse Proxy mit TLS.
-- **B5 [Muss]** Der Docker-Socket ist optional. Erkennung und Probing lesen nur (GET); schreibend
-  nutzt ihn nur die Container-Steuerung für ADMIN (siehe L4). Ohne Socket funktioniert alles außer
-  Container-Erkennung und lokaler Container-Steuerung.
+- **B5 [Muss]** Der Docker-Socket ist optional und wird nur gelesen (GET). Ohne Socket funktioniert alles außer
+  Container-Erkennung und dem Live-Container-Status. Ein Socket-Proxy steht aus (#101).
 - **B6 [Muss]** Die Erkennung arbeitet unter Windows/Docker Desktop nur eingeschränkt (keine
   `ip`/`ping`/`traceroute`); das ist eine bekannte Grenze, kein Fehler. ([ADR-0003](../adr/0003-host-netzwerk-und-loopback-backend.md))
 

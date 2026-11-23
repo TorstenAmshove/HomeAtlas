@@ -37,7 +37,7 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (13)
+## Alle Punkte je Fähigkeit (11)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (1)
 
@@ -74,11 +74,6 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 1. Fähigkeitsbeschreibung nennt Omada und Discovery-Subnetze als Quelle; im Code liefert nur UniFi Netzwerkressourcen. Soll eine Alternative Omada-Netze übernehmen?
 2. Der manuelle Abgleich beim Verbindungstest (`backend/app/routes/systems.py:262`) nutzt dieselbe `sync_network_resources` und zählt `emptyScans` mit; zwei Klicks bei leer gemeldetem Bereich deaktivieren dessen Ressourcen also ebenso wie zwei Scans. Gewollt?
-
-### [remote-admin](capabilities/remote-admin/spec.md) (2)
-
-1. Prompt-Injection-Risiko: Inhalte aus Inventar/Doku könnten das Modell zu `set_switch` ohne Rückfrage verleiten. → entschieden in #43
-2. Assistent schaltet bei Shelly immer Kanal 0 (bewusst; ein Kanalparameter für `set_switch` erweitert die ADR-Ausnahme). Bereichsprüfung der REST-Route behoben (#147).
 
 ### [topologie](capabilities/topologie/spec.md) (1)
 

@@ -104,7 +104,7 @@ Adresse läuft nichts, Grund „Keine Adresse hinterlegt.“): **[Muss]**
 - `sshkey`: immer SSH.
 - `login` mit Port 0 oder 22: SSH nur (ein anderer Port gehört meist zur Weboberfläche; SSH dorthin
   wäre ein Fehlversuch mit Zugangsdaten für einen anderen Dienst – bewusst so, `sshkey` ist
-  eindeutig SSH und darf jeden Port haben; `routes/remote.py::_ssh_eligible` trägt dieselbe Regel), wenn eine Netzwerk-Plattform erkannt ist oder `kind` ∈
+  eindeutig SSH und darf jeden Port haben), wenn eine Netzwerk-Plattform erkannt ist oder `kind` ∈
   {server, nas, vm, pc, container}.
 - `snmp`: SNMP. `homeassistant`: Home-Assistant-API (URL des Zugangs, sonst des Geräts).
 - `login`/`apikey` mit URL (Zugang, sonst Gerät): HTTP-GET-Anmeldung.
@@ -537,8 +537,8 @@ auslesen“, nur Admin und nur wenn ein Zugang `allowProbe` hat).
 
 ## Nicht-Ziele und Grenzen
 
-- Keine Konfigurationsänderung, kein Neustart, kein Zurückspielen von Sicherungen (siehe
-  [remote-admin](../remote-admin/spec.md) für Schreibaktionen).
+- Keine Konfigurationsänderung, kein Neustart, kein Zurückspielen von Sicherungen; HomeAtlas hat keine
+  Fernwartung (ADR-0023). Bestehende `sshkey`-Zugänge werden weiter nur lesend genutzt.
 - Keine Hostschlüssel-/Zertifikatsprüfung (SSH, HTTPS, Controller-APIs).
 - SNMP nur v2c; keine strukturierte Auswertung von VLAN-/LLDP-Walks (Rohtext).
 - Klassisches Aruba (das Zugangsformular der Kategorie `login` weist am Benutzernamen darauf hin): kein Beantworten einer `enable`-Passwortabfrage – nur Konten mit

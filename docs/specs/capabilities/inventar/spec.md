@@ -486,9 +486,9 @@ technische Daten (IP, Hostname, MAC, Hersteller, Modell, Standort, zuletzt/erstm
 Quelle; nur befüllte), je nach Daten: Verbrauchsmaterial (Drucker, Balken rot ≤ 15 %), AdGuard Home,
 Container-Details, „Direkt vom Gerät ausgelesen", Konfigurationsverlauf (nur Art `router`/`network`,
 Ansehen/Herunterladen; Base64-Inhalt als `.cfg`, sonst `.txt`), erreichbare Dienste (mit
-Adressspalte bei mehreren Interfaces). ADMIN zusätzlich: Bearbeiten, Löschen, Auslesen, Neustart,
-Zusammenführen-Bereich („Weitere IPs/MACs", Duplikat-Hinweise, „Zusammenführen…"), Schalten,
-Zugänge, Container-Steuerung. **[Impl]** (Inhalte fachlich **[Muss]**: Mitglieder sehen keine
+Adressspalte bei mehreren Interfaces). ADMIN zusätzlich: Bearbeiten, Löschen, Auslesen,
+Zusammenführen-Bereich („Weitere IPs/MACs", Duplikat-Hinweise, „Zusammenführen…") und
+Zugänge. Es gibt keine Fernwartung (Neustart, Schalten, Konsolen, Container-Steuerung; ADR-0023). **[Impl]** (Inhalte fachlich **[Muss]**: Mitglieder sehen keine
 Zugänge und keine Schreibaktionen)
 
 #### Szenario: Mitglied
@@ -510,8 +510,9 @@ Wechselt die Seite direkt zu einem anderen Gerät, baut das Formular nur auf den
 der URL auf, nie auf denen des vorherigen; die Seite wird dabei neu aufgebaut (`key` = Geräte-ID in
 `App.tsx`), sodass angezeigte Passwörter und Seitenzustand nicht mitwandern. Der Status ist nur
 „live“, wenn die Dauerüberwachung an ist und das Gerät beobachtet (`GET /api/monitor`), sonst „Stand
-letzter Scan“ (dieselbe Regel wie die Startseite). „Zugänge“ und „Steuern“ gibt es nur für ADMIN
-(Mitglieder sehen wie bisher keine Zugänge). Löschen und Zusammenführen liegen unter „⋯“ und
+letzter Scan“ (dieselbe Regel wie die Startseite). „Zugänge“ gibt es nur für ADMIN
+(Mitglieder sehen wie bisher keine Zugänge). Einen Tab „Steuern“ gibt es nicht mehr (ADR-0023);
+`?tab=steuern` und jeder andere unbekannte Wert landen auf „Überblick“. Löschen und Zusammenführen liegen unter „⋯“ und
 verlangen einen Prüfdialog; der Lösch-Dialog nennt die mitgelöschten, direkt zugeordneten Zugänge und
 sagt, dass es kein Rückgängig gibt. Duplikat-Hinweise erscheinen nur, wenn es Kandidaten gibt.
 Ein angezeigtes Passwort wird nach 30 s wieder verborgen. **[Muss]** (Aufteilung und Texte **[Impl]**)
@@ -525,7 +526,7 @@ Ein angezeigtes Passwort wird nach 30 s wieder verborgen. **[Muss]** (Aufteilung
 - **DANN** ist das Passwort nach 30 s nicht mehr zu sehen
 
 Quelle: `frontend/src/pages/device/DevicePage.tsx`, `frontend/src/pages/device/ZugaengeTab.tsx`,
-`frontend/src/pages/device/SteuernTab.tsx`, `frontend/src/App.tsx`
+`frontend/src/App.tsx`
 
 ### Requirement: Bearbeiten verliert keinen Entwurf
 Die Oberfläche MUSS ungespeicherte Änderungen im Formular „Gerät bearbeiten“ im
@@ -572,8 +573,7 @@ Aus [data-model](../../contracts/data-model.md):
 | GET | /api/systems/{system_id}/admin-links | ADMIN | Absprung-Links nach Portainer/Proxmox → `{links}`, leer wenn keine zutreffen |
 
 Berührte fremde Routen (nur verlinkt): Auslesen `POST /api/systems/{id}/probe`, KI-Einordnung `POST /api/systems/{system_id}/classify` ([klassifikation-llm](../klassifikation-llm/spec.md))
-([credentialed-probing](../credentialed-probing/spec.md)), Container/Neustart/Schalten/Konsolen
-([remote-admin](../remote-admin/spec.md)), Zugänge ([zugangsdaten](../zugangsdaten/spec.md)).
+([credentialed-probing](../credentialed-probing/spec.md)), Zugänge ([zugangsdaten](../zugangsdaten/spec.md)).
 LLM-Lesezugriff aufs Inventar: [llm-tools](../../contracts/llm-tools.md).
 
 UI-Seite(n): `frontend/src/pages/geraete/InventoryPage.tsx` (Route `/geraete`),

@@ -180,48 +180,14 @@ Quelle: `backend/app/db.py:1408`, `backend/app/db.py:1464`, `backend/app/main.py
 
 ### Requirement: Freigabe fürs Auslesen ist eigenständige Einwilligung
 Das System MUSS die Freigabe `allowProbe` je Zugang getrennt speichern (Default aus) und nur fürs
-automatische lesende Auslesen auswerten; schreibende Funktionen (SSH-Konsole, Remote-Admin) DÜRFEN
-diese Freigabe weder voraussetzen noch als Ersatz für eigene Berechtigungsprüfungen nutzen. **[Muss]**
+automatische lesende Auslesen auswerten; schreibende Gerätefunktionen gibt es nicht (ADR-0023); für das Schalten per Assistent gilt dieselbe
+Freigabe bei Home-Assistant-Zugängen (siehe assistent-chat-und-mcp). **[Muss]**
 
 #### Szenario: Zugang ohne Freigabe
 - **WENN** ein `login`-Zugang ohne Freigabe an einem Server hängt
 - **DANN** wird er im Scan nicht genutzt, bleibt aber als Ablage sichtbar
 
 Quelle: `backend/app/db.py:228`, `backend/app/main.py:791`
-
-### Requirement: SSH-Schlüssel erzeugen
-Das System MUSS Admins für ein Gerät ein neues Ed25519-Schlüsselpaar ohne Passphrase erzeugen und
-als Zugang der Kategorie `sshkey` speichern: privater Schlüssel (OpenSSH-PEM) verschlüsselt als
-Secret, öffentlicher Schlüssel (`ssh-ed25519 <base64> homeatlas@<Gerätename>`) im Notizfeld,
-Benutzer leer, Port 22, Freigabe aus, Bezeichnung aus Anfrage (Default „SSH-Schlüssel
-(HomeAtlas)“). Antwort enthält Zugang und `publicKey`; Protokolleintrag `sshkey.generate`.
-Unbekanntes Gerät → 404. **[Muss]**
-
-#### Szenario: Schlüssel für NAS
-- **WENN** ein Admin für „NAS“ einen Schlüssel erzeugt
-- **DANN** existiert ein neuer `sshkey`-Zugang am NAS, dessen Notiz mit `ssh-ed25519 ` beginnt und
-  auf `homeatlas@NAS` endet
-
-Quelle: `backend/app/main.py:736`, `backend/app/remote_admin.py:45`
-
-### Requirement: SSH-Schlüssel auf Gerät einspielen
-Das System MUSS den öffentlichen Schlüssel eines `sshkey`-Zugangs auf dessen Gerät hinterlegen. Die
-Zeile wird aus dem gespeicherten privaten Schlüssel abgeleitet (Kommentar `homeatlas@<Gerätename>`),
-nie aus dem editierbaren Notizfeld; ein unlesbarer privater Schlüssel → 400. Angemeldet wird
-mit einem anderen, bereits hinterlegten Zugang desselben Geräts. Prüfungen: Schlüssel
-fehlt oder ist nicht `sshkey` → 404; Login-Zugang fehlt → 404; Login-Zugang nicht der Kategorie `login`/`sshkey` → 400; anderes Gerät → 400; Schlüssel
-ohne Gerät → 400; Gerät ohne IP/Hostname → 400. Die Datei `~/.ssh/authorized_keys` wird gelesen
-und die Zeile nur angehängt, wenn sie noch nicht exakt vorhanden ist (idempotent, `changed`);
-`~/.ssh` wird bei Bedarf mit 0700 angelegt, die Datei auf 0600 gesetzt; nie überschrieben.
-Port = Anfrage, sonst Port des Login-Zugangs, sonst 22. Jeder Versuch wird als `sshkey.deploy`
-mit Erfolg/Misserfolg protokolliert; Fehlschlag → 400 mit Fehlermeldung. **[Muss]**
-
-#### Szenario: Schlüssel schon vorhanden
-- **WENN** die exakte Zeile bereits in `authorized_keys` steht
-- **DANN** antwortet das System `{ok: true, changed: false}` und schreibt nichts
-
-Quelle: `backend/app/main.py:761`, `backend/app/remote_admin.py:111`, `remote_admin.public_line_for`, Test:
-`backend/tests/test_llm_defaults_and_accounts.py::test_deploy_ignores_edited_notes`
 
 ### Requirement: Secrets nie in Dokumentation, Chat oder LLM-Kontext
 Das System MUSS Secrets und Passphrasen aus allen Ausgaben außer der Einzelabruf-Route fernhalten:
@@ -323,13 +289,10 @@ Siehe [data-model](../../contracts/data-model.md).
 | DELETE | /api/accounts/{account_id} | ADMIN | Zugang samt Zuordnungen löschen |
 | GET | /api/accounts/{account_id}/assignments | ADMIN | Zusätzliche Zuordnungen lesen |
 | PUT | /api/accounts/{account_id}/assignments | ADMIN | Zuordnungsliste komplett ersetzen |
-| POST | /api/accounts/{account_id}/deploy | ADMIN | Öffentlichen Schlüssel per Login-Zugang aufs Gerät bringen |
 | GET | /api/accounts/{account_id}/secret | ADMIN | Ein Secret im Klartext, protokolliert |
-| POST | /api/systems/{system_id}/ssh-keys | ADMIN | Ed25519-Schlüsselpaar für ein Gerät erzeugen |
 
 Request-Körper: Zugang `{systemId?, label, category, username, secret, passphrase, url, notes,
-allowProbe, port}` (PATCH zusätzlich `clearSecrets?`); Zuordnungen `[{targetType, targetValue}]`; Deploy `{loginAccountId, port=0}`;
-Schlüssel `{label}`.
+allowProbe, port}` (PATCH zusätzlich `clearSecrets?`); Zuordnungen `[{targetType, targetValue}]`.
 
 Berührte fremde Routen: `GET /api/systems/{id}` liefert Zugänge des Geräts ohne Secrets
 ([inventar](../inventar/spec.md)); `PATCH /api/settings` für den Standard-Zugang
@@ -343,8 +306,8 @@ UI-Seite(n): `frontend/src/pages/zugaenge/AccountsPage.tsx`, `frontend/src/pages
 - Kein Passwort-Manager (keine Browser-Integration, Freigaben, Notfallzugriff) – README „Sicherheit“.
 - Kein Schutz gegen root auf dem Docker-Host (Schlüssel liegt im selben Volume).
 - Kein Abruf der Passphrase, kein Export aller Zugänge.
-- Kein Entfernen eines ausgerollten Schlüssels vom Gerät; kein Schlüsselwechsel.
-- Interaktive Konsole, Neustart, Container-Steuerung: [remote-admin](../remote-admin/spec.md).
+- Kein Erzeugen oder Verteilen von SSH-Schlüsseln (ADR-0023): Schlüssel legt der Admin außerhalb an (z. B. per Ansible) und trägt sie als Zugang der Kategorie `sshkey` ein; bestehende `sshkey`-Zugänge dienen weiter dem lesenden Auslesen.
+- Keine Fernwartung (Konsole, Neustart, Container-Steuerung); entfallen mit ADR-0023.
 
 ## Ist-Implementierung (nur Referenz, [Impl])
 

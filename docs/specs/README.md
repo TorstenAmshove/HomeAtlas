@@ -44,7 +44,7 @@ Abschnitt 11.
 | [klassifikation-llm](capabilities/klassifikation-llm/spec.md) | unsichere Geräte per LLM einordnen, Hersteller-Doku-Links | – (im Scan) | – | – |
 | [inventar](capabilities/inventar/spec.md) | Geräte ansehen, bearbeiten, Duplikate zusammenführen, Konfigurationsversionen | alle lesen / ADMIN ändern | Geräte (`/geraete`, `/geraete/:id`) | `/api/systems*` |
 | [credentialed-probing](capabilities/credentialed-probing/spec.md) | Geräte mit freigegebenen Zugängen streng lesend auslesen (SSH, HTTP, TR-064, SNMP, UniFi, Omada, Proxmox, AdGuard, Docker) | ADMIN | Gerätedetail | `/api/systems/{id}/probe` |
-| [zugangsdaten](capabilities/zugangsdaten/spec.md) | Zugänge verschlüsselt speichern, einzeln anzeigen, zuordnen, SSH-Schlüssel erzeugen und ausrollen | ADMIN | Zugänge (`/zugaenge`) | `/api/accounts*`, `/api/systems/{id}/ssh-keys` |
+| [zugangsdaten](capabilities/zugangsdaten/spec.md) | Zugänge verschlüsselt speichern, einzeln anzeigen, zuordnen | ADMIN | Zugänge (`/zugaenge`) | `/api/accounts*` |
 | [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) | Netze/VLANs, WLANs, WANs aus Controllern | alle lesen / ADMIN ändern | Netze & WLAN (`/netze`) | `/api/network-resources*` |
 | [topologie](capabilities/topologie/spec.md) | automatischer Netzplan für Laien, Layer-3-Ansicht | alle | Netzplan (`/plan`) | `/api/topology*.svg` |
 | [dokumentation](capabilities/dokumentation/spec.md) | 13 Kapitel aus dem Inventar, manuelle Notizen, Override, Versionen | alle lesen / ADMIN ändern | Dokumentation (`/dokumentation`) | `/api/docs*` |
@@ -52,7 +52,6 @@ Abschnitt 11.
 | [monitoring](capabilities/monitoring/spec.md) | wichtige Geräte laufend prüfen, Ausfallverlauf | alle | Übersicht, Gerätedetail | `/api/monitor*` |
 | [diagnose](capabilities/diagnose/spec.md) | Live-Messungen: Ping, Port, DNS, HTTP, Traceroute, Speedtest | siehe Spec | Gerätedetail, Assistent | `/api/diagnostics*` |
 | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) | KI-Assistent mit Werkzeugen, externer MCP-Endpunkt | alle / MCP-Tokens: ADMIN | KI-Assistent (`/assistent`) | `/api/chats*`, `/api/mcp`, `/api/settings/mcp-tokens*` |
-| [remote-admin](capabilities/remote-admin/spec.md) | Container steuern, Logs, Konsolen, Reboot, Schalter | ADMIN | Gerätedetail | `/api/systems/{id}/container*`, `…/remote-containers*`, `…/reboot`, `…/ha-switch*`, `…/shelly-switch/*`, `/api/ws/*` |
 | [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md) | Einstellungen, LLM-Anbieter und Modelle | alle sehen / ADMIN ändern | Einstellungen (`/einstellungen`) | `/api/settings*` |
 
 Die genauen Rechte je Route stehen in der jeweiligen Spec. Bei Abweichungen gilt die Spec.
@@ -69,7 +68,6 @@ Funktionsnamen sind gleich geblieben, also im Zweifel nach dem Namen suchen:
 | `settings.py` | einstellungen-und-llm-provider, MCP-Tokens aus assistent-chat-und-mcp |
 | `systems.py` | inventar, Auslesen eines Geräts aus credentialed-probing |
 | `accounts.py` | zugangsdaten |
-| `remote.py` | remote-admin, SSH-Schlüssel aus zugangsdaten |
 | `docs.py` | dokumentation |
 | `scans.py` | discovery-und-scan |
 | `diagnostics.py` | diagnose |
@@ -110,7 +108,7 @@ python docs/specs/trace_specs.py        # traceability.md + Liste in offene-punk
 4. **Reihenfolge** (Abhängigkeiten): auth-und-rollen → setup-wizard → einstellungen-und-llm-provider
    → inventar → discovery-und-scan → zugangsdaten → credentialed-probing → netzwerkressourcen-vlans
    → dokumentation → topologie → dashboard → monitoring → diagnose → assistent-chat-und-mcp →
-   klassifikation-llm → remote-admin.
+   klassifikation-llm.
 5. **Je Fähigkeit** den Agenten erst einen Plan schreiben lassen (Spec Kit: specify → plan → tasks),
    der jedem Szenario einen Test zuordnet, dann umsetzen. Fertig ist eine Fähigkeit, wenn alle
    Szenarien als Tests grün sind.
