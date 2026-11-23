@@ -320,7 +320,11 @@ def _normalize_config_text(text: str) -> str:
 
 
 def _decode_secret(account: dict) -> tuple[str, str]:
-    return crypto.decrypt(account.get("secretEnc") or ""), crypto.decrypt(account.get("passphraseEnc") or "")
+    """Strict: raises crypto.SecretUnreadable instead of probing with an empty password."""
+    return crypto.decrypt_strict(account.get("secretEnc") or ""), crypto.decrypt_strict(account.get("passphraseEnc") or "")
+
+
+_UNREADABLE_ERROR = "Secret nicht lesbar – Schlüsseldatei geändert? Zugang neu eintragen."
 
 
 # ---------------------------------------------------------------------------------------------
@@ -451,7 +455,10 @@ async def probe_ssh(host: str, account: dict, platform: str = "") -> dict:
     except ImportError:
         return {"ok": False, "error": "asyncssh ist nicht installiert -- SSH-Sondierung nicht möglich.", "facts": {}}
 
-    secret, passphrase = _decode_secret(account)
+    try:
+        secret, passphrase = _decode_secret(account)
+    except crypto.SecretUnreadable:
+        return {"ok": False, "error": _UNREADABLE_ERROR, "facts": {}}
     username = (account.get("username") or "root").strip()
     port = int(account.get("port") or 0) or 22
     is_key = (account.get("category") == "sshkey") or "PRIVATE KEY" in secret
@@ -537,11 +544,21 @@ _VERSION_RE = re.compile(
 )
 
 
+# `scheme://user:pass@host` -> `scheme://host`: error texts are persisted (extra.probe, error events)
+# and shown to every role, so a URL typed with embedded credentials must never leak through them.
+# Greedy up to the *last* "@" before the first "/" or whitespace, so a password containing an
+# unencoded "@" is removed completely, not just up to its first "@".
+_URL_USERINFO_RE = re.compile(r"([a-z][a-z0-9+.-]*://)[^/\s]*@", re.IGNORECASE)
+
+
 async def probe_http(url: str, account: dict) -> dict:
     """Fetches one page with the stored credentials. GET only -- no form is ever submitted."""
     if not url.startswith(("http://", "https://")):
         return {"ok": False, "error": "Keine gültige Adresse hinterlegt.", "facts": {}}
-    secret, _ = _decode_secret(account)
+    try:
+        secret, _ = _decode_secret(account)
+    except crypto.SecretUnreadable:
+        return {"ok": False, "error": _UNREADABLE_ERROR, "facts": {}}
     username = account.get("username") or ""
     if not username and not secret:
         return {"ok": False, "error": "Kein Benutzername und kein Passwort hinterlegt.", "facts": {}}
@@ -725,7 +742,10 @@ async def probe_homeassistant(url: str, account: dict) -> dict:
     type/service list, not real natural-language understanding of arbitrary trigger/condition/
     action trees), the same trade-off topology.py's neighbour parsers make elsewhere in this app.
     """
-    token, _ = _decode_secret(account)
+    try:
+        token, _ = _decode_secret(account)
+    except crypto.SecretUnreadable:
+        return {"ok": False, "error": _UNREADABLE_ERROR, "facts": {}}
     base_url = (url or "").rstrip("/")
     if not base_url:
         return {"ok": False, "error": "Keine Adresse für Home Assistant hinterlegt.", "facts": {}}
@@ -846,7 +866,10 @@ async def list_ha_switchables(url: str, account: dict) -> dict:
     projected differently. Scope matches `switch_admin`: switch/light plus shutter-like covers
     (device_class allowlist); only entities that can actually be flipped stay in the result, so a caller never has to separately learn
     which entities are off-limits."""
-    token, _ = _decode_secret(account)
+    try:
+        token, _ = _decode_secret(account)
+    except crypto.SecretUnreadable:
+        return {"ok": False, "error": _UNREADABLE_ERROR, "entities": []}
     base_url = (url or "").rstrip("/")
     if not base_url:
         return {"ok": False, "error": "Keine Adresse für Home Assistant hinterlegt.", "entities": []}
@@ -944,7 +967,10 @@ async def _ha_get(url: str, account: dict, path: str, params: dict | None = None
                   as_text: bool = False) -> dict:
     """One authenticated GET against HA after the identity self-check. Never raises; failure
     texts pass through `ha_redact` (httpx messages can embed URLs with credentials)."""
-    token, _ = _decode_secret(account)
+    try:
+        token, _ = _decode_secret(account)
+    except crypto.SecretUnreadable:
+        return {"ok": False, "error": _UNREADABLE_ERROR}
     base_url = (url or "").rstrip("/")
     if not base_url:
         return {"ok": False, "error": "Keine Adresse für Home Assistant hinterlegt."}
@@ -1197,7 +1223,10 @@ async def _ha_ws_call(url: str, account: dict, msg_type: str, payload: dict) -> 
     any other type (a programming error); every runtime failure comes back as {ok: False, error}."""
     if not isinstance(msg_type, str) or msg_type not in _HA_WS_ALLOWED_TYPES:
         raise ValueError(f"WebSocket-Befehl nicht erlaubt: {msg_type!r}")
-    token, _ = _decode_secret(account)
+    try:
+        token, _ = _decode_secret(account)
+    except crypto.SecretUnreadable:
+        return {"ok": False, "error": _UNREADABLE_ERROR}
     base_url = (url or "").rstrip("/")
     if not base_url:
         return {"ok": False, "error": "Keine Adresse für Home Assistant hinterlegt."}
@@ -1335,7 +1364,10 @@ async def probe_snmp(host: str, account: dict, kind: str = "") -> dict:
     update rather than just the generic facts view, and needs one specific, structured shape
     (`printerSupplies`, same "- name: value%" format `probe_homeassistant` already produces) to do
     that."""
-    community, _ = _decode_secret(account)
+    try:
+        community, _ = _decode_secret(account)
+    except crypto.SecretUnreadable:
+        return {"ok": False, "error": _UNREADABLE_ERROR, "facts": {}}
     if not community:
         return {"ok": False, "error": "Keine Community-Zeichenkette hinterlegt.", "facts": {}}
     port = int(account.get("port") or 0) or _SNMP_PORT
@@ -1642,7 +1674,10 @@ async def probe_fritzbox(host: str, account: dict | None) -> dict:
         pass
 
     if account is not None:
-        secret, _ = _decode_secret(account)
+        try:
+            secret, _ = _decode_secret(account)
+        except crypto.SecretUnreadable:
+            return {"ok": bool(facts), "error": _UNREADABLE_ERROR, "facts": facts}
         username = account.get("username") or ""
         envelope = (
             '<?xml version="1.0" encoding="utf-8"?>'
@@ -1798,42 +1833,56 @@ async def probe_system(system: dict, accounts: list[dict]) -> dict:
     ).lower()
     platform = _detect_platform(system)
 
-    # TR-064 works partly without a login, so it runs for AVM hardware regardless.
+    # TR-064 works partly without a login, so it runs for AVM hardware regardless. A failure is
+    # only recorded for FRITZ! devices: for any other router the call is a speculative guess, and
+    # storing its failure would raise an error event on every scan for every non-AVM router.
     if is_fritzbox or system.get("kind") == "router":
         router_account = next((a for a in accounts if a.get("category") in ("login", "router")), None)
         result = await probe_fritzbox(host, router_account)
-        if result["ok"]:
+        if result["ok"] or is_fritzbox:
             results["tr064"] = result
 
     for account in accounts:
         category = account.get("category")
+        # `login` only counts as SSH with port 22/unset: its port usually belongs to the web UI
+        # (e.g. 8443), and sending those credentials to SSH there would be a failed attempt with
+        # credentials meant for another service (lockout risk). `sshkey` is unambiguously SSH, so
+        # any port is fine. routes/remote.py::_ssh_eligible carries the same rule (no import, ADR-0011).
         if category == "sshkey" or (category == "login" and (account.get("port") or 0) in (22, 0)):
             # A detected Mikrotik/Aruba widens this beyond the usual Linux-host kinds -- a
             # router/switch admin login is exactly the "login" shape SSH probing was built for,
             # it just never had a matching platform to run non-Linux commands against before.
             if category == "sshkey" or platform or system.get("kind") in ("server", "nas", "vm", "pc", "container"):
-                result = await probe_ssh(host, account, platform)
-                if result["ok"]:
-                    results[f"ssh:{account['label']}"] = result
-                elif "ssh" not in results:
-                    results[f"ssh:{account['label']}"] = result
+                results[f"ssh:{account['label']}"] = await probe_ssh(host, account, platform)
         if category == "snmp":
-            result = await probe_snmp(host, account, system.get("kind", ""))
-            if result["ok"]:
-                results[f"snmp:{account['label']}"] = result
-            elif "snmp" not in results:
-                results[f"snmp:{account['label']}"] = result
+            results[f"snmp:{account['label']}"] = await probe_snmp(host, account, system.get("kind", ""))
         if category == "homeassistant":
-            result = await probe_homeassistant(account.get("url") or system.get("url"), account)
-            if result["ok"]:
-                results[f"ha:{account['label']}"] = result
-            elif "ha" not in results:
-                results[f"ha:{account['label']}"] = result
+            results[f"ha:{account['label']}"] = await probe_homeassistant(
+                account.get("url") or system.get("url"), account)
         url = account.get("url") or system.get("url")
         if url and category in ("login", "apikey"):
             result = await probe_http(url, account)
-            if result["ok"]:
+            # A failure is only kept for a credential recognisably meant for the web UI (an API key,
+            # its own URL, or a login with a non-SSH port). An SSH login (port 22/unset) on a device
+            # that merely has a URL is tried here speculatively; its rejection would otherwise raise
+            # an error event on every scan and push real ones out of the per-device cap.
+            meant_for_web = (category == "apikey" or bool(account.get("url"))
+                             or (account.get("port") or 0) not in (0, 22))
+            if result["ok"] or meant_for_web:
                 results[f"http:{account['label']}"] = result
+
+    # Error texts are persisted (extra.probe, error events) and shown to every role: a URL typed
+    # with embedded credentials must never leak through any of them (http, ha, ...).
+    for key, result in results.items():
+        if not result.get("ok") and isinstance(result.get("error"), str):
+            results[key] = {**result, "error": _URL_USERINFO_RE.sub(r"\1", result["error"])}
+
+    # A failure stays visible (broken/expired credentials matter even when another one works), but
+    # one next to a working credential of the same kind (prefix before ":") is flagged as secondary.
+    working_kinds = {key.split(":", 1)[0] for key, r in results.items() if r.get("ok")}
+    for key, result in results.items():
+        if not result.get("ok") and key.split(":", 1)[0] in working_kinds:
+            results[key] = {**result, "superseded": True}
 
     return {"ran": bool(results), "results": results, "purpose": _derive_purpose(results), "reason": ""}
 

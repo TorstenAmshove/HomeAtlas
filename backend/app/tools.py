@@ -572,7 +572,10 @@ async def _dispatch_unifi_live(name: str, args: dict) -> object:
         account, url, error = _pick_unifi_account(args.get("accountId"))
         if account is None:
             return {"error": error}
-        secret = crypto.decrypt(account.get("secretEnc") or "")
+        try:
+            secret = crypto.decrypt_strict(account.get("secretEnc") or "")
+        except crypto.SecretUnreadable:
+            return {"error": "Zugang nicht lesbar."}
         site = args.get("site")
         if name == "get_unifi_network":
             return await unifi_live.network_status(url, secret, site=site)
@@ -819,7 +822,10 @@ async def _dispatch(name: str, args: dict) -> object:
                 return {"error": "Kein Home-Assistant-Zugang mit dieser accountId gefunden -- vorher list_switches "
                                  "aufrufen."}
             system = db.get_system(account.get("systemId") or "") or {}
-            token = crypto.decrypt(account.get("secretEnc") or "")
+            try:
+                token = crypto.decrypt_strict(account.get("secretEnc") or "")
+            except crypto.SecretUnreadable:
+                return {"error": "Zugang nicht lesbar."}
             if entity_id.split(".", 1)[0] == "cover":
                 action = args.get("action")
                 if has_on or action not in ("open", "close", "stop"):

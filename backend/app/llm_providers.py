@@ -89,7 +89,10 @@ def base_url_for(provider_type: str, settings: dict) -> str:
 def api_key_for(provider_type: str, settings: dict) -> str:
     """The provider's API key in plaintext. Stored encrypted in the settings blob (see routes/settings.py's
     `_unmask_patch`), decrypted only here, at the moment a request needs it."""
-    return crypto.decrypt(settings.get(_KEY_SETTING_FIELD.get(provider_type, ""), "") or "")
+    try:
+        return crypto.decrypt_strict(settings.get(_KEY_SETTING_FIELD.get(provider_type, ""), "") or "")
+    except crypto.SecretUnreadable:
+        raise ProviderError("API-Schlüssel nicht lesbar – bitte neu eintragen.") from None
 
 
 def is_configured(provider_type: str, settings: dict) -> bool:
@@ -98,7 +101,12 @@ def is_configured(provider_type: str, settings: dict) -> bool:
     first, so a fresh install never sends device data to a provider nobody set up."""
     if provider_type == "OLLAMA":
         return True
-    return provider_type in _KEY_SETTING_FIELD and bool(api_key_for(provider_type, settings))
+    if provider_type not in _KEY_SETTING_FIELD:
+        return False
+    try:
+        return bool(api_key_for(provider_type, settings))
+    except ProviderError:
+        return False
 
 
 def resolved_model_for(provider_type: str, settings: dict, purpose: str = "CHAT") -> str:
@@ -371,7 +379,10 @@ async def chat(provider_type: str, settings: dict, system_prompt: str, messages:
 
 async def refresh_models(provider_type: str, settings: dict) -> tuple[bool, str, list[dict]]:
     """Asks the provider which models this key may call. Returns (ok, message, models)."""
-    key = api_key_for(provider_type, settings)
+    try:
+        key = api_key_for(provider_type, settings)
+    except ProviderError as exc:
+        return False, str(exc), []
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0)) as client:
             if provider_type == "GEMINI":

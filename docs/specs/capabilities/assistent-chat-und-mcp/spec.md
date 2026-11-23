@@ -116,7 +116,8 @@ Quelle: `frontend/src/pages/ChatPage.tsx`
 Das System MUSS die Nachricht trimmen und eine nicht-leere (auch nicht nur aus Leerzeichen bestehende) verlangen (sonst Validierungsfehler 422, nichts wird gespeichert), bei unbekannter
 Unterhaltung 404 liefern und, wenn der gewählte Anbieter nicht Ollama ist und kein API-Schlüssel
 hinterlegt ist, mit 400 und einem Hinweis auf „Einstellungen -> KI-Assistent“ ablehnen, bevor ein
-Anbieter kontaktiert wird. Ein Fehler des Anbieters MUSS als 502 „Der KI-Anbieter meldet: …“
+Anbieter kontaktiert wird. Ein gespeicherter, aber nicht lesbarer Schlüssel (Schlüsseldatei geändert)
+zählt dabei als nicht hinterlegt und wird nie leer an den Anbieter geschickt. Ein Fehler des Anbieters MUSS als 502 „Der KI-Anbieter meldet: …“
 zurückkommen; der Verlauf bleibt dabei unverändert. **[Muss]**
 
 #### Szenario: Nur Leerzeichen

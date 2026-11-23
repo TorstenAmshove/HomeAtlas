@@ -91,8 +91,13 @@ async def reveal_secret(account_id: str, request: Request, user: dict = Depends(
     ip, agent = _client(request)
     # Logged deliberately: for a credential store, "who looked at the router password, and when"
     # is the single most useful entry the log can hold.
+    try:
+        secret = crypto.decrypt_strict(account["secretEnc"])
+    except crypto.SecretUnreadable as exc:
+        db.log_access("secret.reveal", user=user, ip=ip, user_agent=agent, detail=account["label"], ok=False)
+        raise HTTPException(status_code=409, detail=str(exc)) from None
     db.log_access("secret.reveal", user=user, ip=ip, user_agent=agent, detail=account["label"])
-    return {"secret": crypto.decrypt(account["secretEnc"])}
+    return {"secret": secret}
 
 
 @router.delete("/api/accounts/{account_id}")

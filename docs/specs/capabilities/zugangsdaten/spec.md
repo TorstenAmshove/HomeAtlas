@@ -111,8 +111,8 @@ Quelle: `backend/app/main.py:691`, `backend/app/db.py:1548`, Test: `backend/test
 Das System MUSS das entschlüsselte Secret genau eines Zugangs nur auf ausdrückliche Admin-Anfrage
 liefern (`{secret}`) und jeden Abruf im Zugriffsprotokoll festhalten (Aktion `secret.reveal`,
 Benutzer, Client-IP, User-Agent, Detail = Bezeichnung). Unbekannte ID → 404 ohne Protokolleintrag.
-Lässt sich das Secret nicht entschlüsseln (z. B. Schlüsseldatei ersetzt), kommt ein leerer String
-zurück; der Abruf wird trotzdem als erfolgreich protokolliert. Die Passphrase eines SSH-Schlüssels
+Lässt sich das Secret nicht entschlüsseln (z. B. Schlüsseldatei ersetzt), antwortet das System mit
+409 („Secret nicht lesbar – Schlüsseldatei geändert?“) und protokolliert den Abruf mit `ok=0`. Die Passphrase eines SSH-Schlüssels
 wird nie ausgeliefert. **[Muss]**
 
 #### Szenario: Router-Passwort anzeigen
@@ -122,9 +122,9 @@ wird nie ausgeliefert. **[Muss]**
 
 #### Szenario: Secret nicht entschlüsselbar
 - **WENN** die Schlüsseldatei nach einer Wiederherstellung fehlt und ein Admin ein Secret anzeigt
-- **DANN** erhält er `{secret: ""}`, und das Protokoll enthält einen `secret.reveal`-Eintrag mit `ok=1`
+- **DANN** erhält er 409, und das Protokoll enthält einen `secret.reveal`-Eintrag mit `ok=0`
 
-Quelle: `backend/app/main.py:679`, `backend/app/main.py:687`, `backend/app/crypto.py:49`
+Quelle: `backend/app/routes/accounts.py`, `backend/app/crypto.py`
 
 ### Requirement: Verschlüsselung at rest
 Das System MUSS Secrets, Passphrasen, den Standard-Zugang und gesicherte Gerätekonfigurationen
@@ -135,9 +135,12 @@ best effort auf Modus 0600 gesetzt. Schutzziel: verlorene DB-Kopie, nicht root a
 
 #### Szenario: Schlüsseldatei fehlt bei vorhandener DB
 - **WENN** die Schlüsseldatei ersetzt wurde und ein Secret nicht entschlüsselbar ist
-- **DANN** liefert das System ein leeres Secret statt eines Fehlers; Inventar und Liste bleiben nutzbar
+- **DANN** bleiben Inventar, Doku und Zugangsliste nutzbar (`crypto.decrypt` liefert dort ""); jede
+  Benutzung des Secrets (Abruf, Probing, Controller-Abfragen, Remote-Admin, KI-Schlüssel,
+  `set_switch`) bricht ab (`crypto.decrypt_strict` → `SecretUnreadable`): Abruf/Schreibrouten 409
+  mit `ok=0`-Protokoll, Scan überspringt den Zugang mit Warnung, nie mit leerem Passwort
 
-Quelle: `backend/app/crypto.py:23`, `backend/app/crypto.py:49`, `docs/adr/0007-credentials-fernet-schluessel-im-volume.md`
+Quelle: `backend/app/crypto.py`, `docs/adr/0007-credentials-fernet-schluessel-im-volume.md`
 
 ### Requirement: Primäres Gerät und zusätzliche Zuordnungen
 Das System MUSS einem Zugang ein primäres Gerät (`systemId`) und beliebig viele zusätzliche
@@ -341,7 +344,6 @@ UI-Seite(n): `frontend/src/pages/zugaenge/AccountsPage.tsx`, `frontend/src/pages
 
 ## OFFEN
 
-- > OFFEN: Ein nicht entschlüsselbares Secret wird als leerer String ausgeliefert und als erfolgreicher Abruf (`ok=1`) protokolliert; Admin und Protokoll sehen nicht, dass der Schlüssel fehlt (`backend/app/crypto.py:49`). → #118
 - > OFFEN: Kategorie wird serverseitig nicht validiert; beliebige Werte werden gespeichert. → #128
 - > OFFEN: Secret und Passphrase lassen sich über die API nicht mehr leeren (leer = unverändert). → #128
 - > OFFEN: Ausrollen akzeptiert jede Kategorie als Login-Zugang (z. B. `snmp`, `wifi`); das Secret

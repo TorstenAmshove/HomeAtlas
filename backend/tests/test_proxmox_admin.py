@@ -98,3 +98,62 @@ def test_guest_action_reports_unreachable_host(monkeypatch):
 
     assert not result["ok"]
     assert "nicht erreichbar" in result["error"]
+
+
+import pytest  # noqa: E402
+
+
+def _call(**overrides):
+    args = {"base_url": "https://pve.local:8006", "token_id": "root@pam!t", "token_secret": "s",
+            "node": "pve", "kind": "container", "vmid": "101", "action": "stop"}
+    args.update(overrides)
+    return asyncio.run(proxmox_admin.guest_action(**args))
+
+
+@pytest.mark.parametrize("status,body,fallback", [
+    (401, "", True), (403, "", True), (502, "", True), (503, "", True), (504, "", False),
+    (400, "bad", False), (404, "", False), (409, "", False),
+    (500, "VM already stopped", False), (500, "", False),
+])
+def test_guest_action_marks_fallback_only_for_connection_and_auth_errors(monkeypatch, status, body, fallback):
+    _fake_client(monkeypatch, lambda request: httpx.Response(status, text=body))
+    result = _call()
+    assert not result["ok"]
+    assert result["fallback"] is fallback
+
+
+def test_guest_action_fallback_flags_for_other_outcomes(monkeypatch):
+    def boom(request):
+        raise httpx.ConnectError("down")
+
+    _fake_client(monkeypatch, boom)
+    assert _call()["fallback"] is True
+    assert _call(base_url="")["fallback"] is True
+    assert _call(token_secret="")["fallback"] is True
+    assert _call(action="nope")["fallback"] is False
+
+
+def test_guest_action_success_is_no_fallback(monkeypatch):
+    _fake_client(monkeypatch, lambda request: httpx.Response(200, json={}))
+    ok = _call()
+    assert ok["ok"] and ok["fallback"] is False
+
+
+@pytest.mark.parametrize("exc", [httpx.ReadTimeout, httpx.RemoteProtocolError, httpx.ReadError])
+def test_guest_action_no_fallback_once_request_may_have_arrived(monkeypatch, exc):
+    def boom(request):
+        raise exc("cut", request=request)
+
+    _fake_client(monkeypatch, boom)
+    result = _call()
+    assert not result["ok"]
+    assert result["fallback"] is False
+    assert "eventuell" in result["error"]
+
+
+def test_guest_action_connect_timeout_falls_back(monkeypatch):
+    def boom(request):
+        raise httpx.ConnectTimeout("slow", request=request)
+
+    _fake_client(monkeypatch, boom)
+    assert _call()["fallback"] is True

@@ -102,7 +102,9 @@ Quelle: `backend/app/probe_auth.py:271`, Test: `backend/tests/test_probe_auth_pl
 Das System MUSS je Probe-Zugang folgende Leseverfahren starten (Host = IP, sonst Hostname; ohne
 Adresse läuft nichts, Grund „Keine Adresse hinterlegt.“): **[Muss]**
 - `sshkey`: immer SSH.
-- `login` mit Port 0 oder 22: SSH nur, wenn eine Netzwerk-Plattform erkannt ist oder `kind` ∈
+- `login` mit Port 0 oder 22: SSH nur (ein anderer Port gehört meist zur Weboberfläche; SSH dorthin
+  wäre ein Fehlversuch mit Zugangsdaten für einen anderen Dienst – bewusst so, `sshkey` ist
+  eindeutig SSH und darf jeden Port haben; `routes/remote.py::_ssh_eligible` trägt dieselbe Regel), wenn eine Netzwerk-Plattform erkannt ist oder `kind` ∈
   {server, nas, vm, pc, container}.
 - `snmp`: SNMP. `homeassistant`: Home-Assistant-API (URL des Zugangs, sonst des Geräts).
 - `login`/`apikey` mit URL (Zugang, sonst Gerät): HTTP-GET-Anmeldung.
@@ -115,6 +117,35 @@ Adresse läuft nichts, Grund „Keine Adresse hinterlegt.“): **[Muss]**
 - **DANN** wird keine SSH-Verbindung aufgebaut, nur ggf. HTTP gegen die hinterlegte URL
 
 Quelle: `backend/app/probe_auth.py:1367`
+
+### Requirement: Ergebnisse je Art
+Das System MUSS jedes Probe-Ergebnis unter `<art>:<label>` (`ssh`, `snmp`, `ha`, `http`) bzw.
+`tr064` speichern, auch Fehlschläge (inkl. HTTP-Anmeldung abgelehnt/nicht erreichbar), damit die
+Pipeline je Fehlschlag ein Fehlerereignis schreibt. Ein Fehlschlag, neben dem ein Zugang
+derselben Art Erfolg hatte, MUSS mit `superseded = true` markiert werden (die Technik-Seite zeigt
+„nachrangig“); er wird nicht verworfen. TR-064-Fehlschläge MÜSSEN nur bei Geräten mit „fritz“ in
+Hersteller/Modell/Name gespeichert werden (sonst Fehlerereignis je Scan für jeden Nicht-AVM-Router).
+Ebenso MÜSSEN HTTP-Fehlschläge nur für Zugänge gespeichert werden, die erkennbar für die Weboberfläche
+gedacht sind (`apikey`, eigene URL am Zugang oder `login` mit Port ≠ 22/leer); ein SSH-Login an einem
+Gerät mit Geräte-URL wird per HTTP nur nebenbei versucht, sein Fehlschlag wird verworfen.
+Fehlertexte aller Arten DÜRFEN keine Zugangsdaten aus einer URL (`user:pass@`, auch mit `@` im
+Passwort) enthalten. **[Muss]**
+
+#### Szenario: Abgelaufener zweiter Zugang
+- **WENN** zwei HA-Zugänge existieren, einer funktioniert, einer hat ein abgelaufenes Token
+- **DANN** stehen beide in `results`, der fehlerhafte mit `superseded = true`, und er erzeugt ein Fehlerereignis
+
+#### Szenario: Nur Fehlschläge
+- **WENN** alle Zugänge einer Art fehlschlagen
+- **DANN** wird keiner als `superseded` markiert
+
+#### Szenario: Abgelehnter Web-Login
+- **WENN** ein `login`-Zugang mit Web-Port (z. B. 8443) oder eigener URL von der Weboberfläche abgelehnt wird
+- **DANN** steht `http:<label>` mit `ok = false` und Fehlertext im Ergebnis
+
+#### Szenario: SSH-Login an Gerät mit Web-Oberfläche
+- **WENN** ein `login`-Zugang mit Port 22 (oder leer) an einem Gerät mit URL beim HTTP-Versuch abgelehnt wird
+- **DANN** fehlt `http:<label>` im Ergebnis, und es entsteht kein Fehlerereignis
 
 ### Requirement: SSH-Verbindungsparameter
 Das System MUSS SSH mit Benutzer (Default `root`), Port (Default 22), Verbindungs-Timeout 10 s
@@ -499,13 +530,6 @@ auslesen“, nur Admin und nur wenn ein Zugang `allowProbe` hat).
 
 ## OFFEN
 
-- > OFFEN: In `probe_system` ist `elif "ssh" not in results` (analog `snmp`, `ha`) immer wahr, weil
-  Schlüssel `ssh:<label>` heißen – fehlgeschlagene Ergebnisse werden stets gespeichert, auch wenn
-  ein anderer Zugang derselben Art erfolgreich war (`backend/app/probe_auth.py:1397`). Absicht unklar. → #133
-- > OFFEN: HTTP- und TR-064-Fehlschläge werden nicht als Ergebnis gespeichert, nur Erfolge –
-  daher kein Fehlerereignis für abgelehnte Web-Logins. → #133
-- > OFFEN: `login`-Zugänge mit Port ≠ 0/22 werden nie per SSH versucht (`sshkey` mit beliebigem
-  Port schon) (`backend/app/probe_auth.py:1389`). → #133
 - > OFFEN: TR-064 wählt den ersten Zugang der Kategorie `login` oder `router`; `router` existiert
   in der UI nicht. Bei einem Nicht-FRITZ-Router mit `kind = router` wird dessen Login-Passwort per
   Digest an Port 49000 geschickt. → #134

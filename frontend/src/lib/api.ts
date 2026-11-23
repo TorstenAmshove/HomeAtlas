@@ -303,6 +303,8 @@ export interface ProbeFact {
 export interface ProbeResult {
   ok: boolean;
   error: string;
+  /** Failure next to a working credential of the same kind (ssh/snmp/ha/http). */
+  superseded?: boolean;
   facts: Record<string, ProbeFact>;
 }
 
@@ -543,7 +545,7 @@ export const api = {
       + `?accountId=${accountId}${mode ? `&mode=${mode}` : ""}`,
     ),
   remoteDockerConsoleWsUrl: (systemId: string, accountId: string, containerId: string) =>
-    wsUrl(`/api/ws/systems/${systemId}/remote-docker-console?accountId=${accountId}&containerId=${containerId}`),
+    wsUrl(`/api/ws/systems/${systemId}/remote-docker-console?accountId=${accountId}&containerId=${encodeURIComponent(containerId)}`),
 
   rebootSystem: (systemId: string, accountId: string) =>
     post<{ ok: boolean }>(`/systems/${systemId}/reboot?accountId=${accountId}`),

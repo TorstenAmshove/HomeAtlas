@@ -9,7 +9,7 @@ import asyncio
 import json
 import time
 
-from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -78,10 +78,15 @@ async def deploy_ssh_key(account_id: str, body: DeployKeyBody, request: Request,
     # Derived from the stored private key, not taken from the editable `notes` field (#47).
     try:
         public_line = remote_admin.public_line_for(
-            crypto.decrypt(key_account.get("secretEnc") or ""),
-            crypto.decrypt(key_account.get("passphraseEnc") or ""),
+            crypto.decrypt_strict(key_account.get("secretEnc") or ""),
+            crypto.decrypt_strict(key_account.get("passphraseEnc") or ""),
             comment=f"homeatlas@{system['name']}",
         )
+    except crypto.SecretUnreadable as exc:
+        ip, agent = _client(request)
+        db.log_access("sshkey.deploy", user=user, ip=ip, user_agent=agent, ok=False,
+                      detail=f"{system['name']}: {exc}")
+        raise HTTPException(status_code=409, detail=str(exc)) from None
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     result = await remote_admin.deploy_public_key(host, login_account, public_line, port=body.port)
@@ -97,7 +102,9 @@ def _ssh_eligible(account: dict) -> bool:
     """Same eligibility test probe_auth.probe_system's SSH branch already uses. Deliberately NOT
     gated on `allowProbe`: that flag's own docstring scopes it to the read-only auto-probe
     feature specifically -- reusing it here would conflate two different consents an admin gave
-    for two different reasons."""
+    for two different reasons. The `login` port rule (only 22/unset; its port normally belongs to the
+    web UI) is deliberate and mirrored in probe_auth.probe_system -- keep both in sync, no import
+    (ADR-0011)."""
     return account.get("category") == "sshkey" or (
         account.get("category") == "login" and (account.get("port") or 0) in (22, 0)
     )
@@ -144,9 +151,25 @@ async def ssh_console(websocket: WebSocket, system_id: str) -> None:
                       detail=f"{system['name']} ({round(time.monotonic() - started)}s)")
 
 
+def _terminal_size(control) -> tuple[int, int] | None:
+    """(cols, rows) of a valid resize message, else None (message is ignored). Only a JSON object
+    of type "resize" counts; each value must be a real int (no bool/float/string) in 1..1000, a
+    missing one defaults to 80/24. Garbage from the browser must never end the session."""
+    if not isinstance(control, dict) or control.get("type") != "resize":
+        return None
+    size = []
+    for key, default in (("cols", 80), ("rows", 24)):
+        value = control.get(key, default)
+        if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 1000:
+            return None
+        size.append(value)
+    return size[0], size[1]
+
+
 async def _relay_terminal(websocket: WebSocket, *, read, write, resize) -> None:
     """Binary WS frames = raw terminal bytes, unmodified, both directions. Text WS frames = JSON
-    control messages -- currently only `{"type":"resize","cols":n,"rows":n}`. Two concurrent
+    control messages -- browser to server `{"type":"resize","cols":n,"rows":n}`, server to browser
+    `{"type":"exit"}` once the process reached EOF. Two concurrent
     tasks; either one finishing (EOF from the process, or the browser disconnecting) tears down
     both, which unwinds the `finally` blocks in the caller and closes the underlying session."""
     async def from_client() -> None:
@@ -165,8 +188,9 @@ async def _relay_terminal(websocket: WebSocket, *, read, write, resize) -> None:
                 control = json.loads(text)
             except ValueError:
                 continue
-            if control.get("type") == "resize":
-                maybe_awaitable = resize(int(control.get("cols", 80)), int(control.get("rows", 24)))
+            size = _terminal_size(control)
+            if size is not None:
+                maybe_awaitable = resize(*size)
                 if asyncio.iscoroutine(maybe_awaitable):
                     await maybe_awaitable
 
@@ -174,6 +198,12 @@ async def _relay_terminal(websocket: WebSocket, *, read, write, resize) -> None:
         while True:
             data = await read(4096)
             if not data:
+                # EOF: tell the browser the session ended. The client may already be gone; the
+                # session is torn down right after either way.
+                try:
+                    await websocket.send_json({"type": "exit"})
+                except Exception:
+                    pass
                 return
             await websocket.send_bytes(data)
 
@@ -322,7 +352,7 @@ async def list_remote_containers(system_id: str, accountId: str = "", _: dict = 
     proxmox_account = _proxmox_account(system_id)
     if proxmox_account is not None:
         token_id = proxmox_account.get("username") or ""
-        token_secret = crypto.decrypt(proxmox_account.get("secretEnc") or "")
+        token_secret = crypto.decrypt_strict(proxmox_account.get("secretEnc") or "")
         result = await proxmox_probe.list_guests(proxmox_account.get("url") or "", token_id, token_secret)
         if not result["ok"] and accountId:
             # REST unreachable/misconfigured -- fall back to the native pct/qm CLI over SSH rather
@@ -358,14 +388,28 @@ async def remote_container_action(system_id: str, container_id: str, action: str
             raise HTTPException(status_code=400, detail="Ungültige Container-/VM-ID.")
         node, kind, vmid = parsed
         result = None
+        unreadable: crypto.SecretUnreadable | None = None
         if node:
             token_id = proxmox_account.get("username") or ""
-            token_secret = crypto.decrypt(proxmox_account.get("secretEnc") or "")
-            result = await proxmox_admin.guest_action(
-                proxmox_account.get("url") or "", token_id, token_secret, node, kind, vmid, action)
-        if (result is None or not result["ok"]) and accountId:
-            # REST unreachable/misconfigured (or no node known -- an SSH-sourced listing) -- fall
-            # back to the native pct/qm CLI over SSH, same posture as the listing route above.
+            try:
+                token_secret = crypto.decrypt_strict(proxmox_account.get("secretEnc") or "")
+            except crypto.SecretUnreadable as exc:
+                # The API cannot be used with this token, and no request went out -- the SSH
+                # fallback below is as safe as for a missing token.
+                unreadable = exc
+            else:
+                result = await proxmox_admin.guest_action(
+                    proxmox_account.get("url") or "", token_id, token_secret, node, kind, vmid, action)
+        if unreadable is not None and not accountId:
+            ip, agent = _client(request)
+            db.log_access(f"container.proxmox.{action}", user=user, ip=ip, user_agent=agent, ok=False,
+                          detail=f"{system['name']}: {container_id}: {unreadable}")
+            raise HTTPException(status_code=409, detail=str(unreadable))
+        if (result is None or result.get("fallback")) and accountId:
+            # REST unusable (unreachable/misconfigured/auth error, or no node known -- an SSH-sourced
+            # listing) -- fall back to the native pct/qm CLI over SSH, same posture as the listing
+            # route above. A functional API error (e.g. "already stopped") is NOT retried: that
+            # could run the action twice or replace the real message.
             _system, account, host = _remote_host_and_account(system_id, accountId)
             result = await remote_admin.run_remote_proxmox_guest_command(host, account, kind, vmid, action)
         if result is None:
@@ -420,7 +464,7 @@ async def remote_container_logs(system_id: str, container_id: str, accountId: st
                     "nur über den SSH-Ausweichweg gefunden, der den Node-Namen nicht kennt."
                 ))
             token_id = proxmox_account.get("username") or ""
-            token_secret = crypto.decrypt(proxmox_account.get("secretEnc") or "")
+            token_secret = crypto.decrypt_strict(proxmox_account.get("secretEnc") or "")
             result = await proxmox_probe.guest_task_log(
                 proxmox_account.get("url") or "", token_id, token_secret, node, vmid)
         if not result["ok"]:
@@ -478,7 +522,7 @@ async def reboot_system(system_id: str, accountId: str, request: Request,
 # ---------------------------------------------------------------------------------------------
 
 @router.post("/api/systems/{system_id}/shelly-switch/{action}")
-async def shelly_switch(system_id: str, action: str, request: Request, channel: int = 0,
+async def shelly_switch(system_id: str, action: str, request: Request, channel: int = Query(0, ge=0, le=switch_admin.SHELLY_MAX_CHANNEL),
                         user: dict = Depends(require_admin)) -> dict:
     if action not in ("on", "off"):
         raise HTTPException(status_code=404, detail="Unbekannte Aktion.")
@@ -520,7 +564,13 @@ async def ha_switch(system_id: str, action: str, accountId: str, entityId: str, 
     if system is None or account is None or account.get("systemId") != system_id or account.get("category") != "homeassistant":
         raise HTTPException(status_code=404, detail="Gerät oder Home-Assistant-Zugang nicht gefunden.")
 
-    token = crypto.decrypt(account.get("secretEnc") or "")
+    ip, agent = _client(request)
+    try:
+        token = crypto.decrypt_strict(account.get("secretEnc") or "")
+    except crypto.SecretUnreadable as exc:
+        db.log_access("switch.ha", user=user, ip=ip, user_agent=agent, ok=False,
+                      detail=f"{entityId} -> {action}: {exc}")
+        raise HTTPException(status_code=409, detail=str(exc)) from None
     result = await switch_admin.ha_set_switch(account.get("url") or system.get("url") or "", token, entityId, action == "on")
     ip, agent = _client(request)
     db.log_access("switch.ha", user=user, ip=ip, user_agent=agent, ok=result["ok"],
