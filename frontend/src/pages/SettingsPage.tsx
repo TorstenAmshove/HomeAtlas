@@ -256,6 +256,42 @@ export default function SettingsPage() {
         </div>
       )}
 
+      {tab === "general" && isAdmin && (
+        <div className="card">
+          <h2>Absprung-Links (optional)</h2>
+          <div className="field-hint">
+            Auf der Geräteseite erscheinen für Administratoren Links direkt in Portainer bzw. die Proxmox-Oberfläche.
+          </div>
+          <div className="field">
+            <label>Portainer-URL</label>
+            <input value={form.portainerUrl ?? ""} placeholder="https://portainer.lan:9443"
+              onChange={(e) => set("portainerUrl", e.target.value)} />
+          </div>
+          <div className="field">
+            <label>Portainer-Umgebungs-ID des lokalen Docker-Hosts</label>
+            <input value={form.portainerEnvId ?? ""} placeholder="2" inputMode="numeric"
+              onChange={(e) => set("portainerEnvId", e.target.value)} />
+          </div>
+          <div className="field">
+            <label>Proxmox-Weboberfläche</label>
+            <input value={form.proxmoxWebUrl ?? ""} placeholder="https://pve.lan:8006"
+              onChange={(e) => set("proxmoxWebUrl", e.target.value)} />
+            <div className="field-hint">
+              Leer lassen, dann wird die URL des Proxmox-Zugangs bzw. des Proxmox-Systems verwendet.
+            </div>
+          </div>
+          <button
+            onClick={() => void save({
+              portainerUrl: form.portainerUrl ?? "", portainerEnvId: form.portainerEnvId ?? "",
+              proxmoxWebUrl: form.proxmoxWebUrl ?? "",
+            })}
+            disabled={busy !== ""}
+          >
+            Speichern
+          </button>
+        </div>
+      )}
+
       {tab === "llm" && isAdmin && (
         <>
         <div className="card">

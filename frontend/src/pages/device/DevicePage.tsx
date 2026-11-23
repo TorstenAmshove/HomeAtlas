@@ -82,6 +82,7 @@ export default function DevicePage() {
 
   const [data, setData] = useState<Loaded | null>(null);
   const [error, setError] = useState("");
+  const [adminLinks, setAdminLinks] = useState<{ label: string; url: string }[]>([]);
   const [monitor, setMonitor] = useState<MonitorState | null>(null);
   const [errorEvents, setErrorEvents] = useState<DeviceErrorEvent[] | null>(null);
   const [configVersions, setConfigVersions] = useState<ConfigVersion[] | null>(null);
@@ -131,6 +132,7 @@ export default function DevicePage() {
         if (hasConfigHistory(loaded)) {
           api.listConfigVersions(id).then((r) => setConfigVersions(r.versions)).catch(() => setConfigVersions([]));
         }
+        api.systemAdminLinks(id).then((r) => setAdminLinks(r.links)).catch(() => setAdminLinks([]));
         api.getSystemAliases(id).then((r) => setAliases(r.aliases)).catch(() => setAliases([]));
         api.getDuplicateCandidates()
           .then((r) => setCandidates(r.candidates.filter((c) => c.aId === id || c.bId === id)))
@@ -431,10 +433,19 @@ export default function DevicePage() {
     : "nicht überwacht";
 
   // ---------------------------------------------------------------- actions
-  const webLink = system.url ? (
-    <a className={`dv-btn${offline ? "" : " primary"}`} href={system.url} target="_blank" rel="noreferrer">
-      Weboberfläche ↗
-    </a>
+  const webLink = (system.url || (isAdmin && adminLinks.length > 0)) ? (
+    <>
+      {system.url && (
+        <a className={`dv-btn${offline ? "" : " primary"}`} href={system.url} target="_blank" rel="noreferrer">
+          Weboberfläche ↗
+        </a>
+      )}
+      {isAdmin && adminLinks.map((l) => (
+        <a key={l.url} className="dv-btn" href={l.url} target="_blank" rel="noopener noreferrer">
+          {l.label} ↗
+        </a>
+      ))}
+    </>
   ) : null;
   let primary = null;
   if (offline && live && isAdmin) {

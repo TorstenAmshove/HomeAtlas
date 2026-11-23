@@ -11,7 +11,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, create_model, model_validator
 
-from .. import auth, crypto, db, discovery, docker_probe, docs, llm_providers, model_catalog, oui, probe_auth
+from .. import admin_links, auth, crypto, db, discovery, docker_probe, docs, llm_providers, model_catalog, oui, probe_auth
 from ..deps import current_user, logger, require_admin
 from ..version import app_version
 
@@ -117,6 +117,17 @@ class _SettingsPatchBase(BaseModel):
     def _valid_scan_subnets(self):
         if getattr(self, "scanSubnets", None) is not None:
             self.scanSubnets = discovery.validate_scan_subnets(self.scanSubnets)
+        return self
+
+    @model_validator(mode="after")
+    def _valid_admin_links(self):
+        for name in ("portainerUrl", "proxmoxWebUrl"):
+            if getattr(self, name, None) is not None:
+                setattr(self, name, admin_links.normalize_web_url(getattr(self, name)))
+        env = getattr(self, "portainerEnvId", None)
+        if env is not None:
+            if env and not (env.isascii() and env.isdigit()):
+                raise ValueError("portainerEnvId: nur Ziffern.")
         return self
 
 

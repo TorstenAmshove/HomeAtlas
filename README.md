@@ -135,6 +135,9 @@ bestehen — wer nur das Passwort vergessen hat, verliert so nicht nebenbei den 
    und jederzeit änderbar.
 2. **Einstellungen → KI-Assistent**: Anbieter wählen, Schlüssel eintragen, *Verbindung testen*.
    Ohne diesen Schritt funktioniert HomeAtlas weiter, nur ohne KI-Texte und ohne Chat.
+   Optional unter *Einstellungen → Allgemein → Absprung-Links*: Portainer-URL mit Umgebungs-ID und
+   Proxmox-Weboberfläche. Dann zeigt die Geräteseite eines lokalen Containers bzw. Proxmox-Gasts
+   Administratoren einen Link „In Portainer öffnen“ bzw. „In Proxmox öffnen“ (Members sehen sie nicht).
 3. **Netzwerk-Scan starten.** Der Durchlauf sucht Geräte, erkennt Dienste, fragt Docker ab, lässt
    die KI Unbekanntes einordnen und schreibt anschließend die Dokumentation neu. Dauer: wenige
    Minuten für ein typisches /24-Netz.

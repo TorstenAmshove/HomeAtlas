@@ -72,6 +72,27 @@ Ports (`monitorPortsEffective`). Unbekannte ID → 404 „Gerät nicht gefunden.
 Quelle: `backend/app/main.py:546`, `backend/app/main.py:619`, `backend/app/db.py:1464`,
 `backend/app/monitor.py:40`
 
+### Requirement: Absprung-Links zur Verwaltung
+Das System MUSS Admins über `GET /api/systems/{id}/admin-links` Deep-Links liefern (`{"links": [{label, url}]}`,
+bei keinem Link eine leere Liste, unbekannte ID 404, Member 403): für ein lokales Docker-Gerät
+(`kind=container`, `extra.docker.containerId`) „In Portainer öffnen“ →
+`<portainerUrl>/#!/<portainerEnvId>/docker/containers/<containerId>`, sofern URL und Umgebungs-ID gesetzt
+sind; für einen Proxmox-Gast (`extra.proxmox.node` und `vmid`; `vm` → `qemu`, `container` → `lxc`)
+„In Proxmox öffnen“ → `<basis>/#v1:0:=<qemu|lxc>%2F<vmid>`. Basis ist `proxmoxWebUrl`, sonst die
+auf Schema+Host+Port gekürzte URL des ersten Proxmox-Zugangs am Eltern-System, sonst dessen `url`.
+Entfernte Docker-Hosts bekommen keine Container-Links; das Feld `url` bleibt unverändert. Die Links
+öffnen im neuen Tab mit `rel="noopener noreferrer"`. **[Muss]**
+
+#### Szenario: Container mit Portainer
+- **WENN** Portainer-URL und Umgebungs-ID gesetzt sind und ein Admin einen lokalen Container öffnet
+- **DANN** enthält `links` den Portainer-Deep-Link
+
+#### Szenario: Nichts konfiguriert
+- **WENN** weder Portainer noch eine Proxmox-Basis auflösbar ist
+- **DANN** ist `links` leer
+
+Quelle: `backend/app/admin_links.py`, `backend/app/routes/systems.py`
+
 ### Requirement: Effektive Überwachungsports
 Das System MUSS die überwachten Ports so bestimmen: von Hand gesetzte `monitorPorts` (erste 3);
 sonst bis zu 3 bekannte offene Ports, die für die Art typisch sind; sonst die ersten 3 offenen
@@ -548,6 +569,7 @@ Aus [data-model](../../contracts/data-model.md):
 | POST | /api/systems/{system_id}/errors/acknowledge | ADMIN | alle offenen quittieren → `{acknowledged}` |
 | POST | /api/systems/{system_id}/errors/{event_id}/acknowledge | ADMIN | ein Ereignis quittieren → `{ok}` |
 | GET | /api/systems/{system_id}/exposure | MEMBER | „Erreichbar über …“ → `{entries}` (aus gespeicherten Fakten, siehe [erreichbarkeit](../erreichbarkeit/spec.md)) |
+| GET | /api/systems/{system_id}/admin-links | ADMIN | Absprung-Links nach Portainer/Proxmox → `{links}`, leer wenn keine zutreffen |
 
 Berührte fremde Routen (nur verlinkt): Auslesen `POST /api/systems/{id}/probe`, KI-Einordnung `POST /api/systems/{system_id}/classify` ([klassifikation-llm](../klassifikation-llm/spec.md))
 ([credentialed-probing](../credentialed-probing/spec.md)), Container/Neustart/Schalten/Konsolen

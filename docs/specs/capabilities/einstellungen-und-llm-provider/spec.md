@@ -27,6 +27,9 @@ verlinkten Fähigkeiten. Quelle Defaults: `backend/app/db.py:408`.
 
 | Schlüssel | Default | Bedeutung | Gelesen von |
 |---|---|---|---|
+| `portainerUrl` | „“ | Basis-URL von Portainer für Absprung-Links (nur http/https, ohne Slash am Ende) | routes/systems (admin-links) |
+| `portainerEnvId` | „“ | Portainer-Umgebungs-ID des lokalen Docker-Hosts (nur Ziffern) | routes/systems (admin-links) |
+| `proxmoxWebUrl` | „“ | Basis-URL der Proxmox-Weboberfläche; leer = URL des Proxmox-Zugangs bzw. -Systems | routes/systems (admin-links) |
 | `homeName` (M) | „Mein Zuhause“ | Name des Zuhauses (Überschrift, Prompts, Topologie) | tools, main (Dashboard), topology |
 | `setupCompleted` (M) | false | Ersteinrichtung abgeschlossen; ausschließlich durch [setup-wizard](../setup-wizard/spec.md) gesetzt; per `PATCH /api/settings` nicht änderbar (wird verworfen) | main (`/api/health`, Dashboard) |
 | `llmProvider` | `DEEPSEEK` | Gewählter Anbieter: `CLAUDE`, `OPENAI`, `GEMINI`, `DEEPSEEK`, `OLLAMA` | tools, docs, classify, main |
@@ -134,6 +137,23 @@ werden verschlüsselt gespeichert und nur im Moment eines Anbieter-Aufrufs entsc
 - **DANN** liefert `GET /api/settings` `"claudeApiKey": "********"`
 
 Quelle: `backend/app/main.py:383`, `backend/app/main.py:386`, `backend/app/main.py:393`
+
+### Requirement: Absprung-Link-Einstellungen werden validiert
+Das System MUSS `portainerUrl` und `proxmoxWebUrl` nur als `http`/`https`-URL mit Host akzeptieren
+(Schema kleingeschrieben, Whitespace und abschließende Slashes entfernt, Pfad bleibt) und alles mit
+Zugangsdaten, Query, Fragment oder Leerzeichen mit 422 ablehnen; ein leerer Wert löscht die Angabe.
+`portainerEnvId` MUSS leer oder nur aus ASCII-Ziffern bestehen. Members bekommen diese Schlüssel nicht
+ausgeliefert. **[Muss]**
+
+#### Szenario: Abschließender Slash
+- **WENN** ein Admin `portainerUrl` = `https://h:9443/` speichert
+- **DANN** ist `https://h:9443` gespeichert
+
+#### Szenario: Ungültiges Schema
+- **WENN** `proxmoxWebUrl` = `javascript:alert(1)` gesendet wird
+- **DANN** antwortet das System mit 422
+
+Quelle: `backend/app/routes/settings.py`, `backend/app/admin_links.py`
 
 ### Requirement: Maskierte Werte beim Zurückschreiben
 Das System MUSS beim Speichern für jedes Geheimnis (die fünf API-Schlüssel, Standard-Zugang: Geheimnis
