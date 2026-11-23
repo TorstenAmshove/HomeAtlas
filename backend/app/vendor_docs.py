@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import httpx
 
+from . import netguard
+
 # Matched case-insensitively against vendor + model + discovery evidence, most specific first --
 # "fritz!repeater" has to win over the plain "avm" entry.
 CURATED: tuple[tuple[tuple[str, ...], str, str], ...] = (
@@ -74,19 +76,37 @@ def lookup(*fields: str) -> tuple[str, str]:
     return "", ""
 
 
+_MAX_REDIRECTS = 5
+
+
 async def validate(url: str, timeout_s: float = 6.0) -> bool:
     """True if the URL actually answers. Used only for LLM-suggested links -- curated ones are
     trusted without a network call so a scan works offline.
 
     A HEAD request would be cheaper but plenty of vendor sites answer 405 or 403 to it while
     serving GET fine, so this uses GET and reads nothing.
+
+    The URL comes from a model answer, so it is untrusted: the start URL and every redirect hop must
+    be http(s) and point at a public address (no loopback, link-local, private LAN). Redirects are
+    followed by hand for that reason. A blocked target counts as "unreachable".
     """
-    if not url.startswith(("http://", "https://")):
-        return False
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(timeout_s, connect=4.0),
-                                     follow_redirects=True) as client:
-            response = await client.get(url, headers={"User-Agent": "HomeAtlas/1.0 (link check)"})
-    except (httpx.HTTPError, OSError, ValueError):
+                                     follow_redirects=False) as client:
+            current = url
+            for _ in range(_MAX_REDIRECTS + 1):
+                parts = httpx.URL(current)
+                if parts.scheme not in ("http", "https") or not parts.host or parts.userinfo:
+                    return False
+                await netguard.ensure_allowed_target(parts.host, allow_lan=False)
+                response = await client.get(current, headers={"User-Agent": "HomeAtlas/1.0 (link check)"})
+                if response.status_code in (301, 302, 303, 307, 308):
+                    location = response.headers.get("location")
+                    if not location:
+                        return False
+                    current = str(response.url.join(location))
+                    continue
+                return response.status_code < 400
+    except (httpx.HTTPError, OSError, ValueError, netguard.BlockedTarget):
         return False
-    return response.status_code < 400
+    return False  # too many redirects
