@@ -37,7 +37,7 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (61)
+## Alle Punkte je Fähigkeit (60)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (1)
 
@@ -86,10 +86,9 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 ### [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md) (0)
 
 
-### [inventar](capabilities/inventar/spec.md) (2)
+### [inventar](capabilities/inventar/spec.md) (1)
 
 1. `GET /api/systems/{id}` liefert MEMBER die Zugangs-Metadaten (Label, Benutzername, URL, Notizen) des Geräts; nur die UI blendet sie aus. Gewollt? → entschieden in #48: in Ordnung, solange keine Secrets
-2. Der Fehler-Badge verschwindet nie, weil Fehlerereignisse nicht quittiert oder gelöscht werden können (nur Kappung bei 100). → #132
 
 ### [klassifikation-llm](capabilities/klassifikation-llm/spec.md) (5)
 
