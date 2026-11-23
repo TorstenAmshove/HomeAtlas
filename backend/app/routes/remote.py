@@ -49,6 +49,11 @@ async def generate_ssh_key(system_id: str, body: GenerateKeyBody, request: Reque
     return {"account": _public_account(account), "publicKey": public_line}
 
 
+# Only these categories hold an SSH password/key; anything else (snmp, wifi, ...) would have its
+# secret sent as an SSH password (#128).
+_DEPLOY_LOGIN_CATEGORIES = frozenset({"login", "sshkey"})
+
+
 class DeployKeyBody(BaseModel):
     loginAccountId: str
     port: int = 0
@@ -66,6 +71,9 @@ async def deploy_ssh_key(account_id: str, body: DeployKeyBody, request: Request,
     login_account = db.get_account(body.loginAccountId)
     if login_account is None:
         raise HTTPException(status_code=404, detail="Login-Zugang nicht gefunden.")
+    if login_account.get("category") not in _DEPLOY_LOGIN_CATEGORIES:
+        raise HTTPException(status_code=400, detail="Als Login-Zugang geeignet sind nur Zugänge der Art "
+                                                    "Login oder SSH-Schlüssel.")
     if login_account.get("systemId") != key_account.get("systemId"):
         raise HTTPException(status_code=400, detail="Der Login-Zugang gehört zu einem anderen Gerät.")
     system = db.get_system(key_account["systemId"]) if key_account.get("systemId") else None

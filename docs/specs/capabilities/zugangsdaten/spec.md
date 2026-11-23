@@ -40,7 +40,9 @@ Das System MUSS einen Zugang mit den Feldern Gerät (`systemId`, optional), Beze
 „Zugang“), Kategorie (Default `login`), Benutzername, Secret, Passphrase, URL, Notiz, Freigabe
 `allowProbe` (Default aus) und Port (Default 0 = Standardport) anlegen. Secret und Passphrase
 MÜSSEN vor dem Speichern verschlüsselt werden; leere Werte werden als leer gespeichert. Die
-Antwort enthält den Zugang ohne Secret/Passphrase/Chiffretext, dafür `hasSecret`/`hasPassphrase`. **[Muss]**
+Antwort enthält den Zugang ohne Secret/Passphrase/Chiffretext, dafür `hasSecret`/`hasPassphrase`.
+Eine angegebene, nicht (mehr) vorhandene `systemId` → 422 „Gerät nicht gefunden.“; `null`/leer löst die
+Zuordnung. **[Muss]**
 
 #### Szenario: Anlegen mit Passwort
 - **WENN** ein Admin einen Zugang mit Secret „geheim“ anlegt
@@ -50,7 +52,9 @@ Quelle: `backend/app/main.py:656`, `backend/app/main.py:619`, `backend/app/db.py
 
 ### Requirement: Kategorien
 Das System MUSS die Kategorien `contract` (Vertrag/Kundenkonto), `login`, `sshkey`, `snmp`,
-`omada`, `unifi`, `homeassistant`, `proxmox`, `adguard`, `wifi`, `apikey`, `other` anbieten; die
+`omada`, `unifi`, `homeassistant`, `proxmox`, `adguard`, `traefik`, `cloudflare`,
+`exposure_cloudflared`, `exposure_caddy`, `exposure_ddclient`, `firewall_nftables`, `wifi`, `apikey`,
+`other` anbieten; jede andere Kategorie wird beim Anlegen und Ändern mit 422 abgelehnt. Die
 Kategorie bestimmt die Bedeutung der Felder: `omada` Benutzer = Client-ID, Secret = Client-Secret;
 `proxmox` Benutzer = Token-ID (`user@realm!name`), Secret = Token-Secret; `homeassistant` Secret =
 Long-Lived-Token; `snmp` Secret = Community; `unifi` Secret = API-Key; `sshkey` Secret = privater
@@ -77,7 +81,14 @@ Quelle: `backend/app/main.py:647`, Test: `backend/tests/test_main_account_assign
 ### Requirement: Zugang ändern ohne Secret-Verlust
 Das System MUSS beim Ändern ein leeres Secret und eine leere Passphrase als „unverändert lassen“
 behandeln (das Formular erhält gespeicherte Werte nie); nicht-leere Werte werden neu verschlüsselt.
-Unbekannte ID → 404 „Zugang nicht gefunden.“ **[Muss]**
+Zum Leeren dient das explizite Feld `clearSecrets` (Liste aus `secret`/`passphrase`, wie bei
+`PATCH /api/settings`); es zusammen mit einem neuen Wert für dasselbe Feld → 422 (ohne den Wert zu
+spiegeln). Unbekannte ID → 404 „Zugang nicht gefunden.“ (vor der Prüfung der `systemId`, die bei
+unbekanntem Gerät 422 liefert). **[Muss]**
+
+#### Szenario: Passwort entfernen
+- **WENN** `PATCH /api/accounts/{id}` `{"clearSecrets": ["secret"]}` enthält
+- **DANN** ist `hasSecret` false; die Passphrase bleibt unberührt
 
 #### Szenario: Nur Bezeichnung geändert
 - **WENN** ein Admin die Bezeichnung ändert und das Passwortfeld leer lässt
@@ -99,7 +110,7 @@ Quelle: `backend/app/main.py` (`update_account`), Test:
 ### Requirement: Zugang löschen
 Das System MUSS beim Löschen den Zugang und alle seine Zuordnungen entfernen und von ihm
 synchronisierte Netzwerkressourcen als inaktiv markieren (Notizen bleiben erhalten). Antwort
-`{ok: true}`. **[Muss]**
+`{ok: true}`; unbekannte ID → 404 „Zugang nicht gefunden.“ **[Muss]**
 
 #### Szenario: Gelöschter Gruppen-Zugang
 - **WENN** ein per `kind = router` zugeordneter Zugang gelöscht wird
@@ -198,7 +209,7 @@ Das System MUSS den öffentlichen Schlüssel eines `sshkey`-Zugangs auf dessen G
 Zeile wird aus dem gespeicherten privaten Schlüssel abgeleitet (Kommentar `homeatlas@<Gerätename>`),
 nie aus dem editierbaren Notizfeld; ein unlesbarer privater Schlüssel → 400. Angemeldet wird
 mit einem anderen, bereits hinterlegten Zugang desselben Geräts. Prüfungen: Schlüssel
-fehlt oder ist nicht `sshkey` → 404; Login-Zugang fehlt → 404; anderes Gerät → 400; Schlüssel
+fehlt oder ist nicht `sshkey` → 404; Login-Zugang fehlt → 404; Login-Zugang nicht der Kategorie `login`/`sshkey` → 400; anderes Gerät → 400; Schlüssel
 ohne Gerät → 400; Gerät ohne IP/Hostname → 400. Die Datei `~/.ssh/authorized_keys` wird gelesen
 und die Zeile nur angehängt, wenn sie noch nicht exakt vorhanden ist (idempotent, `changed`);
 `~/.ssh` wird bei Bedarf mit 0700 angelegt, die Datei auf 0600 gesetzt; nie überschrieben.
@@ -257,7 +268,7 @@ zentralen Definition kommen (`categoryFields.ts`, ein `Record` über alle Arten,
 einer fehlenden Art scheitert). Ausgeblendete Felder DÜRFEN beim Bearbeiten gespeicherte Werte nicht
 überschreiben (sie werden nicht gesendet). Bei Cloudflare (Zone-ID in `url`, Account-ID in `username`)
 MUSS das Formular vor dem Speichern 32 Zeichen `0-9a-f` prüfen (Account-ID optional).
-Datenmodell und API bleiben unverändert. **[Muss]** (Texte und Aufteilung **[Impl]**)
+Datenmodell und API bleiben unverändert (die UI nutzt `clearSecrets` nicht). **[Muss]** (Texte und Aufteilung **[Impl]**)
 
 #### Szenario: Cloudflare-Zone-ID ungültig
 - **WENN** ein ADMIN bei „Art“ Cloudflare wählt und eine Zone-ID ohne 32 Hex-Zeichen einträgt
@@ -308,7 +319,7 @@ Siehe [data-model](../../contracts/data-model.md).
 |---|---|---|---|
 | GET | /api/accounts | ADMIN | Alle Zugänge ohne Secrets, mit `assignmentCount` |
 | POST | /api/accounts | ADMIN | Zugang anlegen (Secret/Passphrase verschlüsselt) |
-| PATCH | /api/accounts/{account_id} | ADMIN | Zugang ändern; leeres Secret/Passphrase = unverändert |
+| PATCH | /api/accounts/{account_id} | ADMIN | Zugang ändern; leeres Secret/Passphrase = unverändert, `clearSecrets` leert |
 | DELETE | /api/accounts/{account_id} | ADMIN | Zugang samt Zuordnungen löschen |
 | GET | /api/accounts/{account_id}/assignments | ADMIN | Zusätzliche Zuordnungen lesen |
 | PUT | /api/accounts/{account_id}/assignments | ADMIN | Zuordnungsliste komplett ersetzen |
@@ -317,7 +328,7 @@ Siehe [data-model](../../contracts/data-model.md).
 | POST | /api/systems/{system_id}/ssh-keys | ADMIN | Ed25519-Schlüsselpaar für ein Gerät erzeugen |
 
 Request-Körper: Zugang `{systemId?, label, category, username, secret, passphrase, url, notes,
-allowProbe, port}`; Zuordnungen `[{targetType, targetValue}]`; Deploy `{loginAccountId, port=0}`;
+allowProbe, port}` (PATCH zusätzlich `clearSecrets?`); Zuordnungen `[{targetType, targetValue}]`; Deploy `{loginAccountId, port=0}`;
 Schlüssel `{label}`.
 
 Berührte fremde Routen: `GET /api/systems/{id}` liefert Zugänge des Geräts ohne Secrets
@@ -345,12 +356,6 @@ UI-Seite(n): `frontend/src/pages/zugaenge/AccountsPage.tsx`, `frontend/src/pages
 
 ## OFFEN
 
-- > OFFEN: Kategorie wird serverseitig nicht validiert; beliebige Werte werden gespeichert. → #128
-- > OFFEN: Secret und Passphrase lassen sich über die API nicht mehr leeren (leer = unverändert). → #128
-- > OFFEN: Ausrollen akzeptiert jede Kategorie als Login-Zugang (z. B. `snmp`, `wifi`); das Secret
-  wird dann als SSH-Passwort benutzt. → #128
-- > OFFEN: `systemId` wird beim Anlegen/Ändern nicht auf Existenz geprüft. → #128
-- > OFFEN: Löschen eines unbekannten Zugangs liefert `{ok: true}` statt 404. → #128
 - > OFFEN: Anlegen, Ändern und Löschen von Zugängen werden nicht im Zugriffsprotokoll erfasst,
   nur Abruf, Erzeugung und Ausrollen. → #122
 - > OFFEN: MEMBER sehen über Geräteansicht und Doku Benutzernamen, URLs und Notizen aller Zugänge;
