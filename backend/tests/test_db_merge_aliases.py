@@ -145,3 +145,50 @@ def test_finding_without_ports_does_not_wipe_scanned_ports(temp_db):
     system, _ = temp_db.upsert_discovered_system(
         {"discoveryKey": "mac:aa", "ip": "10.0.0.5", "mac": "aa", "openPorts": [], "services": []})
     assert system["openPorts"] == []
+
+
+def _count(db, table, system_id):
+    with db._conn() as conn:
+        return conn.execute(f"SELECT COUNT(*) FROM {table} WHERE systemId = ?", (system_id,)).fetchone()[0]
+
+
+def test_delete_system_removes_history_rows(temp_db):
+    a = _mk(temp_db, "k:a", "10.0.0.1")
+    other = _mk(temp_db, "k:o", "10.0.0.2")
+    for s in (a, other):
+        temp_db.save_device_config_version(s["id"], "cfg", "dummy-enc", "ssh")
+        temp_db.add_device_error_event(s["id"], "error", "boom")
+        temp_db.record_monitor_state(s["id"], "offline", "d")
+    temp_db.delete_system(a["id"])
+    for table in ("deviceConfigVersions", "deviceErrorEvents", "monitorEvents"):
+        assert _count(temp_db, table, a["id"]) == 0
+        assert _count(temp_db, table, other["id"]) == 1
+
+
+def test_merge_keep_child_of_removed_gets_removed_parent(temp_db):
+    grand = _mk(temp_db, "k:g", "10.0.0.3")
+    keep = _mk(temp_db, "k:k", "10.0.0.1")
+    remove = _mk(temp_db, "k:r", "10.0.0.2")
+    temp_db.update_system(remove["id"], {"parentId": grand["id"]})
+    temp_db.update_system(keep["id"], {"parentId": remove["id"]})
+    child = _mk(temp_db, "k:c", "10.0.0.4")
+    temp_db.update_system(child["id"], {"parentId": remove["id"]})
+    merged = temp_db.merge_systems(keep["id"], remove["id"])
+    assert merged["parentId"] == grand["id"]
+    assert temp_db.get_system(child["id"])["parentId"] == keep["id"]
+
+
+def test_merge_keep_child_of_removed_gets_null_without_grandparent(temp_db):
+    keep = _mk(temp_db, "k:k", "10.0.0.1")
+    remove = _mk(temp_db, "k:r", "10.0.0.2")
+    temp_db.update_system(keep["id"], {"parentId": remove["id"]})
+    merged = temp_db.merge_systems(keep["id"], remove["id"])
+    assert not merged["parentId"]
+
+
+def test_merge_removed_child_of_keep_leaves_no_dangling_parent(temp_db):
+    keep = _mk(temp_db, "k:k", "10.0.0.1")
+    remove = _mk(temp_db, "k:r", "10.0.0.2")
+    temp_db.update_system(remove["id"], {"parentId": keep["id"]})
+    merged = temp_db.merge_systems(keep["id"], remove["id"])
+    assert merged["parentId"] != keep["id"]

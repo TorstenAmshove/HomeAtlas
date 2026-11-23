@@ -149,9 +149,6 @@ class Monitor:
     async def _run_round(self, settings: dict | None, manual: bool) -> list[dict]:
         settings = settings or db.get_settings()
         timeout_s = max(0.2, int(settings.get("monitorTimeoutMs", 1500)) / 1000)
-        # Cheap UPDATE, but it is what keeps a newly-marked-critical device from being ignored
-        # until the next full scan.
-        db.ensure_monitoring_for_critical()
         systems = db.list_monitored_systems()
         if not systems:
             self.last_run = time.time()

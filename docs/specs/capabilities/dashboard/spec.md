@@ -55,12 +55,16 @@ Das System MUSS die als kritisch markierten Geräte (höchstens 10, in Inventar-
 d. h. nach Name ohne Groß/Klein) mit allen Gerätefeldern und den effektiv überwachten Ports
 (`monitorPortsEffective`) liefern. Die Oberfläche zeigt je Gerät Name (Link zur Detailseite),
 IP (oder „—"), „Port a, b" bzw. „Ping" und den Zustand: `online` → „erreichbar", `offline` → „nicht
-erreichbar", sonst „wird geprüft…". Ohne kritische Geräte erscheint ein Hinweis, wie man Geräte als
+erreichbar", sonst „wird geprüft…". Ohne Live-Ergebnis unterscheidet die Oberfläche den Grund (siehe unten). Ohne kritische Geräte erscheint ein Hinweis, wie man Geräte als
 kritisch markiert. **[Muss]**
 
 #### Szenario: Neu als kritisch markiert
 - **WENN** ADMIN ein Gerät mit IP als kritisch markiert und das Dashboard neu lädt
 - **DANN** erscheint es in der Liste und wird bereits überwacht (nicht dauerhaft „wird geprüft…")
+
+#### Szenario: Kein Live-Ergebnis
+- **WENN** ein kritisches Gerät nicht live geprüft wird
+- **DANN** steht je nach Grund (in dieser Reihenfolge) „nicht überwachbar – keine Adresse", „Überwachung aus" (Gerät abgewählt), „Stand letzter Scan" (globale Überwachung aus) oder „wird geprüft …" (überwacht, noch kein Ergebnis); der Tooltip nennt den Letztstand vom Scan
 
 Quelle: `backend/app/main.py:1626`, `backend/app/main.py:1629`, `backend/app/db.py:632`, `backend/app/db.py:1890`,
 `backend/app/monitor.py:40`, `frontend/src/pages/start/StartPage.tsx`
@@ -135,8 +139,10 @@ mit Pause bei verstecktem Tab auf. Zusätzlich zu den oben beschriebenen Daten g
   wichtig · `accounts` Zugänge · Scan <Zeit von `lastScan.startedAt`> (Zusatz bei `failed`/`running`).
 - Sind mehr kritische Geräte vorhanden als geliefert, steht unter der Liste „+<critical − Anzahl>
   weitere" mit Link auf `/geraete?importance=critical` (dieselbe Menge, siehe [inventar](../inventar/spec.md)).
-- Ein kritisches Gerät, das die Überwachung nicht prüft (nicht in `/api/monitor`, z. B. ohne IP und
-  Hostname, oder Überwachung aus), zeigt „Stand letzter Scan" statt eines Live-Status.
+- Ein kritisches Gerät, das die Überwachung nicht prüft (nicht in `/api/monitor`), zeigt statt eines
+  Live-Status je nach Grund: ohne IP und Hostname „nicht überwachbar – keine Adresse", mit
+  `monitored=0` „Überwachung aus", bei global abgeschalteter Überwachung „Stand letzter Scan",
+  sonst „wird geprüft …". Die Untertitelzeile „beim Scan <Status>" bleibt als Zusatzinfo.
 - Das Ergebnis von „Internet prüfen" bleibt mit Uhrzeit sichtbar, bis die Seite verlassen wird;
   ein Fehler erscheint dort statt die Seite zu ersetzen.
 - Der KI-Hinweis (nur ADMIN) ist ein Status-Chip „Assistent nicht eingerichtet · Einrichten".
@@ -204,6 +210,3 @@ UI-Seite(n): `frontend/src/pages/start/StartPage.tsx` (Route `/`).
 
 ## OFFEN
 
-- > OFFEN: Kritische Geräte ohne IP und Hostname werden nie überwacht (`backend/app/db.py:1900`) und stehen dauerhaft als „wird geprüft…" auf dem Dashboard – irreführend. → #131
-- > OFFEN: Bei mehr als 10 kritischen Geräten werden still nur die ersten 10 (alphabetisch) gezeigt; die Kachel nennt die volle Zahl, ein Hinweis auf weitere fehlt. → #131
-- > OFFEN: Status `unknown` und jeder andere Wert erscheinen gleichermaßen als „wird geprüft…", auch wenn die Überwachung abgeschaltet ist (dann wird nichts geprüft). → #131

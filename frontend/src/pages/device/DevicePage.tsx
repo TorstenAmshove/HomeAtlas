@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
-  api, DUPLICATE_REASON_LABEL, type Account, type ConfigVersion, type DeviceErrorEvent, type DuplicateCandidate,
+  api, ApiError, DUPLICATE_REASON_LABEL, type Account, type ConfigVersion, type DeviceErrorEvent, type DuplicateCandidate,
   type MonitorState, type ProbeResult, type System, type SystemAlias,
 } from "../../lib/api";
 import { useAuth } from "../../App";
@@ -345,11 +345,18 @@ export default function DevicePage() {
   async function runDelete() {
     setDeleteBusy(true);
     try {
-      await api.deleteSystem(id);
+      await api.deleteSystem(id, true);
       clearDeviceDraft(id);
       setDeleteOpen(false);
       navigate("/geraete", { replace: true });
     } catch (e) {
+      if (e instanceof ApiError && e.status === 404) {
+        // Already gone server-side: same outcome as a successful delete.
+        clearDeviceDraft(id);
+        setDeleteOpen(false);
+        navigate("/geraete", { replace: true });
+        return;
+      }
       setNotice({ kind: "error", text: errorText(e) });
       setDeleteOpen(false);
     } finally {

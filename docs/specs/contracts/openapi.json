@@ -4013,6 +4013,7 @@
     },
     "/api/systems/{system_id}": {
       "delete": {
+        "description": "Accounts hold passwords, so a device that still has some is only deleted on explicit\n`?withAccounts=true`; the count is returned, never the accounts themselves.",
         "operationId": "delete_system_api_systems__system_id__delete",
         "parameters": [
           {
@@ -4022,6 +4023,16 @@
             "schema": {
               "title": "System Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "withAccounts",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Withaccounts",
+              "type": "boolean"
             }
           },
           {
@@ -5788,7 +5799,7 @@
     },
     "/api/users/{user_id}/mfa/reset": {
       "post": {
-        "description": "The only way a second factor comes off an account -- see the module note above the TOTP\nroutes. Clears it rather than disabling the requirement: `current_user` treats\n`totpEnabled = False` as \"must enroll again\", so this both recovers a locked-out user (lost\nphone, reinstalled app) and immediately ends any open session's access to everything except\nthat enrollment, without waiting for it to expire.",
+        "description": "The only way a second factor comes off an account -- see the module note above the TOTP\nroutes. Clears it rather than disabling the requirement: `current_user` treats\n`totpEnabled = False` as \"must enroll again\", so this recovers a locked-out user (lost\nphone, reinstalled app). All sessions of the target end, without exception (also when an admin\nresets their own factor): an open session could otherwise enroll a factor of its own, which\nwould hand whoever only knew the password a second factor. Same as the CLI.",
         "operationId": "reset_user_mfa_api_users__user_id__mfa_reset_post",
         "parameters": [
           {

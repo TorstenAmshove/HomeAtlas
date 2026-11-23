@@ -57,7 +57,6 @@ async def lifespan(_app: FastAPI):
             "unter Einstellungen -> Konto aendern.\n" + "=" * 72,
             os.environ.get("ADMIN_USERNAME", "admin"), generated,
         )
-    db.ensure_monitoring_for_critical()
     monitor_module.monitor.start()
     pipeline.scheduler.start()
     # The MCP session manager needs its task group alive for the app's whole lifetime, same as

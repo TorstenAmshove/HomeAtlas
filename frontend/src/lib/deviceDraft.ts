@@ -34,6 +34,10 @@ export function changedFields(form: Partial<System>, saved: System): DeviceForm 
     if (form[field] === undefined) continue;
     if (JSON.stringify(form[field]) !== JSON.stringify(saved[field])) out[field] = form[field];
   }
+  // A changed importance always carries the monitoring tick: marking "critical" switches monitoring
+  // on by default (backend too), so an unticked box must be sent explicitly even when it equals
+  // the saved value -- otherwise the backend default would override the user's choice.
+  if ("importance" in out && form.monitored !== undefined) out.monitored = form.monitored;
   return out as DeviceForm;
 }
 

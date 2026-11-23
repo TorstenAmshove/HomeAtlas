@@ -8,21 +8,6 @@ from ._core import _conn, _new_id, _now, _rows
 # Live monitoring
 # --------------------------------------------------------------------------------------------
 
-def ensure_monitoring_for_critical() -> int:
-    """Enrols every critical device that has an address into the live monitor.
-
-    Runs on startup and before each monitor round, not just at scan time. Otherwise a device that
-    a human marks as critical in the UI is never polled and sits at status "unknown" forever --
-    which is exactly what the dashboard's "most important devices" list was showing.
-    """
-    with _conn() as conn:
-        cursor = conn.execute(
-            "UPDATE systems SET monitored = 1 "
-            "WHERE importance = 'critical' AND monitored = 0 AND (ip != '' OR hostname != '')"
-        )
-        return cursor.rowcount or 0
-
-
 def list_monitored_systems() -> list[dict]:
     with _conn() as conn:
         return _rows(conn.execute(

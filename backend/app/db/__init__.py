@@ -184,7 +184,6 @@ from .access_log import (  # noqa: E402
     log_access,
 )
 from .monitor import (  # noqa: E402
-    ensure_monitoring_for_critical,
     list_monitor_events,
     list_monitored_systems,
     record_monitor_state,
@@ -263,7 +262,6 @@ __all__ = [
     "delete_system",
     "delete_user",
     "dismiss_duplicate",
-    "ensure_monitoring_for_critical",
     "find_duplicate_candidates",
     "find_system_by_alias",
     "find_system_by_ip_and_hostname",
