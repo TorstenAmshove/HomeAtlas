@@ -423,10 +423,12 @@ Frist bräuchte eine neue Spalte und einen Recovery-Weg und könnte den einzigen
 Quelle: `backend/app/main.py:363`
 
 ### Requirement: Zugriffsprotokoll
+Eine Aktion `mfa.disable` gibt es bewusst nicht: ein Faktor lässt sich nur per `mfa.reset` entfernen.
+
 Das System MUSS sicherheitsrelevante Ereignisse mit Zeitpunkt (UTC), Benutzer-ID, Benutzername,
 Aktion, Detail, Client-IP, User-Agent und Erfolg speichern. Mindestens: `login` (Erfolg/Fehlschlag),
 `login.mfa` (Code angefordert/falsch, ok=false), `password.change`, `mfa.enable`, `mfa.reset`,
-`user.create`, `user.update`; außerdem Aktionen anderer Fähigkeiten (`secret.reveal`, `scan.start`,
+`user.create`, `user.update`, `user.delete` (Detail: Benutzername des gelöschten Kontos, Aktor ist der handelnde ADMIN; abgelehnte Löschungen erzeugen keinen Eintrag); außerdem Aktionen anderer Fähigkeiten (`account.create/update/delete`, `networkresource.update`, `secret.reveal`, `scan.start`,
 `console.*.open/close`, `sshkey.*`, `switch.*`, `system.reboot`). Fehlgeschlagene Logins werden mit dem
 eingegebenen (ggf. nicht existenten) Benutzernamen protokolliert. Client-IP aus `X-Real-IP` des
 vorgeschalteten Proxys, aber nur wenn der TCP-Peer Loopback ist (nginx, ADR-0003); sonst, bei leerem
@@ -585,5 +587,3 @@ UI-Seite(n): `frontend/src/gates/Login.tsx` (ohne Session, jede Route),
 
 ## OFFEN
 
-- > OFFEN: `DELETE /api/users/{id}` schreibt keinen Protokolleintrag, obwohl die AccessLogPage ein Label `user.delete` kennt und README „Benutzeränderungen“ als protokolliert nennt (wirkt wie Bug). → #122
-- > OFFEN: AccessLogPage kennt Label `mfa.disable` (nie geschrieben). (`mfa.reset` hat seit PR 6 ein Label und gilt als sicherheitsrelevant.) → #122

@@ -251,8 +251,9 @@ async def update_user(user_id: str, body: UserPatchBody, request: Request,
 
 
 @router.delete("/api/users/{user_id}")
-async def delete_user(user_id: str, user: dict = Depends(require_admin)) -> dict:
-    if db.get_user(user_id) is None:
+async def delete_user(user_id: str, request: Request, user: dict = Depends(require_admin)) -> dict:
+    target = db.get_user(user_id)
+    if target is None:
         raise HTTPException(status_code=404, detail="Benutzer nicht gefunden.")
     if user_id == user["id"]:
         raise HTTPException(status_code=400, detail="Das eigene Konto lässt sich nicht löschen.")
@@ -262,6 +263,8 @@ async def delete_user(user_id: str, user: dict = Depends(require_admin)) -> dict
         # there is no recovery path short of editing the database by hand.
         raise HTTPException(status_code=400, detail="Der letzte Administrator lässt sich nicht löschen.")
     db.delete_user(user_id)
+    ip, agent = _client(request)
+    db.log_access("user.delete", user=user, ip=ip, user_agent=agent, detail=target["username"])
     return {"ok": True}
 
 

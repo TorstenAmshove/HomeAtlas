@@ -131,3 +131,20 @@ def test_self_demotion_locks_admin_routes(env):
     assert client.patch(f"/api/users/{me}", json={"role": auth.ROLE_MEMBER}).status_code == 200
     assert client.get("/api/auth/me").json()["user"]["role"] == auth.ROLE_MEMBER
     assert client.get("/api/users").status_code == 403
+
+
+def test_delete_user_is_logged(env):
+    client = _admin(env)
+    uid, _ = _user("bob", role=auth.ROLE_MEMBER, totp=False)
+    assert client.delete(f"/api/users/{uid}").status_code == 200
+    entries = db.list_access_log(action="user.delete")
+    assert len(entries) == 1
+    assert entries[0]["detail"] == "bob" and entries[0]["username"] == "root" and entries[0]["ok"] == 1
+
+
+def test_rejected_user_delete_is_not_logged(env):
+    client = _admin(env)
+    me = client.get("/api/auth/me").json()["user"]["id"]
+    assert client.delete("/api/users/gibts-nicht").status_code == 404
+    assert client.delete(f"/api/users/{me}").status_code == 400
+    assert db.list_access_log(action="user.delete") == []

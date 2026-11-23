@@ -164,7 +164,10 @@ keine anderen Felder ändern. MEMBER erhalten 403. Eine unbekannte ID ergibt 404
 „Netzwerkressource nicht gefunden.“. Antwort: `{"resource": <aktualisierte Ressource>}`. **[Muss]**
 
 Ein Body ohne `manualMd` setzt die Notiz auf leer; die Notiz ist auf 2000 Zeichen
-begrenzt (längere → 422); es gibt keinen Protokolleintrag. **[Impl]**
+begrenzt (längere → 422). Jede erfolgreiche Änderung schreibt `networkresource.update` mit dem
+Ressourcennamen (nicht dem Notiztext) ins Zugriffsprotokoll, auch bei unverändertem Text;
+404 erzeugt keinen Eintrag. Entscheidung (#122): protokollieren, weil Notizen in Doku und
+Assistenten-Kontext einfließen und eine Zeile billig ist. **[Impl]**
 
 #### Szenario: Notiz setzen
 - **WENN** ein ADMIN `PATCH /api/network-resources/<id>` mit `{"manualMd": "Nur IoT"}` sendet
@@ -313,5 +316,4 @@ Rollen). Scan-Netzauswahl in `frontend/src/pages/SettingsPage.tsx` (Route `/eins
 ## OFFEN
 
 - > OFFEN: Fähigkeitsbeschreibung nennt Omada und Discovery-Subnetze als Quelle; im Code liefert nur UniFi Netzwerkressourcen. Soll eine Alternative Omada-Netze übernehmen?
-- > OFFEN: Notiz-Änderung erzeugt keinen Eintrag im Zugriffsprotokoll. → #122
 - > OFFEN: Der manuelle Abgleich beim Verbindungstest (`backend/app/routes/systems.py:262`) nutzt dieselbe `sync_network_resources` und zählt `emptyScans` mit; zwei Klicks bei leer gemeldetem Bereich deaktivieren dessen Ressourcen also ebenso wie zwei Scans. Gewollt?
