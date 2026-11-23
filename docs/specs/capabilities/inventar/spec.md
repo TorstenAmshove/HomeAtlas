@@ -17,6 +17,7 @@ gefunden wird) führt der Admin bewusst von Hand zusammen.
 | Geräteliste, Gerätedetail ansehen | ja | ja |
 | Konfigurationsversionen auflisten und Inhalt lesen | ja | ja (siehe OFFEN) |
 | Fehlerereignisse eines Geräts ansehen | ja | ja |
+| Fehlerereignisse quittieren (einzeln/alle) | ja | nein (403) |
 | Gerät anlegen, bearbeiten, löschen | ja | nein (403) |
 | Duplikat-Vorschläge, Aliase ansehen | ja | nein (403) |
 | Zusammenführen, „kein Duplikat" markieren | ja | nein (403) |
@@ -30,7 +31,7 @@ Rollenprüfung: `backend/app/main.py:509`, `:523`, `:529`, `:536`, `:547`, `:560
 Das System MUSS allen angemeldeten Rollen die Liste aller Geräte liefern, optional gefiltert nach
 exakt einer Art (`kind`), sortiert nach Wichtigkeit (`critical` → `normal` → alles andere) und dann
 Name ohne Groß/Klein; jedes Gerät mit der Anzahl direkt zugeordneter Zugänge (`accountCount`, ohne
-Zuordnungsregeln), der Anzahl gespeicherter Fehlerereignisse (`errorCount`) und einer abgeleiteten
+Zuordnungsregeln), der Anzahl offener, d. h. nicht quittierter Fehlerereignisse (`errorCount`) und einer abgeleiteten
 Kurzbeschreibung (`description`); dazu die Anzeigenamen der Arten (`kindLabels`). **[Muss]**
 
 #### Szenario: Filter und Reihenfolge
@@ -38,7 +39,7 @@ Kurzbeschreibung (`description`); dazu die Anzeigenamen der Arten (`kindLabels`)
 - **DANN** enthält die Antwort nur Geräte mit `kind = router`, kritische zuerst, dann alphabetisch
 
 #### Szenario: Fehlerzähler
-- **WENN** Gerät A zwei, Gerät B ein und Gerät C kein Fehlerereignis hat
+- **WENN** Gerät A zwei, Gerät B ein und Gerät C kein offenes Fehlerereignis hat
 - **DANN** ist `errorCount` 2 / 1 / 0
 - Test: `backend/tests/test_db_error_events.py::test_count_error_events_by_system_is_one_query_for_all_devices`
 
@@ -343,9 +344,14 @@ Quelle: `backend/app/main.py:1405`, `backend/app/main.py:1412`, `backend/app/db.
 
 ### Requirement: Fehlerereignisse je Gerät
 Das System MUSS je Gerät die letzten 50 Fehlerereignisse (neueste zuerst; `id, systemId, level,
-message, createdAt`) liefern; unbekanntes Gerät → 404. Gespeichert werden höchstens 100 pro Gerät
+message, createdAt, acknowledgedAt`) liefern; unbekanntes Gerät → 404. Gespeichert werden höchstens 100 pro Gerät
 (älteste fallen weg), Meldungen auf 2000 Zeichen gekürzt, `level` Default `error`. Ereignisse ohne
-Gerätezuordnung werden verworfen. Es gibt keine Löschfunktion. **[Muss]** (Grenzen **[Impl]**)
+Gerätezuordnung werden verworfen. Ein Admin MUSS Ereignisse
+quittieren können (`acknowledgedAt`, `NULL` = offen), einzeln oder alle eines Geräts; quittierte
+Ereignisse bleiben als Verlauf erhalten (keine Löschfunktion), zählen aber nicht mehr in `errorCount`.
+Erneutes Quittieren ändert den ersten Zeitstempel nicht (200); ein Ereignis eines anderen Geräts
+oder unbekannte Ids → 404. Ein neu auftretender Fehler ist wieder offen. Die Kappung
+trimmt unabhängig vom Quittierstatus. **[Muss]** (Grenzen **[Impl]**)
 
 #### Szenario: Reihenfolge und Begrenzung
 - **WENN** 10 Fehler bei Limit 3 gespeichert werden
@@ -355,6 +361,16 @@ Gerätezuordnung werden verworfen. Es gibt keine Löschfunktion. **[Muss]** (Gre
 
 Quelle: `backend/app/main.py:1420`, `backend/app/db.py:1741`, `backend/app/db.py:1744`, `backend/app/db.py:1766`;
 Erzeuger: `backend/app/pipeline.py:92`, `backend/app/monitor.py:172`
+
+#### Szenario: Quittieren
+- **WENN** ein Admin ein Ereignis oder alle Ereignisse eines Geräts quittiert
+- **DANN** verschwinden sie aus `errorCount` (Badge), bleiben aber in der Liste mit `acknowledgedAt`; MEMBER erhält 403
+- Test: `backend/tests/test_db_error_events.py::test_acknowledge_single_event_sets_timestamp`,
+  `::test_acknowledge_is_idempotent_and_keeps_first_timestamp`, `::test_acknowledge_all_only_touches_that_device`,
+  `::test_count_ignores_acknowledged_and_new_event_counts_again`, `::test_cap_trims_regardless_of_acknowledged`,
+  `::test_init_db_adds_column_to_legacy_table`, `backend/tests/test_main_error_ack.py::test_acknowledge_requires_admin`,
+  `::test_event_of_other_system_is_404_and_untouched`, `::test_acknowledge_all_returns_count_and_zero_is_200`,
+  `::test_systems_list_error_count_only_unacknowledged`
 
 ### Requirement: Geräteliste in der Oberfläche
 Die Geräteliste MUSS Freitextsuche (Name, Hostname, IP, MAC, Hersteller, Modell, Standort, Zweck),
@@ -529,6 +545,8 @@ Aus [data-model](../../contracts/data-model.md):
 | GET | /api/systems/{system_id}/config-versions | ADMIN | Versionsliste → `{versions}` |
 | GET | /api/systems/{system_id}/config-versions/{version_id} | ADMIN | Version mit Klartext → `{version}` |
 | GET | /api/systems/{system_id}/errors | MEMBER | Fehlerereignisse → `{events}` |
+| POST | /api/systems/{system_id}/errors/acknowledge | ADMIN | alle offenen quittieren → `{acknowledged}` |
+| POST | /api/systems/{system_id}/errors/{event_id}/acknowledge | ADMIN | ein Ereignis quittieren → `{ok}` |
 | GET | /api/systems/{system_id}/exposure | MEMBER | „Erreichbar über …“ → `{entries}` (aus gespeicherten Fakten, siehe [erreichbarkeit](../erreichbarkeit/spec.md)) |
 
 Berührte fremde Routen (nur verlinkt): Auslesen `POST /api/systems/{id}/probe`, KI-Einordnung `POST /api/systems/{system_id}/classify` ([klassifikation-llm](../klassifikation-llm/spec.md))
@@ -546,7 +564,7 @@ UI-Seite(n): `frontend/src/pages/geraete/InventoryPage.tsx` (Route `/geraete`),
   „Wiedererkennung bestehender Geräte“ in [discovery-und-scan](../discovery-und-scan/spec.md).
 - Kein Rückgängigmachen eines Merges, kein Entfernen einzelner Aliase, kein Aufheben von
   „kein Duplikat".
-- Keine Löschung/Quittierung von Fehlerereignissen, kein Bearbeiten oder Zurückspielen von
+- Keine Löschung von Fehlerereignissen (nur Quittieren), kein Bearbeiten oder Zurückspielen von
   Konfigurationsversionen.
 - Keine serverseitige Suche/Paginierung; die Liste wird komplett geliefert und im Client gefiltert.
 
@@ -563,4 +581,3 @@ UI-Seite(n): `frontend/src/pages/geraete/InventoryPage.tsx` (Route `/geraete`),
 ## OFFEN
 
 - > OFFEN: `GET /api/systems/{id}` liefert MEMBER die Zugangs-Metadaten (Label, Benutzername, URL, Notizen) des Geräts; nur die UI blendet sie aus. Gewollt? → entschieden in #48: in Ordnung, solange keine Secrets
-- > OFFEN: Der Fehler-Badge verschwindet nie, weil Fehlerereignisse nicht quittiert oder gelöscht werden können (nur Kappung bei 100). → #132

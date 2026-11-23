@@ -151,6 +151,24 @@ def _normalize_cidr(value: object) -> str | None:
         return None
 
 
+def validate_scan_subnets(values: list[str]) -> list[str]:
+    """Trim, drop blanks, normalise and de-duplicate free-text scan ranges (IPv4 only).
+
+    Raises ValueError naming the first invalid entry; used by every write path for `scanSubnets`.
+    """
+    out: list[str] = []
+    for raw in values:
+        text = str(raw).strip()
+        if not text:
+            continue
+        normalised = _normalize_cidr(text)
+        if normalised is None:
+            raise ValueError(f"'{text}' ist kein gültiger IPv4-Netzwerk-Bereich (Beispiel: 192.168.1.0/24).")
+        if normalised not in out:
+            out.append(normalised)
+    return out
+
+
 def selected_subnets(settings: dict, resources: list[dict]) -> list[dict]:
     """Networks the user selected for scanning, each with its origin. Pure: no db access.
 
@@ -786,6 +804,12 @@ async def discover(settings: dict, progress: ProgressFn, extra_targets: list[str
             hosts = hosts[:_MAX_HOSTS_PER_SUBNET]
         addresses.extend(str(h) for h in hosts if str(h) not in excluded)
 
+    if not valid_networks:
+        raise RuntimeError(
+            "Es konnte kein Netzwerk-Bereich ermittelt werden (alle Einträge ungültig). Bitte unter "
+            "Einstellungen -> Netzwerk-Scan einen Bereich wie 192.168.1.0/24 eintragen."
+        )
+
     subnet_address_count = len(set(addresses))
     routed: list[str] = []
     for target in extra_targets or []:
@@ -875,9 +899,13 @@ async def discover(settings: dict, progress: ProgressFn, extra_targets: list[str
             warnings.append(f"UPnP/SSDP-Erkennung übersprungen: {exc}. Der Scan läuft ohne SSDP-Daten weiter.")
     for ip in list(mdns) + list(ssdp):
         # A device can announce itself over multicast without answering a single TCP port or ping.
-        if ip not in alive and ip not in excluded and any(
-            ipaddress.ip_address(ip) in ipaddress.ip_network(s, strict=False) for s in subnets
-        ):
+        if ip in alive or ip in excluded:
+            continue
+        try:
+            address = ipaddress.ip_address(ip)
+        except ValueError:
+            continue
+        if any(address in net for _s, net in valid_networks):
             alive[ip] = []
             port_results.setdefault(ip, [])
 

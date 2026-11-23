@@ -183,6 +183,15 @@ async def update_system(system_id: str, patch: SystemWrite, _: dict = Depends(re
     if db.get_system(system_id) is None:
         raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
     _check_parent(system_id, fields.get("parentId"))
+    if "parentId" in fields:
+        # A human-set parent wins over controller links (db.set_parent_from_source); clearing it
+        # hands the decision back to the scan.
+        extra = {**(db.get_system(system_id).get("extra") or {})}
+        if fields["parentId"]:
+            extra["parentSource"] = "manual"
+        else:
+            extra.pop("parentSource", None)
+        fields["extra"] = extra
     system = db.update_system(system_id, {**fields, "confirmed": 1})
     if system is None:
         raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
@@ -317,6 +326,23 @@ async def list_system_errors(system_id: str, _: dict = Depends(current_user)) ->
     if db.get_system(system_id) is None:
         raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
     return {"events": db.list_device_error_events(system_id)}
+
+
+@router.post("/api/systems/{system_id}/errors/acknowledge")
+async def acknowledge_all_system_errors(system_id: str, _: dict = Depends(require_admin)) -> dict:
+    if db.get_system(system_id) is None:
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
+    return {"acknowledged": db.acknowledge_device_error_events(system_id)}
+
+
+@router.post("/api/systems/{system_id}/errors/{event_id}/acknowledge")
+async def acknowledge_system_error(system_id: str, event_id: str, _: dict = Depends(require_admin)) -> dict:
+    if db.get_system(system_id) is None:
+        raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
+    if not any(e["id"] == event_id for e in db.list_device_error_events(system_id, limit=10_000)):
+        raise HTTPException(status_code=404, detail="Ereignis nicht gefunden.")
+    db.acknowledge_device_error_events(system_id, event_id)
+    return {"ok": True}
 
 
 @router.get("/api/systems/{system_id}/exposure")

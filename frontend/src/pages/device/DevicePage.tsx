@@ -634,6 +634,8 @@ export default function DevicePage() {
           )}
           {tab === "verlauf" && (
             <VerlaufTab systemId={id} errorEvents={errorEvents} monitorEvents={monitorEvents}
+                        isAdmin={isAdmin}
+                        onAcknowledged={() => api.listSystemErrors(id).then((r) => setErrorEvents(r.events)).catch(() => undefined)}
                         monitorEnabled={Boolean(monitor?.enabled)} configVersions={configVersions}
                         showConfig={isAdmin && hasConfigHistory(system)} />
           )}

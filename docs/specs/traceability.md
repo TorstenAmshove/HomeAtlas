@@ -5,7 +5,7 @@
 
 Lücken: **0**
 
-## Routen (88)
+## Routen (90)
 
 | Eintrag | Spec |
 |---|---|
@@ -74,6 +74,8 @@ Lücken: **0**
 | `GET /api/systems/{system_id}/container/logs` | [remote-admin](capabilities/remote-admin/spec.md) |
 | `POST /api/systems/{system_id}/container/{action}` | [remote-admin](capabilities/remote-admin/spec.md) |
 | `GET /api/systems/{system_id}/errors` | [inventar](capabilities/inventar/spec.md) |
+| `POST /api/systems/{system_id}/errors/acknowledge` | [inventar](capabilities/inventar/spec.md) |
+| `POST /api/systems/{system_id}/errors/{event_id}/acknowledge` | [inventar](capabilities/inventar/spec.md) |
 | `GET /api/systems/{system_id}/exposure` | [inventar](capabilities/inventar/spec.md) |
 | `POST /api/systems/{system_id}/ha-switch/{action}` | [remote-admin](capabilities/remote-admin/spec.md) |
 | `GET /api/systems/{system_id}/ha-switchables` | [remote-admin](capabilities/remote-admin/spec.md) |

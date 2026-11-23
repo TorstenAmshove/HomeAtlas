@@ -43,10 +43,16 @@ Quelle: `backend/app/pipeline.py:469`, `backend/app/discovery.py:653`
 Das System MUSS nur Funde einordnen lassen, die (a) kein Docker-Container sind, (b) mindestens einen
 Beleg haben (offene Ports, MAC-Hersteller, Hostname, mDNS, SSDP oder HTTP-Banner) und (c) entweder
 Art `other`/leer haben, nur eine Platzhalter-Einordnung (`extra.guessConfident=false`) tragen, oder
-noch keinen Zweck oder keinen Doku-Link besitzen. Der Scan ordnet zusätzlich nur Funde ein, die das
+noch keinen Zweck besitzen; ein fehlender Doku-Link allein macht ein Gerät nicht zum Kandidaten. Der Scan ordnet zusätzlich nur Funde ein, die das
 Inventar noch nicht kennt (kein Treffer über Schlüssel, Legacy-Schlüssel, Alias, MAC, Proxmox,
 IP+Hostname oder Controller-IP; alle Quellen). Bekannte Geräte werden nie erneut gefragt, auch nicht
 nach verworfener Antwort; das Protokoll nennt neue, eingeordnete und übersprungene Funde. **[Muss]**
+
+#### Szenario: Nur der Doku-Link fehlt
+- **WENN** ein Fund Beleg, Art `router`, `guessConfident` und Zweck hat, aber keinen Doku-Link
+- **DANN** ist er kein Kandidat; ohne Zweck bleibt er Kandidat
+
+Quelle: `backend/app/classify.py:needs_classification`, `backend/tests/test_classify_normalization.py`
 
 #### Szenario: Zweiter Scan ohne neue Geräte
 - **WENN** alle Funde bereits im Inventar stehen
@@ -120,7 +126,7 @@ Quelle: `backend/app/classify.py:27`, `backend/app/classify.py:124`
 Das System MUSS das Modell anweisen: Selbstauskunft (UPnP, mDNS) vor Port-Vermutung; nicht raten,
 sondern `other` mit niedriger Konfidenz; Zweck immer ausfüllen; Beschreibung 1–2 Sätze für Laien
 über das *Wozu*; `docUrl` nur, wenn sicher bekannt, Support-Startseite bevorzugen; keine Räume,
-Standorte, Besitzer erfinden; Antwort ausschließlich als JSON-Array mit je
+Standorte, Besitzer erfinden (eine Reihenfolge der Antwort wird nicht verlangt, die Zuordnung erfolgt per `ip`); Antwort ausschließlich als JSON-Array mit je
 `ip, kind, name, vendor, model, purpose, description, docUrl, importance, confidence`;
 `importance=critical` nur für Geräte, deren Ausfall im Haus spürbar ist, `low` für Gäste-/Wegwerfgeräte.
 Sprache Deutsch. **[Muss]** Exakter Wortlaut **[Impl]**.
@@ -144,8 +150,11 @@ Quelle: `backend/app/classify.py:103`
 
 ### Requirement: Antworten filtern und normalisieren
 Das System MUSS Einträge verwerfen, die keine Objekte sind, deren `ip` nicht im Stapel vorkam oder
-deren `confidence` `low` ist. Unbekannte `kind` werden zu `other`, unbekannte `importance` zu
-`normal`; fehlende Konfidenz gilt als `medium`. Längen: Name 80, Hersteller 80, Modell 100, Zweck
+deren Konfidenz (getrimmt, kleingeschrieben) nicht `high` oder `medium` ist („LOW“, „niedrig“,
+Unbekanntes werden verworfen); fehlende, `null` oder leere Konfidenz gilt als `medium`, gespeichert
+wird der normalisierte Wert. Unbekannte `kind`/`importance` bleiben leer (überschreiben also nichts).
+Funde mit gleicher IP werden vor dem Prompt zu einem Belegsatz zusammengeführt (Listen vereinigt,
+Skalare vom ersten Fund mit Wert); Funde ohne IP entfallen, die Stapelgröße zählt IPs. Längen: Name 80, Hersteller 80, Modell 100, Zweck
 200, Beschreibung 800, docUrl 300 Zeichen. **[Muss]**
 
 #### Szenario: Halluzinierte IP
@@ -172,9 +181,12 @@ Beim Übernehmen MUSS gelten:
 - bei Funden mit Namensquelle (Quellen-Token oder `extra`-Schlüssel `docker`, `proxmox`, `unifi`,
   `omada`) bleiben `name` und `kind` unverändert, andere Felder (Zweck, Beschreibung, …) werden ergänzt;
 - bei Funden mit selbst gemeldetem Namen (`extra.nameSource` = `upnp`, `mdns` oder `shelly`, von
-  Discovery gesetzt) bleibt nur der `name` unverändert; `kind` darf die KI weiter setzen, da solche
-  Namen wenig über den Gerätetyp sagen. Ist zusätzlich eine Namensquelle (oben) im Spiel, gilt deren
+  Discovery gesetzt) bleibt der `name` unverändert; `kind` darf die KI nur setzen, wenn die Regel-Art
+  unsicher war (siehe nächster Punkt). Ist zusätzlich eine Namensquelle (oben) im Spiel, gilt deren
   Schutz für Name und Art;
+- eine sicher erkannte Regel-Art (nicht `other`/leer und `guessConfident` nicht `false`) überschreibt
+  die KI nie; ein Regel-`importance=critical` (Gateway) wird nie herabgestuft, die KI darf nur zu
+  `critical` hochstufen;
 - ein bereits vorhandener (kuratierter) Doku-Link gewinnt immer gegen einen KI-Link;
 - `discoverySource` erhält `+ki`, `extra.aiConfidence` die Konfidenz.
 Übernommen werden `kind, name, vendor, model, purpose, descriptionMd, importance, docUrl`. Manuell
@@ -295,17 +307,3 @@ Warnungen in `frontend/src/pages/mehr/ScanPage.tsx` (Route `/scan`).
   CLASSIFY_SYSTEM, [user-msg], purpose="CHAT")`, Provider-Timeout 120 s (Connect 10 s).
 - Ergebnis als Dict `ip → Klassifikation`; Anwendung im Scan per IP auf *alle* Funde mit dieser IP.
 - Link-Prüfungen laufen parallel (`asyncio.gather`).
-
-## OFFEN
-
-- > OFFEN: Weil `importance` nach Normalisierung nie leer ist, überschreibt die KI-Wichtigkeit immer
-  die regelbasierte – auch beim Gateway (`critical`), sobald es Kandidat ist (z. B. kein kuratierter
-  Doku-Link bei Nicht-AVM-Routern). Ebenso überschreibt eine ungültige KI-`kind` (→ `other`) eine
-  korrekte Regel-Art wie `router`. → #142
-- > OFFEN: Ein sicher erkanntes Gerät wird schon Kandidat, wenn nur der Doku-Link fehlt. → #142
-- > OFFEN: Nur exakt `"low"` wird verworfen; „LOW“, „niedrig“ o. Ä. gelten als akzeptiert. → #142
-- > OFFEN: Gleiche IP in mehreren Funden (Netzwerk-Fund plus UniFi/Omada/Proxmox/AdGuard) –
-  mehrere Belegsätze pro IP im selben Stapel möglich, der letzte gewinnt, und das Ergebnis wird auf
-  alle Funde dieser IP angewandt. → #142
-- > OFFEN: Der Prompt verlangt dieselbe Reihenfolge wie die Eingabe; der Code ordnet ausschließlich
-  per IP zu (Reihenfolge irrelevant) – unschädlich, aber Anforderung an Modell überflüssig. → #142

@@ -65,3 +65,19 @@ def test_layer3_plan_uses_controller_cidr_instead_of_assuming_a_24(temp_db):
 
     assert "192.168.20.0/26" in svg
     assert "192.168.20.0/24" not in svg
+
+
+def test_pc_host_with_containers_gets_counter(temp_db):
+    host = temp_db.create_system({"kind": "pc", "name": "PC-Host", "ip": "10.0.0.5",
+                                  "discoveryKey": "k:pc", "importance": "critical"})
+    temp_db.create_system({"kind": "container", "name": "c1", "ip": "10.0.0.5", "discoveryKey": "k:c1",
+                           "parentId": host["id"], "status": "online"})
+    svg = topology.render({})
+    assert "1 Container/VM" in svg
+
+
+def test_host_with_only_critical_child_has_no_counter(temp_db):
+    host = _host(temp_db)
+    temp_db.create_system({"kind": "vm", "name": "V", "ip": "10.0.0.51", "discoveryKey": "k:v",
+                           "importance": "critical", "parentId": host["id"]})
+    assert "Container/VM," not in topology.render({})
