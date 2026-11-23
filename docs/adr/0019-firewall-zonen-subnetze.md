@@ -1,6 +1,6 @@
 # ADR-0019: Firewall-Zonen über die Subnetze aus `networkconf` zuordnen
 
-- **Status:** Akzeptiert, ersetzt ADR-0018
+- **Status:** Ersetzt durch ADR-0021; ersetzte ADR-0018
 - **Datum:** 2026-11-22
 
 ## Kontext

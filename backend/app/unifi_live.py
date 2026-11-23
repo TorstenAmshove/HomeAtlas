@@ -3,7 +3,7 @@
 Why a separate module: `unifi_probe.py` / `unifi_classic_probe.py` belong to the scan pipeline and
 store what they find; this module answers one question at a time ("why does client X drop?") and
 stores nothing. It must never import a `*_admin` module, and scan modules / `pipeline.py` must never
-import it (tests/test_unifi_live.py checks both). `tools.py` may import it.
+import it (tests/test_unifi_live.py checks both). `tools.py` may import it (as it may `proxmox_live`).
 
 Rules enforced here:
 * Auth is the integration API key as ``X-API-Key`` only -- no login, no cookie, no session.
