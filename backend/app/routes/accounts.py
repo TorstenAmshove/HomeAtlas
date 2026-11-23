@@ -4,6 +4,8 @@
 Moved out of main.py unchanged; see main.py for the cross-cutting rules."""
 from __future__ import annotations
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
 
@@ -46,6 +48,18 @@ class AccountBody(BaseModel):
         return value
 
 
+class AccountPatchBody(AccountBody):
+    """PATCH body: like `AccountBody`, plus an explicit way to empty a stored secret (same
+    semantics as `clearSecrets` in PATCH /api/settings). A blank `secret` alone still means
+    "unchanged"."""
+    clearSecrets: list[Literal["secret", "passphrase"]] | None = None
+
+
+def _require_system(system_id: str | None) -> None:
+    if system_id and db.get_system(system_id) is None:
+        raise HTTPException(status_code=422, detail="Gerät nicht gefunden.")
+
+
 class NetworkResourceManualBody(BaseModel):
     manualMd: str = Field("", max_length=2000)
 
@@ -76,6 +90,7 @@ async def list_accounts(_: dict = Depends(require_admin)) -> dict:
 
 @router.post("/api/accounts")
 async def create_account(body: AccountBody, _: dict = Depends(require_admin)) -> dict:
+    _require_system(body.systemId)
     account = db.create_account({**body.model_dump(exclude={"secret", "passphrase"}),
                                  "secretEnc": crypto.encrypt(body.secret),
                                  "passphraseEnc": crypto.encrypt(body.passphrase)})
@@ -83,16 +98,26 @@ async def create_account(body: AccountBody, _: dict = Depends(require_admin)) ->
 
 
 @router.patch("/api/accounts/{account_id}")
-async def update_account(account_id: str, body: AccountBody, _: dict = Depends(require_admin)) -> dict:
+async def update_account(account_id: str, body: AccountPatchBody,
+                         _: dict = Depends(require_admin)) -> dict:
     # Only the fields the client actually sent (#47): a partial body must not reset the others --
     # least of all `allowProbe`, the opt-in that decides whether a credential is used at all.
-    patch = body.model_dump(exclude={"secret", "passphrase"}, exclude_unset=True)
+    patch = body.model_dump(exclude={"secret", "passphrase", "clearSecrets"},
+                            exclude_unset=True)
     # An empty secret means "leave it alone" -- the edit form never receives the stored value, so
     # treating blank as "clear it" would silently delete the password on every unrelated edit.
     if body.secret:
         patch["secretEnc"] = crypto.encrypt(body.secret)
     if body.passphrase:
         patch["passphraseEnc"] = crypto.encrypt(body.passphrase)
+    for name in body.clearSecrets or []:
+        if getattr(body, name):
+            # Checked here, not in a pydantic validator: its 422 would echo the secret as `input`.
+            raise HTTPException(status_code=422, detail=f"{name}: Entfernen und neuer Wert gleichzeitig.")
+        patch[f"{name}Enc"] = crypto.encrypt("")
+    if db.get_account(account_id) is None:
+        raise HTTPException(status_code=404, detail="Zugang nicht gefunden.")
+    _require_system(patch.get("systemId"))
     account = db.update_account(account_id, patch)
     if account is None:
         raise HTTPException(status_code=404, detail="Zugang nicht gefunden.")
@@ -118,6 +143,8 @@ async def reveal_secret(account_id: str, request: Request, user: dict = Depends(
 
 @router.delete("/api/accounts/{account_id}")
 async def delete_account(account_id: str, _: dict = Depends(require_admin)) -> dict:
+    if db.get_account(account_id) is None:
+        raise HTTPException(status_code=404, detail="Zugang nicht gefunden.")
     db.delete_account(account_id)
     return {"ok": True}
 

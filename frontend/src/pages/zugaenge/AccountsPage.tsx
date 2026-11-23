@@ -166,7 +166,8 @@ export default function AccountsPage() {
 
   const probing = accounts.filter((a) => a.allowProbe).length;
   const deployLogins = deploy
-    ? accounts.filter((o) => o.systemId === deploy.account.systemId && o.id !== deploy.account.id && o.hasSecret)
+    ? accounts.filter((o) => o.systemId === deploy.account.systemId && o.id !== deploy.account.id && o.hasSecret
+        && (o.category === "login" || o.category === "sshkey"))
     : [];
   const deployDevice = deploy ? systemName[deploy.account.systemId ?? ""] ?? "das Gerät" : "";
 

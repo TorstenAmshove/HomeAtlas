@@ -81,6 +81,87 @@
         "title": "AccountBody",
         "type": "object"
       },
+      "AccountPatchBody": {
+        "description": "PATCH body: like `AccountBody`, plus an explicit way to empty a stored secret (same\nsemantics as `clearSecrets` in PATCH /api/settings). A blank `secret` alone still means\n\"unchanged\".",
+        "properties": {
+          "allowProbe": {
+            "default": false,
+            "title": "Allowprobe",
+            "type": "boolean"
+          },
+          "category": {
+            "default": "login",
+            "title": "Category",
+            "type": "string"
+          },
+          "clearSecrets": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    "secret",
+                    "passphrase"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clearsecrets"
+          },
+          "label": {
+            "default": "Zugang",
+            "title": "Label",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          },
+          "passphrase": {
+            "default": "",
+            "title": "Passphrase",
+            "type": "string"
+          },
+          "port": {
+            "default": 0,
+            "title": "Port",
+            "type": "integer"
+          },
+          "secret": {
+            "default": "",
+            "title": "Secret",
+            "type": "string"
+          },
+          "systemId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Systemid"
+          },
+          "url": {
+            "default": "",
+            "title": "Url",
+            "type": "string"
+          },
+          "username": {
+            "default": "",
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "title": "AccountPatchBody",
+        "type": "object"
+      },
       "ChatBody": {
         "properties": {
           "message": {
@@ -1291,7 +1372,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AccountBody"
+                "$ref": "#/components/schemas/AccountPatchBody"
               }
             }
           },
