@@ -6,8 +6,10 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, Body, Depends, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, create_model, model_validator
 
 from .. import auth, crypto, db, docker_probe, docs, llm_providers, model_catalog, oui, probe_auth
 from ..deps import current_user, logger, require_admin
@@ -65,38 +67,90 @@ def _migrate_plaintext_secrets() -> None:
         )
 
 
+_CLEARABLE = _SECRET_SETTING_FIELDS + tuple(_ENCRYPTED_SETTING_FIELDS)
+_PROVIDERS = tuple(model_catalog.PROVIDER_LABELS)
+
+
+def _has_flag(plain: str) -> str:
+    return f"has{plain[0].upper()}{plain[1:]}"
+
+
+# Read-only in the GET response: accepted in a PATCH body (the UI sends the whole form back) but
+# dropped before saving. Raw `*Enc` fields are not known keys at all -> 422.
+_READ_ONLY_FIELDS = ("setupCompleted", "providerModelCache") + tuple(_has_flag(p) for p in _ENCRYPTED_SETTING_FIELDS)
+
+
+def _field_spec(name: str, default):
+    if name == "llmProvider":
+        return (Literal[_PROVIDERS], None)
+    if isinstance(default, bool):
+        return (StrictBool, None)
+    if isinstance(default, int):
+        return (StrictInt, Field(None, ge=0))
+    if isinstance(default, str):
+        return (StrictStr, None)
+    if isinstance(default, list):
+        return (list[StrictStr], None)
+    return (dict, None)
+
+
+def _patch_fields() -> dict:
+    fields = {n: _field_spec(n, d) for n, d in db.DEFAULT_SETTINGS.items() if not n.endswith("Enc")}
+    fields.update({p: (StrictStr, None) for p in _ENCRYPTED_SETTING_FIELDS})
+    fields.update({_has_flag(p): (StrictBool, None) for p in _ENCRYPTED_SETTING_FIELDS})
+    fields["clearSecrets"] = (list[Literal[_CLEARABLE]], None)
+    return fields
+
+
+class _SettingsPatchBase(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def _no_clear_with_value(self):
+        for name in self.clearSecrets or []:
+            value = getattr(self, name, None)
+            if value and value != _MASK:
+                raise ValueError(f"{name}: Entfernen und neuer Wert gleichzeitig.")
+        return self
+
+
+# Built from DEFAULT_SETTINGS so a new setting is writable without a second list to keep in sync.
+SettingsPatch = create_model("SettingsPatch", __base__=_SettingsPatchBase, **_patch_fields())
+
+
 def _mask_settings(settings: dict) -> dict:
-    masked = dict(settings)
+    # Only known keys: legacy keys stay in the DB but are not shown, so the UI's round trip of the
+    # whole form can never send an unknown key back.
+    masked = {k: v for k, v in settings.items() if k in db.DEFAULT_SETTINGS and not k.endswith("Enc")}
     for field in _SECRET_SETTING_FIELDS:
         masked[field] = _MASK if settings.get(field) else ""
     for plain, encrypted in _ENCRYPTED_SETTING_FIELDS.items():
         # The ciphertext never leaves the server; the UI only learns whether something is stored.
-        masked.pop(encrypted, None)
-        masked[f"has{plain[0].upper()}{plain[1:]}"] = bool(settings.get(encrypted))
+        masked[_has_flag(plain)] = bool(settings.get(encrypted))
     return masked
 
 
 def _unmask_patch(patch: dict, current: dict) -> dict:
-    """The UI round-trips the masked value when the user edits an unrelated field; writing it back
-    verbatim would replace the real key with asterisks."""
+    """One rule for every secret: empty or the masked placeholder means "keep what is stored";
+    removal goes only through `clearSecrets` (see update_settings). The UI round-trips the mask
+    when the user edits an unrelated field."""
     cleaned = dict(patch)
+    cleaned.pop("clearSecrets", None)
     for field in _SECRET_SETTING_FIELDS:
         if field not in cleaned:
             continue
-        if cleaned[field] == _MASK:
-            cleaned[field] = current.get(field, "")
-        elif cleaned[field]:
+        if cleaned[field] in ("", _MASK):
+            del cleaned[field]
+        else:
             # API keys are stored encrypted like every other credential (ADR-0007); only
             # llm_providers.api_key_for decrypts them, at the moment a request needs one.
             cleaned[field] = crypto.encrypt(str(cleaned[field]))
     for plain, encrypted in _ENCRYPTED_SETTING_FIELDS.items():
         if plain in cleaned:
             value = cleaned.pop(plain)
-            # Blank means "leave it alone" -- the form never receives the stored value, so treating
-            # it as "clear" would wipe the credential on every unrelated settings save.
-            if value:
+            if value and value != _MASK:
                 cleaned[encrypted] = crypto.encrypt(value)
-        cleaned.pop(f"has{plain[0].upper()}{plain[1:]}", None)
+        cleaned.pop(_has_flag(plain), None)
     return cleaned
 
 
@@ -113,9 +167,16 @@ async def get_settings(user: dict = Depends(current_user)) -> dict:
 
 
 @router.patch("/api/settings")
-async def update_settings(patch: dict = Body(...), _: dict = Depends(require_admin)) -> dict:
-    current = db.get_settings()
-    merged = db.update_settings(_unmask_patch(patch, current))
+async def update_settings(patch: SettingsPatch, _: dict = Depends(require_admin)) -> dict:  # type: ignore[valid-type]
+    data = patch.model_dump(exclude_unset=True)
+    for name in _READ_ONLY_FIELDS:
+        if not name.startswith("has"):
+            data.pop(name, None)
+    cleared = data.get("clearSecrets") or []
+    cleaned = _unmask_patch(data, db.get_settings())
+    for name in cleared:
+        cleaned[_ENCRYPTED_SETTING_FIELDS.get(name, name)] = ""
+    merged = db.update_settings(cleaned)
     return {"settings": _mask_settings(merged)}
 
 

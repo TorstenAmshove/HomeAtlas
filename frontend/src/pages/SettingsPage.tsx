@@ -102,12 +102,16 @@ export default function SettingsPage() {
 
   function discardChanges() {
     setForm(saved);
+    setClearSecrets([]);
     setEditedTab(null);
     setAccountKey((k) => k + 1);
     setAccountDirty(false);
   }
   const [notice, setNotice] = useState<{ kind: "ok" | "error" | "info"; text: string } | null>(null);
   const [busy, setBusy] = useState("");
+  // Secrets the admin marked for removal; sent as `clearSecrets` with the next save. An empty
+  // field only ever means "keep what is stored".
+  const [clearSecrets, setClearSecrets] = useState<string[]>([]);
 
   // Backend release version for the "Über" tab; a failed request leaves null (frontend version only).
   const [serverVersion, setServerVersion] = useState<string | null>(null);
@@ -138,13 +142,37 @@ export default function SettingsPage() {
     setEditedTab(tab);
   }
 
+  function toggleClear(name: string, on: boolean) {
+    setClearSecrets((c) => (on ? [...c.filter((n) => n !== name), name] : c.filter((n) => n !== name)));
+    if (on) set(name, "");
+    setEditedTab(tab);
+  }
+
+  function removeButton(name: string, stored: boolean) {
+    if (clearSecrets.includes(name)) {
+      return (
+        <div className="field-hint">
+          Wird beim Speichern entfernt. <button type="button" className="link" onClick={() => toggleClear(name, false)}>Rückgängig</button>
+        </div>
+      );
+    }
+    if (!stored) return null;
+    return <button type="button" className="secondary" onClick={() => toggleClear(name, true)}>Entfernen</button>;
+  }
+
   async function save(patch: Record<string, any>) {
     setBusy("save");
     try {
-      const { settings } = await api.updateSettings(patch);
-      setForm(settings);
+      // Only removals whose field is part of this save go along: a partial save (e.g. just the
+      // home name or the system prompt) must never delete a key marked elsewhere.
+      const clearing = clearSecrets.filter((name) => name in patch);
+      const body = clearing.length ? { ...patch, clearSecrets: clearing } : patch;
+      const { settings } = await api.updateSettings(body);
+      const pending = clearSecrets.filter((name) => !clearing.includes(name));
+      setClearSecrets(pending);
+      setForm(pending.length ? { ...settings, ...Object.fromEntries(pending.map((name) => [name, ""])) } : settings);
       setSaved(settings);
-      setEditedTab(null);
+      if (!pending.length) setEditedTab(null);
       setNotice({ kind: "ok", text: "Gespeichert." });
     } catch (e) {
       setNotice({ kind: "error", text: e instanceof Error ? e.message : String(e) });
@@ -245,6 +273,7 @@ export default function SettingsPage() {
                 value={form[KEY_FIELD[provider]] ?? ""}
                 onChange={(e) => set(KEY_FIELD[provider], e.target.value)}
               />
+              {removeButton(KEY_FIELD[provider], form[KEY_FIELD[provider]] === "********")}
               <div className="field-hint">
                 Wird nur auf deinem eigenen Server gespeichert und nie im Klartext zurückgegeben.
               </div>
@@ -534,6 +563,7 @@ export default function SettingsPage() {
                     ? "Es ist etwas hinterlegt. Leer lassen, um es beizubehalten."
                     : "Wird verschlüsselt gespeichert und nie zurückgegeben."}
                 </div>
+                {removeButton("defaultCredentialSecret", !!form.hasDefaultCredentialSecret)}
               </div>
               {form.defaultCredentialIsKey && (
                 <div className="field">
@@ -542,6 +572,7 @@ export default function SettingsPage() {
                          placeholder={form.hasDefaultCredentialPassphrase ? "unverändert lassen" : ""}
                          value={form.defaultCredentialPassphrase ?? ""}
                          onChange={(e) => set("defaultCredentialPassphrase", e.target.value)} />
+                  {removeButton("defaultCredentialPassphrase", !!form.hasDefaultCredentialPassphrase)}
                 </div>
               )}
             </div>
