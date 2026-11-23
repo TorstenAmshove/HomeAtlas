@@ -195,6 +195,7 @@
         "properties": {
           "manualMd": {
             "default": "",
+            "maxLength": 2000,
             "title": "Manualmd",
             "type": "string"
           }
