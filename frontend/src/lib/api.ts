@@ -597,5 +597,5 @@ export const api = {
   deleteChat: (chatId: string) => del<{ ok: boolean }>(`/chats/${chatId}`),
 
   dashboard: () => get<Dashboard>("/dashboard"),
-  setup: (body: Record<string, any>) => post<{ ok: boolean; systems: number; accounts: number }>("/setup", body),
+  setup: (body: Record<string, any>) => post<{ ok: boolean; systems: number; merged: number; accounts: number }>("/setup", body),
 };

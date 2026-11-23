@@ -493,6 +493,21 @@ def find_system_by_ip_and_hostname(ip: str, hostname: str) -> dict | None:
         ).fetchone())
 
 
+def find_system_by_ip(ip: str) -> dict | None:
+    """The one non-container row with this IP, for the setup wizard's duplicate check. Returns None
+    for an empty IP, no match, or an ambiguous match (several rows): guessing wrong would merge two
+    devices. Containers/VMs/Docker rows share their host's IP, so they never count."""
+    ip = (ip or "").strip()
+    if not ip:
+        return None
+    with _conn() as conn:
+        rows = _rows(conn.execute(
+            "SELECT * FROM systems WHERE ip = ? AND kind NOT IN ('container', 'vm') "
+            "AND COALESCE(discoverySource, '') != 'docker'", (ip,),
+        ).fetchall())
+    return rows[0] if len(rows) == 1 else None
+
+
 def _has_controller_origin(system: dict) -> bool:
     # `extra.unifi` / `extra.omada`, not `discoverySource`: that one gets suffixes ("unifi+ki").
     extra = system.get("extra") or {}

@@ -134,11 +134,24 @@ class SetupAccount(BaseModel):
     notes: str = ""
 
 
+# Kinds the wizard marks critical (monitored, alerting). `network` (switch/AP) is left out on
+# purpose: such devices drop off briefly on Wi-Fi roaming/reboots and would raise constant alerts.
+_CRITICAL_KINDS = ("router", "server", "nas", "heating")
+
+
 class SetupBody(BaseModel):
     homeName: str = "Mein Zuhause"
     systems: list[SetupSystem] = Field(default_factory=list)
     accounts: list[SetupAccount] = Field(default_factory=list)
     scanSubnets: list[str] = Field(default_factory=list)
+
+    @field_validator("homeName")
+    @classmethod
+    def _home_name_required(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("homeName darf nicht leer sein")
+        return value
 
     @field_validator("scanSubnets")
     @classmethod
@@ -149,23 +162,43 @@ class SetupBody(BaseModel):
 @router.post("/api/setup")
 async def run_setup(body: SetupBody, _: dict = Depends(require_admin)) -> dict:
     """Stores what the first-run wizard collected. Each system with a password gets a matching
-    account row, so the credential lands encrypted rather than in a free-text note."""
-    created_systems = 0
+    account row, so the credential lands encrypted rather than in a free-text note.
+
+    Runs once: afterwards 409 (auth and validation come first). No `await` between the check and
+    the write, so concurrent calls cannot both pass. A device whose IP matches exactly one
+    existing non-container row updates that row instead of adding a duplicate."""
+    if db.get_settings().get("setupCompleted"):
+        raise HTTPException(409, "Die Einrichtung ist bereits abgeschlossen.")
+    created_systems = merged_systems = created_accounts = 0
     for entry in body.systems:
         if not entry.name.strip():
             continue
-        system = db.create_system({
-            "name": entry.name, "kind": entry.kind, "ip": entry.ip, "location": entry.location,
-            "purpose": entry.purpose, "url": entry.url, "confirmed": 1, "discovered": 0,
-            "importance": "critical" if entry.kind in ("router", "server", "nas", "heating") else "normal",
-        })
-        created_systems += 1
+        critical = entry.kind in _CRITICAL_KINDS
+        existing = db.find_system_by_ip(entry.ip)
+        if existing is None:
+            system = db.create_system({
+                "name": entry.name, "kind": entry.kind, "ip": entry.ip.strip(), "location": entry.location,
+                "purpose": entry.purpose, "url": entry.url, "confirmed": 1, "discovered": 0,
+                "importance": "critical" if critical else "normal",
+            })
+            created_systems += 1
+        else:
+            patch: dict = {"confirmed": 1}
+            for field in ("kind", "location", "purpose", "url"):
+                if getattr(entry, field).strip() and (field != "kind" or entry.kind != "other"):
+                    patch[field] = getattr(entry, field)
+            if not existing.get("confirmed"):
+                patch["name"] = entry.name
+            if critical:
+                patch["importance"] = "critical"
+            system = db.update_system(existing["id"], patch) or existing
+            merged_systems += 1
         if entry.username or entry.password:
             db.create_account({
                 "systemId": system["id"], "label": f"Zugang {entry.name}", "category": "login",
                 "username": entry.username, "secretEnc": crypto.encrypt(entry.password), "url": entry.url,
             })
-    created_accounts = 0
+            created_accounts += 1
     for account in body.accounts:
         if not account.label.strip():
             continue
@@ -175,4 +208,4 @@ async def run_setup(body: SetupBody, _: dict = Depends(require_admin)) -> dict:
 
     db.update_settings({"homeName": body.homeName, "setupCompleted": True,
                         "scanSubnets": body.scanSubnets})
-    return {"ok": True, "systems": created_systems, "accounts": created_accounts}
+    return {"ok": True, "systems": created_systems, "merged": merged_systems, "accounts": created_accounts}

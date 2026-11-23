@@ -75,7 +75,7 @@ export const isSetupDirty = (form: SetupForm) => JSON.stringify(form) !== JSON.s
 
 export function setupBody(form: SetupForm) {
   return {
-    homeName: form.homeName,
+    homeName: form.homeName.trim(),
     scanSubnets: form.subnet.trim() ? [form.subnet.trim()] : [],
     systems: form.systems.filter((s) => s.name.trim()),
     accounts: form.accounts.filter((a) => a.label.trim()),

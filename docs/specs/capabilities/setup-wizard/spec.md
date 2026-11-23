@@ -33,7 +33,7 @@ Liveness-Check des Stacks. Weitere Felder (z. B. Benutzeranzahl) MÜSSEN fehlen.
 - **WENN** der Stack startet
 - **DANN** antwortet `GET /api/health` über nginx mit 2xx (CI wartet bis 60 s darauf)
 
-Quelle: `backend/app/main.py:157`, `backend/app/db.py:410`, `.github/workflows/build.yml:97`
+Quelle: `backend/app/routes/overview.py`, `backend/app/db/settings.py`, `.github/workflows/build.yml:97`
 
 ### Requirement: Gating-Reihenfolge
 Die Oberfläche MUSS nach dem Login in dieser Reihenfolge führen: MFA-Einrichtung (falls nötig, siehe
@@ -119,21 +119,39 @@ Quelle: `frontend/src/gates/setupModel.ts`, `frontend/src/gates/Setup.tsx`, Test
 `POST /api/setup` MUSS ADMIN mit aktivem zweiten Faktor verlangen und akzeptieren:
 `{homeName = "Mein Zuhause", systems: [{name, kind = "other", ip, location, purpose, url, username,
 password}], accounts: [{label, category = "login", username, secret, url, notes}], scanSubnets: [str]}`.
-Antwort `{ok: true, systems: <Anzahl angelegter Geräte>, accounts: <Anzahl angelegter Konten>}`.
-**[Muss]**
+Antwort `{ok: true, systems: <Anzahl neu angelegter Geräte>, merged: <Anzahl mit vorhandener Zeile
+zusammengeführter Geräte>, accounts: <Anzahl aller angelegten Konten, Gerätezugänge und freie Konten>}`.
+Das Setup läuft nur einmal: ist `setupCompleted` schon `true`, MUSS `POST /api/setup` mit 409
+antworten und nichts schreiben (Reihenfolge der Prüfungen: Anmeldung/Rolle 401/403, Body 422, dann 409).
+Ohne `await` zwischen Prüfung und Speichern ist der Handler auf dem Event-Loop atomar. **[Muss]**
 
 #### Szenario: MEMBER sendet Setup
 - **WENN** ein MEMBER `POST /api/setup` aufruft
 - **DANN** 403, nichts wird gespeichert
 
-Quelle: `backend/app/main.py:1638`, `backend/app/main.py:1649`, `backend/app/main.py:1658`, `backend/app/main.py:1665`
+#### Szenario: Zweiter Aufruf
+- **WENN** das Setup schon abgeschlossen ist und `POST /api/setup` erneut aufgerufen wird
+- **DANN** 409; Geräte, Konten, `homeName` und `scanSubnets` bleiben unverändert
+  (Test: `backend/tests/test_setup_guard.py::test_setup_second_call_409_no_side_effects`)
+
+Quelle: `backend/app/routes/overview.py` (`run_setup`)
 
 ### Requirement: Geräte aus dem Wizard
 Für jedes Gerät mit nicht-leerem (getrimmtem) Namen MUSS ein Inventareintrag entstehen, als manuell
-bestätigt (`confirmed` = 1, `discovered` = 0). Die Wichtigkeit MUSS `critical` sein für die Arten
+bestätigt (`confirmed` = 1, `discovered` = 0), außer es gibt einen Treffer per IP (unten). Die Wichtigkeit MUSS `critical` sein für die Arten
 `router`, `server`, `nas`, `heating`, sonst `normal`. Kritische Geräte mit Adresse werden dadurch
 automatisch überwacht (siehe [monitoring](../monitoring/spec.md)). Name wird ungetrimmt übernommen.
-**[Muss]** (Art→Wichtigkeit-Zuordnung: **[Muss]**, OFFEN ob Alternative das übernehmen soll)
+Die Art→Wichtigkeit-Zuordnung (`_CRITICAL_KINDS`) ist Absicht: `network` (Switch/AP) bleibt `normal`,
+weil solche Geräte bei WLAN-Aussetzern sonst dauernd als kritisch gälten.
+**[Muss]**
+
+**IP-Abgleich:** Hat das Gerät eine nicht-leere IP und gibt es in `systems` genau eine Zeile mit dieser
+IP, die weder Art `container`/`vm` noch `discoverySource = docker` hat, MUSS diese Zeile aktualisiert
+statt eine neue angelegt werden: `confirmed` = 1, `discovered` bleibt; Art (nicht `other`), Standort,
+Zweck, URL nur bei nicht-leerem Wizard-Feld; Name nur, wenn die Zeile noch nicht bestätigt ist;
+Wichtigkeit wird höchstens auf `critical` hochgestuft, nie herabgestuft. Bei 0 oder mehreren Treffern
+wird neu angelegt. Zwei Wizard-Geräte mit gleicher IP ergeben eine Zeile. Der Gerätezugang hängt an
+der vorhandenen Zeile. **[Muss]**
 
 #### Szenario: NAS mit Adresse
 - **WENN** Gerät `{name: "Syno", kind: "nas", ip: "192.168.1.5"}` übergeben wird
@@ -143,28 +161,32 @@ automatisch überwacht (siehe [monitoring](../monitoring/spec.md)). Name wird un
 - **WENN** `name` nur aus Leerzeichen besteht
 - **DANN** wird der Eintrag übersprungen und nicht gezählt
 
-Quelle: `backend/app/main.py:1671`, `backend/app/main.py:1676`, `backend/app/db.py:1890`, `backend/app/monitor.py:144`
+#### Szenario: Gerät mit vorhandener IP
+- **WENN** ein Scan schon eine Zeile mit IP `192.168.1.5` angelegt hat und das Wizard-Gerät dieselbe IP hat
+- **DANN** bleibt es bei einer Zeile (`confirmed` = 1, `discovered` = 1), Antwort `merged` = 1, `systems` = 0
+  (Tests: `backend/tests/test_setup_guard.py::test_setup_merges_existing_ip`, `::test_setup_no_merge_for_docker_or_ambiguous_ip`)
+
+Quelle: `backend/app/routes/overview.py` (`run_setup`, `_CRITICAL_KINDS`), `backend/app/db/systems.py` (`find_system_by_ip`), `backend/app/monitor.py`
 
 ### Requirement: Zugangsdaten aus dem Wizard verschlüsselt
 Hat ein Gerät Benutzername ODER Passwort, MUSS ein zugehöriger Zugang entstehen (Bezeichnung „Zugang
 <Gerätename>“, Kategorie `login`, Benutzername, URL des Geräts), dessen Passwort verschlüsselt wie
 jeder Zugang gespeichert wird (leeres Passwort bleibt leer). Freie Konten mit nicht-leerer Bezeichnung
 MÜSSEN als geräteunabhängige Zugänge mit verschlüsseltem Passwort gespeichert werden. Passwörter
-dürfen nie in Freitextfeldern des Geräts landen. Die Zähler in der Antwort zählen nur die freien
-Konten, nicht die Gerätezugänge. **[Muss]**
+dürfen nie in Freitextfeldern des Geräts landen. `accounts` in der Antwort zählt Gerätezugänge und freie Konten. **[Muss]**
 
 #### Szenario: Router mit Login
 - **WENN** Gerät „FRITZ!Box“ mit `username: "admin"`, `password: "geheim123"`
-- **DANN** existiert ein Zugang „Zugang FRITZ!Box“ (`category = login`) am Gerät, Passwort nur verschlüsselt gespeichert; `accounts` in der Antwort zählt ihn nicht
+- **DANN** existiert ein Zugang „Zugang FRITZ!Box“ (`category = login`) am Gerät, Passwort nur verschlüsselt gespeichert; `accounts` in der Antwort zählt ihn mit
 
 #### Szenario: Konto ohne Bezeichnung
 - **WENN** ein Konto mit leerer `label` übergeben wird
 - **DANN** wird es übersprungen
 
-Quelle: `backend/app/main.py:1679`, `backend/app/main.py:1686`, `backend/app/crypto.py:43`, siehe [zugangsdaten](../zugangsdaten/spec.md)
+Quelle: `backend/app/routes/overview.py` (`run_setup`), `backend/app/crypto.py`, siehe [zugangsdaten](../zugangsdaten/spec.md)
 
 ### Requirement: Einstellungen und Abschluss-Flag
-Das Setup MUSS `homeName` (unverändert, auch leer), `setupCompleted = true` und `scanSubnets` (Einträge
+Das Setup MUSS `homeName` (getrimmt; leer oder nur Leerzeichen → 422, nichts gespeichert; fehlt das Feld, gilt „Mein Zuhause“), `setupCompleted = true` und `scanSubnets` (Einträge
 getrimmt, leere entfernt, normalisiert, dedupliziert; überschreibt bisherige Liste) in den
 Einstellungen speichern. Jeder Eintrag MUSS ein gültiger IPv4-Netzbereich sein, sonst antwortet das
 System mit 422 und schreibt nichts (keine Systeme, Konten, kein `setupCompleted`). Nach
@@ -179,7 +201,7 @@ erfolgreichem Setup erscheint der Wizard nicht mehr. **[Muss]**
 - **DANN** 422 mit Meldung, die den Eintrag nennt; nichts gespeichert
   (Test: `backend/tests/test_setup_subnets.py::test_setup_invalid_subnet_422_no_side_effects`)
 
-Quelle: `backend/app/main.py:1692`
+Quelle: `backend/app/routes/overview.py` (`SetupBody`), Tests: `backend/tests/test_setup_guard.py::test_setup_empty_home_name_422`, `::test_setup_home_name_trimmed`
 
 ### Requirement: Keine automatischen Folgeaktionen
 Das Setup MUSS sich auf das Speichern beschränken: es startet keinen Scan und erzeugt keine
@@ -189,7 +211,7 @@ Dokumentation. Scan und Doku laufen über ihre eigenen Wege (Zeitplan, manueller
 - **WENN** das Setup gespeichert ist
 - **DANN** existieren noch keine Dokumentationskapitel, bis Doku-Generierung oder Scan laufen
 
-Quelle: `backend/app/main.py:1665`, Test: `frontend/e2e/smoke.spec.ts::login, MFA enrollment, setup and main routes render without errors` (ruft `/api/docs/generate` explizit auf)
+Quelle: `backend/app/routes/overview.py`, Test: `frontend/e2e/smoke.spec.ts::login, MFA enrollment, setup and main routes render without errors` (ruft `/api/docs/generate` explizit auf)
 
 ## Daten
 
@@ -215,7 +237,8 @@ und `setupCompleted` false), Gating in `frontend/src/App.tsx`.
 ## Nicht-Ziele und Grenzen
 
 - Kein Anlegen weiterer Benutzer, kein LLM-Provider, keine Scan-Optionen außer einem Netzbereich.
-- Keine Validierung von IP-Adressen, CIDR-Angaben oder Gerätearten im Backend.
+- Backend validiert nur `homeName` (Pflicht) und `scanSubnets`; IP-Adressen und Gerätearten werden nicht geprüft.
+- Teilfehler mitten im Request lassen bereits geschriebene Geräte stehen; ein Wiederholen führt per IP-Abgleich zu Zusammenführung statt Duplikaten.
 - Der Entwurf (ohne Passwörter) übersteht ein Reload; Abmelden verwirft ihn.
 - Kein „Setup erneut ausführen“ in der UI.
 
@@ -227,11 +250,3 @@ und `setupCompleted` false), Gating in `frontend/src/App.tsx`.
   für `purpose`/`url` der Geräte bzw. `url` der Konten (nur Vorbelegung `purpose` beim Router).
 - Gerätezugänge werden ohne `allowProbe` angelegt (Default aus), also nicht zum Auslesen verwendet
   (siehe [credentialed-probing](../credentialed-probing/spec.md)).
-
-## OFFEN
-
-- > OFFEN: `POST /api/setup` prüft nicht, ob das Setup schon abgeschlossen ist; erneuter Aufruf legt Geräte/Konten doppelt an und überschreibt `homeName`/`scanSubnets`. → #149
-- > OFFEN: Antwortfeld `accounts` zählt Gerätezugänge nicht mit – gewollt oder Ungenauigkeit? → #149
-- > OFFEN: Leerer `homeName` wird gespeichert; Doku/Topologie/Assistent fallen dann teils auf Ersatztexte zurück. → #149
-- > OFFEN: Art→Wichtigkeit (`router/server/nas/heating` → kritisch) ist hart verdrahtet; `network` (Switch/AP) wird nicht kritisch – Absicht? → #149
-- > OFFEN: Kein Duplikatabgleich mit bereits gescannten Geräten gleicher IP; ein späterer Scan muss das zusammenführen (siehe [inventar](../inventar/spec.md)). → #149
