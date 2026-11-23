@@ -1,4 +1,4 @@
-"""Login, second factor, roles and the WebSocket gate (#45). Until now the auth path had no backend
+"""Login, second factor and roles (#45). Until now the auth path had no backend
 tests at all; these cover the rules the spec marks [Muss]: mandatory TOTP, server-side role checks,
 brute-force throttling and single-use TOTP codes."""
 import time
@@ -166,3 +166,147 @@ def test_ip_limit_covers_many_usernames():
         throttle.record_failure(f"user{i}", "9.9.9.9")
     assert throttle.retry_after("someone-else", "9.9.9.9") > 0
     assert throttle.retry_after("someone-else", "9.9.9.8") == 0
+
+
+# --- session lifecycle (#116) ----------------------------------------------------------------
+
+def _client_with(token: str) -> TestClient:
+    client = TestClient(main.app)
+    client.cookies.set(auth.SESSION_COOKIE_NAME, token)
+    return client
+
+
+def _status(token: str) -> int:
+    return _client_with(token).get("/api/auth/me").status_code
+
+
+def test_invalidate_user_sessions_keep_token(env):
+    a, _ = _user("anna")
+    b, _ = _user("bert")
+    keep, other, foreign = auth.create_session(a), auth.create_session(a), auth.create_session(b)
+    assert db.invalidate_user_sessions(a, keep_token=keep) == 1
+    assert _status(keep) == 200 and _status(other) == 401 and _status(foreign) == 200
+    assert db.invalidate_user_sessions(a) == 1
+    assert _status(keep) == 401 and _status(foreign) == 200
+
+
+def test_password_change_ends_other_sessions(env):
+    uid, _ = _user("anna")
+    other_id, _ = _user("bert")
+    a, b, foreign = auth.create_session(uid), auth.create_session(uid), auth.create_session(other_id)
+    resp = _client_with(a).post("/api/auth/password",
+                                json={"currentPassword": PASSWORD, "newPassword": "Ganz-Neues-Passwort-77x"})
+    assert resp.status_code == 200
+    assert _status(a) == 200
+    assert _status(b) == 401
+    assert _status(foreign) == 200  # other users untouched
+
+
+def test_failed_password_change_keeps_sessions(env):
+    uid, _ = _user("anna")
+    a, b = auth.create_session(uid), auth.create_session(uid)
+    client = _client_with(a)
+    assert client.post("/api/auth/password",
+                       json={"currentPassword": "falsch", "newPassword": "Ganz-Neues-Passwort-77x"}).status_code == 400
+    assert client.post("/api/auth/password",
+                       json={"currentPassword": PASSWORD, "newPassword": "a"}).status_code == 400
+    assert _status(a) == 200 and _status(b) == 200
+
+
+def test_admin_mfa_reset_ends_all_target_sessions(env):
+    admin_id, _ = _user("anna")
+    target_id, _ = _user("bert")
+    admin_tok = auth.create_session(admin_id)
+    t1, t2 = auth.create_session(target_id), auth.create_session(target_id)
+    resp = _client_with(admin_tok).post(f"/api/users/{target_id}/mfa/reset")
+    assert resp.status_code == 200
+    assert _status(t1) == 401 and _status(t2) == 401
+    assert _status(admin_tok) == 200
+    fresh = TestClient(main.app)
+    assert _login(fresh, "bert").status_code == 200
+    assert fresh.get("/api/auth/me").json()["user"]["totpEnabled"] in (False, 0)
+    assert fresh.post("/api/auth/mfa/setup").status_code == 200
+
+
+def test_self_mfa_reset_ends_own_session(env):
+    admin_id, _ = _user("anna")
+    tok = auth.create_session(admin_id)
+    assert _client_with(tok).post(f"/api/users/{admin_id}/mfa/reset").status_code == 200
+    assert _status(tok) == 401
+    fresh = TestClient(main.app)
+    assert _login(fresh, "anna").status_code == 200
+    assert fresh.post("/api/auth/mfa/setup").status_code == 200
+
+
+def test_mfa_reset_unknown_user_is_404_and_ends_nothing(env):
+    admin_id, _ = _user("anna")
+    tok = auth.create_session(admin_id)
+    assert _client_with(tok).post("/api/users/does-not-exist/mfa/reset").status_code == 404
+    assert _status(tok) == 200
+
+
+# --- Secure cookie (#115) --------------------------------------------------------------------
+
+def _login_cookie(headers: dict | None = None) -> str:
+    _, secret = _user("anna")
+    client = _proxied()
+    resp = client.post("/api/auth/login", json={"username": "anna", "password": PASSWORD,
+                                                "totpCode": _code(secret)}, headers=headers or {})
+    assert resp.status_code == 200
+    return resp.headers["set-cookie"]
+
+
+def _secure(cookie: str) -> bool:
+    return "secure" in cookie.lower().replace(" ", "").split(";")
+
+
+@pytest.mark.parametrize("headers,env_value,expected", [
+    ({}, None, False),
+    ({"X-Forwarded-Proto": "https"}, None, True),
+    ({"X-Forwarded-Proto": "HTTPS"}, None, True),
+    ({"X-Forwarded-Proto": "http"}, None, False),
+    ({}, "always", True),
+    ({"X-Forwarded-Proto": "https"}, "never", False),
+    ({"X-Forwarded-Proto": "https"}, "quatsch", True),
+    ({}, "quatsch", False),
+])
+def test_login_cookie_secure_flag(env, monkeypatch, headers, env_value, expected):
+    if env_value is not None:
+        monkeypatch.setenv("HOMEATLAS_COOKIE_SECURE", env_value)
+    assert _secure(_login_cookie(headers)) is expected
+
+
+def test_logout_cookie_carries_same_flags(env):
+    client = _proxied()
+    resp = client.post("/api/auth/logout", headers={"X-Forwarded-Proto": "https"})
+    cookie = resp.headers["set-cookie"].lower()
+    assert _secure(cookie) and "httponly" in cookie and "samesite=lax" in cookie
+    plain = client.post("/api/auth/logout").headers["set-cookie"]
+    assert not _secure(plain)
+
+
+# --- client IP (#115) ------------------------------------------------------------------------
+
+@pytest.mark.parametrize("peer,header,expected", [
+    ("127.0.0.1", "10.1.2.3", "10.1.2.3"),
+    ("::1", "10.1.2.3", "10.1.2.3"),
+    ("::ffff:127.0.0.1", "10.1.2.3", "10.1.2.3"),
+    ("192.168.1.9", "10.1.2.3", "192.168.1.9"),
+    ("testclient", "10.1.2.3", "testclient"),
+    (None, "10.1.2.3", ""),
+    ("127.0.0.1", "", "127.0.0.1"),
+    ("127.0.0.1", "kein-ip", "127.0.0.1"),
+])
+def test_client_ip_only_trusts_header_from_loopback(peer, header, expected):
+    from app import deps
+    headers = {"x-real-ip": header} if header else {}
+    assert deps._peer_ip(headers, peer) == expected
+
+
+def test_throttle_ignores_spoofed_header_from_foreign_peer(env):
+    _user("anna")
+    client = _from_peer("192.168.1.9")
+    for i in range(5):
+        client.post("/api/auth/login", json={"username": "anna", "password": "falsch"},
+                    headers={"X-Real-IP": f"10.9.9.{i}"})
+    assert security.login_throttle.retry_after("anna", "192.168.1.9") > 0
