@@ -338,6 +338,7 @@ async def reverse_dns(ip: str) -> str:
 
 
 _TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
+# Only ports that are in ports.SERVICES -- others are never detected as open.
 _WEB_PORTS = (443, 8443, 5001, 8006, 80, 8080, 8123, 5000, 3000, 9000, 8096, 81, 8081, 10000)
 
 

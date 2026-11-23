@@ -456,7 +456,8 @@ export const api = {
   speedtest: () => post<{ result: SpeedtestResult }>("/diagnostics/speedtest", {}),
 
   getSettings: () => get<SettingsResponse>("/settings"),
-  updateSettings: (patchBody: Record<string, any>) =>
+  /** Secrets are never cleared by an empty value; name them in `clearSecrets` to remove them. */
+  updateSettings: (patchBody: Record<string, any> & { clearSecrets?: string[] }) =>
     patch<{ settings: Record<string, any> }>("/settings", patchBody),
   testLlm: (provider: string, settings: Record<string, any>) =>
     post<{ ok: boolean; message: string; model: string }>("/settings/llm/test", { provider, settings }),

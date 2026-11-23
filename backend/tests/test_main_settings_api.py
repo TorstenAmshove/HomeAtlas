@@ -34,10 +34,76 @@ def test_legacy_ui_calm_key_is_harmless(temp_db):
     db.update_settings({"uiCalm": True})
     client, main = _admin_client()
     try:
-        assert client.get("/api/settings").status_code == 200
+        body = client.get("/api/settings").json()["settings"]
+        assert "uiCalm" not in body
         assert client.patch("/api/settings", json={"homeName": "X"}).status_code == 200
         assert db.get_settings()["uiCalm"] is True
-        # An unknown key is no longer validated.
-        assert client.patch("/api/settings", json={"uiCalm": "yes"}).status_code == 200
+        assert client.patch("/api/settings", json={"uiCalm": "yes"}).status_code == 422
     finally:
         main.app.dependency_overrides.clear()
+
+
+def test_defaults_cover_provider_keys():
+    from app import llm_providers
+    keys = set(llm_providers._MODEL_SETTING_FIELD.values()) | set(llm_providers._KEY_SETTING_FIELD.values())
+    keys |= {field for field, _ in llm_providers._BASE_URL_SETTING_FIELD.values()}
+    assert keys <= set(db.DEFAULT_SETTINGS)
+
+
+def test_settings_patch_covers_defaults():
+    from app.routes import settings as routes_settings
+    fields = set(routes_settings.SettingsPatch.model_fields)
+    internal = {k for k in db.DEFAULT_SETTINGS if k.endswith("Enc")}
+    assert set(db.DEFAULT_SETTINGS) - internal <= fields
+
+
+def _patch(body):
+    client, main = _admin_client()
+    try:
+        return client.patch("/api/settings", json=body)
+    finally:
+        main.app.dependency_overrides.clear()
+
+
+def test_patch_unknown_key_422(temp_db):
+    assert _patch({"doesNotExist": 1}).status_code == 422
+
+
+def test_patch_wrong_type_422(temp_db):
+    for body in ({"scanTimeoutMs": True}, {"scanTimeoutMs": "1"}, {"homeName": None},
+                 {"homeName": ["a"]}, {"scanEnableMdns": "yes"}, {"llmProvider": "NOPE"},
+                 {"scanSubnets": "10.0.0.0/24"}):
+        assert _patch(body).status_code == 422, body
+
+
+def test_patch_setup_completed_unchanged(temp_db):
+    assert _patch({"setupCompleted": True}).status_code == 200
+    assert db.get_settings()["setupCompleted"] is False
+
+
+def test_patch_raw_enc_rejected(temp_db):
+    assert _patch({"defaultCredentialSecretEnc": "x"}).status_code == 422
+
+
+def test_get_roundtrip_patch_ok(temp_db):
+    db.update_settings({"claudeApiKey": "enc-placeholder", "defaultCredentialSecretEnc": "e"})
+    client, main = _admin_client()
+    try:
+        before = db.get_settings()
+        body = client.get("/api/settings").json()["settings"]
+        assert client.patch("/api/settings", json=body).status_code == 200
+    finally:
+        main.app.dependency_overrides.clear()
+    assert db.get_settings() == before
+
+
+def test_member_get_unchanged(temp_db):
+    from fastapi.testclient import TestClient
+
+    from app import auth, main
+    main.app.dependency_overrides[main.current_user] = lambda: {"role": auth.ROLE_MEMBER, "username": "m"}
+    try:
+        settings = TestClient(main.app).get("/api/settings").json()["settings"]
+    finally:
+        main.app.dependency_overrides.clear()
+    assert set(settings) == {"homeName", "setupCompleted"}

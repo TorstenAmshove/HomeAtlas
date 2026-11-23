@@ -2,8 +2,8 @@
 
 The authoritative source is the IEEE OUI registry, which is far too large to bundle and changes
 constantly, so it is downloaded on demand into the data volume (Einstellungen -> Netzwerk-Scan ->
-"Hersteller-Datenbank aktualisieren", and automatically on the first scan if the host has
-internet). Until that succeeds `_FALLBACK` covers a short list of prefixes common in German
+"Hersteller-Datenbank aktualisieren", and automatically on a scan while none is loaded, at most
+once per 24 h so an offline host does not wait on the download every time). Until that succeeds `_FALLBACK` covers a short list of prefixes common in German
 households -- deliberately short, because a *wrong* vendor is worse than none here: the vendor
 string is fed to the LLM as evidence when it classifies a device, so a bad guess propagates into
 the documentation.
@@ -17,6 +17,7 @@ import csv
 import json
 import os
 import re
+import time
 from pathlib import Path
 
 import httpx
@@ -102,8 +103,45 @@ def is_locally_administered(mac: str) -> bool:
         return False
 
 
+def _attempt_path() -> Path:
+    # Derived at call time so a patched _CACHE_PATH moves the marker with it.
+    return _CACHE_PATH.with_name("oui.attempt")
+
+
+def download_due(now: float | None = None, min_interval: int = 86400) -> bool:
+    """False if a download failed less than `min_interval` seconds ago. Unreadable marker or a
+    timestamp in the future counts as due."""
+    try:
+        last = float(_attempt_path().read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return True
+    current = time.time() if now is None else now
+    return not (0 <= current - last < min_interval)
+
+
+def _mark_attempt() -> None:
+    try:
+        _attempt_path().parent.mkdir(parents=True, exist_ok=True)
+        _attempt_path().write_text(str(time.time()), encoding="utf-8")
+    except OSError:
+        pass
+
+
 async def refresh_from_ieee() -> tuple[bool, str]:
-    """Downloads and caches the IEEE registry. Returns (ok, message)."""
+    """Downloads and caches the IEEE registry. Returns (ok, message). A failure is recorded so the
+    scan does not retry within 24 h; success clears that record."""
+    ok, message = await _refresh_from_ieee()
+    if ok:
+        try:
+            _attempt_path().unlink(missing_ok=True)
+        except OSError:
+            pass
+    else:
+        _mark_attempt()
+    return ok, message
+
+
+async def _refresh_from_ieee() -> tuple[bool, str]:
     global _loaded
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=15.0), follow_redirects=True) as client:

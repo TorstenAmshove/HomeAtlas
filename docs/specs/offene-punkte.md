@@ -38,7 +38,7 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (126)
+## Alle Punkte je Fähigkeit (114)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (3)
 
@@ -89,16 +89,11 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 2. Die Latenz des Speedtests ist die erste Anfrage auf einer neuen Verbindung und enthält TCP- und TLS-Aufbau – systematisch zu hoch. → #151
 3. REST-Tool-Namen weichen von den LLM-Werkzeugnamen ab (`ping` vs. `ping_host`); Alternative vereinheitlichen? → #151
 
-### [discovery-und-scan](capabilities/discovery-und-scan/spec.md) (8)
+### [discovery-und-scan](capabilities/discovery-und-scan/spec.md) (3)
 
-1. Fortschritt springt rückwärts (94 % „Inventar aktualisieren“, dann 93 % Zugangs-Abfrage, `pipeline.py:480`/`:522`). → #138
-2. Einzelziele umfassen IPs *aller* Inventar-Geräte außerhalb der Bereiche (auch entdeckte Controller-Clients/Proxmox-Gäste), nicht nur „von Hand eingetragene“ wie der Docstring sagt (`pipeline.py:42`). Kann viele geroutete Ziele erzeugen. → #138
-3. Ungültiger Freitext-Bereich (z. B. „bad“) plus ein mDNS/SSDP-Fund außerhalb von `alive` führt in `discovery.py:859` zu `ValueError` aus `ip_network` und lässt den ganzen Scan scheitern. → #137
-4. Port 81 steht in der Banner-Portliste, aber nicht im Port-Katalog, wird also nie als offen erkannt (`discovery.py:341`, `ports.py:12`). → #138
-5. Ohne geladenes OUI-Register versucht jeder Scan erneut den Download (bis 120 s), auch offline. → #138
-6. MEMBER darf `GET /api/scans*` inkl. Protokoll lesen (Gerätenamen, Fehlertexte der Zugangs-Abfrage), obwohl die Scan-Seite admin-only ist. Absicht? → #119
-7. Start-Prüfung „läuft schon ein Scan“ und Anlegen sind nicht atomar (Rennen Zeitplan/manuell theoretisch möglich). → #129
-8. Namensvergabe für Nicht-Container ohne IP bei Duplikaten: kein Suffix, Duplikat bleibt. → #138
+1. Ungültiger Freitext-Bereich (z. B. „bad“) plus ein mDNS/SSDP-Fund außerhalb von `alive` führt in `discovery.py:859` zu `ValueError` aus `ip_network` und lässt den ganzen Scan scheitern. → #137
+2. MEMBER darf `GET /api/scans*` inkl. Protokoll lesen (Gerätenamen, Fehlertexte der Zugangs-Abfrage), obwohl die Scan-Seite admin-only ist. Absicht? → #119
+3. Start-Prüfung „läuft schon ein Scan“ und Anlegen sind nicht atomar (Rennen Zeitplan/manuell theoretisch möglich). → #129
 
 ### [dokumentation](capabilities/dokumentation/spec.md) (10)
 
@@ -113,29 +108,22 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 9. Bei mehreren Routern nimmt die Notfall-Seite den ersten aus der Inventarreihenfolge. → #141
 10. `useLlm: true` im Request wird ignoriert, wenn `scanUseLlm` aus ist (die Einleitung prüft die Einstellung erneut). → #141
 
-### [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md) (9)
+### [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md) (6)
 
-1. Ein leer gesendeter API-Schlüssel löscht ihn, ein leer gesendetes Standard-Zugang-Geheimnis bleibt erhalten — uneinheitliche Semantik. → #124
-2. `PATCH /api/settings` akzeptiert beliebige Schlüssel und Typen, auch `setupCompleted` oder ein rohes `defaultCredentialSecretEnc`. → #124
-3. UI-Fehler: Nach „Modelle laden“ wird nur `data`, nicht `form` aktualisiert; die neue Liste erscheint erst nach Neuladen, und ein anschließendes „Speichern“ schreibt den alten `providerModelCache` zurück. → #125
-4. Die Live-Liste wird nach ID sortiert gespeichert; der Fallback „erster/letzter Eintrag“ in `resolve` wählt dadurch alphabetisch, nicht nach Anbieter-Reihenfolge (Docstring geht von Anbieterreihenfolge aus). → #125
-5. `providerModelCache` wird bei Wechsel von Schlüssel oder Server-Adresse nicht verworfen. → #125
-6. Claude-Modellabruf holt höchstens 100 Modelle, ohne Paginierung. → #125
-7. Ollama-, `deepseekBaseUrl`-Schlüssel fehlen in den Defaults (funktional egal, aber unvollständig dokumentiert). → #124
-8. Test/Modelle-Laden schicken Anfragen an eine frei eingebbare Server-Adresse (Admin-only, aber serverseitige Anfrage an beliebige URL). → #114
-9. Gemini-Schlüssel steht als Query-Parameter in der URL (kann in Proxy-Logs landen). → #125
+1. UI-Fehler: Nach „Modelle laden“ wird nur `data`, nicht `form` aktualisiert; die neue Liste erscheint erst nach Neuladen, und ein anschließendes „Speichern“ schreibt den alten `providerModelCache` zurück. → #125
+2. Die Live-Liste wird nach ID sortiert gespeichert; der Fallback „erster/letzter Eintrag“ in `resolve` wählt dadurch alphabetisch, nicht nach Anbieter-Reihenfolge (Docstring geht von Anbieterreihenfolge aus). → #125
+3. `providerModelCache` wird bei Wechsel von Schlüssel oder Server-Adresse nicht verworfen. → #125
+4. Claude-Modellabruf holt höchstens 100 Modelle, ohne Paginierung. → #125
+5. Test/Modelle-Laden schicken Anfragen an eine frei eingebbare Server-Adresse (Admin-only, aber serverseitige Anfrage an beliebige URL). → #114
+6. Gemini-Schlüssel steht als Query-Parameter in der URL (kann in Proxy-Logs landen). → #125
 
-### [inventar](capabilities/inventar/spec.md) (9)
+### [inventar](capabilities/inventar/spec.md) (5)
 
 1. `GET /api/systems/{id}` liefert MEMBER die Zugangs-Metadaten (Label, Benutzername, URL, Notizen) des Geräts; nur die UI blendet sie aus. Gewollt? → entschieden in #48: in Ordnung, solange keine Secrets
-2. PATCH validiert nichts: `kind`/`importance` beliebig, `status`, `discoveryKey`, `discovered`, `extra`, `openPorts`, `lastSeen` frei schreibbar. Ein `discoveryKey`, den schon ein anderes Gerät hat, verletzt den Unique-Index → vermutlich HTTP 500. → #126
-3. Da die UI das komplette Gerät zurückschickt, überschreibt Speichern zwischenzeitliche Änderungen von Scan/Überwachung (`status`, `extra`, `openPorts`, `lastSeen`) mit dem alten Stand (Lost Update). → #126
-4. POST übernimmt eine vom Client mitgeschickte `id` (`backend/app/db.py:643`); mit vorhandener ID vermutlich 500. → #126
-5. DELETE lässt `deviceConfigVersions`, `deviceErrorEvents` und `monitorEvents` des Geräts verwaist zurück (`backend/app/db.py:692`), obwohl Merge sie bewusst umhängt; antwortet `ok` auch für unbekannte IDs. → #127
-6. Ist das behaltene Gerät Kind des entfernten, setzt Merge `parentId` des behaltenen auf sich selbst (`backend/app/db.py:884`). → #127
-7. Ein kritisches Gerät lässt sich nicht aus der Überwachung nehmen (`monitored=0` wird in der nächsten Runde wieder 1); wird „kritisch" entfernt, bleibt die Überwachung an. Gewollt? → #131
-8. `monitorPorts` wird serverseitig nicht auf 3 Einträge/gültige Ports begrenzt; nur die UI und `effective_ports` kürzen. → #126
-9. Der Fehler-Badge verschwindet nie, weil Fehlerereignisse nicht quittiert oder gelöscht werden können (nur Kappung bei 100). → #132
+2. DELETE lässt `deviceConfigVersions`, `deviceErrorEvents` und `monitorEvents` des Geräts verwaist zurück (`backend/app/db.py:692`), obwohl Merge sie bewusst umhängt; antwortet `ok` auch für unbekannte IDs. → #127
+3. Ist das behaltene Gerät Kind des entfernten, setzt Merge `parentId` des behaltenen auf sich selbst (`backend/app/db.py:884`). → #127
+4. Ein kritisches Gerät lässt sich nicht aus der Überwachung nehmen (`monitored=0` wird in der nächsten Runde wieder 1); wird „kritisch" entfernt, bleibt die Überwachung an. Gewollt? → #131
+5. Der Fehler-Badge verschwindet nie, weil Fehlerereignisse nicht quittiert oder gelöscht werden können (nur Kappung bei 100). → #132
 
 ### [klassifikation-llm](capabilities/klassifikation-llm/spec.md) (6)
 

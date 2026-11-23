@@ -331,6 +331,10 @@
       "description": "Medien-Server für Filme und Serien",
       "name": "Jellyfin"
     },
+    "81": {
+      "description": "Web-Oberfläche auf einem Ausweich-Port",
+      "name": "HTTP alt"
+    },
     "8123": {
       "description": "Zentrale des Smart-Home-Systems Home Assistant",
       "name": "Home Assistant"

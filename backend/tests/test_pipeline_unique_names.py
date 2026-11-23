@@ -31,3 +31,15 @@ def test_identical_container_names_get_counter_not_octet():
     f = [_c("web · app"), _c("web · app")]
     _make_names_unique(f)
     assert [x["name"] for x in f] == ["web · app", "web · app (2)"]
+
+
+def test_non_container_without_ip_gets_counter():
+    f = [_d("x", ""), _d("x", ""), _d("x", "")]
+    _make_names_unique(f)
+    assert [x["name"] for x in f] == ["x", "x (2)", "x (3)"]
+
+
+def test_mixed_with_and_without_ip():
+    f = [_d("x", "192.168.1.7"), _d("x", ""), _d("x", "")]
+    _make_names_unique(f)
+    assert [x["name"] for x in f] == ["x (7)", "x", "x (2)"]
