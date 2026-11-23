@@ -269,6 +269,14 @@ Zertifikat im LAN; der Key geht im Header an den Controller im LAN). Der Zugang 
 Haken „Zum Auslesen verwenden“; die Abfrage steht allen Rollen und MCP-Clients offen.
 Geprüft gegen UniFi Network 11.0.103. Hintergrund: ADR-0015, ADR-0016.
 
+**Proxmox live lesen.** Der Assistent kann den Live-Zustand einer Proxmox-VM oder eines Containers
+(`get_proxmox_guest`: Status, Last, kurzer Verlauf, letzte Aufgaben wie Backups) und eines Hosts
+(`get_proxmox_node`) abfragen. Es sind feste Pfade der Proxmox-API per GET, mit demselben API-Token wie der Scan
+(Zugang „Proxmox“ mit „Zum Auslesen verwenden“). Empfehlung: ein eigener Token mit der Rolle **PVEAuditor**;
+HomeAtlas kann die Rechte des Tokens nicht prüfen, die feste Pfadliste im Code ist die eigentliche Sperre.
+Notizen, Tags und Log-Text der Aufgaben werden nie weitergegeben, nichts wird gespeichert; die Abfrage steht
+allen Rollen und MCP-Clients offen (ADR-0021).
+
 **Erreichbarkeit im Assistenten und auf der Geräteseite.** Das Werkzeug `list_exposure` beantwortet
 Fragen wie „warum ist app2.example.net nicht erreichbar?“. Es liest nur die beim letzten Scan
 gespeicherten Fakten (kein Live-DNS, keine Geheimnisse, höchstens 15 Zeilen je Liste mit Hinweis auf

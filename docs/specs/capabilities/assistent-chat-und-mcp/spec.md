@@ -221,6 +221,7 @@ Werkzeuggruppen (Details, Schemas und Grenzen: [llm-tools](../../contracts/llm-t
 - Schalten: `list_switches`, `set_switch`
 - Home Assistant live (nur lesend): `get_ha_state`, `get_ha_history`, `get_ha_logbook`, `get_ha_error_log`, `list_ha_traces`, `get_ha_trace`
 - UniFi live (nur lesend): `get_unifi_client`, `get_unifi_device`, `get_unifi_network`, `get_unifi_events`
+- Proxmox live (nur lesend): `get_proxmox_guest`, `get_proxmox_node`
 - Diagnose: `internet_check`, `ping_host` (1–10 Versuche, Standard 3), `check_port`, `dns_lookup`, `reverse_dns`, `http_check`, `traceroute` (1–30 Hops, Standard 15); Ausführung siehe [diagnose](../diagnose/spec.md)
 
 #### Szenario: Kein Schreibwerkzeug
@@ -354,6 +355,36 @@ Quelle: `backend/app/tools.py` (`_dispatch_unifi_live`, `_pick_unifi_account`, `
 #### Szenario: Ereignisse eines Clients
 - **WENN** der Assistent `get_unifi_events` mit `client` und `hours` 500 aufruft
 - **DANN** wird das Fenster auf 168 Stunden begrenzt und das Ergebnis nennt die Zahl der durchsuchten Ereignisse
+
+### Requirement: Live-Lesen von Proxmox-Gästen und -Hosts
+Das System MUSS dem Assistenten (jede Rolle, jeder MCP-Client) mit `get_proxmox_guest` den Live-Zustand einer
+VM oder eines LXC-Containers und mit `get_proxmox_node` den eines Proxmox-Hosts anbieten
+([ADR-0021](../../../adr/0021-proxmox-live-lesepfade.md)). Ein Gast wird per VMID (nur Ziffern) oder Name
+angegeben; mehrere Treffer ergeben eine Kandidatenliste, Templates werden übersprungen. Das Ergebnis enthält
+Status (läuft/gestoppt, Uptime, Sperre, HA), aktuelle Last (CPU, RAM, Disk, Netzwerk, Disk-IO), einen
+verdichteten Verlauf (`timeframe` `hour` oder `day`: Durchschnitt, Maximum, höchstens 12 Stützpunkte) und die
+letzten 10 Aufgaben (Typ, Status, Start, Ende, Benutzer). Es DÜRFEN nur GET-Aufrufe auf die feste Pfad-Allowlist
+von `proxmox_live.py` gehen; Antworten MÜSSEN eine Feld-Positivliste durchlaufen. Freitext des Gasts (Notizen,
+Tags), Aufgaben-Log-Text, UPIDs und das Token-Secret DÜRFEN nie im Ergebnis, Fehlertext oder Log erscheinen;
+nichts wird gespeichert. Der Zugang ist der Scan-Token (Kategorie `proxmox`) und braucht „Zum Auslesen
+verwenden“; fehlen Zugang, Opt-in, Token-ID oder Secret, oder ist der Host nicht erreichbar bzw. verweigert den
+Zugriff, MUSS eine feste, verständliche Meldung statt eines Fehlers kommen.
+
+Quelle: `backend/app/tools.py` (`_dispatch_proxmox_live`, `_pick_proxmox_account`), `backend/app/proxmox_live.py` (`_request`, `guest_status`, `node_status`), Tests: `backend/tests/test_proxmox_live.py`, `backend/tests/test_tools_proxmox_live.py`
+
+#### Szenario: Zustand einer VM
+- **WENN** der Assistent `get_proxmox_guest` mit dem Namen einer VM aufruft
+- **DANN** enthält das Ergebnis Status, Last, Verlauf und die letzten Aufgaben, aber weder Notizen, Log-Text noch Token
+
+#### Szenario: Mehrdeutiger Name
+- **WENN** ein Name als VM und als Container existiert
+- **DANN** nennt die Antwort die Kandidaten mit VMID und Node und rät nicht
+
+#### Szenario: Kein Zugang oder kein Opt-in
+- **WENN** kein Proxmox-Zugang existiert oder „Zum Auslesen verwenden“ fehlt
+- **DANN** nennt die Antwort das, und es geht kein Netzwerkaufruf raus
+
+> OFFEN: Noch nicht gegen eine echte Proxmox-Instanz abgenommen (Version nach der Abnahme hier vermerken).
 
 ### Requirement: Live-Lesen von Home Assistant
 Das System MUSS dem Assistenten (jede Rolle, jeder MCP-Client) lesende Live-Abfragen an Home

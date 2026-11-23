@@ -124,7 +124,7 @@ Lücken: **0**
 | `systems` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [credentialed-probing](capabilities/credentialed-probing/spec.md), [dashboard](capabilities/dashboard/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [dokumentation](capabilities/dokumentation/spec.md), [erreichbarkeit](capabilities/erreichbarkeit/spec.md), [inventar](capabilities/inventar/spec.md), [klassifikation-llm](capabilities/klassifikation-llm/spec.md), [monitoring](capabilities/monitoring/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md), [remote-admin](capabilities/remote-admin/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md), [topologie](capabilities/topologie/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `users` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md) |
 
-## KI-Werkzeuge (29)
+## KI-Werkzeuge (31)
 
 | Eintrag | Spec |
 |---|---|
@@ -147,6 +147,8 @@ Lücken: **0**
 | `get_unifi_device` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `get_unifi_network` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `get_unifi_events` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
+| `get_proxmox_guest` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
+| `get_proxmox_node` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `get_ha_error_log` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `list_ha_traces` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `get_ha_trace` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
@@ -166,7 +168,7 @@ Lücken: **0**
 | `DocsPage` | [dokumentation](capabilities/dokumentation/spec.md) |
 | `SettingsPage` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [diagnose](capabilities/diagnose/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md), [firewall](capabilities/firewall/spec.md), [monitoring](capabilities/monitoring/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) |
 
-## ADRs in der Constitution (20)
+## ADRs in der Constitution (21)
 
 Quelle links sind die Dateien in `docs/adr/`, rechts die Regeln in [constitution.md](constitution.md),
 die auf das ADR verlinken.
@@ -191,5 +193,6 @@ die auf das ADR verlinken.
 | [ADR-0016](../adr/0016-unifi-scan-nur-mit-api-key.md) | Ersetzt durch ADR-0017; ersetzte ADR-0015 | – |  |
 | [ADR-0017](../adr/0017-firewall-quellen-und-pfadbewertung.md) | Ersetzt durch ADR-0018; ersetzte ADR-0016 | – |  |
 | [ADR-0018](../adr/0018-wan-status-und-lesepfade.md) | Ersetzt durch ADR-0019; ersetzte ADR-0017 | – |  |
-| [ADR-0019](../adr/0019-firewall-zonen-subnetze.md) | Akzeptiert, ersetzt ADR-0018 | P1, L1, L2, L4, L5, L6, L8, K1, K2, K3 |  |
+| [ADR-0019](../adr/0019-firewall-zonen-subnetze.md) | Ersetzt durch ADR-0021; ersetzte ADR-0018 | – |  |
 | [ADR-0020](../adr/0020-llm-client-ohne-schwesterprojekt.md) | Akzeptiert | K5, K6, K7 |  |
+| [ADR-0021](../adr/0021-proxmox-live-lesepfade.md) | Akzeptiert, ersetzt ADR-0019 | P1, L1, L2, L4, L5, L6, L8, L9, K1, K2, K3 |  |
