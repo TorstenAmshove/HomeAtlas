@@ -150,28 +150,66 @@ Quelle: `backend/app/db.py:1133`, `backend/app/db.py:1224`, `backend/app/db.py:1
 Feldregeln für bestätigte/unbestätigte Geräte und UniFi-Namensvorrang: Requirement „Wiedererkennung
 bestehender Geräte“ in [discovery-und-scan](../discovery-und-scan/spec.md)
 
-### Requirement: „Kritisch" startet Überwachung sofort
-Das System MUSS jedes Gerät mit `importance=critical` und nicht-leerer IP oder Hostname sofort in
-die Dauerüberwachung aufnehmen (`monitored=1`): nach Anlegen, Bearbeiten, Zusammenführen, beim
-Start und vor jeder Überwachungsrunde – nicht erst beim nächsten Scan. **[Muss]**
+### Requirement: „Kritisch" schaltet die Überwachung einmalig ein
+Das System MUSS beim Übergang einer Bedeutung auf `critical` (Anlegen, Bearbeiten, Zusammenführen,
+Scan-Übernahme) für ein Gerät mit nicht-leerer IP oder Hostname einmalig `monitored=1` setzen.
+„Kritisch ⇒ überwacht" ist nur dieser Standard beim Markieren, keine feste Regel: ADMIN kann die
+Überwachung danach abwählen und sie bleibt aus (kein Zurücksetzen bei PATCH, Monitor-Runde, Scan
+oder Start). Ein im selben Schreibvorgang mitgeschickter `monitored`-Wert gewinnt immer über den
+Standard, auch wenn er dem gespeicherten entspricht; das Bearbeiten-Formular schickt `monitored`
+deshalb bei jeder Änderung der Bedeutung mit.
+Ohne Adresse bleibt `monitored` unverändert (eine später nachgetragene Adresse schaltet nichts
+ein). Entfernen von „kritisch" ändert `monitored` nicht; erneutes Markieren ist ein neuer Übergang
+und schaltet wieder ein. **[Muss]**
 
 #### Szenario: Gerät wird kritisch
 - **WENN** ADMIN ein Gerät mit IP auf „kritisch" setzt
 - **DANN** ist es in der Antwort des PATCH bereits `monitored=1`
 
-Quelle: `backend/app/main.py:574`, `backend/app/db.py:1890`, `backend/app/monitor.py:144`
+#### Szenario: Beim Markieren gleich wieder abgewählt
+- **WENN** ADMIN ein nicht überwachtes Gerät auf „kritisch" setzt, den automatisch gesetzten Haken abwählt und speichert
+- **DANN** bleibt `monitored=0`
+
+#### Szenario: Überwachung abgewählt
+- **WENN** ADMIN bei einem kritischen Gerät `monitored` auf 0 setzt
+- **DANN** bleibt es 0, auch nach weiteren PATCHes, Monitor-Runden und Scans
+
+Quelle: `backend/app/db/systems.py::_enables_monitoring_on_critical`, Test: `backend/tests/test_critical_monitoring.py`
 
 ### Requirement: Gerät löschen
 Das System MUSS ADMIN erlauben, ein Gerät zu löschen. Dabei MÜSSEN mitgelöscht werden: direkt
 zugeordnete Zugänge, deren Zuordnungsregeln, Zuordnungsregeln, die auf dieses Gerät zeigen, seine
-Aliase und „kein Duplikat"-Markierungen. Kinder (Container/VMs) verlieren ihren Host-Verweis
-(`parentId=NULL`), bleiben aber bestehen. Antwort immer `{"ok": true}`, auch für unbekannte IDs. **[Muss]**
+Aliase und „kein Duplikat"-Markierungen sowie die Konfigurationsversionen, Fehler- und
+Monitor-Ereignisse des Geräts. Kinder (Container/VMs) verlieren ihren Host-Verweis
+(`parentId=NULL`), bleiben aber bestehen. Eine unbekannte ID liefert 404. Hat das Gerät direkt
+zugeordnete Zugänge, liefert DELETE ohne `?withAccounts=true` 409 (mit der Anzahl, ohne etwas zu
+löschen); mit dem Parameter werden die Zugänge mitgelöscht. Ohne Zugänge genügt DELETE ohne
+Parameter. Antwort sonst `{"ok": true}`. **[Muss]**
 
 #### Szenario: Aliase und Markierungen verschwinden
 - **WENN** ein zusammengeführtes Gerät mit „kein Duplikat"-Markierung gelöscht wird
 - **DANN** existieren weder Aliase noch Markierungen mehr
 - Test: `backend/tests/test_db_merge_aliases.py::test_delete_system_removes_aliases_and_dismissals`,
   `backend/tests/test_db_account_assignments.py::test_delete_system_removes_assignments_targeting_it_and_owned_by_its_accounts`
+
+#### Szenario: Verlauf verschwindet
+- **WENN** ein Gerät mit Konfigurationsversion, Fehler- und Monitor-Ereignis gelöscht wird
+- **DANN** bleiben davon keine Zeilen zurück; die eines anderen Geräts bleiben
+- Test: `backend/tests/test_db_merge_aliases.py::test_delete_system_removes_history_rows`
+
+#### Szenario: Unbekannte ID
+- **WENN** ein ADMIN ein unbekanntes Gerät löscht
+- **DANN** antwortet die API mit 404
+- Test: `backend/tests/test_main_systems_delete.py::test_delete_unknown_id_is_404`
+
+#### Szenario: Zugänge nur auf ausdrücklichen Wunsch
+- **WENN** ein Gerät mit Zugang ohne bzw. mit `withAccounts=false` gelöscht wird
+- **DANN** antwortet die API mit 409 und nennt die Anzahl; Gerät und Zugang bleiben
+- **WENN** `?withAccounts=true` gesendet wird
+- **DANN** sind Gerät und Zugang gelöscht
+- Test: `backend/tests/test_main_systems_delete.py::test_delete_with_accounts_needs_parameter`,
+  `backend/tests/test_main_systems_delete.py::test_delete_with_accounts_parameter_removes_both`,
+  `backend/tests/test_main_systems_delete.py::test_delete_without_accounts_needs_no_parameter`
 
 Quelle: `backend/app/main.py:578`, `backend/app/db.py:692`
 
@@ -226,6 +264,10 @@ zusammenzuführen; nur auf ausdrückliche Anforderung, nicht umkehrbar. Regeln:
 - Quellspezifische Gerätedetails (`extra`) werden vereinigt, verschachtelte Objekte (z. B.
   Probe-Ergebnisse je Ziel) eine Ebene tief; offene Ports und Dienste werden je Adresse
   (`extra.interfaces`) geführt und als Vereinigung angezeigt.
+- War das behaltene Gerät Kind des entfernten, übernimmt es dessen Elterngerät (sonst `null`), nie
+  sich selbst; Kinder des entfernten hängen danach am behaltenen.
+  Test: `backend/tests/test_db_merge_aliases.py::test_merge_keep_child_of_removed_gets_removed_parent`,
+  `backend/tests/test_db_merge_aliases.py::test_merge_keep_child_of_removed_gets_null_without_grandparent`
 - `importance` des entfernten wird übernommen, solange das behaltene nicht bestätigt ist;
   `confirmed` und `monitored` (+ `monitorPorts`) werden übernommen, wenn das behaltene sie nicht hat.
 - Zugänge, Zuordnungsregeln, Überwachungsereignisse, Konfigurationsversionen, Fehlerereignisse,
@@ -394,7 +436,8 @@ Erklärabsatz; Skeleton beim Laden). Sie rechnet nur aus derselben `GET /api/sys
 #### Szenario: Löschen prüfen
 - **WENN** ein Admin zwei Geräte auswählt, von denen eines einen Zugang hat, und „Löschen …“ wählt
 - **DANN** nennt der Dialog beide Namen und „1 hinterlegter Zugang wird mitgelöscht“; erst „2 Geräte
-  löschen“ löscht
+  löschen“ löscht; die UI sendet dabei `withAccounts=true`. Ein 404 (Gerät schon weg) zählt als erledigt,
+  nicht als Fehler
 
 Quelle: `frontend/src/pages/geraete/InventoryPage.tsx`, `frontend/src/pages/geraete/geraete.css`
 
@@ -467,7 +510,7 @@ Aus [data-model](../../contracts/data-model.md):
 - `systems`: gelesen und geschrieben (alle Felder; `confirmed`, `monitored` gezielt).
 - `systemAliases`, `duplicateDismissals`: geschrieben bei Merge/Markierung, gelöscht bei Delete.
 - `accounts`, `accountAssignments`: gelesen (Detail, Zähler), umgehängt (Merge), gelöscht (Delete).
-- `deviceConfigVersions`, `deviceErrorEvents`, `monitorEvents`: gelesen, bei Merge umgehängt.
+- `deviceConfigVersions`, `deviceErrorEvents`, `monitorEvents`: gelesen, bei Merge umgehängt, bei Delete gelöscht.
 - `settings`: `configVersionKeep` (gelesen beim Speichern einer Version).
 
 ## Schnittstellen
@@ -479,7 +522,7 @@ Aus [data-model](../../contracts/data-model.md):
 | GET | /api/systems/duplicates | ADMIN | Duplikat-Vorschläge → `{candidates}` |
 | GET | /api/systems/{system_id} | MEMBER | Detail → `{system, accounts, description, monitorPortsEffective}` |
 | PATCH | /api/systems/{system_id} | ADMIN | Teil-Update → `{system}` |
-| DELETE | /api/systems/{system_id} | ADMIN | Löschen → `{ok}` |
+| DELETE | /api/systems/{system_id}?withAccounts=false | ADMIN | Löschen → `{ok}`; 404 unbekannt; 409 bei Zugängen ohne `withAccounts=true` |
 | GET | /api/systems/{system_id}/aliases | ADMIN | Aliase → `{aliases}` |
 | POST | /api/systems/{system_id}/merge | ADMIN | Body `{removeId}` → `{system}` |
 | POST | /api/systems/{system_id}/not-duplicate | ADMIN | Body `{otherId}` → `{ok}` |
@@ -520,7 +563,4 @@ UI-Seite(n): `frontend/src/pages/geraete/InventoryPage.tsx` (Route `/geraete`),
 ## OFFEN
 
 - > OFFEN: `GET /api/systems/{id}` liefert MEMBER die Zugangs-Metadaten (Label, Benutzername, URL, Notizen) des Geräts; nur die UI blendet sie aus. Gewollt? → entschieden in #48: in Ordnung, solange keine Secrets
-- > OFFEN: DELETE lässt `deviceConfigVersions`, `deviceErrorEvents` und `monitorEvents` des Geräts verwaist zurück (`backend/app/db.py:692`), obwohl Merge sie bewusst umhängt; antwortet `ok` auch für unbekannte IDs. → #127
-- > OFFEN: Ist das behaltene Gerät Kind des entfernten, setzt Merge `parentId` des behaltenen auf sich selbst (`backend/app/db.py:884`). → #127
-- > OFFEN: Ein kritisches Gerät lässt sich nicht aus der Überwachung nehmen (`monitored=0` wird in der nächsten Runde wieder 1); wird „kritisch" entfernt, bleibt die Überwachung an. Gewollt? → #131
 - > OFFEN: Der Fehler-Badge verschwindet nie, weil Fehlerereignisse nicht quittiert oder gelöscht werden können (nur Kappung bei 100). → #132

@@ -252,8 +252,9 @@ Mensch in der App.
 Home Assistant live abfragen, dazu Automations-Traces (Auslöser und Ablauf; per WebSocket, nur die
 Befehle `trace/list`, `trace/get` und als Rückfall für das Fehlerlog `system_log/list`). Sonst nur lesende GET-Aufrufe, höchstens 7 Tage und eine
 feste Zahl an Einträgen. Texte werden vor der Ausgabe von Tokens, Passwörtern und Zugangs-URLs bereinigt; das
-Zugriffstoken bleibt auf dem Server. Das Opt-in „Zum Auslesen verwenden“ gilt für diese
-Abfragen nicht (wie bei `list_switches`), und sie stehen allen Rollen und MCP-Clients offen.
+Zugriffstoken bleibt auf dem Server. Der Home-Assistant-Zugang braucht den Haken „Zum Auslesen
+verwenden“ (gilt auch für `list_switches` und `set_switch`; ohne Haken meldet der Assistent das und fasst den
+Zugang nicht an). Die Abfragen stehen allen Rollen und MCP-Clients offen.
 
 **UniFi live lesen.** Der Assistent kann Live-Werte vom UniFi-Controller abfragen: eines verbundenen
 Clients (Signal, Retries, Roaming, Access Point; `get_unifi_client`), eines UniFi-Geräts (Last, Uplink,
@@ -264,8 +265,8 @@ Zahlen); Auth allein mit dem API-Key des Zugangs „UniFi“ (kein Login, kein C
 Firewall-Adresslisten und Geräteschlüssel werden nie weitergegeben.
 Nur ausdrücklich freigegebene Felder werden weitergegeben, der Key bleibt auf dem Server, nichts wird
 gespeichert. Der Controller wird wie beim Scan ohne Zertifikatsprüfung angesprochen (selbstsigniertes
-Zertifikat im LAN; der Key geht im Header an den Controller im LAN). Das Opt-in „Zum Auslesen
-verwenden“ gilt für diese Abfrage nicht, und sie steht allen Rollen und MCP-Clients offen.
+Zertifikat im LAN; der Key geht im Header an den Controller im LAN). Der Zugang braucht den
+Haken „Zum Auslesen verwenden“; die Abfrage steht allen Rollen und MCP-Clients offen.
 Geprüft gegen UniFi Network 11.0.103. Hintergrund: ADR-0015, ADR-0016.
 
 **Erreichbarkeit im Assistenten und auf der Geräteseite.** Das Werkzeug `list_exposure` beantwortet

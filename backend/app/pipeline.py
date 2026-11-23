@@ -827,16 +827,6 @@ async def run_full_scan(scan_id: str) -> None:
             db.set_wan_status(account_id, [{**w, "ip": fritz_ip} if fritz_ip and w.get("publicOrigin") == "geo" else w
                                            for w in wans])
 
-        # Anything critical is worth watching continuously -- that is what "critical" means. Done
-        # here rather than in the UI so it also covers devices a scan just promoted.
-        newly_monitored = 0
-        for system in db.list_systems():
-            if system["importance"] == "critical" and not system["monitored"] and system["ip"]:
-                db.update_system(system["id"], {"monitored": 1})
-                newly_monitored += 1
-        if newly_monitored:
-            log(f"{newly_monitored} wichtige Geräte zur Dauerüberwachung hinzugefügt")
-
         probed = 0
         if settings.get("scanUseCredentials", True):
             progress("Geräte mit hinterlegtem Zugang abfragen", 94, None)
@@ -927,7 +917,9 @@ class Scheduler:
             started = datetime.strptime(latest["startedAt"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
             if datetime.now(timezone.utc) - started < timedelta(hours=interval_hours):
                 return  # last scan (manual or automatic) is still recent enough
-        scan_id = db.create_scan("automatisch (Zeitplan)")
+        scan_id = db.create_scan_if_idle("automatisch (Zeitplan)")
+        if scan_id is None:
+            return  # a manual start won the race between the check above and the insert
         await run_full_scan(scan_id)
 
     def status(self) -> dict:

@@ -230,14 +230,14 @@ Kuratierte Links werden nicht geprüft. **[Muss]**
 Quelle: `backend/app/classify.py:168`, `backend/app/vendor_docs.py:77`, `backend/app/vendor_docs.py:92`
 
 ### Requirement: Wirkung der KI-Wichtigkeit
-Eine übernommene Wichtigkeit `critical` MUSS (über den Scan) zur Dauerüberwachung des Geräts führen,
+Eine übernommene Wichtigkeit `critical` MUSS beim Übergang einmalig die Dauerüberwachung des Geräts einschalten (nur mit Adresse, später abwählbar),
 siehe [discovery-und-scan](../discovery-und-scan/spec.md) und [monitoring](../monitoring/spec.md). **[Muss]**
 
 #### Szenario: Heizungssteuerung kritisch
 - **WENN** das Modell `importance="critical"` für ein unbestätigtes Gerät mit IP liefert
 - **DANN** ist es nach dem Scan `monitored=1`
 
-Quelle: `backend/app/pipeline.py:512`
+Quelle: `backend/app/db/systems.py::_enables_monitoring_on_critical`
 
 ### Requirement: Link-Prüfung ruft keine internen Ziele ab
 Die Prüfung eines vom Modell gelieferten Doku-Links (`vendor_docs.validate`) MUSS nur öffentlich

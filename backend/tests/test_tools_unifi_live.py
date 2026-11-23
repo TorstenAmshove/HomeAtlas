@@ -21,8 +21,9 @@ def _key(tmp_path, monkeypatch):
     unifi_live._transport = None
 
 
-def _account(label="UniFi", category="unifi", secret=KEY, url="https://unifi.lan"):
+def _account(label="UniFi", category="unifi", secret=KEY, url="https://unifi.lan", allow_probe=True):
     return db.create_account({"label": label, "category": category, "url": url,
+                              "allowProbe": 1 if allow_probe else 0,
                               "secretEnc": crypto.encrypt(secret) if secret else "", "systemId": None})
 
 
@@ -190,3 +191,18 @@ def test_tools_do_not_import_write_modules_except_switch_admin():
     tree = ast.parse((Path(tools.__file__)).read_text())
     names = {a.name for n in ast.walk(tree) if isinstance(n, ast.ImportFrom) for a in n.names}
     assert not {n for n in names if n.endswith("_admin") and n != "switch_admin"}
+
+
+def test_unifi_tools_require_opt_in(temp_db):
+    account = _account(allow_probe=False)
+    for args in ({}, {"accountId": account["id"]}):
+        assert "Zum Auslesen verwenden" in tools._pick_unifi_account(args.get("accountId", ""))[2]
+    assert "Zum Auslesen verwenden" in _call({"query": "x"})["error"]
+
+
+def test_pick_unifi_account_ignores_unopted(temp_db):
+    ok = _account("frei")
+    _account("gesperrt", allow_probe=False)
+    account, _, error = tools._pick_unifi_account("")
+    assert error == "" and account["id"] == ok["id"]
+    assert "gesperrt" not in tools._pick_unifi_account("nope")[2]

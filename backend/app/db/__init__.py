@@ -169,6 +169,7 @@ from .error_events import (  # noqa: E402
 from .scans import (  # noqa: E402
     abandon_stale_scans,
     create_scan,
+    create_scan_if_idle,
     finish_scan,
     get_scan,
     latest_scan,
@@ -183,7 +184,6 @@ from .access_log import (  # noqa: E402
     log_access,
 )
 from .monitor import (  # noqa: E402
-    ensure_monitoring_for_critical,
     list_monitor_events,
     list_monitored_systems,
     record_monitor_state,
@@ -250,6 +250,7 @@ __all__ = [
     "create_chat",
     "create_db_session",
     "create_scan",
+    "create_scan_if_idle",
     "create_system",
     "create_user",
     "delete_account",
@@ -261,7 +262,6 @@ __all__ = [
     "delete_system",
     "delete_user",
     "dismiss_duplicate",
-    "ensure_monitoring_for_critical",
     "find_duplicate_candidates",
     "find_system_by_alias",
     "find_system_by_ip_and_hostname",
