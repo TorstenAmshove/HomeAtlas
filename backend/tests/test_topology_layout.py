@@ -149,3 +149,53 @@ def test_long_title_truncated_at_min_width(temp_db):
         for host in range(10, 13):
             _mk(temp_db, "pc", f"p{i}{host}", f"10.{i}.0.{host}", i * 20 + host)
     assert "…" in topology.render_layer3({})
+
+
+def _fill(db, base, count, start=0, **extra):
+    for i in range(count):
+        _mk(db, "pc", f"{base}-{i}", f"{base}.{20 + i}", f"{base}{start + i}", **extra)
+
+
+def test_layer3_router_without_gateway_ending(temp_db):
+    r = _mk(temp_db, "router", "Router5", "192.168.1.5", "r")
+    _fill(temp_db, "192.168.1", 3)
+    assert f'data-system-id="{r["id"]}"' in topology.render_layer3({})
+
+
+def test_layer3_router_without_ip_is_skipped(temp_db):
+    r = temp_db.create_system({"kind": "router", "name": "NoIp", "discoveryKey": "k:r"})
+    _fill(temp_db, "192.168.1", 3)
+    assert f'data-system-id="{r["id"]}"' not in topology.render_layer3({})
+
+
+def test_layer3_counts_exclude_docker_containers(temp_db):
+    _fill(temp_db, "192.168.1", 2)
+    _mk(temp_db, "container", "c1", "192.168.1.30", "c1", discoverySource="docker")
+    _mk(temp_db, "container", "c2", "192.168.1.30", "c2", discoverySource="unifi+docker")
+    assert "192.168.1.0/24" not in topology.render_layer3({})  # only 2 counted -> below threshold
+    _mk(temp_db, "pc", "dockerish", "192.168.1.31", "dk", discoverySource="dockerhub")
+    assert "3 Geräte" in topology.render_layer3({})
+
+
+def _days_ago(days):
+    from datetime import datetime, timedelta, timezone
+    return (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def test_layer3_counts_exclude_long_offline(temp_db):
+    _fill(temp_db, "192.168.1", 2)
+    old = _mk(temp_db, "pc", "old", "192.168.1.40", "old", discovered=1, status="offline")
+    temp_db.update_system(old["id"], {"lastSeen": _days_ago(31)})
+    assert "192.168.1.0/24" not in topology.render_layer3({})
+    recent = _mk(temp_db, "pc", "recent", "192.168.1.41", "rec", discovered=1, status="offline")
+    temp_db.update_system(recent["id"], {"lastSeen": _days_ago(29)})
+    assert "3 Geräte" in topology.render_layer3({})
+
+
+def test_layer3_exact_cidr_beats_24_approximation(temp_db, monkeypatch):
+    r = _mk(temp_db, "router", "R", "192.168.1.1", "r")
+    _fill(temp_db, "192.168.1", 3)
+    monkeypatch.setattr(topology.db, "list_network_resources", lambda **kw: [
+        {"ownerSystemId": r["id"], "facts": {"cidr": "192.168.1.0/26"}}])
+    svg = topology.render_layer3({})
+    assert "192.168.1.0/26" in svg and "192.168.1.0/24" not in svg

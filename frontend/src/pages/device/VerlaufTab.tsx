@@ -9,7 +9,7 @@ export const LEVEL_WORD: Record<string, string> = { error: "Fehler", warning: "W
 
 /** Tab "Verlauf": monitor transitions, the error log and (routers/switches, admin) the config
  *  history. Only reads; a stored config is never written back to the device. */
-export default function VerlaufTab({ systemId, errorEvents, monitorEvents, monitorEnabled, configVersions, showConfig }: {
+export default function VerlaufTab({ systemId, errorEvents, monitorEvents, monitorEnabled, configVersions, showConfig, isAdmin, onAcknowledged }: {
   systemId: string;
   errorEvents: DeviceErrorEvent[] | null;
   /** This device's entries of /api/monitor's event log (the newest 50 across all devices). */
@@ -17,6 +17,9 @@ export default function VerlaufTab({ systemId, errorEvents, monitorEvents, monit
   monitorEnabled: boolean;
   configVersions: ConfigVersion[] | null;
   showConfig: boolean;
+  isAdmin: boolean;
+  /** Called after an acknowledge so the page reloads the error list. */
+  onAcknowledged: () => void;
 }) {
   const [preview, setPreview] = useState<ConfigVersion | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
@@ -28,6 +31,16 @@ export default function VerlaufTab({ systemId, errorEvents, monitorEvents, monit
     }
     try {
       setPreview((await api.getConfigVersion(systemId, version.id)).version);
+    } catch (e) {
+      setNotice({ kind: "error", text: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  async function acknowledge(eventId: string | null) {
+    try {
+      if (eventId) await api.acknowledgeSystemError(systemId, eventId);
+      else await api.acknowledgeAllSystemErrors(systemId);
+      onAcknowledged();
     } catch (e) {
       setNotice({ kind: "error", text: e instanceof Error ? e.message : String(e) });
     }
@@ -78,9 +91,17 @@ export default function VerlaufTab({ systemId, errorEvents, monitorEvents, monit
         ) : errorEvents.length === 0 ? (
           <p className="dv-empty">Nichts protokolliert.</p>
         ) : (
+          <>
+          {isAdmin && errorEvents.some((ev) => !ev.acknowledgedAt) && (
+            <p>
+              <button type="button" className="secondary dv-btn-small" onClick={() => void acknowledge(null)}>
+                Alle quittieren
+              </button>
+            </p>
+          )}
           <ul className="dv-rows">
             {errorEvents.map((ev) => (
-              <li key={ev.id} className="dv-row dv-row-stack">
+              <li key={ev.id} className="dv-row dv-row-stack" style={ev.acknowledgedAt ? { opacity: 0.6 } : undefined}>
                 <span className="dv-row-main">
                   <StateChip tone={ev.level === "error" ? "bad" : ev.level === "warning" ? "warn" : ""}>
                     {LEVEL_WORD[ev.level] ?? ev.level}
@@ -88,9 +109,19 @@ export default function VerlaufTab({ systemId, errorEvents, monitorEvents, monit
                   <time className="dv-row-time" dateTime={ev.createdAt} title={fullDate(ev.createdAt)}>{when(ev.createdAt)}</time>
                 </span>
                 <span className="dv-row-text">{ev.message}</span>
+                {ev.acknowledgedAt ? (
+                  <span className="dv-row-sub">quittiert am {fullDate(ev.acknowledgedAt)}</span>
+                ) : isAdmin ? (
+                  <span className="dv-row-actions">
+                    <button type="button" className="secondary dv-btn-small" onClick={() => void acknowledge(ev.id)}>
+                      Quittieren
+                    </button>
+                  </span>
+                ) : null}
               </li>
             ))}
           </ul>
+          </>
         )}
       </Section>
 
