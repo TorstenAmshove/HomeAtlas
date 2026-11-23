@@ -12,7 +12,7 @@ def _scan(db, monkeypatch, firewall=True):
                 "routedTargets": [], "counts": {}}
 
     monkeypatch.setattr(pipeline.discovery, "discover", fake_discover)
-    monkeypatch.setattr(pipeline.crypto, "decrypt", lambda value: KEY)
+    monkeypatch.setattr(pipeline.crypto, "decrypt_strict", lambda value: KEY)
     monkeypatch.setattr(pipeline.unifi_probe, "probe", lambda *a, **k: asyncio.sleep(0, {
         "ok": False, "error": "x", "warnings": [], "systems": [], "resources": [], "completeScopes": []}))
     monkeypatch.setattr(pipeline.unifi_classic_probe, "probe", lambda *a, **k: asyncio.sleep(0, {

@@ -320,7 +320,11 @@ def _normalize_config_text(text: str) -> str:
 
 
 def _decode_secret(account: dict) -> tuple[str, str]:
-    return crypto.decrypt(account.get("secretEnc") or ""), crypto.decrypt(account.get("passphraseEnc") or "")
+    """Strict: raises crypto.SecretUnreadable instead of probing with an empty password."""
+    return crypto.decrypt_strict(account.get("secretEnc") or ""), crypto.decrypt_strict(account.get("passphraseEnc") or "")
+
+
+_UNREADABLE_ERROR = "Secret nicht lesbar – Schlüsseldatei geändert? Zugang neu eintragen."
 
 
 # ---------------------------------------------------------------------------------------------
@@ -451,7 +455,10 @@ async def probe_ssh(host: str, account: dict, platform: str = "") -> dict:
     except ImportError:
         return {"ok": False, "error": "asyncssh ist nicht installiert -- SSH-Sondierung nicht möglich.", "facts": {}}
 
-    secret, passphrase = _decode_secret(account)
+    try:
+        secret, passphrase = _decode_secret(account)
+    except crypto.SecretUnreadable:
+        return {"ok": False, "error": _UNREADABLE_ERROR, "facts": {}}
     username = (account.get("username") or "root").strip()
     port = int(account.get("port") or 0) or 22
     is_key = (account.get("category") == "sshkey") or "PRIVATE KEY" in secret
@@ -541,7 +548,10 @@ async def probe_http(url: str, account: dict) -> dict:
     """Fetches one page with the stored credentials. GET only -- no form is ever submitted."""
     if not url.startswith(("http://", "https://")):
         return {"ok": False, "error": "Keine gültige Adresse hinterlegt.", "facts": {}}
-    secret, _ = _decode_secret(account)
+    try:
+        secret, _ = _decode_secret(account)
+    except crypto.SecretUnreadable:
+        return {"ok": False, "error": _UNREADABLE_ERROR, "facts": {}}
     username = account.get("username") or ""
     if not username and not secret:
         return {"ok": False, "error": "Kein Benutzername und kein Passwort hinterlegt.", "facts": {}}
@@ -725,7 +735,10 @@ async def probe_homeassistant(url: str, account: dict) -> dict:
     type/service list, not real natural-language understanding of arbitrary trigger/condition/
     action trees), the same trade-off topology.py's neighbour parsers make elsewhere in this app.
     """
-    token, _ = _decode_secret(account)
+    try:
+        token, _ = _decode_secret(account)
+    except crypto.SecretUnreadable:
+        return {"ok": False, "error": _UNREADABLE_ERROR, "facts": {}}
     base_url = (url or "").rstrip("/")
     if not base_url:
         return {"ok": False, "error": "Keine Adresse für Home Assistant hinterlegt.", "facts": {}}
@@ -846,7 +859,10 @@ async def list_ha_switchables(url: str, account: dict) -> dict:
     projected differently. Scope matches `switch_admin`: switch/light plus shutter-like covers
     (device_class allowlist); only entities that can actually be flipped stay in the result, so a caller never has to separately learn
     which entities are off-limits."""
-    token, _ = _decode_secret(account)
+    try:
+        token, _ = _decode_secret(account)
+    except crypto.SecretUnreadable:
+        return {"ok": False, "error": _UNREADABLE_ERROR, "entities": []}
     base_url = (url or "").rstrip("/")
     if not base_url:
         return {"ok": False, "error": "Keine Adresse für Home Assistant hinterlegt.", "entities": []}
@@ -944,7 +960,10 @@ async def _ha_get(url: str, account: dict, path: str, params: dict | None = None
                   as_text: bool = False) -> dict:
     """One authenticated GET against HA after the identity self-check. Never raises; failure
     texts pass through `ha_redact` (httpx messages can embed URLs with credentials)."""
-    token, _ = _decode_secret(account)
+    try:
+        token, _ = _decode_secret(account)
+    except crypto.SecretUnreadable:
+        return {"ok": False, "error": _UNREADABLE_ERROR}
     base_url = (url or "").rstrip("/")
     if not base_url:
         return {"ok": False, "error": "Keine Adresse für Home Assistant hinterlegt."}
@@ -1197,7 +1216,10 @@ async def _ha_ws_call(url: str, account: dict, msg_type: str, payload: dict) -> 
     any other type (a programming error); every runtime failure comes back as {ok: False, error}."""
     if not isinstance(msg_type, str) or msg_type not in _HA_WS_ALLOWED_TYPES:
         raise ValueError(f"WebSocket-Befehl nicht erlaubt: {msg_type!r}")
-    token, _ = _decode_secret(account)
+    try:
+        token, _ = _decode_secret(account)
+    except crypto.SecretUnreadable:
+        return {"ok": False, "error": _UNREADABLE_ERROR}
     base_url = (url or "").rstrip("/")
     if not base_url:
         return {"ok": False, "error": "Keine Adresse für Home Assistant hinterlegt."}
@@ -1335,7 +1357,10 @@ async def probe_snmp(host: str, account: dict, kind: str = "") -> dict:
     update rather than just the generic facts view, and needs one specific, structured shape
     (`printerSupplies`, same "- name: value%" format `probe_homeassistant` already produces) to do
     that."""
-    community, _ = _decode_secret(account)
+    try:
+        community, _ = _decode_secret(account)
+    except crypto.SecretUnreadable:
+        return {"ok": False, "error": _UNREADABLE_ERROR, "facts": {}}
     if not community:
         return {"ok": False, "error": "Keine Community-Zeichenkette hinterlegt.", "facts": {}}
     port = int(account.get("port") or 0) or _SNMP_PORT
@@ -1642,7 +1667,10 @@ async def probe_fritzbox(host: str, account: dict | None) -> dict:
         pass
 
     if account is not None:
-        secret, _ = _decode_secret(account)
+        try:
+            secret, _ = _decode_secret(account)
+        except crypto.SecretUnreadable:
+            return {"ok": bool(facts), "error": _UNREADABLE_ERROR, "facts": facts}
         username = account.get("username") or ""
         envelope = (
             '<?xml version="1.0" encoding="utf-8"?>'

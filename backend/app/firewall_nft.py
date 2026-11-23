@@ -238,8 +238,11 @@ async def probe(host: str, account: dict) -> dict:
     except ImportError:
         return {"ok": False, "error": "asyncssh ist nicht installiert.", "facts": []}
 
-    secret = crypto.decrypt(account.get("secretEnc") or "")
-    passphrase = crypto.decrypt(account.get("passphraseEnc") or "")
+    try:
+        secret = crypto.decrypt_strict(account.get("secretEnc") or "")
+        passphrase = crypto.decrypt_strict(account.get("passphraseEnc") or "")
+    except crypto.SecretUnreadable:
+        return {"ok": False, "error": "Secret nicht lesbar – Schlüsseldatei geändert?", "facts": []}
     port = int(account.get("port") or 0) or 22
     try:
         key = asyncssh.import_private_key(secret, passphrase or None)

@@ -78,10 +78,15 @@ async def deploy_ssh_key(account_id: str, body: DeployKeyBody, request: Request,
     # Derived from the stored private key, not taken from the editable `notes` field (#47).
     try:
         public_line = remote_admin.public_line_for(
-            crypto.decrypt(key_account.get("secretEnc") or ""),
-            crypto.decrypt(key_account.get("passphraseEnc") or ""),
+            crypto.decrypt_strict(key_account.get("secretEnc") or ""),
+            crypto.decrypt_strict(key_account.get("passphraseEnc") or ""),
             comment=f"homeatlas@{system['name']}",
         )
+    except crypto.SecretUnreadable as exc:
+        ip, agent = _client(request)
+        db.log_access("sshkey.deploy", user=user, ip=ip, user_agent=agent, ok=False,
+                      detail=f"{system['name']}: {exc}")
+        raise HTTPException(status_code=409, detail=str(exc)) from None
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     result = await remote_admin.deploy_public_key(host, login_account, public_line, port=body.port)
@@ -322,7 +327,7 @@ async def list_remote_containers(system_id: str, accountId: str = "", _: dict = 
     proxmox_account = _proxmox_account(system_id)
     if proxmox_account is not None:
         token_id = proxmox_account.get("username") or ""
-        token_secret = crypto.decrypt(proxmox_account.get("secretEnc") or "")
+        token_secret = crypto.decrypt_strict(proxmox_account.get("secretEnc") or "")
         result = await proxmox_probe.list_guests(proxmox_account.get("url") or "", token_id, token_secret)
         if not result["ok"] and accountId:
             # REST unreachable/misconfigured -- fall back to the native pct/qm CLI over SSH rather
@@ -360,7 +365,7 @@ async def remote_container_action(system_id: str, container_id: str, action: str
         result = None
         if node:
             token_id = proxmox_account.get("username") or ""
-            token_secret = crypto.decrypt(proxmox_account.get("secretEnc") or "")
+            token_secret = crypto.decrypt_strict(proxmox_account.get("secretEnc") or "")
             result = await proxmox_admin.guest_action(
                 proxmox_account.get("url") or "", token_id, token_secret, node, kind, vmid, action)
         if (result is None or not result["ok"]) and accountId:
@@ -420,7 +425,7 @@ async def remote_container_logs(system_id: str, container_id: str, accountId: st
                     "nur über den SSH-Ausweichweg gefunden, der den Node-Namen nicht kennt."
                 ))
             token_id = proxmox_account.get("username") or ""
-            token_secret = crypto.decrypt(proxmox_account.get("secretEnc") or "")
+            token_secret = crypto.decrypt_strict(proxmox_account.get("secretEnc") or "")
             result = await proxmox_probe.guest_task_log(
                 proxmox_account.get("url") or "", token_id, token_secret, node, vmid)
         if not result["ok"]:
@@ -520,7 +525,13 @@ async def ha_switch(system_id: str, action: str, accountId: str, entityId: str, 
     if system is None or account is None or account.get("systemId") != system_id or account.get("category") != "homeassistant":
         raise HTTPException(status_code=404, detail="Gerät oder Home-Assistant-Zugang nicht gefunden.")
 
-    token = crypto.decrypt(account.get("secretEnc") or "")
+    ip, agent = _client(request)
+    try:
+        token = crypto.decrypt_strict(account.get("secretEnc") or "")
+    except crypto.SecretUnreadable as exc:
+        db.log_access("switch.ha", user=user, ip=ip, user_agent=agent, ok=False,
+                      detail=f"{entityId} -> {action}: {exc}")
+        raise HTTPException(status_code=409, detail=str(exc)) from None
     result = await switch_admin.ha_set_switch(account.get("url") or system.get("url") or "", token, entityId, action == "on")
     ip, agent = _client(request)
     db.log_access("switch.ha", user=user, ip=ip, user_agent=agent, ok=result["ok"],
