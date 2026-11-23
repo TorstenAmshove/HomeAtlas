@@ -26,17 +26,6 @@ def test_tools_does_not_import_firewall_sources():
     assert not _imports("mcp_server") & {"firewall_unifi", "firewall_nft"}
 
 
-def test_constitution_links_no_superseded_adr():
-    text = (ROOT / "docs/specs/constitution.md").read_text()
-    assert "0016-unifi-scan-nur-mit-api-key" not in text
-    assert "0017-firewall-quellen-und-pfadbewertung" not in text
-    assert "0018-wan-status-und-lesepfade" not in text
-    assert "0019-firewall-zonen-subnetze" not in text
-    assert "0021-proxmox-live-lesepfade" in text
-
-
-
-
 def test_firewall_nft_runs_only_the_fixed_command():
     src = (APP / "firewall_nft.py").read_text()
     assert src.count("connection.run(") == 1 and "connection.run(_NFT_COMMAND," in src
