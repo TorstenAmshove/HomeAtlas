@@ -108,8 +108,15 @@ Adresse läuft nichts, Grund „Keine Adresse hinterlegt.“): **[Muss]**
   {server, nas, vm, pc, container}.
 - `snmp`: SNMP. `homeassistant`: Home-Assistant-API (URL des Zugangs, sonst des Geräts).
 - `login`/`apikey` mit URL (Zugang, sonst Gerät): HTTP-GET-Anmeldung.
-- Gerät mit „fritz“ in Hersteller/Modell/Name oder `kind = router`: TR-064, mit dem ersten
-  Zugang der Kategorie `login`/`router` (auch ohne Zugang, dann nur unauthentifizierter Teil).
+- Gerät mit „fritz“ in Hersteller/Modell/Name oder `kind = router`: TR-064. Der erste Zugang der
+  Kategorie `login` wird nur bei „fritz“ in Hersteller/Modell/Name mitgegeben (auch ohne Zugang,
+  dann nur unauthentifizierter Teil); ein Nicht-FRITZ-Router bekommt nie Zugangsdaten an Port 49000.
+  Die Kategorie `router` gibt es nicht mehr (Migration beim Start: `login`; die API lehnt Kategorien
+  außerhalb der UI-Liste mit 422 ab).
+
+#### Szenario: Nicht-FRITZ-Router bekommt keine TR-064-Anmeldung
+- **WENN** ein Gerät `kind = router` ohne „fritz“ einen `login`-Zugang hat
+- **DANN** läuft TR-064 ohne Zugang (nur unauthentifizierter Teil); das Passwort wird nicht gesendet
 - `unifi`/`omada`/`proxmox`/`adguard`: eigene Controller-Probes (siehe unten).
 
 #### Szenario: Login-Zugang auf Drucker ohne Plattform
@@ -516,7 +523,7 @@ auslesen“, nur Admin und nur wenn ein Zugang `allowProbe` hat).
   [remote-admin](../remote-admin/spec.md) für Schreibaktionen).
 - Keine Hostschlüssel-/Zertifikatsprüfung (SSH, HTTPS, Controller-APIs).
 - SNMP nur v2c; keine strukturierte Auswertung von VLAN-/LLDP-Walks (Rohtext).
-- Klassisches Aruba: kein Beantworten einer `enable`-Passwortabfrage – nur Konten mit
+- Klassisches Aruba (das Zugangsformular der Kategorie `login` weist am Benutzernamen darauf hin): kein Beantworten einer `enable`-Passwortabfrage – nur Konten mit
   Manager-Rechten liefern `show running-config`.
 - Omada: nur erste Seite (100 Geräte, 500 Clients je Site).
 
@@ -530,9 +537,6 @@ auslesen“, nur Admin und nur wenn ein Zugang `allowProbe` hat).
 
 ## OFFEN
 
-- > OFFEN: TR-064 wählt den ersten Zugang der Kategorie `login` oder `router`; `router` existiert
-  in der UI nicht. Bei einem Nicht-FRITZ-Router mit `kind = router` wird dessen Login-Passwort per
-  Digest an Port 49000 geschickt. → #134
 - > OFFEN: TP-Link-Pager-Abschaltung nutzt `configure` / `no clipaging` – ein
   Konfigurationsmodus-Befehl, entgegen „kein Config-Mode“. Ob die Einstellung persistent in der
   Running-Config landet, ist ungeprüft.
@@ -546,5 +550,3 @@ auslesen“, nur Admin und nur wenn ein Zugang `allowProbe` hat).
   ein Restore ist bewusst nicht vorgesehen, Nutzen der Speicherung ist unklar.
 - > OFFEN: Omada liest nur Seite 1 (Geräte 100, Clients 500); größere Sites werden still abgeschnitten.
   Ein `errorCode` bei Geräten überspringt auch die Clients der Site.
-- > OFFEN: Klassisches Aruba braucht ein Konto, das direkt mit Manager-Rechten anmeldet; die UI
-  weist darauf nicht hin. → #134

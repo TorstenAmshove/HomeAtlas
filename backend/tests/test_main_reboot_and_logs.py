@@ -166,3 +166,36 @@ def test_logs_uses_remote_docker_path_for_a_non_proxmox_host(client, monkeypatch
 
     assert response.status_code == 200
     assert response.json()["text"] == "docker log output"
+
+
+def test_reboot_non_fritz_router_never_uses_tr064(client, monkeypatch):
+    system = db.create_system({"kind": "router", "name": "Mikrotik", "ip": "10.0.0.2", "vendor": "MikroTik"})
+    ssh_login = db.create_account({"systemId": system["id"], "label": "SSH", "category": "login", "port": 22})
+    web_login = db.create_account({"systemId": system["id"], "label": "Web", "category": "login", "port": 8443})
+
+    seen = {}
+
+    async def fake_reboot_host(host, account_arg, port=0):
+        seen["host"] = host
+        return {"ok": True, "error": ""}
+
+    async def fail_if_called(*args, **kwargs):
+        raise AssertionError("a non-FRITZ! router must never get TR-064 credentials")
+
+    monkeypatch.setattr(remote_admin, "reboot_host", fake_reboot_host)
+    monkeypatch.setattr(remote_admin, "reboot_fritzbox", fail_if_called)
+
+    assert client.post(f"/api/systems/{system['id']}/reboot?accountId={ssh_login['id']}").status_code == 200
+    assert seen["host"] == "10.0.0.2"
+
+    response = client.post(f"/api/systems/{system['id']}/reboot?accountId={web_login['id']}")
+    assert response.status_code == 400
+    assert "SSH-Zugang" in response.json()["detail"]
+
+
+def test_create_account_rejects_unknown_category(client):
+    system = db.create_system({"kind": "router", "name": "R", "ip": "10.0.0.3"})
+    response = client.post("/api/accounts", json={"systemId": system["id"], "category": "router"})
+    assert response.status_code == 422
+    ok = client.post("/api/accounts", json={"systemId": system["id"], "category": "login"})
+    assert ok.status_code == 200

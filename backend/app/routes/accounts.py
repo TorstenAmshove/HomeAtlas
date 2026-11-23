@@ -5,7 +5,7 @@ Moved out of main.py unchanged; see main.py for the cross-cutting rules."""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from .. import crypto, db
 from ..deps import _client, _public_account, current_user, require_admin
@@ -16,6 +16,15 @@ router = APIRouter()
 # ---------------------------------------------------------------------------------------------
 # Accounts
 # ---------------------------------------------------------------------------------------------
+
+# Mirrors CATEGORIES in frontend/src/pages/zugaenge/categories.ts: a category the UI does not offer
+# has no form and no meaning (a stray `router` once reached the TR-064 and reboot paths, #134).
+ACCOUNT_CATEGORIES = frozenset({
+    "contract", "login", "sshkey", "snmp", "omada", "unifi", "homeassistant", "proxmox", "adguard",
+    "traefik", "cloudflare", "exposure_cloudflared", "exposure_caddy", "exposure_ddclient",
+    "firewall_nftables", "wifi", "apikey", "other",
+})
+
 
 class AccountBody(BaseModel):
     systemId: str | None = None
@@ -28,6 +37,13 @@ class AccountBody(BaseModel):
     notes: str = ""
     allowProbe: bool = False
     port: int = 0
+
+    @field_validator("category")
+    @classmethod
+    def _known_category(cls, value: str) -> str:
+        if value not in ACCOUNT_CATEGORIES:
+            raise ValueError(f"Unbekannte Kategorie: {value}")
+        return value
 
 
 class NetworkResourceManualBody(BaseModel):
