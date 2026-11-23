@@ -22,7 +22,6 @@ needs "der Router antwortet, aber das Internet dahinter nicht" rather than a pac
 from __future__ import annotations
 
 import asyncio
-import ipaddress
 import os
 import re
 import shutil
@@ -30,6 +29,8 @@ import socket
 import time
 
 import httpx
+
+from . import netguard
 
 # Hostnames, IPv4, and IPv6 literals -- deliberately no spaces, quotes, slashes or shell
 # metacharacters. Anything else is rejected before a subprocess is spawned.
@@ -70,33 +71,21 @@ def _bounded_int(value, default: int, low: int, high: int, what: str) -> int:
 
 
 def _is_forbidden_address(address: str) -> bool:
-    try:
-        ip = ipaddress.ip_address(address.split("%", 1)[0])
-    except ValueError:
-        return True
-    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
-        ip = ip.ipv4_mapped
-    return ip.is_loopback or ip.is_link_local or ip.is_unspecified or ip.is_multicast or ip.is_reserved
+    return netguard.is_forbidden_address(address)
 
 
 async def _ensure_allowed_target(host: str) -> None:
     """Rejects a target that is, or resolves to, a forbidden address (see module docstring).
-    Every address a name resolves to must be allowed, not just the first."""
-    host = host.strip("[]")
+    Every address a name resolves to must be allowed, not just the first. Logic lives in netguard;
+    the wrapper keeps the module-level name so tests can patch `_is_forbidden_address`."""
     try:
-        addresses = [str(ipaddress.ip_address(host.split("%", 1)[0]))]
-    except ValueError:
-        loop = asyncio.get_running_loop()
-        try:
-            infos = await asyncio.wait_for(loop.getaddrinfo(host, None, proto=socket.IPPROTO_TCP), timeout=6.0)
-        except (socket.gaierror, asyncio.TimeoutError, OSError):
-            return  # unresolvable: the check itself reports "nicht erreichbar"
-        addresses = [info[4][0] for info in infos]
-    if any(_is_forbidden_address(a) for a in addresses):
+        await netguard.ensure_allowed_target(host, forbidden=_is_forbidden_address)
+    except netguard.BlockedTarget:
+        host = host.strip("[]")
         raise DiagnosticError(
             f"'{host}' zeigt auf den HomeAtlas-Server selbst oder eine interne Sonderadresse. "
             "Solche Ziele prüft HomeAtlas nicht; bitte die Adresse des Geräts im Heimnetz angeben."
-        )
+        ) from None
 
 
 def _validate_port(port: int) -> int:

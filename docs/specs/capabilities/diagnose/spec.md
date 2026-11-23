@@ -102,7 +102,7 @@ Traceroute sind nicht betroffen. **[Muss]** Restrisiko: DNS-Rebinding zwischen P
 - **WENN** eine erlaubte Seite auf `http://169.254.169.254/` weiterleitet
 - **DANN** lehnt das System ab
 
-Quelle: `backend/app/diagnostics.py` (`_ensure_allowed_target`, `_fetch_page`), Tests:
+Quelle: `backend/app/diagnostics.py` (`_ensure_allowed_target`, `_fetch_page`; die Adresslogik liegt in `backend/app/netguard.py`), Tests:
 `backend/tests/test_diagnostics.py`
 
 ### Requirement: Port-Prüfung
