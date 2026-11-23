@@ -1,7 +1,7 @@
 """Write-capable switching of Home Assistant `switch`/`light` entities and shutter-class `cover`s --
 the counterpart `probe_auth.probe_homeassistant` explicitly is not.
 
-This is the only write-capable device module HomeAtlas has left (ADR-0022): there is no remote
+This is the only write-capable device module HomeAtlas has left (ADR-0023): there is no remote
 administration, and Shelly relays are no longer switched directly -- switching goes through Home
 Assistant. This file only ever sends a state-changing request, never imports a read-only module,
 and duplicates the small amount of connection setup it needs (HA's Bearer header) rather than

@@ -101,7 +101,7 @@ def test_set_switch_tool_input_gaps(env, monkeypatch):
 
 
 def test_set_switch_shelly_rejected(env, monkeypatch):
-    """Shelly relays are no longer switched directly (ADR-0022), even for a Shelly in the inventory."""
+    """Shelly relays are no longer switched directly (ADR-0023), even for a Shelly in the inventory."""
     async def boom(*a, **k):
         raise AssertionError("must not switch")
 
