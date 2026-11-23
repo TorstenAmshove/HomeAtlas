@@ -9,7 +9,8 @@ WLAN, API-Tokens, SSH-Schlüssel) an einer Stelle ab, damit man im Störungsfall
 Secrets liegen verschlüsselt, verlassen den Server nur einzeln auf ausdrückliche Admin-Anfrage
 und erscheinen nie in Dokumentation, Chat oder LLM-Kontext. Ein Zugang kann einem oder mehreren
 Geräten (auch ganzen Gerätetypen/Subnetzen) zugeordnet und optional fürs lesende Auslesen
-freigegeben werden. HomeAtlas kann zudem SSH-Schlüssel erzeugen und auf Geräten hinterlegen.
+freigegeben werden. SSH-Schlüssel erzeugt und verteilt HomeAtlas nicht (ADR-0023); ein außerhalb
+angelegter Schlüssel wird als Zugang der Art `sshkey` eingetragen und fürs lesende Probing genutzt.
 
 ## Rollen und Rechte
 
@@ -18,7 +19,6 @@ freigegeben werden. HomeAtlas kann zudem SSH-Schlüssel erzeugen und auf Geräte
 | Zugänge auflisten, anlegen, ändern, löschen | ja | nein |
 | Secret eines Zugangs im Klartext abrufen | ja (einzeln, protokolliert) | nein |
 | Zuordnungen lesen/ersetzen | ja | nein |
-| SSH-Schlüssel erzeugen / auf Gerät einspielen | ja | nein |
 | Metadaten der Zugänge eines Geräts sehen (Bezeichnung, Kategorie, Benutzer, URL, Notiz, `hasSecret`) über Geräteansicht/Doku/Assistent | ja | ja |
 | Ein Secret, eine Passphrase oder einen Chiffretext sehen | nur über Abruf-Route | nie |
 
@@ -147,7 +147,7 @@ best effort auf Modus 0600 gesetzt. Schutzziel: verlorene DB-Kopie, nicht root a
 #### Szenario: Schlüsseldatei fehlt bei vorhandener DB
 - **WENN** die Schlüsseldatei ersetzt wurde und ein Secret nicht entschlüsselbar ist
 - **DANN** bleiben Inventar, Doku und Zugangsliste nutzbar (`crypto.decrypt` liefert dort ""); jede
-  Benutzung des Secrets (Abruf, Probing, Controller-Abfragen, Remote-Admin, KI-Schlüssel,
+  Benutzung des Secrets (Abruf, Probing, Controller-Abfragen, KI-Schlüssel,
   `set_switch`) bricht ab (`crypto.decrypt_strict` → `SecretUnreadable`): Abruf/Schreibrouten 409
   mit `ok=0`-Protokoll, Scan überspringt den Zugang mit Warnung, nie mit leerem Passwort
 
@@ -227,8 +227,7 @@ holt ein Secret einzeln über `GET /api/accounts/{id}/secret` und verbirgt es na
 Löschen MUSS über einen Prüfdialog laufen, der den Verlust des gespeicherten Passworts, das Gerät und
 alle Zuordnungen nennt, die den Zugang verlieren, und sagt, dass es kein Rückgängig gibt. Der Hinweis
 „kein Passwort-Manager“ erscheint einmal und danach hinter „ⓘ“ (gemerkt im `localStorage`).
-SSH-Schlüssel erzeugen, Schlüssel auf Gerät einspielen (mit Prüfdialog) und Zuordnungen bleiben
-erreichbar. „Art“ MUSS das erste Feld des Formulars sein; Beschriftungen, Platzhalter, Hinweise und
+Zuordnungen bleiben erreichbar. „Art“ MUSS das erste Feld des Formulars sein; Beschriftungen, Platzhalter, Hinweise und
 Sichtbarkeit der Felder (Benutzername, Adresse, Port, „zum Auslesen verwenden“) MÜSSEN je Art aus einer
 zentralen Definition kommen (`categoryFields.ts`, ein `Record` über alle Arten, sodass der Build bei
 einer fehlenden Art scheitert). Ausgeblendete Felder DÜRFEN beim Bearbeiten gespeicherte Werte nicht

@@ -496,8 +496,8 @@ nichts, nennt `reason` den Grund (Schalter aus, Secret nicht lesbar, Controller-
 Quelle: `backend/app/routes/systems.py::probe_system`, `backend/app/pipeline.py::probe_one_system`, Test: `backend/tests/test_main_unifi_probe.py::test_manual_unifi_probe_syncs_devices_topology_and_network_resources`, `backend/tests/test_main_unifi_probe.py::test_manual_unifi_probe_returns_the_controller_error`, `backend/tests/test_pipeline_probe_one.py::test_manual_and_full_scan_same_facts`, `backend/tests/test_pipeline_probe_one.py::test_manual_respects_scan_enable_proxmox`
 
 ### Requirement: Lese-/Schreibtrennung
-Das System MUSS die lesenden Probe-Module strikt von schreibenden Modulen (Remote-Admin,
-Container-/Gast-Steuerung) trennen: kein Probe-Modul nutzt Schreibfunktionen, und das LLM erreicht
+Das System MUSS die lesenden Probe-Module strikt vom einzigen schreibenden Modul (`switch_admin.py`,
+Home-Assistant-Schalten; ADR-0023) trennen: kein Probe-Modul nutzt Schreibfunktionen, und das LLM erreicht
 keine Schreibfunktion über die Probes (ADR 0012). **[Muss]** Einzige Nicht-GET-Verbindung zu Home Assistant ist ein WebSocket, der nur
 `trace/list` und `trace/get` sendet (exakter Vergleich gegen eine feste Liste, sonst `ValueError`).
 

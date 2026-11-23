@@ -499,7 +499,7 @@ Quelle: `frontend/src/pages/device/DevicePage.tsx`
 
 ### Requirement: Detailseite in Tabs
 `/geraete/:id` MUSS alle Inhalte und Aktionen der Detailseite zeigen, aufgeteilt auf Tabs in `?tab=` (`ueberblick`
-Standard · `technik` · `verlauf` · `zugaenge` · `steuern`); für jede Rolle entfällt nichts, was sie
+Standard · `technik` · `verlauf` · `zugaenge`); für jede Rolle entfällt nichts, was sie
 vorher erreichen konnte. Nur „Überblick“ trägt die
 Zusammenfassung (Status, seit wann, Adresse, Quelle, Wichtigkeit/Überwachung) und genau eine
 Hauptaktion: nicht erreichbar, live überwacht und ADMIN → „Jetzt neu prüfen“ (`POST /api/monitor/run`)
