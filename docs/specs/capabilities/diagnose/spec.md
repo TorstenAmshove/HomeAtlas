@@ -61,7 +61,7 @@ Das System MUSS Hostnamen/IP-Adressen gegen ein striktes Muster prüfen (nur Buc
 Quelle: `backend/app/diagnostics.py:29`–`backend/app/diagnostics.py:50`, `backend/app/diagnostics.py:74`, `backend/app/diagnostics.py:152`, `backend/app/diagnostics.py:176`, `backend/app/diagnostics.py:208`, `backend/app/main.py:1483`
 
 ### Requirement: Feste Zeitgrenzen
-Jede Prüfung MUSS zeitlich begrenzt sein; bei Überschreitung wird der Prozess beendet und „Zeitüberschreitung -- das Gerät hat nicht rechtzeitig geantwortet.“ gemeldet. Werte: Ping `count·3+5` s gesamt, 2 s je Antwort; Port 3 s; DNS-Lookup 6 s; Reverse-DNS 5 s; HTTP 10 s (Connect 5 s); Traceroute `2·maxHops+10` s, 1 s je Hop; Internet-Check HTTP 10 s (Connect 5 s); Speedtest 30 s (Connect 8 s). **[Muss]** (Einzelwerte **[Impl]**)
+Jede Prüfung MUSS zeitlich begrenzt sein; bei Überschreitung wird der Prozess beendet und „Zeitüberschreitung -- das Gerät hat nicht rechtzeitig geantwortet.“ gemeldet. Werte: Ping `count·3+5` s gesamt, 2 s je Antwort; Port 3 s; DNS-Lookup 6 s; Reverse-DNS 5 s; HTTP 10 s (Connect 5 s); Traceroute `2·maxHops+10` s, 1 s je Hop; Internet-Check HTTP 10 s (Connect 5 s); Speedtest 30 s (Connect 8 s, gilt je Anfrage; die Latenzmessung macht vor dem Download 6 weitere kleine Anfragen). **[Muss]** (Einzelwerte **[Impl]**)
 
 #### Szenario: Traceroute zu 15 Hops
 - **WENN** eine Traceroute mit Default-Hops läuft
@@ -70,7 +70,7 @@ Jede Prüfung MUSS zeitlich begrenzt sein; bei Überschreitung wird der Prozess 
 Quelle: `backend/app/diagnostics.py:62`–`backend/app/diagnostics.py:66`, `backend/app/diagnostics.py:75`, `backend/app/diagnostics.py:102`, `backend/app/diagnostics.py:118`, `backend/app/diagnostics.py:124`, `backend/app/diagnostics.py:157`, `backend/app/diagnostics.py:178`, `backend/app/diagnostics.py:259`, `backend/app/diagnostics.py:312`
 
 ### Requirement: Einzelprüfungen über eine Route
-Das System MUSS über `POST /api/diagnostics` mit `{"tool": <name>, "args": {...}}` genau diese Prüfungen anbieten und jeden anderen Namen mit 400 „Unbekannte Prüfung '<name>'.“ ablehnen: `internet_check` (keine Args), `ping` (`host`, `count`=3), `check_port` (`host`, `port`), `dns_lookup` (`name`), `http_check` (`url`), `traceroute` (`host`, `maxHops`=15). Jedes Ergebnis MUSS ein Feld `explanation` mit einer laienverständlichen Deutung enthalten. **[Muss]** (Tool-Namen **[Impl]**)
+Das System MUSS über `POST /api/diagnostics` mit `{"tool": <name>, "args": {...}}` genau diese Prüfungen anbieten und jeden anderen Namen mit 400 „Unbekannte Prüfung '<name>'.“ ablehnen: `internet_check` (keine Args), `ping` (`host`, `count`=3), `check_port` (`host`, `port`), `dns_lookup` (`name`), `http_check` (`url`), `traceroute` (`host`, `maxHops`=15). Jedes Ergebnis MUSS ein Feld `explanation` mit einer laienverständlichen Deutung enthalten. **[Muss]** (Tool-Namen **[Impl]**) Die REST-Namen bleiben bewusst eigenständig: nur `ping` weicht vom LLM-Werkzeug `ping_host` ab, kein Alias; das Frontend nutzt über diese Route nur `internet_check`, und die LLM-Namen gehören zur Grenze von `tools.py`/MCP. **[Impl]**
 
 #### Szenario: Unbekanntes Tool
 - **WENN** `{"tool":"nmap"}` gesendet wird
@@ -175,17 +175,21 @@ Das System MUSS mehrere externe Namen nacheinander auflösen und je Name Ergebni
 Quelle: `backend/app/main.py:1595`–`backend/app/main.py:1599`, `backend/app/diagnostics.py:194`–`backend/app/diagnostics.py:245`, `backend/app/discovery.py:215`, `backend/app/db.py:456`
 
 ### Requirement: Speedtest nur auf ausdrücklichen Klick
-Das System MUSS höchstens einen Speedtest gleichzeitig zulassen und MUSS einen Durchsatztest gegen einen öffentlichen Speedtest-Dienst nur auf direkte Anforderung eines Benutzers ausführen und DARF ihn dem Assistenten/MCP NICHT als Werkzeug anbieten. Gemessen werden Latenz (Anfrage mit 0 Byte), Download (25 MB) und Upload (10 MB); Ergebnis `ok`, `downloadMbps`, `uploadMbps` (1 Nachkommastelle), `pingMs`, `explanation`; bei Netzwerkfehler `ok: false` mit verständlicher `error`-Meldung (HTTP 200). **[Muss]** (Dienst und Datenmengen **[Impl]**)
+Das System MUSS höchstens einen Speedtest gleichzeitig zulassen und MUSS einen Durchsatztest gegen einen öffentlichen Speedtest-Dienst nur auf direkte Anforderung eines Benutzers ausführen und DARF ihn dem Assistenten/MCP NICHT als Werkzeug anbieten. Gemessen werden Latenz (Median von 5 Anfragen mit 0 Byte auf der bereits aufgebauten Verbindung, nach einer verworfenen Aufwärm-Anfrage), Download (25 MB) und Upload (10 MB); Ergebnis `ok`, `downloadMbps`, `uploadMbps` (1 Nachkommastelle), `pingMs`, `explanation`; bei Netzwerkfehler `ok: false` mit verständlicher `error`-Meldung (HTTP 200). **[Muss]** (Dienst, Datenmengen und Anzahl der Latenz-Anfragen **[Impl]**)
 
 #### Szenario: Keine Internetverbindung
 - **WENN** der Speedtest-Dienst nicht erreichbar ist
 - **DANN** `ok: false`, `error` „Speedtest fehlgeschlagen -- ist eine Internetverbindung vorhanden? (…)“, alle Messwerte leer
 
+#### Szenario: Erste Anfrage mit Verbindungsaufbau
+- **WENN** der Speedtest startet und die erste Anfrage TCP- und TLS-Aufbau enthält
+- **DANN** zählt diese Aufwärm-Anfrage nicht zur Latenz; `pingMs` ist der Median der 5 Folgeanfragen
+
 #### Szenario: Zweiter paralleler Speedtest
 - **WENN** bereits ein Speedtest läuft und ein weiterer angefordert wird
 - **DANN** antwortet `POST /api/diagnostics/speedtest` mit 429 („Es läuft bereits ein Speedtest. Bitte kurz warten.“); die Sperre wird auch bei Abbruch freigegeben
 
-Quelle: `backend/app/diagnostics.py:292`–`backend/app/diagnostics.py:341`, `backend/app/main.py:1602`, `backend/app/tools.py:38` (kein Speedtest-Tool)
+Quelle: `backend/app/diagnostics.py:392`–`backend/app/diagnostics.py:453`, `backend/app/main.py:1602`, `backend/app/tools.py:38` (kein Speedtest-Tool)
 
 ## Daten
 
@@ -216,10 +220,8 @@ UI-Seite(n): `frontend/src/pages/start/StartPage.tsx` (Route `/`, Internet-Check
 
 - `ping -c <n> -W 2 -n <host>`; `traceroute -n -w 1 -q 1 -m <hops> <host>`; Auswertung per Regex der Textausgabe (`% packet loss`, `= min/avg/…`).
 - DNS über `getaddrinfo` des Servers (Resolver aus `/etc/resolv.conf`), Reverse-DNS über `gethostbyaddr` im Thread-Pool.
-- Speedtest gegen `https://speed.cloudflare.com/__down?bytes=…` / `__up`; Upload-Daten sind Zufallsbytes.
+- Speedtest gegen `https://speed.cloudflare.com/__down?bytes=…` / `__up`; Upload-Daten sind Zufallsbytes. Latenz: 1 Aufwärm-Anfrage (`bytes=0`, verworfen) + 5 Anfragen auf der Keep-Alive-Verbindung, Median, jeweils bis zum vollständigen Body gemessen.
 - Fehlerklasse `DiagnosticError` → HTTP 400 in `/api/diagnostics`; im Assistenten als `{"error": …}` an das Modell.
 
 ## OFFEN
 
-- > OFFEN: Die Latenz des Speedtests ist die erste Anfrage auf einer neuen Verbindung und enthält TCP- und TLS-Aufbau – systematisch zu hoch. → #151
-- > OFFEN: REST-Tool-Namen weichen von den LLM-Werkzeugnamen ab (`ping` vs. `ping_host`); Alternative vereinheitlichen? → #151
