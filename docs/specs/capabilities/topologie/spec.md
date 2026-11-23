@@ -74,7 +74,8 @@ Quelle: `backend/app/topology.py:263`, `backend/app/topology.py:287`, `backend/a
 ### Requirement: Obergrenzen je Ebene
 Das System zeichnet höchstens 6 Router, 10 Verteiler und 10 wichtige Geräte; Auswahl in der
 Reihenfolge Bedeutung (kritisch, normal, sonstige), dann Name ohne Groß/Klein. Weitere Geräte
-dieser Arten werden nicht gezeichnet. **[Impl]**
+dieser Arten werden nicht gezeichnet, stehen aber in der Liste „Nicht im Plan gezeichnet“ unter dem
+Plan (siehe „Restliche Geräte unter dem Plan“). **[Impl]**
 
 #### Szenario: Zwölf Access Points
 - **WENN** 12 Geräte der Art `network` mit Bedeutung „normal“ existieren
@@ -85,7 +86,9 @@ Quelle: `backend/app/topology.py:30`, `backend/app/topology.py:367`, `backend/ap
 
 ### Requirement: Wichtige Geräte einzeln, unabhängig von der Art
 Das System MUSS jedes als „kritisch“ markierte Gerät als eigenen Kasten zeigen, auch Container und
-VMs. Nicht-kritische Server, NAS, Container, VMs und Endgeräte erscheinen im Bild nicht einzeln.
+VMs, soweit die Obergrenze reicht. Ein kritischer Router oder Verteiler, der schon in seiner
+Backbone-Ebene gezeichnet ist, bekommt keinen zweiten Kasten; die Obergrenze gilt erst nach diesem
+Abzug (ein kritischer Router jenseits der Router-Obergrenze erscheint hier). Nicht-kritische Server, NAS, Container, VMs und Endgeräte erscheinen im Bild nicht einzeln.
 **[Muss]**
 
 #### Szenario: Kritische VM
@@ -144,7 +147,8 @@ Quelle: `backend/app/topology.py:430`, `backend/app/topology.py:240`,
 
 ### Requirement: Klickbare Kästen, statisches Bild
 Das System MUSS jeden Kasten, der ein Inventargerät darstellt, mit dessen Geräteseite
-(`/geraete/<id>`) verknüpfen. Der Plan MUSS ohne Zoomen, Ziehen oder Neu-Anordnen auskommen. **[Muss]**
+(`/geraete/<id>`) verknüpfen. Internet- und Layer-3-Subnetzkästen stellen kein Gerät dar und sind
+nicht klickbar (kein `data-system-id`). Der Plan MUSS ohne Zoomen, Ziehen oder Neu-Anordnen auskommen. **[Muss]**
 
 #### Szenario: Klick auf Router
 - **WENN** ein Nutzer im physischen Plan auf „FritzBox“ klickt
@@ -154,25 +158,29 @@ Quelle: `backend/app/topology.py:233`, `frontend/src/pages/geraete/PlanPage.tsx`
 `docs/adr/0008-topologie-als-server-svg.md`
 
 ### Requirement: Status sichtbar und erklärt
-Das System MUSS bei jedem Gerätekasten den Erreichbarkeitsstatus kennzeichnen: erreichbar (grün),
-nicht erreichbar (rot), unbekannt (neutral). Der physische Plan MUSS eine Legende „erreichbar“ /
-„nicht erreichbar“ enthalten. Farbe darf laut ADR-0008 nicht das einzige Signal sein (siehe OFFEN).
-**[Muss]**
+Das System MUSS bei jedem Gerätekasten (Router, Verteiler, wichtige Geräte, Router im Layer-3-Plan)
+den Erreichbarkeitsstatus kennzeichnen: erreichbar (grün), nicht erreichbar (rot), unbekannt
+(neutral), jeweils zusätzlich als Wort „● erreichbar“ / „● nicht erreichbar“ / „● unbekannt“
+(jeder andere Statuswert gilt als unbekannt). Beide Pläne MÜSSEN die Legende „erreichbar“ /
+„nicht erreichbar“ enthalten. Internet- und Subnetzkästen tragen kein Statuswort. **[Muss]**
 
 #### Szenario: Ausgefallener Switch
 - **WENN** ein Switch den Status `offline` hat
-- **DANN** hat sein Kasten einen roten Rahmen
+- **DANN** hat sein Kasten einen roten Rahmen und die Zeile „● nicht erreichbar“
 
-Quelle: `backend/app/topology.py:219`, `backend/app/topology.py:460`
+Quelle: `backend/app/topology.py:_box`, `backend/app/topology.py:_legend`, Tests:
+`backend/tests/test_topology_layout.py::test_box_shows_status_word`,
+`backend/tests/test_topology_layout.py::test_layer3_has_legend_and_status`
 
 ### Requirement: Restliche Geräte unter dem Plan
-Das System MUSS alle nicht im Bild einzeln gezeigten, nicht-kritischen Geräte unter dem Plan in
-aufklappbaren Gruppen auflisten, in dieser Reihenfolge: „Server & Speicher“ (server, nas),
+Das System MUSS alle Geräte, die der physische Plan nicht zeichnet (Maßstab: die `data-system-id`
+im SVG, in beiden Ansichten gleich), unter dem Plan in aufklappbaren Gruppen auflisten, in dieser
+Reihenfolge: „Router & Verteilung“ (router, network), „Server & Speicher“ (server, nas),
 „Container & VMs“ (container, vm), „Computer & Mobilgeräte“ (pc, mobile), „Smart Home“ (smarthome,
 iot), „Wärme, Klima & Energie“ (heating, climate, energy), „Drucker, Medien & Kameras“ (printer,
 media, camera), „Weitere Geräte“ (other). Gruppenkopf: Anzahl, Bezeichnung, „<n> erreichbar“ bzw.
 „keins erreichbar“; Zeilen: Symbol, Name (Link), IP oder „—“, Status-Badge in Worten. Leere Gruppen
-entfallen. **[Muss]**
+entfallen. Ist der Plan noch nicht geladen, bleibt die Liste ausgeblendet. **[Muss]**
 
 #### Szenario: Sechs Smart-Home-Geräte
 - **WENN** sechs normale Geräte der Art `iot` existieren, zwei online
@@ -271,7 +279,9 @@ Geräte plus den besitzenden Router. Die VLAN-ID stammt aus dem Controller-Netz 
 ausgelesenen Router-Schnittstellendaten. Ein Subnetz ohne besitzenden Router hängt direkt am
 Internet. **[Muss]**
 
-Subnetze mit N < 3 werden ausgeblendet. **[Impl]**
+Subnetze mit N < 3 werden ausgeblendet. Die Kästen einer Ebene stehen numerisch aufsteigend nach
+Adresse (10.0.0.0/24 vor 192.168.2.0/24 vor 192.168.10.0/24), bei gleicher Adresse kürzeres Präfix
+zuerst, „unbekanntes Netz“ zuletzt; unabhängig von Einfügereihenfolge und Hash-Seed. **[Impl]**
 
 #### Szenario: Kleines Netz
 - **WENN** ein Subnetz nur 2 Geräte und keinen Router hat
@@ -332,14 +342,15 @@ Quelle: `backend/app/topology.py:45`, `frontend/src/pages/geraete/PlanPage.tsx`
 
 ### Requirement: Lesbarkeit
 Das System MUSS lange Namen kürzen statt sie überlaufen zu lassen. **[Muss]** Maße: Breite 1000,
-Kastenhöhe 52, Ebenenabstand 78, Kastenbreite max. 200 (Router 260, Internet/Layer-3 220),
+Kastenhöhe 64, Ebenenabstand 90, Kastenbreite max. 200 (Router 260, Internet/Layer-3 220),
+Kastenbreite mindestens 90: Bei mehr Kästen je Ebene wächst die Breite (viewBox) über 1000,
 Kürzung mit „…“ auf ca. Breite/7,2 Zeichen (min. 6; Untertitel +4). **[Impl]**
 
 #### Szenario: Langer Name
 - **WENN** ein Router „FRITZ!Box 7590 AX Wohnzimmer Erdgeschoss Hauptanschluss“ heißt
 - **DANN** endet sein Titel im Kasten mit „…“
 
-Quelle: `backend/app/topology.py:24`, `backend/app/topology.py:49`, `backend/app/topology.py:220`,
+Quelle: `backend/app/topology.py:_canvas_width`, `backend/app/topology.py:_row`, `backend/app/topology.py:24`, `backend/app/topology.py:49`, `backend/app/topology.py:220`,
 `backend/app/topology.py:246`
 
 ## Daten
@@ -389,14 +400,8 @@ UI-Seite(n): `frontend/src/pages/geraete/PlanPage.tsx` (Route `/plan`, Navigatio
 ## OFFEN
 
 - > OFFEN: ADR-0008 und CLAUDE.md beschreiben die Ebenen „Server → Endgeräte“ und „Container innerhalb ihres Hosts“; das Bild zeichnet aber nur „Wichtige Geräte“, Server/Endgeräte stehen als HTML-Listen darunter, Container nur als Zähler bei kritischen Hosts. Spec folgt dem Code; ADR-0009 hält diesen Stand fest. → kein Issue, ADR-0009 hält den Stand fest
-- > OFFEN: Farbe ist im Kasten das einzige Statussignal (kein Wort wie „nicht erreichbar“), entgegen ADR-0008 und Modul-Docstring; der Layer-3-Plan hat zudem keine Legende. → #143
-- > OFFEN: Router über 6, Verteiler über 10 und kritische Geräte über 10 verschwinden ersatzlos – die Listen unter dem Plan enthalten weder Router/Verteiler noch kritische Geräte. → #143
-- > OFFEN: Ein kritischer Router oder Verteiler erscheint doppelt (Backbone-Ebene und „Wichtige Geräte“). → #143
-- > OFFEN: Layer-3-Subnetzkästen tragen `data-system-id="subnet:<cidr>"`; ein Klick navigiert zu `/geraete/subnet:<cidr>` (enthält „/“), also zu keiner gültigen Geräteseite (`backend/app/topology.py:741`). → #143
-- > OFFEN: Reihenfolge der Subnetzkästen kommt aus einer Mengen-Iteration (hash-abhängig, kann zwischen Prozessstarts wechseln); `_subnet_sort_key` ist definiert, aber unbenutzt (`backend/app/topology.py:481`, `backend/app/topology.py:725`). → #143
 - > OFFEN: Router-Geräte ohne IP-Endung .1/.254 fehlen im Layer-3-Plan komplett (weder als Router noch im Gerätezähler). → #144
 - > OFFEN: Layer-3-Gerätezahlen enthalten Container (gleiche IP wie Host) und lange offline Geräte. → #144
 - > OFFEN: Omada-/UniFi-Verknüpfung überschreibt ein vorhandenes Elterngerät, auch ein manuell per API gesetztes; Docker-Verknüpfung dagegen nie. Proxmox-Elterngerät wird nur bei Neuanlage gesetzt, eine migrierte VM wandert nicht mit. → #144
 - > OFFEN: Erweiterbar-Markierung nur für Hosts der Art server/nas; ein Docker-Host der Art `pc` bekommt Container zugeordnet, aber keinen Zähler. → #144
-- > OFFEN: Kommentar an `_MAX_CRITICAL_BOXES` nennt eine „readability floor“ der Kastenbreite; `_row` hat keine Untergrenze, bei vielen Layer-3-Knoten werden Kästen beliebig schmal. → #143
 - > OFFEN: Mischt ein Router /24-Näherungen aus Probe-Fakten mit exakten Controller-CIDRs (z. B. /26), können beide als getrennte Subnetze in die Ketteninferenz eingehen. → #144
