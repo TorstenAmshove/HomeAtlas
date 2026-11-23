@@ -37,7 +37,7 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (44)
+## Alle Punkte je Fähigkeit (39)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (1)
 
@@ -81,14 +81,6 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 ### [inventar](capabilities/inventar/spec.md) (1)
 
 1. `GET /api/systems/{id}` liefert MEMBER die Zugangs-Metadaten (Label, Benutzername, URL, Notizen) des Geräts; nur die UI blendet sie aus. Gewollt? → entschieden in #48: in Ordnung, solange keine Secrets
-
-### [monitoring](capabilities/monitoring/spec.md) (5)
-
-1. `unknown` (z. B. Ping-Aufruf wirft) setzt den Fehlerzähler zurück und wird sofort übernommen; ein Gerät kann so `offline → unknown → offline` flattern und jeweils Ereignisse erzeugen. → #130
-2. `monitorEvents` hat keine Aufbewahrungsgrenze (im Gegensatz zu `deviceErrorEvents`/`accessLog`); wächst bei flatternden Geräten unbegrenzt. → #130
-3. Rückkehr auf `online` nach Ausfall erzeugt kein Fehler-/Info-Ereignis am Gerät, nur ein `monitorEvents`-Eintrag – gewollt? → #130
-4. `intervalSeconds` in `GET /api/monitor` ist der ungeklemmte Einstellungswert, nicht das tatsächlich verwendete Intervall; `monitorTimeoutMs` hat serverseitig keine Obergrenze. → #130
-5. Für Docker-Container (Art `container`, teilen die Host-IP) gibt es keine typischen Ports; ohne offene Ports prüft der Monitor per Ping effektiv nur den Host. → #130
 
 ### [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) (3)
 
