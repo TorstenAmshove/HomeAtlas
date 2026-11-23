@@ -34,6 +34,20 @@ def _code(secret: str, drift: int = 0) -> str:
     return security._code_at(secret, int(time.time()) // 30 + drift)
 
 
+def _from_peer(host: str) -> TestClient:
+    """Client whose TCP peer address is `host` (this Starlette's TestClient cannot set it)."""
+    async def app(scope, receive, send):
+        if scope["type"] in ("http", "websocket"):
+            scope = {**scope, "client": (host, 50000)}
+        await main.app(scope, receive, send)
+    return TestClient(app)
+
+
+def _proxied() -> TestClient:
+    """Peer is loopback, like nginx talking to the backend (ADR-0003)."""
+    return _from_peer("127.0.0.1")
+
+
 def _login(client: TestClient, username: str, password: str = PASSWORD, code: str = "", ip: str = "10.0.0.5"):
     return client.post("/api/auth/login", json={"username": username, "password": password, "totpCode": code},
                        headers={"X-Real-IP": ip})
@@ -43,7 +57,7 @@ def _login(client: TestClient, username: str, password: str = PASSWORD, code: st
 
 def test_login_requires_second_factor_then_succeeds(env):
     _, secret = _user("anna")
-    client = TestClient(main.app)
+    client = _proxied()
     first = _login(client, "anna")
     assert first.status_code == 401 and first.headers.get("X-HomeAtlas-MFA") == "required"
     ok = _login(client, "anna", code=_code(secret))
@@ -53,7 +67,7 @@ def test_login_requires_second_factor_then_succeeds(env):
 
 def test_wrong_password_and_wrong_code_are_401(env):
     _, secret = _user("anna")
-    client = TestClient(main.app)
+    client = _proxied()
     assert _login(client, "anna", password="falsch").status_code == 401
     wrong = str((int(_code(secret)) + 1) % 1_000_000).zfill(6)
     assert _login(client, "anna", code=wrong).status_code == 401
@@ -62,21 +76,21 @@ def test_wrong_password_and_wrong_code_are_401(env):
 def test_totp_code_is_single_use(env):
     _, secret = _user("anna")
     code = _code(secret)
-    assert _login(TestClient(main.app), "anna", code=code).status_code == 200
-    replay = _login(TestClient(main.app), "anna", code=code)
+    assert _login(_proxied(), "anna", code=code).status_code == 200
+    replay = _login(_proxied(), "anna", code=code)
     assert replay.status_code == 401
     assert replay.headers.get("X-HomeAtlas-MFA") == "required"
 
 
 def test_older_code_after_newer_one_is_rejected(env):
     _, secret = _user("anna")
-    assert _login(TestClient(main.app), "anna", code=_code(secret, drift=0)).status_code == 200
-    assert _login(TestClient(main.app), "anna", code=_code(secret, drift=-1)).status_code == 401
+    assert _login(_proxied(), "anna", code=_code(secret, drift=0)).status_code == 200
+    assert _login(_proxied(), "anna", code=_code(secret, drift=-1)).status_code == 401
 
 
 def test_unenrolled_session_is_limited_to_enrollment(env):
     _user("bert", totp=False)
-    client = TestClient(main.app)
+    client = _proxied()
     assert _login(client, "bert").status_code == 200
     assert client.get("/api/auth/me").status_code == 200
     assert client.get("/api/systems").status_code == 403
@@ -85,7 +99,7 @@ def test_unenrolled_session_is_limited_to_enrollment(env):
 
 def test_member_cannot_reach_admin_routes(env):
     _, secret = _user("mia", role=auth.ROLE_MEMBER)
-    client = TestClient(main.app)
+    client = _proxied()
     assert _login(client, "mia", code=_code(secret)).status_code == 200
     assert client.get("/api/systems").status_code == 200
     assert client.get("/api/users").status_code == 403
@@ -97,7 +111,7 @@ def test_member_cannot_reach_admin_routes(env):
 
 def test_lockout_after_repeated_failures_even_with_correct_password(env):
     _, secret = _user("anna")
-    client = TestClient(main.app)
+    client = _proxied()
     for _ in range(5):
         assert _login(client, "anna", password="falsch").status_code == 401
     locked = _login(client, "anna", code=_code(secret))
@@ -109,7 +123,7 @@ def test_lockout_after_repeated_failures_even_with_correct_password(env):
 
 def test_wrong_codes_count_towards_lockout(env):
     _, secret = _user("anna")
-    client = TestClient(main.app)
+    client = _proxied()
     wrong = str((int(_code(secret)) + 7) % 1_000_000).zfill(6)
     for _ in range(5):
         assert _login(client, "anna", code=wrong).status_code == 401
@@ -118,7 +132,7 @@ def test_wrong_codes_count_towards_lockout(env):
 
 def test_lockout_is_per_source_for_the_tight_limit(env):
     _, secret = _user("anna")
-    client = TestClient(main.app)
+    client = _proxied()
     for _ in range(5):
         _login(client, "anna", password="falsch", ip="10.0.0.66")
     assert _login(client, "anna", code=_code(secret), ip="10.0.0.5").status_code == 200
@@ -126,7 +140,7 @@ def test_lockout_is_per_source_for_the_tight_limit(env):
 
 def test_asking_for_the_code_is_not_a_failure(env):
     _user("anna")
-    client = TestClient(main.app)
+    client = _proxied()
     for _ in range(8):
         assert _login(client, "anna").status_code == 401  # password right, code missing
     assert security.login_throttle.retry_after("anna", "10.0.0.5") == 0
@@ -173,6 +187,16 @@ def test_ws_gate_admin_same_origin_ok_cross_origin_refused(env):
     ok = asyncio.run(main._ws_authenticate(_FakeSocket(token, origin="http://homeatlas.lan:8280")))
     assert ok is not None and ok["username"] == "anna"
     assert asyncio.run(main._ws_authenticate(_FakeSocket(token, origin="http://evil.example"))) is None
+
+
+def test_ws_gate_refuses_missing_or_null_origin(env):
+    admin_id, _ = _user("anna")
+    token = _session_for(admin_id)
+    assert asyncio.run(main._ws_authenticate(_FakeSocket(token, origin=""))) is None
+    assert asyncio.run(main._ws_authenticate(_FakeSocket(token, origin="null"))) is None
+    assert asyncio.run(main._ws_authenticate(_FakeSocket(token, origin="http://homeatlas.lan", host=""))) is None
+    port_less = _FakeSocket(token, origin="http://homeatlas.lan:8280", host="homeatlas.lan")
+    assert asyncio.run(main._ws_authenticate(port_less)) is not None
 
 
 def test_ws_gate_refuses_member_unenrolled_and_anonymous(env):
@@ -259,3 +283,70 @@ def test_mfa_reset_unknown_user_is_404_and_ends_nothing(env):
     tok = auth.create_session(admin_id)
     assert _client_with(tok).post("/api/users/does-not-exist/mfa/reset").status_code == 404
     assert _status(tok) == 200
+
+
+# --- Secure cookie (#115) --------------------------------------------------------------------
+
+def _login_cookie(headers: dict | None = None) -> str:
+    _, secret = _user("anna")
+    client = _proxied()
+    resp = client.post("/api/auth/login", json={"username": "anna", "password": PASSWORD,
+                                                "totpCode": _code(secret)}, headers=headers or {})
+    assert resp.status_code == 200
+    return resp.headers["set-cookie"]
+
+
+def _secure(cookie: str) -> bool:
+    return "secure" in cookie.lower().replace(" ", "").split(";")
+
+
+@pytest.mark.parametrize("headers,env_value,expected", [
+    ({}, None, False),
+    ({"X-Forwarded-Proto": "https"}, None, True),
+    ({"X-Forwarded-Proto": "HTTPS"}, None, True),
+    ({"X-Forwarded-Proto": "http"}, None, False),
+    ({}, "always", True),
+    ({"X-Forwarded-Proto": "https"}, "never", False),
+    ({"X-Forwarded-Proto": "https"}, "quatsch", True),
+    ({}, "quatsch", False),
+])
+def test_login_cookie_secure_flag(env, monkeypatch, headers, env_value, expected):
+    if env_value is not None:
+        monkeypatch.setenv("HOMEATLAS_COOKIE_SECURE", env_value)
+    assert _secure(_login_cookie(headers)) is expected
+
+
+def test_logout_cookie_carries_same_flags(env):
+    client = _proxied()
+    resp = client.post("/api/auth/logout", headers={"X-Forwarded-Proto": "https"})
+    cookie = resp.headers["set-cookie"].lower()
+    assert _secure(cookie) and "httponly" in cookie and "samesite=lax" in cookie
+    plain = client.post("/api/auth/logout").headers["set-cookie"]
+    assert not _secure(plain)
+
+
+# --- client IP (#115) ------------------------------------------------------------------------
+
+@pytest.mark.parametrize("peer,header,expected", [
+    ("127.0.0.1", "10.1.2.3", "10.1.2.3"),
+    ("::1", "10.1.2.3", "10.1.2.3"),
+    ("::ffff:127.0.0.1", "10.1.2.3", "10.1.2.3"),
+    ("192.168.1.9", "10.1.2.3", "192.168.1.9"),
+    ("testclient", "10.1.2.3", "testclient"),
+    (None, "10.1.2.3", ""),
+    ("127.0.0.1", "", "127.0.0.1"),
+    ("127.0.0.1", "kein-ip", "127.0.0.1"),
+])
+def test_client_ip_only_trusts_header_from_loopback(peer, header, expected):
+    from app import deps
+    headers = {"x-real-ip": header} if header else {}
+    assert deps._peer_ip(headers, peer) == expected
+
+
+def test_throttle_ignores_spoofed_header_from_foreign_peer(env):
+    _user("anna")
+    client = _from_peer("192.168.1.9")
+    for i in range(5):
+        client.post("/api/auth/login", json={"username": "anna", "password": "falsch"},
+                    headers={"X-Real-IP": f"10.9.9.{i}"})
+    assert security.login_throttle.retry_after("anna", "192.168.1.9") > 0

@@ -9,7 +9,7 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
 from .. import auth, crypto, db, security
-from ..deps import _client, current_user, require_admin, session_user
+from ..deps import _client, _cookie_secure, current_user, require_admin, session_user
 
 router = APIRouter()
 
@@ -23,8 +23,7 @@ class LoginBody(BaseModel):
 @router.get("/api/health")
 async def health() -> dict:
     settings = db.get_settings()
-    return {"status": "ok", "setupCompleted": settings.get("setupCompleted", False),
-            "userCount": db.count_users()}
+    return {"status": "ok", "setupCompleted": settings.get("setupCompleted", False)}
 
 
 @router.post("/api/auth/login")
@@ -65,16 +64,17 @@ async def login(body: LoginBody, response: Response, request: Request) -> dict:
     token = auth.create_session(user["id"])
     response.set_cookie(
         auth.SESSION_COOKIE_NAME, token, max_age=auth.SESSION_TTL_SECONDS,
-        httponly=True, samesite="lax", path="/",
+        httponly=True, samesite="lax", path="/", secure=_cookie_secure(request),
     )
     return {"user": db.get_user(user["id"])}
 
 
 @router.post("/api/auth/logout")
-async def logout(response: Response, homeatlas_session: str | None = Cookie(default=None)) -> dict:
+async def logout(response: Response, request: Request, homeatlas_session: str | None = Cookie(default=None)) -> dict:
     if homeatlas_session:
         auth.destroy_session(homeatlas_session)
-    response.delete_cookie(auth.SESSION_COOKIE_NAME, path="/")
+    response.delete_cookie(auth.SESSION_COOKIE_NAME, path="/", secure=_cookie_secure(request),
+                           httponly=True, samesite="lax")
     return {"ok": True}
 
 
