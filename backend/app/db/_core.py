@@ -451,3 +451,7 @@ def init_db() -> None:
                          (_now(), old["id"]))
             conn.execute("DELETE FROM exposureFacts WHERE sourceAccountId = ?", (old["id"],))
             conn.execute("DELETE FROM accounts WHERE id = ?", (old["id"],))
+
+        # The `router` category was evaluated by the backend but never offered in the UI; its
+        # accounts are plain logins (issue #134).
+        conn.execute("UPDATE accounts SET category = 'login' WHERE category = 'router'")

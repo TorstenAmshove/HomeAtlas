@@ -184,11 +184,15 @@ Das System MUSS Logs entfernter Ziele als einmaligen Text liefern (`{"text": …
 Quelle: `backend/app/main.py:1086`–`backend/app/main.py:1129`, `backend/app/remote_admin.py:212`, `backend/app/remote_admin.py:347`, `backend/app/proxmox_probe.py:280`, Tests: `backend/tests/test_main_reboot_and_logs.py::test_logs_reads_proxmox_task_log_when_node_is_known`, `::test_logs_journal_mode_requires_lxc_kind`, `::test_logs_journal_mode_uses_ssh_journalctl`, `::test_logs_uses_remote_docker_path_for_a_non_proxmox_host`, `backend/tests/test_remote_admin_reboot_and_logs.py::test_remote_container_logs_returns_last_lines`
 
 ### Requirement: Gerät neu starten
-Das System MUSS einen Geräte-Neustart über genau einen von zwei Wegen auslösen: Enthält Hersteller, Modell oder Name „fritz“ oder ist die Art `router`, per TR-064-Aktion `DeviceConfig:1#Reboot` (Port 49000, HTTP-Digest) mit einem Zugang der Kategorie `login`/`router` (sonst 400 mit Hinweis auf TR-064); sonst per SSH (`sudo -n reboot`, ersatzweise `reboot`) mit SSH-fähigem Zugang (sonst 400). Bricht die SSH-Verbindung nach dem Absetzen des Befehls ab (Verbindungsverlust, fehlender Exit-Status, Zeitüberschreitung nach 10 s), gilt der Neustart als ausgelöst, ebenso ein Fehler beim Schließen der Verbindung danach; Fehler beim Verbindungsaufbau, eine nicht zu öffnende Sitzung (Befehl nie abgesetzt) und ein Exit-Status ≠ 0 bleiben Fehler. Zugang muss direkt dem Gerät zugeordnet sein (sonst 404); Gerät ohne Adresse: 400. **[Muss]**
+Das System MUSS einen Geräte-Neustart über genau einen von zwei Wegen auslösen: Enthält Hersteller, Modell oder Name „fritz“, per TR-064-Aktion `DeviceConfig:1#Reboot` (Port 49000, HTTP-Digest) mit einem Zugang der Kategorie `login` (sonst 400 mit Hinweis auf TR-064); sonst (auch bei jedem Nicht-FRITZ-Router) per SSH (`sudo -n reboot`, ersatzweise `reboot`) mit SSH-fähigem Zugang (sonst 400). Bricht die SSH-Verbindung nach dem Absetzen des Befehls ab (Verbindungsverlust, fehlender Exit-Status, Zeitüberschreitung nach 10 s), gilt der Neustart als ausgelöst, ebenso ein Fehler beim Schließen der Verbindung danach; Fehler beim Verbindungsaufbau, eine nicht zu öffnende Sitzung (Befehl nie abgesetzt) und ein Exit-Status ≠ 0 bleiben Fehler. Zugang muss direkt dem Gerät zugeordnet sein (sonst 404); Gerät ohne Adresse: 400. **[Muss]**
 
 #### Szenario: Linux-Server
 - **WENN** ein Server mit `sshkey`-Zugang neu gestartet wird
 - **DANN** wird der SSH-Weg genutzt, nie TR-064
+
+#### Szenario: Nicht-FRITZ-Router nutzt SSH
+- **WENN** ein Router ohne „fritz“ neu gestartet wird
+- **DANN** wird nie TR-064 genutzt; ohne SSH-fähigen Zugang (z. B. `login` mit Port 8443) 400 „SSH-Zugang benötigt“
 
 #### Szenario: Verbindung bricht beim Neustart ab
 - **WENN** die SSH-Verbindung nach dem `reboot`-Befehl ohne Exit-Status endet
@@ -261,7 +265,7 @@ Quelle: `frontend/src/pages/device/DevicePage.tsx`, `frontend/src/pages/device/S
 
 Aus [data-model](../../contracts/data-model.md):
 - `systems` (lesend): `id`, `name`, `kind`, `ip`, `hostname`, `vendor`, `model`, `url`, `extra.docker.containerId`.
-- `accounts` (lesend): `systemId` (muss exakt dem Gerät entsprechen), `category` (`sshkey`, `login`, `router`, `proxmox`, `homeassistant`), `username` (bei `proxmox`: Token-ID), `secretEnc`, `passphraseEnc`, `url`, `port`. Secrets werden serverseitig entschlüsselt und nie zurückgegeben.
+- `accounts` (lesend): `systemId` (muss exakt dem Gerät entsprechen), `category` (`sshkey`, `login`, `proxmox`, `homeassistant`), `username` (bei `proxmox`: Token-ID), `secretEnc`, `passphraseEnc`, `url`, `port`. Secrets werden serverseitig entschlüsselt und nie zurückgegeben.
 - `accessLog` (schreibend): `action`, `userId`, `username`, `ip`, `userAgent`, `ok`, `detail` (max. 500 Zeichen); Bestand auf 5000 Einträge begrenzt (`backend/app/db.py:1846`).
 - Keine Settings-Keys.
 
@@ -310,5 +314,4 @@ UI-Seite(n): `frontend/src/pages/device/SteuernTab.tsx` (Route `/geraete/:id`), 
 
 - > OFFEN: Prompt-Injection-Risiko: Inhalte aus Inventar/Doku könnten das Modell zu `set_switch` ohne Rückfrage verleiten. → entschieden in #43
 - > OFFEN: Assistent schaltet bei Shelly immer Kanal 0 (bewusst; ein Kanalparameter für `set_switch` erweitert die ADR-Ausnahme). Bereichsprüfung der REST-Route behoben (#147).
-- > OFFEN: Kategorie `router` wird im Reboot-Pfad akzeptiert, existiert aber in der UI-Kategorieliste nicht (`frontend/src/pages/zugaenge/AccountFormPage.tsx`) – toter Zweig oder Altbestand? → #134
 - > OFFEN: Keine Tests für die drei WebSocket-Konsolen, lokale Container-Aktionen, Shelly/HA-Schalten und die Origin-Prüfung. → #148

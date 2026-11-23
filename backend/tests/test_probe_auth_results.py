@@ -227,3 +227,40 @@ def test_login_with_own_url_records_http_failure(monkeypatch):
     _patch(monkeypatch, ssh={"l": _ok()}, http={"l": _fail("401")})
     out = _run({}, [_acct("l", "login", port=22, url="http://x.lan:8080")])
     assert out["results"]["http:l"]["error"] == "401"
+
+
+# ------------------------------------------------- TR-064 credentials only for FRITZ! (issue #134)
+
+def _record_fritz(monkeypatch):
+    seen = []
+
+    async def fake_fritz(host, account):
+        seen.append(account)
+        return _fail("keine Antwort")
+
+    monkeypatch.setattr(probe_auth, "probe_fritzbox", fake_fritz)
+    return seen
+
+
+def test_tr064_gets_no_account_for_non_fritz_router(monkeypatch):
+    _patch(monkeypatch, ssh={"l": _ok()})
+    seen = _record_fritz(monkeypatch)
+    _run({"kind": "router", "name": "Mikrotik", "vendor": "MikroTik"},
+         [_acct("l", "login", port=0)])
+    assert seen == [None]
+
+
+def test_tr064_gets_login_account_for_fritz(monkeypatch):
+    _patch(monkeypatch, ssh={"l": _ok()})
+    seen = _record_fritz(monkeypatch)
+    login = _acct("l", "login")
+    _run({"kind": "router", "name": "FritzBox", "vendor": "AVM"}, [login])
+    assert seen == [login]
+
+
+def test_tr064_runs_for_fritz_repeater_not_router_kind(monkeypatch):
+    _patch(monkeypatch, ssh={"l": _ok()})
+    seen = _record_fritz(monkeypatch)
+    login = _acct("l", "login")
+    _run({"kind": "network", "name": "FRITZ!Repeater"}, [login])
+    assert seen == [login]

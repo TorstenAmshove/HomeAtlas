@@ -195,6 +195,7 @@
         "properties": {
           "manualMd": {
             "default": "",
+            "maxLength": 2000,
             "title": "Manualmd",
             "type": "string"
           }
@@ -5154,7 +5155,7 @@
     },
     "/api/systems/{system_id}/reboot": {
       "post": {
-        "description": "Reboots the device itself (not a Docker container or Proxmox guest -- those have their own,\nmore specific restart actions above). Two paths, chosen by what the device is: a FRITZ!Box or\nother TR-064 router reboots over its own management HTTP port with the \"login\" credential\nalready used for its read-only GetInfo probe (see probe_auth.probe_fritzbox); anything else\nneeds an SSH-eligible credential and gets a generic Linux `reboot`. Routers essentially never\nrun SSH and Linux hosts essentially never speak TR-064, so this is a real either/or, not an\narbitrary priority order.",
+        "description": "Reboots the device itself (not a Docker container or Proxmox guest -- those have their own,\nmore specific restart actions above). Two paths, chosen by what the device is: a FRITZ! device\nreboots over its own management HTTP port with the \"login\" credential\nalready used for its read-only GetInfo probe (see probe_auth.probe_fritzbox); anything else\nneeds an SSH-eligible credential and gets a generic Linux `reboot`. Routers essentially never\nrun SSH and Linux hosts essentially never speak TR-064, so this is a real either/or, not an\narbitrary priority order.",
         "operationId": "reboot_system_api_systems__system_id__reboot_post",
         "parameters": [
           {

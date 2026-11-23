@@ -30,8 +30,8 @@ export function directAccounts(accounts: Account[]): Account[] {
 export function rebootAccountFor(system: System, accounts: Account[]): Account | undefined {
   const direct = directAccounts(accounts);
   const looksLikeFritzbox = [system.vendor, system.model, system.name].join(" ").toLowerCase().includes("fritz");
-  return looksLikeFritzbox || system.kind === "router"
-    ? direct.find((a) => a.category === "login" || a.category === "router")
+  return looksLikeFritzbox
+    ? direct.find((a) => a.category === "login")
     : direct.find(sshEligible);
 }
 
