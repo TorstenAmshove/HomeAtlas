@@ -386,11 +386,23 @@ async def remote_container_action(system_id: str, container_id: str, action: str
             raise HTTPException(status_code=400, detail="Ungültige Container-/VM-ID.")
         node, kind, vmid = parsed
         result = None
+        unreadable: crypto.SecretUnreadable | None = None
         if node:
             token_id = proxmox_account.get("username") or ""
-            token_secret = crypto.decrypt_strict(proxmox_account.get("secretEnc") or "")
-            result = await proxmox_admin.guest_action(
-                proxmox_account.get("url") or "", token_id, token_secret, node, kind, vmid, action)
+            try:
+                token_secret = crypto.decrypt_strict(proxmox_account.get("secretEnc") or "")
+            except crypto.SecretUnreadable as exc:
+                # The API cannot be used with this token, and no request went out -- the SSH
+                # fallback below is as safe as for a missing token.
+                unreadable = exc
+            else:
+                result = await proxmox_admin.guest_action(
+                    proxmox_account.get("url") or "", token_id, token_secret, node, kind, vmid, action)
+        if unreadable is not None and not accountId:
+            ip, agent = _client(request)
+            db.log_access(f"container.proxmox.{action}", user=user, ip=ip, user_agent=agent, ok=False,
+                          detail=f"{system['name']}: {container_id}: {unreadable}")
+            raise HTTPException(status_code=409, detail=str(unreadable))
         if (result is None or result.get("fallback")) and accountId:
             # REST unusable (unreachable/misconfigured/auth error, or no node known -- an SSH-sourced
             # listing) -- fall back to the native pct/qm CLI over SSH, same posture as the listing

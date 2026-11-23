@@ -488,8 +488,9 @@ Jedes zuvor entdeckte Gerät (`discovered=1`), das in keinem Fund dieses Scans a
 deren `discoverySource` (Tokens, getrennt durch „+“) eine Quelle enthält, die in diesem Scan
 abgeschaltet oder nicht vollständig gelesen wurde (Docker, UniFi, Omada, Proxmox, AdGuard): ihr
 Status bleibt unverändert, und das Scan-Protokoll nennt die Quelle. Als nicht gelesen gilt eine
-aktive Quelle, wenn ein abgefragter Zugang scheitert, kein Zugang mit `allowProbe` existiert oder
-der Docker-Socket fehlt. Eine erfolgreich gelesene Quelle ohne Funde zählt als gelesen. **[Muss]**
+aktive Quelle, wenn ein abgefragter Zugang scheitert, sein Secret nicht lesbar ist (der Zugang wird
+dann mit der Warnung „Secret nicht lesbar – übersprungen“ übersprungen und nie mit leerem Passwort
+abgefragt), kein Zugang mit `allowProbe` existiert oder der Docker-Socket fehlt. Eine erfolgreich gelesene Quelle ohne Funde zählt als gelesen. **[Muss]**
 
 #### Szenario: Gerät ausgeschaltet
 - **WENN** ein entdecktes Gerät beim nächsten Scan fehlt
