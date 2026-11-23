@@ -44,6 +44,11 @@ def is_shelly(system: dict) -> bool:
     return "shelly" in f"{system.get('vendor') or ''} {system.get('model') or ''}".lower()
 
 
+# Highest relay channel the REST route accepts (Shelly Pro 4PM has channels 0-3). The assistant's
+# `set_switch` deliberately stays on channel 0.
+SHELLY_MAX_CHANNEL = 3
+
+
 async def shelly_set_switch(host: str, on: bool, channel: int = 0) -> dict:
     """Turns one relay channel of a Shelly device on or off. Gen1 devices (`/shelly` -> no "gen"
     key, or `gen` == 1) use the classic `GET /relay/{ch}?turn=on|off` REST call; Gen2+ (Plus/Pro
