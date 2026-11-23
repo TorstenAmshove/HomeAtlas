@@ -463,6 +463,7 @@ async def run_full_scan(scan_id: str) -> None:
                     api_key = crypto.decrypt_strict(account.get("secretEnc") or "")
                 except crypto.SecretUnreadable:
                     warnings.append(f"Zugang {account['label']}: Secret nicht lesbar – übersprungen")
+                    skipped_sources.add("unifi")  # not read -> its devices keep their status
                     continue
                 unifi_result = await unifi_probe.probe(
                     account.get("url") or "", api_key, account["id"], account.get("systemId"),
@@ -499,6 +500,7 @@ async def run_full_scan(scan_id: str) -> None:
                     client_secret = crypto.decrypt_strict(account.get("secretEnc") or "")
                 except crypto.SecretUnreadable:
                     warnings.append(f"Zugang {account['label']}: Secret nicht lesbar – übersprungen")
+                    skipped_sources.add("omada")  # not read -> its devices keep their status
                     continue
                 omada_result = await omada_probe.probe(account.get("url") or "", client_id, client_secret)
                 if omada_result["ok"]:
@@ -525,6 +527,7 @@ async def run_full_scan(scan_id: str) -> None:
                     token_secret = crypto.decrypt_strict(account.get("secretEnc") or "")
                 except crypto.SecretUnreadable:
                     warnings.append(f"Zugang {account['label']}: Secret nicht lesbar – übersprungen")
+                    skipped_sources.add("proxmox")  # not read -> its devices keep their status
                     continue
                 proxmox_result = await proxmox_probe.probe(account.get("url") or "", token_id, token_secret)
                 if proxmox_result["ok"]:
@@ -552,6 +555,7 @@ async def run_full_scan(scan_id: str) -> None:
                     password = crypto.decrypt_strict(account.get("secretEnc") or "")
                 except crypto.SecretUnreadable:
                     warnings.append(f"Zugang {account['label']}: Secret nicht lesbar – übersprungen")
+                    skipped_sources.add("adguard")  # not read -> its devices keep their status
                     continue
                 adguard_result = await adguard_probe.probe(account.get("url") or "", username, password)
                 if adguard_result["ok"]:

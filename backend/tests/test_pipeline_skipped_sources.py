@@ -89,3 +89,29 @@ def test_disabled_source_without_accounts_keeps_status(temp_db, monkeypatch):
     sid = _device(temp_db, "unifi:a", "unifi")
     _scan(temp_db, monkeypatch, scanEnableDocker=False, scanEnableUnifi=True)
     assert temp_db.get_system(sid)["status"] == "online"
+
+
+@pytest.mark.parametrize("source,category,module", [
+    ("unifi", "unifi", "unifi_probe"), ("omada", "omada", "omada_probe"),
+    ("proxmox", "proxmox", "proxmox_probe"), ("adguard", "adguard", "adguard_probe"),
+])
+def test_unreadable_secret_skips_account_and_keeps_status(temp_db, monkeypatch, source, category, module):
+    """#118 + #139: a secret the key cannot open is never sent as an empty password, the scan
+    warns and goes on, and the controller's devices keep their status."""
+    from app import crypto
+
+    sid = _device(temp_db, f"{source}:a", source)
+    temp_db.create_account({"label": "Ctl", "category": category, "allowProbe": 1,
+                            "url": "https://x.invalid"})
+
+    def unreadable(token):
+        raise crypto.SecretUnreadable()
+
+    async def must_not_run(*args, **kwargs):
+        raise AssertionError("probe called with an unreadable secret")
+
+    monkeypatch.setattr(pipeline.crypto, "decrypt_strict", unreadable)
+    monkeypatch.setattr(getattr(pipeline, module), "probe", must_not_run)
+    _scan(temp_db, monkeypatch, scanEnableDocker=False)
+    assert temp_db.get_system(sid)["status"] == "online"
+    assert "Secret nicht lesbar" in str(temp_db.latest_scan())
