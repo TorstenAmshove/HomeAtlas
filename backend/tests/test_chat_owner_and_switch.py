@@ -121,8 +121,9 @@ def test_shelly_rest_route_refuses_non_shelly(as_user, switched):
 
 # --- #99 PR3: shutters via set_switch ---------------------------------------------------------
 
-def _ha_account(temp_db):
-    return db.create_account({"label": "HA", "category": "homeassistant", "url": "http://ha:8123"})
+def _ha_account(temp_db, allow_probe=True):
+    return db.create_account({"label": "HA", "category": "homeassistant", "url": "http://ha:8123",
+                              "allowProbe": 1 if allow_probe else 0})
 
 
 def _ha_call(args: dict) -> dict:
@@ -152,3 +153,20 @@ def test_set_switch_action_for_light_rejected(temp_db):
     acc = _ha_account(temp_db)
     assert "error" in _ha_call({"accountId": acc["id"], "entityId": "light.x", "action": "open"})
     assert "error" in _ha_call({"accountId": acc["id"], "entityId": "light.x"})
+
+
+@pytest.mark.parametrize("allow", [0, None])
+def test_set_switch_ha_requires_opt_in(temp_db, monkeypatch, allow):
+    acc = _ha_account(temp_db, allow_probe=False)
+    if allow is None:
+        db.update_account(acc["id"], {"allowProbe": None})
+
+    async def boom(*a, **k):
+        raise AssertionError("must not be called")
+
+    monkeypatch.setattr(switch_admin, "ha_set_cover", boom)
+    monkeypatch.setattr(switch_admin, "ha_set_switch", boom)
+    for args in ({"entityId": "cover.x", "action": "open"}, {"entityId": "light.x", "on": True}):
+        out = _ha_call({"accountId": acc["id"], **args})
+        assert "Zum Auslesen verwenden" in out["error"]
+    assert not any(e["action"] == "switch.assistant" for e in db.list_access_log(10))
