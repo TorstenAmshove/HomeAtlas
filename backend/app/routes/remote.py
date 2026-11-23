@@ -482,8 +482,8 @@ async def remote_container_logs(system_id: str, container_id: str, accountId: st
 async def reboot_system(system_id: str, accountId: str, request: Request,
                         user: dict = Depends(require_admin)) -> dict:
     """Reboots the device itself (not a Docker container or Proxmox guest -- those have their own,
-    more specific restart actions above). Two paths, chosen by what the device is: a FRITZ!Box or
-    other TR-064 router reboots over its own management HTTP port with the "login" credential
+    more specific restart actions above). Two paths, chosen by what the device is: a FRITZ! device
+    reboots over its own management HTTP port with the "login" credential
     already used for its read-only GetInfo probe (see probe_auth.probe_fritzbox); anything else
     needs an SSH-eligible credential and gets a generic Linux `reboot`. Routers essentially never
     run SSH and Linux hosts essentially never speak TR-064, so this is a real either/or, not an
@@ -498,8 +498,10 @@ async def reboot_system(system_id: str, accountId: str, request: Request,
     is_fritzbox = "fritz" in " ".join(
         [system.get("vendor", ""), system.get("model", ""), system.get("name", "")]
     ).lower()
-    if is_fritzbox or system.get("kind") == "router":
-        if account.get("category") not in ("login", "router"):
+    # Keep in sync with probe_auth.probe_system (same is_fritzbox rule, no import, ADR-0011): only a
+    # FRITZ! device gets the TR-064 reboot; any other router, like any host, needs SSH.
+    if is_fritzbox:
+        if account.get("category") != "login":
             raise HTTPException(status_code=400, detail=(
                 "Für einen Router-Neustart wird der TR-064-Zugang (Kategorie „Login“) benötigt."))
         result = await remote_admin.reboot_fritzbox(host, account)
