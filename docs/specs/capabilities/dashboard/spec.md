@@ -80,13 +80,19 @@ Quelle: `backend/app/main.py:1630`, `backend/app/db.py:443`, `backend/app/db.py:
 
 ### Requirement: Letzter Scan
 Das System MUSS den zuletzt gestarteten Scan (nach Startzeit) liefern oder `null`, wenn es keinen
-gibt. Die Oberfläche zeigt ihn in der Zahlenzeile (siehe „Startseite“). **[Muss]**
+gibt. Die Oberfläche zeigt ihn in der Zahlenzeile (siehe „Startseite“). **[Muss]** Der Eintrag
+enthält nur `startedAt`, `finishedAt` und `status`, nie `log`, `summary` oder `subnets`, weil
+das Dashboard auch MEMBER offensteht und Scan-Details nur Admins zustehen (#119). **[Muss]**
 
 #### Szenario: Noch nie gescannt
 - **WENN** kein Scan existiert
 - **DANN** ist `lastScan = null` und die Zeile entfällt
 
-Quelle: `backend/app/main.py:1633`, `backend/app/db.py:1817`, `frontend/src/pages/start/StartPage.tsx`
+#### Szenario: MEMBER ruft das Dashboard ab
+- **WENN** ein MEMBER `GET /api/dashboard` aufruft und ein Scan existiert
+- **DANN** hat `lastScan` genau die Schlüssel `startedAt`, `finishedAt`, `status`
+
+Quelle: `backend/app/routes/overview.py`, `backend/app/db.py:1817`, `frontend/src/pages/start/StartPage.tsx`
 
 ### Requirement: Einrichtungsstand
 Das System MUSS `homeName` (Default „Mein Zuhause", Seitentitel) und `llmConfigured` liefern. `llmConfigured` ist wahr, wenn der gewählte Anbieter Ollama
@@ -198,7 +204,6 @@ UI-Seite(n): `frontend/src/pages/start/StartPage.tsx` (Route `/`).
 
 ## OFFEN
 
-- > OFFEN: `lastScan` liefert die komplette Scan-Zeile inkl. vollständigem `log` und `summary` an MEMBER (`backend/app/main.py:1633`); die UI braucht nur `startedAt`/`status`. Unnötige Datenmenge und Offenlegung von Scan-Details. → #119
 - > OFFEN: Kritische Geräte ohne IP und Hostname werden nie überwacht (`backend/app/db.py:1900`) und stehen dauerhaft als „wird geprüft…" auf dem Dashboard – irreführend. → #131
 - > OFFEN: Bei mehr als 10 kritischen Geräten werden still nur die ersten 10 (alphabetisch) gezeigt; die Kachel nennt die volle Zahl, ein Hinweis auf weitere fehlt. → #131
 - > OFFEN: Status `unknown` und jeder andere Wert erscheinen gleichermaßen als „wird geprüft…", auch wenn die Überwachung abgeschaltet ist (dann wird nichts geprüft). → #131

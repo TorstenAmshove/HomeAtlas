@@ -30,7 +30,7 @@ Fortschritt (0–100 %) und ein zeitgestempeltes Protokoll am Scan-Datensatz for
 - **WENN** ein Admin `POST /api/scans` aufruft und kein Scan läuft
 - **DANN** antwortet das System mit `{"scanId": …}`, legt einen Scan mit Status `running` an und
   schreibt einen Zugriffsprotokoll-Eintrag `scan.start`
-- **UND** `GET /api/scans/{id}` liefert `phase`, `progress`, `log` bis Status `completed` oder `failed`
+- **UND** `GET /api/scans/{id}` (nur ADMIN) liefert `phase`, `progress`, `log` bis Status `completed` oder `failed`
 
 Quelle: `backend/app/main.py:1431`, `backend/app/pipeline.py:347`, `backend/app/db.py:1794`
 
@@ -56,7 +56,9 @@ Quelle: `backend/app/db.py:1832`, `backend/app/main.py:46`
 
 ### Requirement: Scan-Historie
 Das System MUSS die letzten 20 Scans (neueste zuerst) mit `id, startedAt, finishedAt, status,
-subnets, summary` sowie den gerade laufenden Scan vollständig liefern. **[Muss]** Die Liste enthält
+subnets, summary` sowie den gerade laufenden Scan vollständig liefern. **[Muss]** Lesen wie
+Starten ist nur ADMIN erlaubt, MEMBER erhalten 403, weil das Protokoll Gerätenamen und
+Fehlertexte der Zugangs-Abfrage enthält (#119). **[Muss]** Die Liste enthält
 weder `log` noch `phase`/`progress`. **[Impl]**
 
 #### Szenario: Liste
@@ -587,8 +589,8 @@ Siehe [data-model](../../contracts/data-model.md).
 | Methode | Pfad | Rolle | Zweck |
 |---|---|---|---|
 | POST | /api/scans | ADMIN | Scan starten, `{scanId}`; 409 bei laufendem Scan |
-| GET | /api/scans | MEMBER | Letzte 20 Scans + laufender Scan |
-| GET | /api/scans/{scan_id} | MEMBER | Ein Scan inkl. Protokoll; 404 wenn unbekannt |
+| GET | /api/scans | ADMIN | Letzte 20 Scans + laufender Scan |
+| GET | /api/scans/{scan_id} | ADMIN | Ein Scan inkl. Protokoll; 404 wenn unbekannt |
 | POST | /api/settings/oui/refresh | ADMIN | IEEE-Herstellerdatenbank laden, `{ok, message, entries}` |
 
 Berührt: `GET /api/settings` liefert `ouiLoaded`, `ouiEntries`
@@ -628,7 +630,5 @@ solange der Scan läuft und der Tab sichtbar ist). Scan-Einstellungen in `fronte
 - > OFFEN: Ungültiger Freitext-Bereich (z. B. „bad“) plus ein mDNS/SSDP-Fund außerhalb von
   `alive` führt in `discovery.py:859` zu `ValueError` aus `ip_network` und lässt den ganzen Scan
   scheitern. → #137
-- > OFFEN: MEMBER darf `GET /api/scans*` inkl. Protokoll lesen (Gerätenamen, Fehlertexte der
-  Zugangs-Abfrage), obwohl die Scan-Seite admin-only ist. Absicht? → #119
 - > OFFEN: Start-Prüfung „läuft schon ein Scan“ und Anlegen sind nicht atomar (Rennen
   Zeitplan/manuell theoretisch möglich). → #129

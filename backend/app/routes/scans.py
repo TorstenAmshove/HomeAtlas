@@ -1,6 +1,9 @@
 """Network scans: start, list, status.
 
-Moved out of main.py unchanged; see main.py for the cross-cutting rules."""
+Moved out of main.py unchanged; see main.py for the cross-cutting rules.
+
+Reading scans (incl. the log with device names and probe error texts) is ADMIN-only, like starting
+them: the scan page is admin-only too (issue #119)."""
 from __future__ import annotations
 
 import asyncio
@@ -8,7 +11,7 @@ import asyncio
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from .. import db, discovery, pipeline
-from ..deps import _background_tasks, _client, current_user, require_admin
+from ..deps import _background_tasks, _client, require_admin
 
 router = APIRouter()
 
@@ -33,12 +36,12 @@ async def start_scan(request: Request, user: dict = Depends(require_admin)) -> d
 
 
 @router.get("/api/scans")
-async def list_scans(_: dict = Depends(current_user)) -> dict:
+async def list_scans(_: dict = Depends(require_admin)) -> dict:
     return {"scans": db.list_scans(), "running": db.running_scan()}
 
 
 @router.get("/api/scans/{scan_id}")
-async def get_scan(scan_id: str, _: dict = Depends(current_user)) -> dict:
+async def get_scan(scan_id: str, _: dict = Depends(require_admin)) -> dict:
     scan = db.get_scan(scan_id)
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan nicht gefunden.")
