@@ -21,6 +21,7 @@ contact would make the feature useless on the very network it documents.
 """
 from __future__ import annotations
 
+import asyncio
 import shlex
 
 import httpx
@@ -30,6 +31,12 @@ from cryptography.hazmat.primitives.asymmetric import ed25519
 from . import crypto
 
 _SSH_TIMEOUT = 15.0
+# Per-command ceiling for `connection.run`: without it a hanging remote command would block the
+# request forever (connect_timeout only covers the handshake). Logs may legitimately take longer.
+_SSH_COMMAND_TIMEOUT = 30.0
+_SSH_LOG_TIMEOUT = 60.0
+# A rebooting host often leaves the connection hanging open instead of closing it cleanly.
+_SSH_REBOOT_TIMEOUT = 10.0
 _AUTHORIZED_KEYS_PATH = ".ssh/authorized_keys"
 _SSH_DIR_PATH = ".ssh"
 
@@ -80,6 +87,20 @@ def public_line_for(private_pem: str, passphrase: str = "", comment: str = "") -
     ).decode()
     comment = " ".join((comment or "").split())
     return f"{line} {comment}" if comment else line
+
+
+class _SshTimeout(RuntimeError):
+    """A remote command exceeded its time limit."""
+
+
+async def _run(connection, command: str, timeout: float | None = None):
+    """`connection.run` with a time limit (looked up at call time so tests can shrink it).
+    Raises `_SshTimeout`, which the callers' broad `except Exception` turns into a message."""
+    limit = _SSH_COMMAND_TIMEOUT if timeout is None else timeout
+    try:
+        return await asyncio.wait_for(connection.run(command, check=False), limit)
+    except asyncio.TimeoutError:
+        raise _SshTimeout(f"Zeitüberschreitung nach {limit:g} s -- der Befehl antwortet nicht.") from None
 
 
 def _decode_secret(account: dict) -> tuple[str, str]:
@@ -210,7 +231,7 @@ async def list_remote_containers(host: str, account: dict, port: int = 0) -> dic
     command = "docker ps -a --format '{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.State}}\t{{.Status}}'"
     try:
         async with asyncssh.connect(**connect_args) as connection:
-            result = await connection.run(command, check=False)
+            result = await _run(connection, command)
     except Exception as exc:  # noqa: BLE001 -- connection errors are an expected, reportable outcome
         return {"ok": False, "error": f"Verbindung zu {host} fehlgeschlagen: {exc}", "containers": []}
 
@@ -243,7 +264,7 @@ async def remote_container_logs(host: str, account: dict, container_id: str, por
     command = f"docker logs --tail {int(tail)} {shlex.quote(container_id)} 2>&1"
     try:
         async with asyncssh.connect(**connect_args) as connection:
-            result = await connection.run(command, check=False)
+            result = await _run(connection, command, _SSH_LOG_TIMEOUT)
     except Exception as exc:  # noqa: BLE001 -- connection errors are an expected, reportable outcome
         return {"ok": False, "error": f"Verbindung zu {host} fehlgeschlagen: {exc}", "text": ""}
 
@@ -310,8 +331,8 @@ async def list_remote_proxmox_guests(host: str, account: dict, port: int = 0) ->
 
     try:
         async with asyncssh.connect(**connect_args) as connection:
-            lxc_result = await connection.run("pct list", check=False)
-            vm_result = await connection.run("qm list", check=False)
+            lxc_result = await _run(connection, "pct list")
+            vm_result = await _run(connection, "qm list")
     except Exception as exc:  # noqa: BLE001 -- connection errors are an expected, reportable outcome
         return {"ok": False, "error": f"Verbindung zu {host} fehlgeschlagen: {exc}", "containers": []}
 
@@ -354,7 +375,7 @@ async def run_remote_proxmox_guest_command(host: str, account: dict, kind: str, 
     command = f"{tool} {proxmox_action} {shlex.quote(str(vmid))}"
     try:
         async with asyncssh.connect(**connect_args) as connection:
-            result = await connection.run(command, check=False)
+            result = await _run(connection, command)
     except Exception as exc:  # noqa: BLE001 -- connection errors are an expected, reportable outcome
         return {"ok": False, "error": f"Verbindung zu {host} fehlgeschlagen: {exc}"}
 
@@ -379,7 +400,7 @@ async def run_remote_lxc_journalctl(host: str, account: dict, vmid: str, port: i
     command = f"pct exec {shlex.quote(str(vmid))} -- journalctl -n {int(lines)} --no-pager"
     try:
         async with asyncssh.connect(**connect_args) as connection:
-            result = await connection.run(command, check=False)
+            result = await _run(connection, command, _SSH_LOG_TIMEOUT)
     except Exception as exc:  # noqa: BLE001 -- connection errors are an expected, reportable outcome
         return {"ok": False, "error": f"Verbindung zu {host} fehlgeschlagen: {exc}", "text": ""}
 
@@ -404,7 +425,7 @@ async def run_remote_docker_command(host: str, account: dict, action: str, conta
     command = f"docker {action} {shlex.quote(container_id)}"
     try:
         async with asyncssh.connect(**connect_args) as connection:
-            result = await connection.run(command, check=False)
+            result = await _run(connection, command)
     except Exception as exc:  # noqa: BLE001 -- connection errors are an expected, reportable outcome
         return {"ok": False, "error": f"Verbindung zu {host} fehlgeschlagen: {exc}"}
 
@@ -451,13 +472,28 @@ async def reboot_host(host: str, account: dict, port: int = 0) -> dict:
         return {"ok": False, "error": f"Der hinterlegte Zugang ließ sich nicht lesen: {exc}"}
 
     command = "sudo -n reboot 2>/dev/null || reboot"
+    # Success needs evidence that the command went out: `_run` returned, or failed the way a host
+    # going down makes it fail. Any other error inside the session (e.g. the channel could not be
+    # opened) means nothing ran and stays a failure -- only an error while *closing* the
+    # connection after that point is ignored.
+    sent = False
+    result = None
     try:
         async with asyncssh.connect(**connect_args) as connection:
-            result = await connection.run(command, check=False)
+            try:
+                result = await _run(connection, command, _SSH_REBOOT_TIMEOUT)
+            except (asyncssh.ConnectionLost, asyncssh.DisconnectError, OSError, _SshTimeout):
+                # The host went down (or hangs while going down) mid-command: that is exactly
+                # what a successful reboot looks like from here.
+                pass
+            sent = True
     except Exception as exc:  # noqa: BLE001 -- connection errors are an expected, reportable outcome
-        return {"ok": False, "error": f"Verbindung zu {host} fehlgeschlagen: {exc}"}
+        if not sent:
+            return {"ok": False, "error": f"Verbindung zu {host} fehlgeschlagen: {exc}"}
 
-    if result.exit_status != 0:
+    # No exit status at all = the session was cut before the command could report one (reboot
+    # killed the connection, or the command died from a signal): treat as triggered.
+    if result is not None and result.exit_status is not None and result.exit_status != 0:
         return {"ok": False, "error": (result.stderr or "reboot fehlgeschlagen.").strip()}
     return {"ok": True, "error": ""}
 

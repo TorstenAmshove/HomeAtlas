@@ -144,6 +144,21 @@ async def ssh_console(websocket: WebSocket, system_id: str) -> None:
                       detail=f"{system['name']} ({round(time.monotonic() - started)}s)")
 
 
+def _terminal_size(control) -> tuple[int, int] | None:
+    """(cols, rows) of a valid resize message, else None (message is ignored). Only a JSON object
+    of type "resize" counts; each value must be a real int (no bool/float/string) in 1..1000, a
+    missing one defaults to 80/24. Garbage from the browser must never end the session."""
+    if not isinstance(control, dict) or control.get("type") != "resize":
+        return None
+    size = []
+    for key, default in (("cols", 80), ("rows", 24)):
+        value = control.get(key, default)
+        if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 1000:
+            return None
+        size.append(value)
+    return size[0], size[1]
+
+
 async def _relay_terminal(websocket: WebSocket, *, read, write, resize) -> None:
     """Binary WS frames = raw terminal bytes, unmodified, both directions. Text WS frames = JSON
     control messages -- browser to server `{"type":"resize","cols":n,"rows":n}`, server to browser
@@ -166,8 +181,9 @@ async def _relay_terminal(websocket: WebSocket, *, read, write, resize) -> None:
                 control = json.loads(text)
             except ValueError:
                 continue
-            if control.get("type") == "resize":
-                maybe_awaitable = resize(int(control.get("cols", 80)), int(control.get("rows", 24)))
+            size = _terminal_size(control)
+            if size is not None:
+                maybe_awaitable = resize(*size)
                 if asyncio.iscoroutine(maybe_awaitable):
                     await maybe_awaitable
 
@@ -370,9 +386,11 @@ async def remote_container_action(system_id: str, container_id: str, action: str
             token_secret = crypto.decrypt(proxmox_account.get("secretEnc") or "")
             result = await proxmox_admin.guest_action(
                 proxmox_account.get("url") or "", token_id, token_secret, node, kind, vmid, action)
-        if (result is None or not result["ok"]) and accountId:
-            # REST unreachable/misconfigured (or no node known -- an SSH-sourced listing) -- fall
-            # back to the native pct/qm CLI over SSH, same posture as the listing route above.
+        if (result is None or result.get("fallback")) and accountId:
+            # REST unusable (unreachable/misconfigured/auth error, or no node known -- an SSH-sourced
+            # listing) -- fall back to the native pct/qm CLI over SSH, same posture as the listing
+            # route above. A functional API error (e.g. "already stopped") is NOT retried: that
+            # could run the action twice or replace the real message.
             _system, account, host = _remote_host_and_account(system_id, accountId)
             result = await remote_admin.run_remote_proxmox_guest_command(host, account, kind, vmid, action)
         if result is None:
