@@ -120,13 +120,17 @@ ungültige Bereiche mit Warnung überspringen und Adressen aus `scanExcludeIps` 
 Quelle: `backend/app/discovery.py:44`, `backend/app/discovery.py:757`, `backend/app/discovery.py:766`
 
 ### Requirement: Einzelziele außerhalb der Bereiche
-Das System MUSS zusätzlich `scanExtraTargets` (IP oder Hostname) sowie IPs aller Inventar-Geräte,
-die in keinem Scan-Bereich liegen, vollständig prüfen (Ping, Ports, DNS, Banner). Hostnamen werden
+Das System MUSS zusätzlich `scanExtraTargets` (IP oder Hostname) sowie IPs von Hand angelegter Inventar-Geräte
+(`discovered = 0`), die in keinem Scan-Bereich liegen, vollständig prüfen (Ping, Ports, DNS, Banner). Hostnamen werden
 aufgelöst; nicht auflösbare erzeugen eine Warnung. Ausgeschlossene IPs und Duplikate entfallen. **[Muss]**
 
 #### Szenario: Router in anderem Segment
 - **WENN** Inventar ein Gerät `10.1.1.1` enthält und nur `192.168.1.0/24` gescannt wird
 - **DANN** wird `10.1.1.1` mitgeprüft und in `summary.routedTargets` sowie `extra.routedTarget=true` geführt
+
+#### Szenario: Entdecktes Gerät außerhalb der Bereiche
+- **WENN** ein per Controller-API oder Scan entdecktes Gerät (`discovered = 1`) außerhalb der Bereiche liegt
+- **DANN** wird es nicht als Einzelziel geprüft; es kommt über seine eigene Quelle ins Inventar
 
 Quelle: `backend/app/pipeline.py:25`, `backend/app/discovery.py:771`
 
@@ -397,11 +401,16 @@ Das System MUSS den Hersteller aus den ersten drei MAC-Oktetten ermitteln. Quell
 IEEE-Register (`https://standards-oui.ieee.org/oui/oui.csv`), lokal zwischengespeichert; ohne
 Download nur eine kleine Fallback-Liste (AVM, Apple, Raspberry Pi, VMware, Hyper-V, VirtualBox,
 QEMU/KVM, Docker). Präfix `02:42:` ergibt immer „Docker-Container“. Ist das Register nicht geladen,
-MUSS der Scan es zuerst laden; Misserfolg ist nur eine Warnung. **[Muss]**
+MUSS der Scan es zuerst laden, höchstens einmal je 24 h (Marker `oui.attempt` neben dem Cache);
+Misserfolg ist nur eine Warnung. Der manuelle Button ignoriert die Sperre. **[Muss]**
 
 #### Szenario: Erster Scan ohne Internet
 - **WENN** das Register fehlt und der Download scheitert
 - **DANN** Warnung „Hersteller-Datenbank nicht geladen: …“, Scan läuft mit Fallback-Liste weiter
+
+#### Szenario: Zweiter Scan ohne Internet
+- **WENN** der letzte Download-Versuch weniger als 24 h zurückliegt und das Register fehlt
+- **DANN** wird nicht erneut geladen (nur Protokollzeile, keine Warnung)
 
 Quelle: `backend/app/oui.py:77`, `backend/app/oui.py:29`, `backend/app/pipeline.py:356`
 
@@ -436,7 +445,7 @@ Tests: `backend/tests/test_db_docker_names.py::test_unconfirmed_row_gets_new_nam
 ### Requirement: Eindeutige Namen
 Nach allen Quellen und der KI-Einordnung MUSS das System Namen, die im selben Scan mehrfach vorkommen,
 eindeutig machen: Nicht-Container mit IP erhalten „Name (<letztes Oktett>)“, bei gleichem Oktett
-zusätzlich „-n“ ab dem zweiten; Container erhalten ab dem zweiten Duplikat „ (n)“. Einmalige Namen
+zusätzlich „-n“ ab dem zweiten; Container und Funde ohne IP erhalten ab dem zweiten Duplikat „ (n)“. Einmalige Namen
 bleiben unverändert. **[Muss]**
 
 #### Szenario: Zwei Shellys
@@ -449,7 +458,7 @@ bleiben unverändert. **[Muss]**
 
 Quelle: `backend/app/pipeline.py:307`, Tests: `backend/tests/test_pipeline_unique_names.py::test_non_containers_get_octet_suffix`,
 `::test_identical_container_names_get_counter_not_octet`, `::test_distinct_container_names_untouched`,
-`::test_container_without_ip_does_not_crash`
+`::test_container_without_ip_does_not_crash`, `::test_non_container_without_ip_gets_counter`
 
 ### Requirement: Scan-Ablauf und Fehlertoleranz
 Das System MUSS die Phasen in dieser Reihenfolge ausführen: OUI laden (falls fehlend) → Netzwerk-
@@ -593,30 +602,21 @@ solange der Scan läuft und der Tab sichtbar ist). Scan-Einstellungen in `fronte
   Rückfall; mDNS über `zeroconf` in einem Thread; Gateway aus `ip route show default`, DNS aus
   `/etc/resolv.conf`; Host-IP über verbundenen UDP-Socket zu 8.8.8.8:53 (sendet nichts).
 - Fortschrittswerte: 1 OUI, 2 Bereiche, 5–35 Lebend-Erkennung (Update alle 16 Adressen), 36–60
-  Ports, 62 Namen/Banner, 76 mDNS/UPnP, 78 Shelly, 86 Docker, 87 UniFi/Omada, 88 Proxmox/AdGuard,
-  89 KI, 94 Inventar, 93 Zugänge, 96 Doku, 100 Fertig.
+  Ports, 62 Namen/Banner, 76 mDNS/UPnP, 78 Shelly, 86 Docker, 87 UniFi/Omada, 88 Proxmox/AdGuard/
+  Firewalls/Traefik/Konfigurationen/Cloudflare/öffentliches DNS, 89 KI, 92 Inventar, 94 Zugänge,
+  96 Doku, 100 Fertig. `progress()` klemmt auf den bisher höchsten Wert, die Anzeige fällt nie.
 - Scan läuft als `asyncio.Task` im API-Prozess; Bezeichnung im Feld `subnets` beim manuellen Start
   = Bereichsliste oder „automatisch“.
 - `Scheduler.status()` existiert, wird aber über keine Route ausgeliefert.
 
 ## OFFEN
 
-- > OFFEN: Fortschritt springt rückwärts (94 % „Inventar aktualisieren“, dann 93 % Zugangs-Abfrage,
-  `pipeline.py:480`/`:522`). → #138
-- > OFFEN: Einzelziele umfassen IPs *aller* Inventar-Geräte außerhalb der Bereiche (auch entdeckte
-  Controller-Clients/Proxmox-Gäste), nicht nur „von Hand eingetragene“ wie der Docstring sagt
-  (`pipeline.py:42`). Kann viele geroutete Ziele erzeugen. → #138
 - > OFFEN: Ungültiger Freitext-Bereich (z. B. „bad“) plus ein mDNS/SSDP-Fund außerhalb von
   `alive` führt in `discovery.py:859` zu `ValueError` aus `ip_network` und lässt den ganzen Scan
   scheitern. → #137
-- > OFFEN: Port 81 steht in der Banner-Portliste, aber nicht im Port-Katalog, wird also nie als
-  offen erkannt (`discovery.py:341`, `ports.py:12`). → #138
-- > OFFEN: Ohne geladenes OUI-Register versucht jeder Scan erneut den Download (bis 120 s), auch
-  offline. → #138
 - > OFFEN: MEMBER darf `GET /api/scans*` inkl. Protokoll lesen (Gerätenamen, Fehlertexte der
   Zugangs-Abfrage), obwohl die Scan-Seite admin-only ist. Absicht? → #119
 - > OFFEN: Start-Prüfung „läuft schon ein Scan“ und Anlegen sind nicht atomar (Rennen
   Zeitplan/manuell theoretisch möglich). → #129
-- > OFFEN: Namensvergabe für Nicht-Container ohne IP bei Duplikaten: kein Suffix, Duplikat bleibt. → #138
 - > OFFEN: Abgeschaltete Quelle (`scanEnableDocker=false`, Controller aus) setzt alle bisher aus
   dieser Quelle entdeckten Geräte beim nächsten Scan auf `offline`. → #139

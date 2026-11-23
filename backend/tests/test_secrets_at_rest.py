@@ -103,12 +103,55 @@ def test_api_key_is_stored_encrypted_and_masked(admin):
     assert llm_providers.api_key_for("CLAUDE", db.get_settings()) == "sk-test-123"
 
 
-def test_masked_round_trip_keeps_key_and_blank_clears_it(admin):
+def test_empty_api_key_keeps_stored(admin):
     admin.patch("/api/settings", json={"claudeApiKey": "sk-test-123"})
     admin.patch("/api/settings", json={"claudeApiKey": "********", "homeName": "X"})
     assert llm_providers.api_key_for("CLAUDE", db.get_settings()) == "sk-test-123"
     admin.patch("/api/settings", json={"claudeApiKey": ""})
+    assert llm_providers.api_key_for("CLAUDE", db.get_settings()) == "sk-test-123"
+
+
+def test_clear_secrets_removes_api_key(admin):
+    admin.patch("/api/settings", json={"claudeApiKey": "sk-test-123"})
+    assert admin.patch("/api/settings", json={"clearSecrets": ["claudeApiKey"]}).status_code == 200
     assert llm_providers.api_key_for("CLAUDE", db.get_settings()) == ""
+
+
+def test_clear_default_credential_secret_clears_enc_only(admin):
+    admin.patch("/api/settings", json={"defaultCredentialSecret": "pw", "defaultCredentialIsKey": True,
+                                       "defaultCredentialPassphrase": "pp"})
+    admin.patch("/api/settings", json={"clearSecrets": ["defaultCredentialSecret"]})
+    stored = db.get_settings()
+    assert stored["defaultCredentialSecretEnc"] == ""
+    assert stored["defaultCredentialPassphraseEnc"] != ""
+    assert stored["defaultCredentialIsKey"] is True
+
+
+def test_clear_and_new_value_conflict_422(admin):
+    response = admin.patch("/api/settings", json={"clearSecrets": ["claudeApiKey"], "claudeApiKey": "sk-new"})
+    assert response.status_code == 422
+
+
+def test_clear_unset_is_idempotent(admin):
+    assert admin.patch("/api/settings", json={"clearSecrets": ["openAiApiKey"]}).status_code == 200
+    assert db.get_settings()["openAiApiKey"] == ""
+
+
+def test_clear_secrets_unknown_name_422(admin):
+    assert admin.patch("/api/settings", json={"clearSecrets": ["homeName"]}).status_code == 422
+
+
+def test_llm_test_with_empty_key_uses_stored(admin, monkeypatch):
+    admin.patch("/api/settings", json={"openAiApiKey": "sk-stored"})
+    seen = {}
+
+    async def fake_test(provider, settings):
+        seen["key"] = llm_providers.api_key_for(provider, settings)
+        return True, "ok", "m"
+
+    monkeypatch.setattr(llm_providers, "test_connection", fake_test)
+    admin.post("/api/settings/llm/test", json={"provider": "OPENAI", "settings": {"openAiApiKey": ""}})
+    assert seen["key"] == "sk-stored"
 
 
 def test_provider_test_uses_unsaved_plaintext_key(admin, monkeypatch):
