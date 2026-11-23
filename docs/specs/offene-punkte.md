@@ -37,7 +37,7 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (100)
+## Alle Punkte je Fähigkeit (97)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (3)
 
@@ -62,18 +62,15 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 13. WebSocket-Check akzeptiert fehlenden `Origin`-Header; Docstring nennt die Bedingung „same bar as current_user“, prüft aber zusätzlich ADMIN. → #115
 14. `GET /api/health` ist unauthentifiziert und verrät `userCount`; das Frontend nutzt das Feld nicht. → #115
 
-### [credentialed-probing](capabilities/credentialed-probing/spec.md) (10)
+### [credentialed-probing](capabilities/credentialed-probing/spec.md) (7)
 
-1. In `probe_system` ist `elif "ssh" not in results` (analog `snmp`, `ha`) immer wahr, weil Schlüssel `ssh:<label>` heißen – fehlgeschlagene Ergebnisse werden stets gespeichert, auch wenn ein anderer Zugang derselben Art erfolgreich war (`backend/app/probe_auth.py:1397`). Absicht unklar. → #133
-2. HTTP- und TR-064-Fehlschläge werden nicht als Ergebnis gespeichert, nur Erfolge – daher kein Fehlerereignis für abgelehnte Web-Logins. → #133
-3. `login`-Zugänge mit Port ≠ 0/22 werden nie per SSH versucht (`sshkey` mit beliebigem Port schon) (`backend/app/probe_auth.py:1389`). → #133
-4. TR-064 wählt den ersten Zugang der Kategorie `login` oder `router`; `router` existiert in der UI nicht. Bei einem Nicht-FRITZ-Router mit `kind = router` wird dessen Login-Passwort per Digest an Port 49000 geschickt. → #134
-5. TP-Link-Pager-Abschaltung nutzt `configure` / `no clipaging` – ein Konfigurationsmodus-Befehl, entgegen „kein Config-Mode“. Ob die Einstellung persistent in der Running-Config landet, ist ungeprüft.
-6. Manuelles Auslesen behandelt `omada`/`proxmox`/`adguard`-Zugänge nicht (sie gehen an `probe_auth.probe_system`, das sie ignoriert) → bei solchen Geräten `ran = false` ohne Grund. Ebenso ignoriert es `scanUseCredentials`/`scanEnable*`, den Standard-Zugang, ARP-Lernen, Druckerzuordnung, `os`/`model`-Füllung und Fehlerereignisse. → #135
-7. Im Vollscan nutzen Controller-Probes alle freigegebenen Zugänge der Kategorie, beim manuellen Auslesen nur die dem Gerät (direkt/per Zuordnung) zugeordneten – uneinheitlich. → #135
-8. `omada_backup` läuft auf jedem Linux-Host und wird Base64-kodiert als Fakt gespeichert; ein Restore ist bewusst nicht vorgesehen, Nutzen der Speicherung ist unklar.
-9. Omada liest nur Seite 1 (Geräte 100, Clients 500); größere Sites werden still abgeschnitten. Ein `errorCode` bei Geräten überspringt auch die Clients der Site.
-10. Klassisches Aruba braucht ein Konto, das direkt mit Manager-Rechten anmeldet; die UI weist darauf nicht hin. → #134
+1. TR-064 wählt den ersten Zugang der Kategorie `login` oder `router`; `router` existiert in der UI nicht. Bei einem Nicht-FRITZ-Router mit `kind = router` wird dessen Login-Passwort per Digest an Port 49000 geschickt. → #134
+2. TP-Link-Pager-Abschaltung nutzt `configure` / `no clipaging` – ein Konfigurationsmodus-Befehl, entgegen „kein Config-Mode“. Ob die Einstellung persistent in der Running-Config landet, ist ungeprüft.
+3. Manuelles Auslesen behandelt `omada`/`proxmox`/`adguard`-Zugänge nicht (sie gehen an `probe_auth.probe_system`, das sie ignoriert) → bei solchen Geräten `ran = false` ohne Grund. Ebenso ignoriert es `scanUseCredentials`/`scanEnable*`, den Standard-Zugang, ARP-Lernen, Druckerzuordnung, `os`/`model`-Füllung und Fehlerereignisse. → #135
+4. Im Vollscan nutzen Controller-Probes alle freigegebenen Zugänge der Kategorie, beim manuellen Auslesen nur die dem Gerät (direkt/per Zuordnung) zugeordneten – uneinheitlich. → #135
+5. `omada_backup` läuft auf jedem Linux-Host und wird Base64-kodiert als Fakt gespeichert; ein Restore ist bewusst nicht vorgesehen, Nutzen der Speicherung ist unklar.
+6. Omada liest nur Seite 1 (Geräte 100, Clients 500); größere Sites werden still abgeschnitten. Ein `errorCode` bei Geräten überspringt auch die Clients der Site.
+7. Klassisches Aruba braucht ein Konto, das direkt mit Manager-Rechten anmeldet; die UI weist darauf nicht hin. → #134
 
 ### [dashboard](capabilities/dashboard/spec.md) (3)
 

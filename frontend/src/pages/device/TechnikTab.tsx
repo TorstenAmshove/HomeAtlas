@@ -185,7 +185,10 @@ export default function TechnikTab({ system, monitorPorts, aliases, isAdmin, can
                   ))}
                 </dl>
               ) : (
-                <p className="dv-empty">{result.error}</p>
+                <p className="dv-empty">
+                  {result.superseded && "nachrangig – ein anderer Zugang dieser Art funktioniert. "}
+                  {result.error}
+                </p>
               )}
             </div>
           ))}

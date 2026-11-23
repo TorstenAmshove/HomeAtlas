@@ -544,6 +544,13 @@ _VERSION_RE = re.compile(
 )
 
 
+# `scheme://user:pass@host` -> `scheme://host`: error texts are persisted (extra.probe, error events)
+# and shown to every role, so a URL typed with embedded credentials must never leak through them.
+# Greedy up to the *last* "@" before the first "/" or whitespace, so a password containing an
+# unencoded "@" is removed completely, not just up to its first "@".
+_URL_USERINFO_RE = re.compile(r"([a-z][a-z0-9+.-]*://)[^/\s]*@", re.IGNORECASE)
+
+
 async def probe_http(url: str, account: dict) -> dict:
     """Fetches one page with the stored credentials. GET only -- no form is ever submitted."""
     if not url.startswith(("http://", "https://")):
@@ -1826,42 +1833,56 @@ async def probe_system(system: dict, accounts: list[dict]) -> dict:
     ).lower()
     platform = _detect_platform(system)
 
-    # TR-064 works partly without a login, so it runs for AVM hardware regardless.
+    # TR-064 works partly without a login, so it runs for AVM hardware regardless. A failure is
+    # only recorded for FRITZ! devices: for any other router the call is a speculative guess, and
+    # storing its failure would raise an error event on every scan for every non-AVM router.
     if is_fritzbox or system.get("kind") == "router":
         router_account = next((a for a in accounts if a.get("category") in ("login", "router")), None)
         result = await probe_fritzbox(host, router_account)
-        if result["ok"]:
+        if result["ok"] or is_fritzbox:
             results["tr064"] = result
 
     for account in accounts:
         category = account.get("category")
+        # `login` only counts as SSH with port 22/unset: its port usually belongs to the web UI
+        # (e.g. 8443), and sending those credentials to SSH there would be a failed attempt with
+        # credentials meant for another service (lockout risk). `sshkey` is unambiguously SSH, so
+        # any port is fine. routes/remote.py::_ssh_eligible carries the same rule (no import, ADR-0011).
         if category == "sshkey" or (category == "login" and (account.get("port") or 0) in (22, 0)):
             # A detected Mikrotik/Aruba widens this beyond the usual Linux-host kinds -- a
             # router/switch admin login is exactly the "login" shape SSH probing was built for,
             # it just never had a matching platform to run non-Linux commands against before.
             if category == "sshkey" or platform or system.get("kind") in ("server", "nas", "vm", "pc", "container"):
-                result = await probe_ssh(host, account, platform)
-                if result["ok"]:
-                    results[f"ssh:{account['label']}"] = result
-                elif "ssh" not in results:
-                    results[f"ssh:{account['label']}"] = result
+                results[f"ssh:{account['label']}"] = await probe_ssh(host, account, platform)
         if category == "snmp":
-            result = await probe_snmp(host, account, system.get("kind", ""))
-            if result["ok"]:
-                results[f"snmp:{account['label']}"] = result
-            elif "snmp" not in results:
-                results[f"snmp:{account['label']}"] = result
+            results[f"snmp:{account['label']}"] = await probe_snmp(host, account, system.get("kind", ""))
         if category == "homeassistant":
-            result = await probe_homeassistant(account.get("url") or system.get("url"), account)
-            if result["ok"]:
-                results[f"ha:{account['label']}"] = result
-            elif "ha" not in results:
-                results[f"ha:{account['label']}"] = result
+            results[f"ha:{account['label']}"] = await probe_homeassistant(
+                account.get("url") or system.get("url"), account)
         url = account.get("url") or system.get("url")
         if url and category in ("login", "apikey"):
             result = await probe_http(url, account)
-            if result["ok"]:
+            # A failure is only kept for a credential recognisably meant for the web UI (an API key,
+            # its own URL, or a login with a non-SSH port). An SSH login (port 22/unset) on a device
+            # that merely has a URL is tried here speculatively; its rejection would otherwise raise
+            # an error event on every scan and push real ones out of the per-device cap.
+            meant_for_web = (category == "apikey" or bool(account.get("url"))
+                             or (account.get("port") or 0) not in (0, 22))
+            if result["ok"] or meant_for_web:
                 results[f"http:{account['label']}"] = result
+
+    # Error texts are persisted (extra.probe, error events) and shown to every role: a URL typed
+    # with embedded credentials must never leak through any of them (http, ha, ...).
+    for key, result in results.items():
+        if not result.get("ok") and isinstance(result.get("error"), str):
+            results[key] = {**result, "error": _URL_USERINFO_RE.sub(r"\1", result["error"])}
+
+    # A failure stays visible (broken/expired credentials matter even when another one works), but
+    # one next to a working credential of the same kind (prefix before ":") is flagged as secondary.
+    working_kinds = {key.split(":", 1)[0] for key, r in results.items() if r.get("ok")}
+    for key, result in results.items():
+        if not result.get("ok") and key.split(":", 1)[0] in working_kinds:
+            results[key] = {**result, "superseded": True}
 
     return {"ran": bool(results), "results": results, "purpose": _derive_purpose(results), "reason": ""}
 
