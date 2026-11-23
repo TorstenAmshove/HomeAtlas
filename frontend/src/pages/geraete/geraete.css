@@ -289,9 +289,14 @@
 .app-shell .geraete-page .net-row-main { flex: 1 1 240px; min-width: 0; }
 .app-shell .geraete-page .net-row-name { font-weight: 600; overflow-wrap: anywhere; }
 .app-shell .geraete-page .net-row-sub { font-size: 12.5px; color: var(--c-muted); overflow-wrap: anywhere; }
-.app-shell .geraete-page .net-note { margin-top: 4px; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.app-shell .geraete-page .net-note { margin-top: 4px; font-size: 14px; overflow-wrap: anywhere; }
+.app-shell .geraete-page .net-note .markdown > :first-child { margin-top: 0; }
+.app-shell .geraete-page .net-note .markdown > :last-child { margin-bottom: 0; }
+.app-shell .geraete-page .net-toggle { display: flex; align-items: center; gap: 8px; margin: 12px 0 4px; font-size: 14px; }
+.app-shell .geraete-page .net-count { flex-basis: 100%; font-size: 12px; color: var(--c-muted); }
 .app-shell .geraete-page .net-edit { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; margin-top: 6px; }
-.app-shell .geraete-page .net-edit input {
+.app-shell .geraete-page .net-edit input,
+.app-shell .geraete-page .net-edit textarea {
   flex: 1 1 220px; min-width: 0; min-height: var(--g-target); background: var(--c-surface); color: var(--c-text);
   border: 1px solid var(--c-line); border-radius: 8px;
 }

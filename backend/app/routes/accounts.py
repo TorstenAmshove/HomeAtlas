@@ -5,7 +5,7 @@ Moved out of main.py unchanged; see main.py for the cross-cutting rules."""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from .. import crypto, db
 from ..deps import _client, _public_account, current_user, require_admin
@@ -47,7 +47,7 @@ class AccountBody(BaseModel):
 
 
 class NetworkResourceManualBody(BaseModel):
-    manualMd: str = ""
+    manualMd: str = Field("", max_length=2000)
 
 
 @router.get("/api/network-resources")
