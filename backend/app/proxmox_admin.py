@@ -20,10 +20,11 @@ _TIMEOUT = httpx.Timeout(15.0, connect=5.0)
 # ever needed; deliberately not exposed here.
 _ACTIONS = {"start": "start", "stop": "shutdown", "restart": "reboot"}
 
-# HTTP statuses meaning "the API is not usable" (auth rejected, proxy/gateway down) -- the only
+# HTTP statuses meaning "the API is not usable" (auth rejected, proxy/backend down) -- the only
 # ones where the caller may retry over SSH. Positive list on purpose: an unknown error must never
-# lead to a second execution.
-_FALLBACK_STATUS = frozenset({401, 403, 502, 503, 504})
+# lead to a second execution. 504 is deliberately absent: a gateway timeout comes *after* the
+# request was forwarded, so Proxmox may already be running the action.
+_FALLBACK_STATUS = frozenset({401, 403, 502, 503})
 
 
 async def guest_action(base_url: str, token_id: str, token_secret: str,
@@ -32,8 +33,9 @@ async def guest_action(base_url: str, token_id: str, token_secret: str,
     posture as docker_admin's `_post`, since a failed guest action is an expected, reportable
     outcome for the admin who clicked the button, not a bug.
 
-    `fallback` is True only when the API itself was unusable (unreachable, missing configuration,
-    401/403, gateway errors 502/503/504). A functional answer such as "already stopped" is final:
+    `fallback` is True only when the API itself was unusable and the request cannot have been
+    executed (not reachable at all, missing configuration, 401/403, 502/503). A read timeout or a
+    504 after the request went out is not retried. A functional answer such as "already stopped" is final:
     retrying it over SSH could run the action twice or hide the real message."""
     proxmox_action = _ACTIONS.get(action)
     if proxmox_action is None:
@@ -57,5 +59,12 @@ async def guest_action(base_url: str, token_id: str, token_secret: str,
             return {"ok": False, "error": f"Proxmox-Aktion fehlgeschlagen: {detail or response.status_code}",
                     "fallback": response.status_code in _FALLBACK_STATUS}
         return {"ok": True, "error": "", "fallback": False}
-    except httpx.HTTPError as exc:
+    except (httpx.ConnectError, httpx.ConnectTimeout, httpx.UnsupportedProtocol) as exc:
+        # The request never reached Proxmox -- safe to retry over SSH.
         return {"ok": False, "error": f"Proxmox-Host nicht erreichbar: {exc}", "fallback": True}
+    except httpx.HTTPError as exc:
+        # Read timeout, dropped connection, ...: the request may have arrived and the action may be
+        # running. Never retried, so it cannot run twice; the admin checks the guest's state.
+        return {"ok": False, "fallback": False,
+                "error": f"Keine vollständige Antwort vom Proxmox-Host ({exc or type(exc).__name__}). "
+                         "Die Aktion wurde eventuell trotzdem ausgeführt -- bitte den Status prüfen."}

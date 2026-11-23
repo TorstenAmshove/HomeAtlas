@@ -111,7 +111,7 @@ def _call(**overrides):
 
 
 @pytest.mark.parametrize("status,body,fallback", [
-    (401, "", True), (403, "", True), (502, "", True), (503, "", True), (504, "", True),
+    (401, "", True), (403, "", True), (502, "", True), (503, "", True), (504, "", False),
     (400, "bad", False), (404, "", False), (409, "", False),
     (500, "VM already stopped", False), (500, "", False),
 ])
@@ -137,3 +137,23 @@ def test_guest_action_success_is_no_fallback(monkeypatch):
     _fake_client(monkeypatch, lambda request: httpx.Response(200, json={}))
     ok = _call()
     assert ok["ok"] and ok["fallback"] is False
+
+
+@pytest.mark.parametrize("exc", [httpx.ReadTimeout, httpx.RemoteProtocolError, httpx.ReadError])
+def test_guest_action_no_fallback_once_request_may_have_arrived(monkeypatch, exc):
+    def boom(request):
+        raise exc("cut", request=request)
+
+    _fake_client(monkeypatch, boom)
+    result = _call()
+    assert not result["ok"]
+    assert result["fallback"] is False
+    assert "eventuell" in result["error"]
+
+
+def test_guest_action_connect_timeout_falls_back(monkeypatch):
+    def boom(request):
+        raise httpx.ConnectTimeout("slow", request=request)
+
+    _fake_client(monkeypatch, boom)
+    assert _call()["fallback"] is True

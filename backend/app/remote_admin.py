@@ -472,26 +472,28 @@ async def reboot_host(host: str, account: dict, port: int = 0) -> dict:
         return {"ok": False, "error": f"Der hinterlegte Zugang ließ sich nicht lesen: {exc}"}
 
     command = "sudo -n reboot 2>/dev/null || reboot"
-    connected = False
+    # Success needs evidence that the command went out: `_run` returned, or failed the way a host
+    # going down makes it fail. Any other error inside the session (e.g. the channel could not be
+    # opened) means nothing ran and stays a failure -- only an error while *closing* the
+    # connection after that point is ignored.
+    sent = False
+    result = None
     try:
         async with asyncssh.connect(**connect_args) as connection:
-            connected = True
             try:
                 result = await _run(connection, command, _SSH_REBOOT_TIMEOUT)
             except (asyncssh.ConnectionLost, asyncssh.DisconnectError, OSError, _SshTimeout):
-                # The command was sent and the host went down (or hangs while going down): that is
-                # exactly what a successful reboot looks like from here.
-                return {"ok": True, "error": ""}
+                # The host went down (or hangs while going down) mid-command: that is exactly
+                # what a successful reboot looks like from here.
+                pass
+            sent = True
     except Exception as exc:  # noqa: BLE001 -- connection errors are an expected, reportable outcome
-        if connected:
-            # Failure while closing the connection after the command went out -- the host is
-            # rebooting, so a dirty close is expected.
-            return {"ok": True, "error": ""}
-        return {"ok": False, "error": f"Verbindung zu {host} fehlgeschlagen: {exc}"}
+        if not sent:
+            return {"ok": False, "error": f"Verbindung zu {host} fehlgeschlagen: {exc}"}
 
     # No exit status at all = the session was cut before the command could report one (reboot
     # killed the connection, or the command died from a signal): treat as triggered.
-    if result.exit_status is not None and result.exit_status != 0:
+    if result is not None and result.exit_status is not None and result.exit_status != 0:
         return {"ok": False, "error": (result.stderr or "reboot fehlgeschlagen.").strip()}
     return {"ok": True, "error": ""}
 

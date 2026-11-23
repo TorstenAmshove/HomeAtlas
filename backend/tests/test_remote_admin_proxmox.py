@@ -315,3 +315,17 @@ def test_reboot_host_still_fails_on_nonzero_exit(monkeypatch):
         return _Result(1, "permission denied")
     result = _reboot(monkeypatch, bad)
     assert not result["ok"] and "permission denied" in result["error"]
+
+
+def test_reboot_host_fails_when_session_cannot_be_opened(monkeypatch):
+    async def refused():
+        raise asyncssh.ChannelOpenError(asyncssh.OPEN_ADMINISTRATIVELY_PROHIBITED, "no session")
+    result = _reboot(monkeypatch, refused)
+    assert not result["ok"] and "fehlgeschlagen" in result["error"]
+
+
+def test_reboot_host_close_error_does_not_hide_nonzero_exit(monkeypatch):
+    async def bad():
+        return _Result(1, "permission denied")
+    result = _reboot(monkeypatch, bad, exit_error=OSError("reset"))
+    assert not result["ok"] and "permission denied" in result["error"]
