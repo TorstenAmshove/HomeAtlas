@@ -249,7 +249,7 @@ async def probe_system(system_id: str, _: dict = Depends(require_admin)) -> dict
 
     for account in unifi_accounts:
         result = await unifi_probe.probe(
-            account.get("url") or "", crypto.decrypt(account.get("secretEnc") or ""),
+            account.get("url") or "", crypto.decrypt_strict(account.get("secretEnc") or ""),
             account["id"], account.get("systemId"), client_subnets=scan_subnets,
         )
         key = f"unifi:{account['label']}"

@@ -202,3 +202,38 @@ def test_migration_encrypts_keys_and_scrubs_exports(keyed):
     # Idempotent: a second run changes nothing and does not double-encrypt.
     main._migrate_plaintext_secrets()
     assert db.get_settings()["deepseekApiKey"] == stored
+
+
+# --- unreadable secret (#118) -----------------------------------------------------------------
+
+def _swap_key(tmp_path, monkeypatch):
+    (tmp_path / "secret.key").unlink()
+    monkeypatch.setattr(crypto, "_cached", None)
+
+
+def _reveals():
+    return [e for e in db.list_access_log() if e["action"] == "secret.reveal"]
+
+
+def test_reveal_unreadable_secret_returns_409_and_logs_failure(admin, tmp_path, monkeypatch):
+    acc = db.create_account({"label": "Router", "secretEnc": crypto.encrypt("pw-123")})
+    _swap_key(tmp_path, monkeypatch)
+    r = admin.get(f"/api/accounts/{acc['id']}/secret")
+    assert r.status_code == 409
+    assert "nicht lesbar" in r.json()["detail"]
+    assert acc["secretEnc"] not in r.text
+    entries = _reveals()
+    assert len(entries) == 1 and entries[0]["ok"] == 0
+
+
+def test_reveal_empty_secret_still_ok(admin):
+    acc = db.create_account({"label": "Leer"})
+    r = admin.get(f"/api/accounts/{acc['id']}/secret")
+    assert r.status_code == 200 and r.json() == {"secret": ""}
+    assert _reveals()[0]["ok"] == 1
+
+
+def test_reveal_member_forbidden(member):
+    acc = db.create_account({"label": "X", "secretEnc": crypto.encrypt("pw")})
+    assert member.get(f"/api/accounts/{acc['id']}/secret").status_code == 403
+    assert _reveals() == []

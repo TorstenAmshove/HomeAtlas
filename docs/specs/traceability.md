@@ -139,7 +139,7 @@ Lücken: **0**
 | `check_firewall_path` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [firewall](capabilities/firewall/spec.md) |
 | `list_firewall_rules` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [firewall](capabilities/firewall/spec.md) |
 | `list_switches` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [remote-admin](capabilities/remote-admin/spec.md) |
-| `set_switch` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [remote-admin](capabilities/remote-admin/spec.md) |
+| `set_switch` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [remote-admin](capabilities/remote-admin/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `get_ha_state` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `get_ha_history` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `get_ha_logbook` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |

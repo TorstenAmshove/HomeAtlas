@@ -133,3 +133,61 @@ def test_reboot_fritzbox_reports_unreachable_host(monkeypatch):
 
     assert not result["ok"]
     assert "fehlgeschlagen" in result["error"]
+
+
+# --- SSH command timeout --------------------------------------------------------------------
+
+import pytest  # noqa: E402
+
+
+class _HangingConnection:
+    def __init__(self):
+        self.commands: list[str] = []
+
+    async def run(self, command: str, check: bool = False):
+        self.commands.append(command)
+        await asyncio.sleep(3600)
+
+
+def _patch_ssh(monkeypatch, connection) -> None:
+    monkeypatch.setattr(asyncssh, "connect", lambda **kwargs: _FakeConnectContextManager(connection))
+    monkeypatch.setattr(remote_admin, "_decode_secret", lambda account: ("hunter2", ""))
+
+
+_TIMEOUT_CALLS = [
+    lambda: remote_admin.list_remote_containers("h", _account()),
+    lambda: remote_admin.remote_container_logs("h", _account(), "abc"),
+    lambda: remote_admin.list_remote_proxmox_guests("h", _account()),
+    lambda: remote_admin.run_remote_proxmox_guest_command("h", _account(), "vm", "100", "stop"),
+    lambda: remote_admin.run_remote_lxc_journalctl("h", _account(), "101"),
+    lambda: remote_admin.run_remote_docker_command("h", _account(), "stop", "abc"),
+]
+
+
+@pytest.mark.parametrize("call", _TIMEOUT_CALLS)
+def test_ssh_commands_time_out(monkeypatch, call):
+    _patch_ssh(monkeypatch, _HangingConnection())
+    monkeypatch.setattr(remote_admin, "_SSH_COMMAND_TIMEOUT", 0.05)
+    monkeypatch.setattr(remote_admin, "_SSH_LOG_TIMEOUT", 0.05)
+
+    result = asyncio.run(call())
+
+    assert result["ok"] is False
+    assert "Zeitüberschreitung" in result["error"]
+
+
+def test_log_commands_use_longer_timeout(monkeypatch):
+    seen = []
+
+    async def fake_run(connection, command, timeout=None):
+        seen.append(timeout)
+        return _FakeRunResult("x")
+
+    _patch_ssh(monkeypatch, _FakeConnection({}))
+    monkeypatch.setattr(remote_admin, "_run", fake_run)
+
+    asyncio.run(remote_admin.remote_container_logs("h", _account(), "abc"))
+    asyncio.run(remote_admin.run_remote_lxc_journalctl("h", _account(), "101"))
+    asyncio.run(remote_admin.run_remote_docker_command("h", _account(), "stop", "abc"))
+
+    assert seen == [remote_admin._SSH_LOG_TIMEOUT, remote_admin._SSH_LOG_TIMEOUT, None]

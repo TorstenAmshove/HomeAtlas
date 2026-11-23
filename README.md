@@ -238,7 +238,9 @@ schützt und was nicht:
 liegt im selben Docker-Volume. Das schützt gegen eine **abhandengekommene Datenbankkopie**
 (Backup, `docker cp`, versehentlicher Dump) — **nicht** gegen jemanden, der bereits root auf dem
 Docker-Host ist, denn der liest auch die Schlüsseldatei. Die Alternative wäre eine Passphrase bei
-jedem Containerstart, was einen unbeaufsichtigten Neustart unmöglich machte.
+jedem Containerstart, was einen unbeaufsichtigten Neustart unmöglich machte. Ist die Schlüsseldatei
+ersetzt worden, wird ein nicht lesbares Secret als Fehler gemeldet (Abruf: 409, im Zugriffsprotokoll
+`ok=0`; Scans überspringen den Zugang mit Warnung) statt still mit leerem Passwort weiterzuarbeiten.
 
 **Die KI sieht keine Passwörter.** Das Werkzeug `list_accounts` gibt Bezeichnung, Benutzername
 und Notiz zurück und streicht das Passwort — auch wenn das Modell „vertrauenswürdig" ist. Ein

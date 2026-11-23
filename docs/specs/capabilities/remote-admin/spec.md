@@ -63,7 +63,7 @@ Das System MUSS schreibende Geräteaktionen ausschließlich aus admin-geschützt
 Quelle: `backend/app/remote_admin.py:13`, `backend/app/docker_admin.py:10`, `backend/app/proxmox_admin.py:7`, `backend/app/switch_admin.py:9`, `backend/app/tools.py:28`, ADR `docs/adr/0011-lese-schreib-trennung-routen-module.md`
 
 ### Requirement: Feste Aktionslisten je Route
-Das System MUSS je Route nur die folgenden Aktionen annehmen und jede andere mit 404 „Unbekannte Aktion.“ ablehnen: Container lokal/entfernt `start`, `stop`, `restart`; Shelly/HA `on`, `off`. Es DARF keine frei formulierten Befehle an Geräte senden; Container-IDs und VMIDs werden vor Verwendung in Shell-Befehlen gequotet. **[Muss]**
+Das System MUSS je Route nur die folgenden Aktionen annehmen und jede andere mit 404 „Unbekannte Aktion.“ ablehnen: Container lokal/entfernt `start`, `stop`, `restart`; Shelly/HA `on`, `off`. Es DARF keine frei formulierten Befehle an Geräte senden; Container-IDs und VMIDs werden vor Verwendung in Shell-Befehlen gequotet. Jeder SSH-Befehl hat ein Zeitlimit (30 s, 60 s für Logs); bei Überschreitung endet er mit der Meldung „Zeitüberschreitung nach N s“ statt die Anfrage zu blockieren. **[Muss]**
 
 #### Szenario: Unbekannte Aktion
 - **WENN** `POST /api/systems/{id}/container/kill` aufgerufen wird
@@ -73,7 +73,7 @@ Das System MUSS je Route nur die folgenden Aktionen annehmen und jede andere mit
 - **WENN** die SSH-Proxmox-Steuerung mit Aktion `destroy` aufgerufen wird
 - **DANN** Ergebnis „Unbekannte Aktion 'destroy'.“ ohne Verbindungsaufbau
 
-Quelle: `backend/app/main.py:894`, `backend/app/main.py:1043`, `backend/app/main.py:1178`, `backend/app/main.py:1210`, `backend/app/remote_admin.py:38`, `backend/app/remote_admin.py:385`, Test: `backend/tests/test_remote_admin_proxmox.py::test_run_remote_proxmox_guest_command_rejects_unknown_action`
+Quelle: Tests `backend/tests/test_remote_admin_reboot_and_logs.py::test_ssh_commands_time_out`, `::test_log_commands_use_longer_timeout`; `backend/app/main.py:894`, `backend/app/main.py:1043`, `backend/app/main.py:1178`, `backend/app/main.py:1210`, `backend/app/remote_admin.py:38`, `backend/app/remote_admin.py:385`, Test: `backend/tests/test_remote_admin_proxmox.py::test_run_remote_proxmox_guest_command_rejects_unknown_action`
 
 ### Requirement: Lokale Container steuern
 Das System MUSS für Inventar-Einträge der Art `container` mit hinterlegter Docker-Container-ID Start, Stopp und Neustart über die lokale Docker-Engine ausführen; „bereits im Zielzustand“ gilt als Erfolg. **[Muss]**
@@ -108,15 +108,19 @@ Das System MUSS für alle drei Konsolen dasselbe WebSocket-Protokoll sprechen: B
 - **WENN** die SSH-Anmeldung am Zielgerät fehlschlägt
 - **DANN** sendet der Server `{"type":"error","message":<Fehlertext>}`, schließt mit 1011 und protokolliert `console.ssh.open` mit `ok=false`
 
+#### Szenario: Ungültige Fenstergröße
+- **WENN** der Client `{"type":"resize","cols":"abc","rows":24}` sendet
+- **DANN** wird die Nachricht ignoriert und die Sitzung leitet weiter Daten
+
 #### Szenario: Fenstergröße ändert sich
 - **WENN** der Client `{"type":"resize","cols":120,"rows":40}` sendet
-- **DANN** wird das entfernte Terminal auf 120×40 gesetzt; andere Textframes und ungültiges JSON werden ignoriert
+- **DANN** wird das entfernte Terminal auf 120×40 gesetzt; andere Textframes, ungültiges JSON und ungültige Größen (nicht ganzzahlig, Bool, <1 oder >1000, kein Objekt) werden ignoriert; die Sitzung bleibt offen
 
 #### Szenario: Prozess endet
 - **WENN** der Prozess der Sitzung endet (EOF)
 - **DANN** sendet der Server `{"type":"exit"}` und baut die Sitzung ab; ist der Client schon getrennt, entsteht kein Fehler
 
-Quelle: `backend/app/main.py:842`–`backend/app/main.py:882`, `backend/app/main.py:825`, `frontend/src/components/Terminal.tsx`
+Quelle: `backend/app/main.py:842`–`backend/app/main.py:882`, `backend/app/main.py:825`, `frontend/src/components/Terminal.tsx`, Tests: `backend/tests/test_remote_terminal_relay.py::test_relay_ignores_invalid_resize`, `::test_relay_applies_valid_resize`, `::test_relay_keeps_forwarding_after_invalid_resize`
 
 ### Requirement: SSH-Konsole
 Das System MUSS eine interaktive SSH-Sitzung (PTY `xterm-256color`, Start 80×24) zum Gerät öffnen, wenn `accountId` einen Zugang bezeichnet, der direkt diesem Gerät zugeordnet und SSH-fähig ist (Kategorie `sshkey`, oder `login` mit Port 22 oder ohne Port) und das Gerät eine IP oder einen Hostnamen hat; sonst 1008. **[Muss]**
@@ -150,17 +154,21 @@ Das System MUSS für ein Gerät die Container bzw. Gäste liefern: Ist dem Gerä
 Quelle: `backend/app/main.py:1015`–`backend/app/main.py:1037`, `backend/app/remote_admin.py:179`–`backend/app/remote_admin.py:309`, Tests: `backend/tests/test_remote_admin_proxmox.py::test_list_remote_proxmox_guests_never_runs_docker`, `::test_list_remote_proxmox_guests_survives_qm_missing_when_pct_works`, `::test_list_remote_proxmox_guests_reports_a_clear_error_when_both_commands_fail`, `::test_parse_pct_list_handles_a_locked_row_with_extra_column`, `backend/tests/test_main_proxmox_routing.py::test_proxmox_account_ignores_accounts_on_other_systems`, `backend/tests/test_proxmox_probe.py::test_list_guests_skips_templates`
 
 ### Requirement: Entfernte Container und Proxmox-Gäste steuern
-Das System MUSS `start`/`stop`/`restart` für entfernte Ziele ausführen. Proxmox: Container-ID im Format `{node}:{qemu|lxc}:{vmid}` oder `{qemu|lxc}:{vmid}` (sonst 400 „Ungültige Container-/VM-ID.“); `stop` ist ein geordnetes Herunterfahren (`shutdown`), `restart` ein `reboot`, nie ein harter Stopp. Mit bekanntem Node zuerst über die API, bei Fehlschlag oder unbekanntem Node mit `accountId` über SSH (`pct`/`qm`). Ohne API-Ergebnis und ohne `accountId`: 400. Docker-Hosts: `docker <aktion> <id>` per SSH. **[Muss]**
+Das System MUSS `start`/`stop`/`restart` für entfernte Ziele ausführen. Proxmox: Container-ID im Format `{node}:{qemu|lxc}:{vmid}` oder `{qemu|lxc}:{vmid}` (sonst 400 „Ungültige Container-/VM-ID.“); `stop` ist ein geordnetes Herunterfahren (`shutdown`), `restart` ein `reboot`, nie ein harter Stopp. Mit bekanntem Node zuerst über die API; mit `accountId` über SSH (`pct`/`qm`) nur, wenn die API nicht nutzbar ist (Node unbekannt, Host nicht erreichbar bzw. Verbindungsaufbau gescheitert, fehlende Adresse/Token-Angaben, HTTP 401/403/502/503). Ein fachlicher API-Fehler (z. B. „bereits gestoppt“, 4xx/5xx sonst) sowie jeder Fehler, nachdem die Anfrage Proxmox erreicht haben kann (Lese-Timeout, abgebrochene Antwort, HTTP 504), wird nicht per SSH wiederholt, damit eine Aktion nie doppelt läuft, sondern als 400 mit der API-Meldung zurückgegeben und mit `ok=false` protokolliert; bei einem Fehler nach dem Absenden nennt die Meldung, dass die Aktion eventuell trotzdem ausgeführt wurde. Ohne API-Ergebnis und ohne `accountId`: 400. Docker-Hosts: `docker <aktion> <id>` per SSH. Ist das API-Token nicht lesbar (Schlüsseldatei geändert), wird die API nicht angefragt: mit `accountId` per SSH ausgewichen, sonst 409 und ein Protokolleintrag mit `ok=false`. **[Muss]**
 
 #### Szenario: Stopp einer VM
 - **WENN** `stop` für `pve:qemu:101` aufgerufen wird
 - **DANN** geht `POST /nodes/pve/qemu/101/status/shutdown` an die Proxmox-API
 
+#### Szenario: Fachlicher API-Fehler
+- **WENN** die Proxmox-API `stop` mit 500 „already stopped“ beantwortet und ein SSH-Zugang gewählt ist
+- **DANN** 400 mit der API-Meldung, kein SSH-Aufruf
+
 #### Szenario: SSH-Fallback für LXC
 - **WENN** die ID `lxc:200` lautet (Node unbekannt) und ein SSH-Zugang gewählt ist
 - **DANN** wird `pct shutdown 200` (bzw. `start`/`reboot`) ausgeführt
 
-Quelle: `backend/app/main.py:993`–`backend/app/main.py:1083`, `backend/app/proxmox_admin.py:21`, Tests: `backend/tests/test_proxmox_admin.py::test_guest_action_posts_the_right_status_verb_for_each_action`, `::test_guest_action_uses_qemu_path_for_vms`, `::test_guest_action_requires_token`, `backend/tests/test_remote_admin_proxmox.py::test_run_remote_proxmox_guest_command_uses_qm_for_vms_and_maps_stop_to_shutdown`, `::test_run_remote_proxmox_guest_command_uses_pct_for_containers_and_never_docker`
+Quelle: `backend/app/main.py:993`–`backend/app/main.py:1083`, `backend/app/proxmox_admin.py:21`, Tests: `backend/tests/test_proxmox_admin.py::test_guest_action_posts_the_right_status_verb_for_each_action`, `::test_guest_action_uses_qemu_path_for_vms`, `::test_guest_action_requires_token`, `::test_guest_action_marks_fallback_only_for_connection_and_auth_errors`, `::test_guest_action_no_fallback_once_request_may_have_arrived`, `::test_guest_action_connect_timeout_falls_back`, `backend/tests/test_main_proxmox_routing.py::test_remote_container_action_no_ssh_fallback_on_functional_api_error`, `::test_remote_container_action_falls_back_to_ssh_on_connection_error`, `::test_remote_container_action_unknown_node_uses_ssh`, `backend/tests/test_remote_admin_proxmox.py::test_run_remote_proxmox_guest_command_uses_qm_for_vms_and_maps_stop_to_shutdown`, `::test_run_remote_proxmox_guest_command_uses_pct_for_containers_and_never_docker`
 
 ### Requirement: Entfernte Logs (einmaliger Abruf)
 Das System MUSS Logs entfernter Ziele als einmaligen Text liefern (`{"text": …}`): Docker-Host: die letzten 200 Zeilen (`docker logs --tail 200`, stdout+stderr). Proxmox-Gast mit `mode=journal`: `journalctl -n 200` im LXC-Container per SSH (nur `kind=container`, sonst 400; ohne `accountId` 400). Proxmox-Gast sonst: Proxmox-Aufgabenverlauf der letzten 20 Tasks, neueste zuerst, gekürzt auf die letzten 20 000 Zeichen; erfordert bekannten Node (sonst 400). **[Muss]**
@@ -176,17 +184,21 @@ Das System MUSS Logs entfernter Ziele als einmaligen Text liefern (`{"text": …
 Quelle: `backend/app/main.py:1086`–`backend/app/main.py:1129`, `backend/app/remote_admin.py:212`, `backend/app/remote_admin.py:347`, `backend/app/proxmox_probe.py:280`, Tests: `backend/tests/test_main_reboot_and_logs.py::test_logs_reads_proxmox_task_log_when_node_is_known`, `::test_logs_journal_mode_requires_lxc_kind`, `::test_logs_journal_mode_uses_ssh_journalctl`, `::test_logs_uses_remote_docker_path_for_a_non_proxmox_host`, `backend/tests/test_remote_admin_reboot_and_logs.py::test_remote_container_logs_returns_last_lines`
 
 ### Requirement: Gerät neu starten
-Das System MUSS einen Geräte-Neustart über genau einen von zwei Wegen auslösen: Enthält Hersteller, Modell oder Name „fritz“ oder ist die Art `router`, per TR-064-Aktion `DeviceConfig:1#Reboot` (Port 49000, HTTP-Digest) mit einem Zugang der Kategorie `login`/`router` (sonst 400 mit Hinweis auf TR-064); sonst per SSH (`sudo -n reboot`, ersatzweise `reboot`) mit SSH-fähigem Zugang (sonst 400). Zugang muss direkt dem Gerät zugeordnet sein (sonst 404); Gerät ohne Adresse: 400. **[Muss]**
+Das System MUSS einen Geräte-Neustart über genau einen von zwei Wegen auslösen: Enthält Hersteller, Modell oder Name „fritz“ oder ist die Art `router`, per TR-064-Aktion `DeviceConfig:1#Reboot` (Port 49000, HTTP-Digest) mit einem Zugang der Kategorie `login`/`router` (sonst 400 mit Hinweis auf TR-064); sonst per SSH (`sudo -n reboot`, ersatzweise `reboot`) mit SSH-fähigem Zugang (sonst 400). Bricht die SSH-Verbindung nach dem Absetzen des Befehls ab (Verbindungsverlust, fehlender Exit-Status, Zeitüberschreitung nach 10 s), gilt der Neustart als ausgelöst, ebenso ein Fehler beim Schließen der Verbindung danach; Fehler beim Verbindungsaufbau, eine nicht zu öffnende Sitzung (Befehl nie abgesetzt) und ein Exit-Status ≠ 0 bleiben Fehler. Zugang muss direkt dem Gerät zugeordnet sein (sonst 404); Gerät ohne Adresse: 400. **[Muss]**
 
 #### Szenario: Linux-Server
 - **WENN** ein Server mit `sshkey`-Zugang neu gestartet wird
 - **DANN** wird der SSH-Weg genutzt, nie TR-064
 
+#### Szenario: Verbindung bricht beim Neustart ab
+- **WENN** die SSH-Verbindung nach dem `reboot`-Befehl ohne Exit-Status endet
+- **DANN** Ergebnis `ok=true`
+
 #### Szenario: Router mit SSH-Zugang
 - **WENN** für einen Router ein `sshkey`-Zugang übergeben wird
 - **DANN** 400, Meldung enthält „TR-064“
 
-Quelle: `backend/app/main.py:1132`–`backend/app/main.py:1167`, `backend/app/remote_admin.py:419`–`backend/app/remote_admin.py:479`, Tests: `backend/tests/test_main_reboot_and_logs.py::test_reboot_uses_ssh_for_a_generic_host`, `::test_reboot_uses_tr064_for_a_router`, `::test_reboot_rejects_ssh_account_for_a_router`, `::test_reboot_rejects_non_ssh_account_for_a_generic_host`, `::test_reboot_404s_for_unknown_account`, `backend/tests/test_remote_admin_reboot_and_logs.py::test_reboot_fritzbox_posts_the_reboot_soap_action`, `backend/tests/test_remote_admin_proxmox.py::test_reboot_host_tries_passwordless_sudo_then_plain_reboot`
+Quelle: `backend/app/main.py:1132`–`backend/app/main.py:1167`, `backend/app/remote_admin.py:419`–`backend/app/remote_admin.py:479`, Tests: `backend/tests/test_main_reboot_and_logs.py::test_reboot_uses_ssh_for_a_generic_host`, `::test_reboot_uses_tr064_for_a_router`, `::test_reboot_rejects_ssh_account_for_a_router`, `::test_reboot_rejects_non_ssh_account_for_a_generic_host`, `::test_reboot_404s_for_unknown_account`, `backend/tests/test_remote_admin_reboot_and_logs.py::test_reboot_fritzbox_posts_the_reboot_soap_action`, `backend/tests/test_remote_admin_proxmox.py::test_reboot_host_tries_passwordless_sudo_then_plain_reboot`, `::test_reboot_host_treats_connection_loss_after_command_as_success`, `::test_reboot_host_treats_missing_exit_status_as_success`, `::test_reboot_host_treats_timeout_after_command_as_success`, `::test_reboot_host_ignores_error_on_connection_close`, `::test_reboot_host_still_fails_on_connect_error`, `::test_reboot_host_still_fails_on_nonzero_exit`, `::test_reboot_host_fails_when_session_cannot_be_opened`, `::test_reboot_host_close_error_does_not_hide_nonzero_exit`
 
 ### Requirement: Shelly-Relais schalten
 Das System MUSS ein Relais (`channel`, Default 0, erlaubt 0–3, sonst 422 vor jedem Gerätezugriff) eines Shelly-Geräts ein- oder ausschalten und dazu die Gerätegeneration bei jedem Aufruf frisch über `GET /shelly` ermitteln: Gen1 `GET /relay/{ch}?turn=on|off`, Gen2+ `GET /rpc/Switch.Set?id={ch}&on=true|false`. Antwortet das Ziel nicht wie ein Shelly oder mit HTTP ≥ 400: 400 mit Meldung. **[Muss]**
@@ -202,7 +214,7 @@ Das System MUSS ein Relais (`channel`, Default 0, erlaubt 0–3, sonst 422 vor j
 Quelle: `backend/app/main.py:1175`–`backend/app/main.py:1193`, `backend/app/switch_admin.py:27`–`backend/app/switch_admin.py:50`
 
 ### Requirement: Home-Assistant-Entities listen und schalten
-Das System MUSS mit einem direkt dem Gerät zugeordneten Zugang der Kategorie `homeassistant` (sonst 404) die Entities der Domänen `switch` und `light` listen (`entityId`, `name`, `state`) und einzeln über `turn_on`/`turn_off` schalten. Entities anderer Domänen (z. B. `lock`, `cover`, `climate`, `alarm_control_panel`) DÜRFEN NICHT geschaltet werden. Adresse: URL des Zugangs, ersatzweise URL des Geräts. **[Muss]**
+Das System MUSS mit einem direkt dem Gerät zugeordneten Zugang der Kategorie `homeassistant` (sonst 404) die Entities der Domänen `switch` und `light` listen (`entityId`, `name`, `state`) und einzeln über `turn_on`/`turn_off` schalten. Entities anderer Domänen (z. B. `lock`, `cover`, `climate`, `alarm_control_panel`) DÜRFEN NICHT geschaltet werden. Adresse: URL des Zugangs, ersatzweise URL des Geräts. Ein nicht lesbares Token ergibt 409 und einen Protokolleintrag mit `ok=false`; es wird nie mit leerem Token geschaltet. **[Muss]**
 
 #### Szenario: Schloss
 - **WENN** `entityId=lock.haustuer` geschaltet werden soll
@@ -298,9 +310,5 @@ UI-Seite(n): `frontend/src/pages/device/SteuernTab.tsx` (Route `/geraete/:id`), 
 
 - > OFFEN: Prompt-Injection-Risiko: Inhalte aus Inventar/Doku könnten das Modell zu `set_switch` ohne Rückfrage verleiten. → entschieden in #43
 - > OFFEN: Assistent schaltet bei Shelly immer Kanal 0 (bewusst; ein Kanalparameter für `set_switch` erweitert die ADR-Ausnahme). Bereichsprüfung der REST-Route behoben (#147).
-- > OFFEN: Proxmox-Steuerung fällt bei *jedem* API-Fehler auf SSH zurück – auch bei fachlichen Fehlern der API (z. B. Gast bereits gestoppt); mögliche Doppelausführung/irreführende Meldung. (`backend/app/main.py:1061`) → #146
-- > OFFEN: Reboot meldet evtl. Fehler, obwohl der Neustart ausgelöst wurde (SSH-Verbindung bricht beim Reboot ab, bevor ein Exit-Status kommt). Nicht durch Tests abgedeckt. → #146
 - > OFFEN: Kategorie `router` wird im Reboot-Pfad akzeptiert, existiert aber in der UI-Kategorieliste nicht (`frontend/src/pages/zugaenge/AccountFormPage.tsx`) – toter Zweig oder Altbestand? → #134
-- > OFFEN: SSH-Befehle (`connection.run`) haben kein Gesamt-Timeout; ein hängender Befehl blockiert die Anfrage unbegrenzt. → #146
-- > OFFEN: Nicht-numerische `cols`/`rows` in einer Resize-Nachricht lösen eine Ausnahme aus und beenden die Sitzung statt ignoriert zu werden. (`backend/app/main.py:864`) → #146
 - > OFFEN: Keine Tests für die drei WebSocket-Konsolen, lokale Container-Aktionen, Shelly/HA-Schalten und die Origin-Prüfung. → #148

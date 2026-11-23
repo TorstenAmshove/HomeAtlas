@@ -459,7 +459,12 @@ async def run_full_scan(scan_id: str) -> None:
             if unifi_accounts:
                 progress("UniFi-Geräte erfassen", 87, "Frage UniFi Network Controller ab")
             for account in unifi_accounts:
-                api_key = crypto.decrypt(account.get("secretEnc") or "")
+                try:
+                    api_key = crypto.decrypt_strict(account.get("secretEnc") or "")
+                except crypto.SecretUnreadable:
+                    warnings.append(f"Zugang {account['label']}: Secret nicht lesbar – übersprungen")
+                    skipped_sources.add("unifi")  # not read -> its devices keep their status
+                    continue
                 unifi_result = await unifi_probe.probe(
                     account.get("url") or "", api_key, account["id"], account.get("systemId"),
                     client_subnets=configured_subnets,
@@ -491,7 +496,12 @@ async def run_full_scan(scan_id: str) -> None:
                 progress("Omada-Geräte erfassen", 87, "Frage Omada Controller ab")
             for account in omada_accounts:
                 client_id = account.get("username") or ""
-                client_secret = crypto.decrypt(account.get("secretEnc") or "")
+                try:
+                    client_secret = crypto.decrypt_strict(account.get("secretEnc") or "")
+                except crypto.SecretUnreadable:
+                    warnings.append(f"Zugang {account['label']}: Secret nicht lesbar – übersprungen")
+                    skipped_sources.add("omada")  # not read -> its devices keep their status
+                    continue
                 omada_result = await omada_probe.probe(account.get("url") or "", client_id, client_secret)
                 if omada_result["ok"]:
                     findings += omada_result["systems"]
@@ -513,7 +523,12 @@ async def run_full_scan(scan_id: str) -> None:
                 progress("Proxmox-Gäste erfassen", 88, "Frage Proxmox-Host ab")
             for account in proxmox_accounts:
                 token_id = account.get("username") or ""
-                token_secret = crypto.decrypt(account.get("secretEnc") or "")
+                try:
+                    token_secret = crypto.decrypt_strict(account.get("secretEnc") or "")
+                except crypto.SecretUnreadable:
+                    warnings.append(f"Zugang {account['label']}: Secret nicht lesbar – übersprungen")
+                    skipped_sources.add("proxmox")  # not read -> its devices keep their status
+                    continue
                 proxmox_result = await proxmox_probe.probe(account.get("url") or "", token_id, token_secret)
                 if proxmox_result["ok"]:
                     _assign_proxmox_parents(proxmox_result["systems"], account.get("systemId"))
@@ -536,7 +551,12 @@ async def run_full_scan(scan_id: str) -> None:
                 progress("AdGuard Home erfassen", 88, "Frage AdGuard Home ab")
             for account in adguard_accounts:
                 username = account.get("username") or ""
-                password = crypto.decrypt(account.get("secretEnc") or "")
+                try:
+                    password = crypto.decrypt_strict(account.get("secretEnc") or "")
+                except crypto.SecretUnreadable:
+                    warnings.append(f"Zugang {account['label']}: Secret nicht lesbar – übersprungen")
+                    skipped_sources.add("adguard")  # not read -> its devices keep their status
+                    continue
                 adguard_result = await adguard_probe.probe(account.get("url") or "", username, password)
                 if adguard_result["ok"]:
                     findings += adguard_result["systems"]
@@ -564,7 +584,7 @@ async def run_full_scan(scan_id: str) -> None:
             for account in classic_accounts:
                 try:
                     classic = await asyncio.wait_for(unifi_classic_probe.probe(
-                        account.get("url") or "", crypto.decrypt(account.get("secretEnc") or ""),
+                        account.get("url") or "", crypto.decrypt_strict(account.get("secretEnc") or ""),
                         account["id"], account.get("systemId")), timeout=60)
                 except Exception as exc:  # one failing source must never stop the scan
                     classic = {"ok": False, "error": f"UniFi (klassisch): {type(exc).__name__}"}
@@ -616,7 +636,7 @@ async def run_full_scan(scan_id: str) -> None:
             for account in fw_accounts:
                 try:
                     fw = await asyncio.wait_for(firewall_unifi.probe(
-                        account.get("url") or "", crypto.decrypt(account.get("secretEnc") or ""),
+                        account.get("url") or "", crypto.decrypt_strict(account.get("secretEnc") or ""),
                         account["id"], account.get("systemId")), timeout=60)
                 except Exception as exc:  # one failing source must never stop the scan
                     fw = {"ok": False, "error": f"UniFi-Firewall: {type(exc).__name__}"}
@@ -665,7 +685,11 @@ async def run_full_scan(scan_id: str) -> None:
                 progress("Traefik erfassen", 88, "Frage Traefik-API ab")
             for account in traefik_accounts:
                 username = account.get("username") or ""
-                password = crypto.decrypt(account.get("secretEnc") or "")
+                try:
+                    password = crypto.decrypt_strict(account.get("secretEnc") or "")
+                except crypto.SecretUnreadable:
+                    warnings.append(f"Zugang {account['label']}: Secret nicht lesbar – übersprungen")
+                    continue
                 try:
                     traefik_result = await asyncio.wait_for(
                         traefik_probe.probe(account.get("url") or "", username, password), timeout=60)
@@ -721,7 +745,7 @@ async def run_full_scan(scan_id: str) -> None:
                 try:
                     cf_result = await asyncio.wait_for(cloudflare_probe.probe(
                         account.get("url") or "", account.get("username") or "",
-                        crypto.decrypt(account.get("secretEnc") or "")), timeout=90)
+                        crypto.decrypt_strict(account.get("secretEnc") or "")), timeout=90)
                 except Exception as exc:  # one failing source must never stop the scan
                     cf_result = {"ok": False, "facts": [], "error": f"Cloudflare: {type(exc).__name__}"}
                 if cf_result["ok"]:

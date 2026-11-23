@@ -21,8 +21,9 @@ import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 
-from . import (auth, db, mcp_server, monitor as monitor_module, pipeline)
+from . import (auth, crypto, db, mcp_server, monitor as monitor_module, pipeline)
 from . import routes
 from .deps import logger
 from .version import app_version
@@ -71,6 +72,13 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title="HomeAtlas", version=app_version(), lifespan=lifespan)
 app.mount("/api/mcp", mcp_server.asgi_app)
+
+
+@app.exception_handler(crypto.SecretUnreadable)
+async def _secret_unreadable_handler(_request, exc: crypto.SecretUnreadable):
+    """Any route that uses a stored secret and can't decrypt it answers 409 -- never proceeds with
+    an empty password (#118). The message carries no token or plaintext."""
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
 
 # One router per capability group (see docs/specs/README.md). Order matters only where two
 # routes could match the same path; it is the order the routes had in this file before the split.
