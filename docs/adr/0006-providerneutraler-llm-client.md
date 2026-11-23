@@ -1,6 +1,6 @@
 # ADR-0006: Providerneutraler LLM-Client ohne Vendor-SDK
 
-- **Status:** Akzeptiert (nachträglich dokumentiert)
+- **Status:** Ersetzt durch ADR-0020
 - **Datum:** 2026-11-14
 
 ## Kontext

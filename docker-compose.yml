@@ -38,7 +38,7 @@ services:
     restart: unless-stopped
     network_mode: host
     environment:
-      # 8080 (fritzbox-phonebook) and 8180 (GlucoSphere-Web) are already taken on 192.168.1.110.
+      # 8080 (fritzbox-phonebook) is already taken on 192.168.1.110.
       - HOMEATLAS_PORT=${HOMEATLAS_PORT:-8280}
       - HOMEATLAS_API_PORT=${HOMEATLAS_API_PORT:-8281}
     depends_on:

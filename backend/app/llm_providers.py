@@ -2,8 +2,7 @@
 
 Provider-neutral on purpose: the whole point of the LLM settings page is that the household can
 pick Claude, OpenAI, Gemini, DeepSeek, or a local Ollama box, so this talks raw HTTP via httpx
-rather than pulling in one vendor's SDK. Structure follows GlucoSphere-Web's `llm_providers.py`
-so both apps stay recognizably the same, with two corrections that matter on current models:
+rather than pulling in one vendor's SDK. Two details matter on current models:
 
 * **No sampling parameters are sent to Anthropic.** `temperature`/`top_p`/`top_k` were removed on
   Claude Opus 5, Sonnet 5, Opus 4.8 and 4.7 -- sending any of them is an HTTP 400, not a silently
@@ -258,7 +257,7 @@ async def _chat_gemini(api_key: str, model: str, system_prompt: str, messages: l
             for t in tools
         ]}]
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-        resp = await client.post(url, params={"key": api_key}, json=body)
+        resp = await client.post(url, headers={"x-goog-api-key": api_key}, json=body)
     if resp.status_code >= 400:
         raise ProviderError(f"Gemini HTTP {resp.status_code}: {resp.text[:500]}")
     data = resp.json()
@@ -377,60 +376,98 @@ async def chat(provider_type: str, settings: dict, system_prompt: str, messages:
 # Live model discovery + connection test
 # ---------------------------------------------------------------------------------------------
 
+_MAX_MODEL_PAGES = 10
+_PAGE_SIZE = 1000
+
+
+def _gemini_models(data: dict) -> list[dict]:
+    models = []
+    for entry in data.get("models") or []:
+        methods = entry.get("supportedGenerationMethods") or []
+        # Embedding and legacy models live in the same list but can't answer a chat request.
+        if "generateContent" not in methods:
+            continue
+        model_id = (entry.get("name") or "").removeprefix("models/")
+        if model_id:
+            models.append({"id": model_id, "label": entry.get("displayName") or model_id})
+    return models
+
+
+def _listed_models(data: dict) -> list[dict]:
+    models = []
+    for entry in data.get("data") or []:
+        model_id = entry.get("id")
+        if model_id:
+            models.append({"id": model_id, "label": entry.get("display_name") or model_id})
+    return models
+
+
 async def refresh_models(provider_type: str, settings: dict) -> tuple[bool, str, list[dict]]:
-    """Asks the provider which models this key may call. Returns (ok, message, models)."""
+    """Asks the provider which models this key may call. Returns (ok, message, models).
+
+    Claude and Gemini paginate, so pages are followed (at most `_MAX_MODEL_PAGES`; hitting the limit
+    is reported, not silently cut). An error on any page fails the whole call and returns no
+    models, so a half-read list is never cached. The result is sorted by id and deduplicated."""
     try:
         key = api_key_for(provider_type, settings)
     except ProviderError as exc:
         return False, str(exc), []
+    if provider_type not in ("GEMINI", "CLAUDE") and provider_type not in catalog.OPENAI_COMPATIBLE:
+        return False, f"Unbekannter Anbieter: {provider_type}", []
+
+    models: list[dict] = []
+    truncated = False
+    token: str | None = None
+    seen_tokens: set[str] = set()
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0)) as client:
-            if provider_type == "GEMINI":
-                resp = await client.get(
-                    "https://generativelanguage.googleapis.com/v1beta/models", params={"key": key}
-                )
-            elif provider_type == "CLAUDE":
-                resp = await client.get(
-                    f"{base_url_for(provider_type, settings)}/models",
-                    params={"limit": 100},
-                    headers={"x-api-key": key, "anthropic-version": "2023-06-01"},
-                )
-            elif provider_type in catalog.OPENAI_COMPATIBLE:
-                headers = {"Authorization": f"Bearer {key}"} if key else {}
-                resp = await client.get(f"{base_url_for(provider_type, settings)}/models", headers=headers)
-            else:
-                return False, f"Unbekannter Anbieter: {provider_type}", []
+            for page in range(_MAX_MODEL_PAGES):
+                if provider_type == "GEMINI":
+                    params: dict = {"pageSize": _PAGE_SIZE}
+                    if token:
+                        params["pageToken"] = token
+                    # The key goes in a header, never the URL: query strings end up in proxy logs.
+                    resp = await client.get("https://generativelanguage.googleapis.com/v1beta/models",
+                                            params=params, headers={"x-goog-api-key": key})
+                elif provider_type == "CLAUDE":
+                    params = {"limit": _PAGE_SIZE}
+                    if token:
+                        params["after_id"] = token
+                    resp = await client.get(f"{base_url_for(provider_type, settings)}/models", params=params,
+                                            headers={"x-api-key": key, "anthropic-version": "2023-06-01"})
+                else:
+                    headers = {"Authorization": f"Bearer {key}"} if key else {}
+                    resp = await client.get(f"{base_url_for(provider_type, settings)}/models", headers=headers)
+                if resp.status_code >= 400:
+                    return False, f"HTTP {resp.status_code}: {resp.text[:300]}", []
+                try:
+                    data = resp.json()
+                except ValueError:
+                    return False, "Antwort war kein JSON -- stimmt die Server-Adresse?", []
+                if not isinstance(data, dict):
+                    return False, "Unerwartete Antwortstruktur.", []
+                models.extend(_gemini_models(data) if provider_type == "GEMINI" else _listed_models(data))
+
+                if provider_type == "GEMINI":
+                    token = data.get("nextPageToken") or None
+                elif provider_type == "CLAUDE":
+                    token = (data.get("last_id") or None) if data.get("has_more") else None
+                else:
+                    token = None
+                if not token or token in seen_tokens:
+                    break
+                seen_tokens.add(token)
+                if page == _MAX_MODEL_PAGES - 1:
+                    truncated = True
     except httpx.HTTPError as exc:
         return False, f"Netzwerkfehler: {exc}", []
 
-    if resp.status_code >= 400:
-        return False, f"HTTP {resp.status_code}: {resp.text[:300]}", []
-
-    try:
-        data = resp.json()
-    except ValueError:
-        return False, "Antwort war kein JSON -- stimmt die Server-Adresse?", []
-
-    models: list[dict] = []
-    if provider_type == "GEMINI":
-        for entry in data.get("models") or []:
-            methods = entry.get("supportedGenerationMethods") or []
-            # Embedding and legacy models live in the same list but can't answer a chat request.
-            if "generateContent" not in methods:
-                continue
-            model_id = (entry.get("name") or "").removeprefix("models/")
-            if model_id:
-                models.append({"id": model_id, "label": entry.get("displayName") or model_id})
-    else:
-        for entry in data.get("data") or []:
-            model_id = entry.get("id")
-            if model_id:
-                models.append({"id": model_id, "label": entry.get("display_name") or model_id})
-
+    unique = {m["id"]: m for m in models}
+    models = sorted(unique.values(), key=lambda m: m["id"])
     if not models:
         return False, "Der Anbieter hat keine nutzbaren Modelle zurückgegeben.", []
-    models.sort(key=lambda m: m["id"])
-    return True, f"{len(models)} Modelle gefunden.", models
+    note = f" (Liste nach {_MAX_MODEL_PAGES} Seiten gekürzt)" if truncated else ""
+    return True, f"{len(models)} Modelle gefunden{note}.", models
 
 
 _MODEL_ERROR_CODES = ("model_not_found", "not_found_error", "invalid_model")

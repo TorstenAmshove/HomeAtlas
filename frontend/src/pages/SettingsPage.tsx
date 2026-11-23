@@ -201,9 +201,19 @@ export default function SettingsPage() {
     setBusy("models");
     setNotice(null);
     try {
-      const r = await api.refreshModels(form.llmProvider, form);
+      // Remember the provider: the user may switch it while the request is running.
+      const provider: string = form.llmProvider;
+      const r = await api.refreshModels(provider, form);
       setNotice({ kind: r.ok ? "ok" : "error", text: r.message });
-      if (r.ok) setData(await api.getSettings());
+      if (r.ok) {
+        // No reload from the server: its answer would hide a list fetched with an unsaved key.
+        const withList = (s: Record<string, any>) => ({
+          ...s, providerModelCache: { ...s.providerModelCache, [provider]: { models: r.models } },
+        });
+        setData((d) => (d ? { ...d, settings: withList(d.settings) } : d));
+        setForm(withList);
+        if (r.persisted) setSaved(withList);
+      }
     } catch (e) {
       setNotice({ kind: "error", text: e instanceof Error ? e.message : String(e) });
     } finally {

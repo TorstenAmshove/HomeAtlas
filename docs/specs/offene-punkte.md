@@ -37,7 +37,7 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (94)
+## Alle Punkte je Fähigkeit (89)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (1)
 
@@ -99,14 +99,9 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 9. Bei mehreren Routern nimmt die Notfall-Seite den ersten aus der Inventarreihenfolge. → #141
 10. `useLlm: true` im Request wird ignoriert, wenn `scanUseLlm` aus ist (die Einleitung prüft die Einstellung erneut). → #141
 
-### [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md) (6)
+### [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md) (1)
 
-1. UI-Fehler: Nach „Modelle laden“ wird nur `data`, nicht `form` aktualisiert; die neue Liste erscheint erst nach Neuladen, und ein anschließendes „Speichern“ schreibt den alten `providerModelCache` zurück. → #125
-2. Die Live-Liste wird nach ID sortiert gespeichert; der Fallback „erster/letzter Eintrag“ in `resolve` wählt dadurch alphabetisch, nicht nach Anbieter-Reihenfolge (Docstring geht von Anbieterreihenfolge aus). → #125
-3. `providerModelCache` wird bei Wechsel von Schlüssel oder Server-Adresse nicht verworfen. → #125
-4. Claude-Modellabruf holt höchstens 100 Modelle, ohne Paginierung. → #125
-5. Test/Modelle-Laden schicken Anfragen an eine frei eingebbare Server-Adresse (Admin-only, aber serverseitige Anfrage an beliebige URL). → #114
-6. Gemini-Schlüssel steht als Query-Parameter in der URL (kann in Proxy-Logs landen). → #125
+1. Test/Modelle-Laden schicken Anfragen an eine frei eingebbare Server-Adresse (Admin-only, aber serverseitige Anfrage an beliebige URL). → #114
 
 ### [inventar](capabilities/inventar/spec.md) (5)
 

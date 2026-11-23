@@ -25,7 +25,7 @@ Menschen und für KI-Agenten, die sonst bewusste Entscheidungen „wegrefaktorie
 | [0003](0003-host-netzwerk-und-loopback-backend.md) | Host-Netzwerk, Backend nur auf Loopback | Akzeptiert |
 | [0004](0004-llm-faehigkeitsgrenze.md) | `tools.py` als vollständige Fähigkeitsgrenze des LLM | Ersetzt durch ADR-0013 |
 | [0005](0005-sqlite-ohne-orm.md) | SQLite über ein flaches `db.py`, ohne ORM | Ersetzt durch ADR-0010 |
-| [0006](0006-providerneutraler-llm-client.md) | Providerneutraler LLM-Client ohne Vendor-SDK | Akzeptiert |
+| [0006](0006-providerneutraler-llm-client.md) | Providerneutraler LLM-Client ohne Vendor-SDK | Ersetzt durch ADR-0020 |
 | [0007](0007-credentials-fernet-schluessel-im-volume.md) | Credentials mit Fernet, Schlüssel im selben Volume | Akzeptiert |
 | [0008](0008-topologie-als-server-svg.md) | Netzplan als serverseitiges SVG | Ersetzt durch ADR-0009 |
 | [0009](0009-netzplan-ebenen-ist-stand.md) | Netzplan-Ebenen: wichtige Geräte im Bild, Rest als Liste | Akzeptiert |
@@ -39,3 +39,4 @@ Menschen und für KI-Agenten, die sonst bewusste Entscheidungen „wegrefaktorie
 | [0017](0017-firewall-quellen-und-pfadbewertung.md) | Firewall-Quellen lesen und Pfade von HomeAtlas bewerten | Ersetzt durch ADR-0018 |
 | [0018](0018-wan-status-und-lesepfade.md) | WAN-Status lesen, HA-Systemprotokoll, Dachfenster gesperrt | Ersetzt durch ADR-0019 |
 | [0019](0019-firewall-zonen-subnetze.md) | Firewall-Zonen über die Subnetze aus `networkconf` zuordnen | Akzeptiert |
+| [0020](0020-llm-client-ohne-schwesterprojekt.md) | Providerneutraler LLM-Client ohne Vendor-SDK, ohne Schwesterprojekt | Akzeptiert |

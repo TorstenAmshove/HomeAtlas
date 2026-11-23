@@ -78,9 +78,9 @@ def resolve(provider_type: str, selection: str, purpose: str = "CHAT", live_mode
     (flagship, used when writing the documentation).
 
     `live_models` are ids from a live refresh. They constrain the answer to what the account can
-    actually call, but they arrive in whatever order the provider returned -- which is *not* the
+    actually call, but they are sorted by id (see `llm_providers.refresh_models`) -- which is *not* the
     fast-to-flagship ordering the curated catalog guarantees. So the curated pick wins whenever the
-    live list confirms it exists, and only otherwise does position decide. Picking `live[0]` blindly
+    live list confirms it exists, and only otherwise does position in that id-sorted list decide. Picking `live[0]` blindly
     would resolve "Automatisch" to whatever happens to sort first at the provider, which for
     OpenRouter-style endpoints is essentially arbitrary."""
     if selection and selection != AUTO_MODEL_ID:
