@@ -153,7 +153,9 @@ Quelle: `backend/app/auth.py:67`, `backend/app/main.py:178`
 ### Requirement: Session
 Nach erfolgreichem Login MUSS eine serverseitige Session mit opakem, zufälligem Token (heute 32 Byte
 URL-safe) entstehen, übertragen als Cookie `homeatlas_session` mit `HttpOnly`, `SameSite=Lax`,
-`Path=/`, `Max-Age` 30 Tage. Die Gültigkeit ist absolut 30 Tage ab Login (keine Verlängerung bei
+`Path=/`, `Max-Age` 30 Tage und `Secure`, wenn die Anfrage per HTTPS kam (`X-Forwarded-Proto: https`
+von nginx) oder `HOMEATLAS_COOKIE_SECURE=always` gesetzt ist (`never` unterdrückt es, Standard `auto`;
+wird bei jeder Anfrage gelesen). Logout löscht das Cookie mit denselben Flags. Die Gültigkeit ist absolut 30 Tage ab Login (keine Verlängerung bei
 Aktivität). Abgelaufene Sessions MÜSSEN abgewiesen werden. **[Muss]** (Cookie-Name, 30 Tage: **[Impl]**)
 
 #### Szenario: Abgelaufene Session
@@ -427,7 +429,8 @@ Aktion, Detail, Client-IP, User-Agent und Erfolg speichern. Mindestens: `login` 
 `user.create`, `user.update`; außerdem Aktionen anderer Fähigkeiten (`secret.reveal`, `scan.start`,
 `console.*.open/close`, `sshkey.*`, `switch.*`, `system.reboot`). Fehlgeschlagene Logins werden mit dem
 eingegebenen (ggf. nicht existenten) Benutzernamen protokolliert. Client-IP aus `X-Real-IP` des
-vorgeschalteten Proxys, sonst Peer-Adresse. Aufbewahrung: die neuesten 5000 Einträge; Kürzung Detail
+vorgeschalteten Proxys, aber nur wenn der TCP-Peer Loopback ist (nginx, ADR-0003); sonst, bei leerem
+oder ungültigem Header oder ohne Peer, die Peer-Adresse. Dieselbe IP dient dem Login-Throttle. Aufbewahrung: die neuesten 5000 Einträge; Kürzung Detail
 500, IP 60, User-Agent 200 Zeichen. **[Muss]** (Grenzen: **[Impl]**)
 
 `GET /api/access-log?limit=200&action=&onlyFailures=false` (ADMIN) MUSS `{entries, actions}` liefern:
@@ -462,10 +465,15 @@ Quelle: `frontend/src/pages/mehr/AccessLogPage.tsx`,
 
 ### Requirement: WebSocket-Authentifizierung
 WebSocket-Routen (interaktive Konsolen, siehe [remote-admin](../remote-admin/spec.md)) MÜSSEN vor dem
-Annehmen prüfen: (a) ist ein `Origin`-Header vorhanden, muss dessen Hostname exakt dem Hostnamen aus
-`Host` entsprechen (Port wird ignoriert, weil Proxys ihn entfernen); (b) gültige Session-Cookie;
+Annehmen prüfen: (a) `Origin` ist Pflicht und dessen Hostname muss exakt dem Hostnamen aus
+`Host` entsprechen (Port wird ignoriert, weil Proxys ihn entfernen); fehlender oder `null`-Origin
+wie fehlender `Host` lehnt ab; (b) gültige Session-Cookie;
 (c) `totpEnabled`; (d) Rolle ADMIN. Fehlschlag → Verbindung mit Code 1008 schließen, ohne Details.
-Fehlender `Origin` wird akzeptiert. **[Muss]**
+**[Muss]**
+
+#### Szenario: Fehlender Origin
+- **WENN** kein `Origin`-Header (oder `null`) gesendet wird
+- **DANN** Close 1008
 
 #### Szenario: Fremde Origin
 - **WENN** `Origin: http://evil.example` bei `Host: homeatlas.lan:8280`
@@ -579,7 +587,3 @@ UI-Seite(n): `frontend/src/gates/Login.tsx` (ohne Session, jede Route),
 
 - > OFFEN: `DELETE /api/users/{id}` schreibt keinen Protokolleintrag, obwohl die AccessLogPage ein Label `user.delete` kennt und README „Benutzeränderungen“ als protokolliert nennt (wirkt wie Bug). → #122
 - > OFFEN: AccessLogPage kennt Label `mfa.disable` (nie geschrieben). (`mfa.reset` hat seit PR 6 ein Label und gilt als sicherheitsrelevant.) → #122
-- > OFFEN: Session-Cookie ohne `Secure`-Flag, auch hinter TLS-Proxy. → #115
-- > OFFEN: `X-Real-IP` wird ungeprüft übernommen; sicher nur, solange das Backend ausschließlich über nginx erreichbar ist (ADR-0003). → #115
-- > OFFEN: WebSocket-Check akzeptiert fehlenden `Origin`-Header; Docstring nennt die Bedingung „same bar as current_user“, prüft aber zusätzlich ADMIN. → #115
-- > OFFEN: `GET /api/health` ist unauthentifiziert und verrät `userCount`; das Frontend nutzt das Feld nicht. → #115

@@ -26,7 +26,7 @@ def test_health_has_no_ui_calm(temp_db):
         body = client.get("/api/health").json()
     finally:
         main.app.dependency_overrides.clear()
-    assert set(body) == {"status", "setupCompleted", "userCount"}
+    assert set(body) == {"status", "setupCompleted"}
 
 
 def test_legacy_ui_calm_key_is_harmless(temp_db):

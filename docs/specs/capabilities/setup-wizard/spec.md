@@ -20,10 +20,10 @@ benutzbar; alles lässt sich später in Inventar, Zugängen und Einstellungen ä
 ## Anforderungen
 
 ### Requirement: Setup-Status öffentlich abfragbar
-`GET /api/health` MUSS ohne Anmeldung `{status: "ok", setupCompleted: bool, userCount: int}`
+`GET /api/health` MUSS ohne Anmeldung `{status: "ok", setupCompleted: bool}`
 liefern.
 `setupCompleted` ist `false`, bis das Setup einmal abgeschickt wurde. Die Route dient auch als
-Liveness-Check des Stacks. **[Muss]** (`userCount`: **[Impl]**, siehe OFFEN)
+Liveness-Check des Stacks. Weitere Felder (z. B. Benutzeranzahl) MÜSSEN fehlen. **[Muss]**
 
 #### Szenario: Frische Instanz
 - **WENN** noch kein Setup abgeschickt wurde
@@ -197,14 +197,13 @@ Aus [data-model](../../contracts/data-model.md):
 - `settings` (gelesen/geschrieben): `homeName`, `setupCompleted`, `scanSubnets`.
 - `systems` (geschrieben): `name, kind, ip, location, purpose, url, confirmed, discovered, importance`.
 - `accounts` (geschrieben): `systemId, label, category, username, secretEnc, url, notes`.
-- `users` (gelesen, nur Anzahl für `userCount`).
 
 ## Schnittstellen
 
 | Methode | Pfad | Rolle | Zweck |
 |---|---|---|---|
 | POST | /api/setup | ADMIN | Wizard-Ergebnis speichern, `setupCompleted` setzen |
-| GET | /api/health | öffentlich | Liveness + `setupCompleted` + `userCount` |
+| GET | /api/health | öffentlich | Liveness + `setupCompleted` |
 
 Berührt: `PATCH /api/settings` kann `setupCompleted`/`homeName` ebenfalls ändern (siehe
 [einstellungen-und-llm-provider](../einstellungen-und-llm-provider/spec.md)); `GET /api/settings` gibt
@@ -234,6 +233,5 @@ und `setupCompleted` false), Gating in `frontend/src/App.tsx`.
 - > OFFEN: `POST /api/setup` prüft nicht, ob das Setup schon abgeschlossen ist; erneuter Aufruf legt Geräte/Konten doppelt an und überschreibt `homeName`/`scanSubnets`. → #149
 - > OFFEN: Antwortfeld `accounts` zählt Gerätezugänge nicht mit – gewollt oder Ungenauigkeit? → #149
 - > OFFEN: Leerer `homeName` wird gespeichert; Doku/Topologie/Assistent fallen dann teils auf Ersatztexte zurück. → #149
-- > OFFEN: `GET /api/health` ist ohne Login erreichbar und verrät `userCount`; das Frontend nutzt das Feld nicht. → #115
 - > OFFEN: Art→Wichtigkeit (`router/server/nas/heating` → kritisch) ist hart verdrahtet; `network` (Switch/AP) wird nicht kritisch – Absicht? → #149
 - > OFFEN: Kein Duplikatabgleich mit bereits gescannten Geräten gleicher IP; ein späterer Scan muss das zusammenführen (siehe [inventar](../inventar/spec.md)). → #149

@@ -4,7 +4,10 @@ small helpers several route groups share. Importing nothing from routes/ keeps i
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import logging
+import os
+from urllib.parse import urlsplit
 
 from fastapi import Cookie, Depends, HTTPException, Request, WebSocket, status
 
@@ -54,42 +57,75 @@ def require_admin(user: dict = Depends(current_user)) -> dict:
     return user
 
 
+def _is_loopback(host: str | None) -> bool:
+    if not host:
+        return False
+    try:
+        addr = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped is not None:
+        addr = addr.ipv4_mapped
+    return addr.is_loopback
+
+
+def _peer_ip(headers, client_host: str | None) -> str:
+    """Client address for throttling and the access log. `X-Real-IP` is set by the nginx in front
+    and only believed when the TCP peer is loopback (ADR-0003: nginx reaches the backend via
+    127.0.0.1); from any other peer the header is attacker-controlled and the peer address wins.
+    An empty or non-IP header also falls back to the peer."""
+    if _is_loopback(client_host):
+        forwarded = (headers.get("x-real-ip") or "").strip()
+        try:
+            return str(ipaddress.ip_address(forwarded)) if forwarded else client_host or ""
+        except ValueError:
+            return client_host or ""
+    return client_host or ""
+
+
+def _cookie_secure(request: Request) -> bool:
+    """Whether the session cookie gets the `Secure` flag. `HOMEATLAS_COOKIE_SECURE` is read on
+    every call: `always`/`never` force it, anything else (default `auto`) follows the
+    `X-Forwarded-Proto` that nginx passes on (https -> Secure). Plain HTTP stays the default
+    deployment, so a blanket `Secure` would lock everybody out there."""
+    mode = os.environ.get("HOMEATLAS_COOKIE_SECURE", "auto").strip().lower()
+    if mode == "always":
+        return True
+    if mode == "never":
+        return False
+    return request.headers.get("x-forwarded-proto", "").strip().lower() == "https"
+
+
 def _client(request: Request) -> tuple[str, str]:
-    """Best-effort client identity for the access log. `X-Real-IP` comes from the nginx in front;
-    without it every entry would read 127.0.0.1 and the log would be useless."""
-    ip = request.headers.get("x-real-ip") or (request.client.host if request.client else "")
-    return ip, request.headers.get("user-agent", "")
+    """Best-effort client identity for the access log (see `_peer_ip` for the trust rule)."""
+    return _peer_ip(request.headers, request.client.host if request.client else None), \
+        request.headers.get("user-agent", "")
 
 
 def _ws_client(websocket: WebSocket) -> tuple[str, str]:
-    ip = websocket.headers.get("x-real-ip") or (websocket.client.host if websocket.client else "")
-    return ip, websocket.headers.get("user-agent", "")
+    return _peer_ip(websocket.headers, websocket.client.host if websocket.client else None), \
+        websocket.headers.get("user-agent", "")
 
 
 async def _ws_authenticate(websocket: WebSocket) -> dict | None:
-    """Same bar as `current_user`: admin role AND `totpEnabled`. Returns None (caller closes with
-    code=1008) rather than raising -- `HTTPException` has no meaning once a WebSocket connection
-    is being negotiated; there is no HTTP response left to attach it to.
+    """Same bar as `current_user` (valid session, `totpEnabled`) plus the ADMIN role. Returns None
+    (caller closes with code=1008) rather than raising -- `HTTPException` has no meaning once a
+    WebSocket connection is being negotiated; there is no HTTP response left to attach it to.
 
-    A same-origin browser WebSocket handshake carries cookies automatically (confirmed: the
-    session cookie is `samesite="lax"`, which permits same-site top-level navigation-adjacent
-    requests including a same-origin WS upgrade, same as it already permits same-origin fetches).
-    The `Origin` check below is defense in depth on top of that, not a response to a found gap --
-    it costs nothing and the blast radius of getting this specific check wrong (an interactive
+    `Origin` is mandatory: browsers send it on every WebSocket handshake and nginx passes it
+    through, so a missing or `null` Origin is refused. It is defense in depth on top of the
+    `samesite="lax"` session cookie; the blast radius of getting this check wrong (an interactive
     root shell) is much larger than anywhere else this app's cookie-only trust model is used.
 
     Compares hostnames only, not ports: reverse proxies routinely normalize or drop the port from
-    the Host header they forward (confirmed against this app's own bundled nginx -- its `$host`
-    variable strips the port even though the browser's Origin always includes a non-default one),
-    so a port-exact comparison would reject legitimate same-origin connections through any such
-    proxy, not just catch cross-origin ones."""
+    the Host header they forward (the bundled nginx's `$host` strips it even though the browser's
+    Origin always includes a non-default one), so a port-exact comparison would reject legitimate
+    same-origin connections."""
     origin = websocket.headers.get("origin", "")
-    if origin:
-        from urllib.parse import urlsplit
-        origin_host = urlsplit(origin).hostname or ""
-        request_host = (websocket.headers.get("host", "") or "").split(":")[0]
-        if not origin_host or origin_host != request_host:
-            return None
+    origin_host = urlsplit(origin).hostname or "" if origin else ""
+    request_host = (websocket.headers.get("host", "") or "").split(":")[0]
+    if not origin_host or not request_host or origin_host != request_host:
+        return None
     user = auth.get_session_user(websocket.cookies.get(auth.SESSION_COOKIE_NAME))
     if user is None or not user.get("totpEnabled") or user["role"] != auth.ROLE_ADMIN:
         return None

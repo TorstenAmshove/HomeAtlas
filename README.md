@@ -437,7 +437,10 @@ Browser-Integration, Freigaben und Notfallzugriff — Dinge, die diese App bewus
 
 **Kein HTTPS out of the box.** HomeAtlas ist für den Betrieb im eigenen LAN gedacht. Wer es von
 außen erreichbar macht, gehört hinter einen Reverse Proxy mit TLS — und sollte sich vorher
-überlegen, ob das wirklich sein muss.
+überlegen, ob das wirklich sein muss. Das Session-Cookie bekommt das `Secure`-Flag, wenn die
+Anfrage per HTTPS kam: Der Reverse Proxy muss dafür `X-Forwarded-Proto: https` setzen (das
+mitgelieferte nginx reicht den Header durch). Terminiert dein Proxy TLS ohne diesen Header, setze
+`HOMEATLAS_COOKIE_SECURE=always`.
 
 ---
 
@@ -496,6 +499,7 @@ Inventar über die Auswahl mehrerer Geräte. Konten, Verlauf und Monitoring wand
 | `HOMEATLAS_DB_PATH` | `/data/homeatlas.db` | SQLite-Datenbank |
 | `HOMEATLAS_KEY_PATH` | `/data/secret.key` | Verschlüsselungsschlüssel (wird automatisch erzeugt) |
 | `HOMEATLAS_OUI_PATH` | `/data/oui.json` | Zwischenspeicher der IEEE-Herstellerdatenbank |
+| `HOMEATLAS_COOKIE_SECURE` | `auto` | `Secure`-Flag des Session-Cookies: `auto` (bei `X-Forwarded-Proto: https`), `always` oder `never` |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | — | Erstes Konto vorgeben statt generieren lassen (Passwort muss die Richtlinie erfüllen, sonst wird eines generiert) |
 | `TZ` | `Europe/Berlin` | Zeitzone für Anzeigen und Protokolle |
 

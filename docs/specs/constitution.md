@@ -60,7 +60,7 @@
 - **R7 [Muss]** Erst-Admin: Gibt es noch keinen Benutzer, wird einer angelegt (Name/Passwort aus
   der Konfiguration, sofern es R5 erfüllt, sonst generiert und **einmalig** im Log ausgegeben).
 - **R8 [Muss]** WebSocket-Verbindungen (Konsolen) prüfen Sitzung, Rolle und Herkunft (Origin) wie
-  normale Anfragen.
+  normale Anfragen; ein fehlender Origin wird abgelehnt.
 
 ## 3. Lesen vs. Schreiben an Geräten
 
