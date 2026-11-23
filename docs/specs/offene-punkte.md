@@ -37,7 +37,7 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (62)
+## Alle Punkte je Fähigkeit (61)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (1)
 
@@ -68,10 +68,8 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 ### [dashboard](capabilities/dashboard/spec.md) (0)
 
 
-### [diagnose](capabilities/diagnose/spec.md) (2)
+### [diagnose](capabilities/diagnose/spec.md) (0)
 
-1. Die Latenz des Speedtests ist die erste Anfrage auf einer neuen Verbindung und enthält TCP- und TLS-Aufbau – systematisch zu hoch. → #151
-2. REST-Tool-Namen weichen von den LLM-Werkzeugnamen ab (`ping` vs. `ping_host`); Alternative vereinheitlichen? → #151
 
 ### [discovery-und-scan](capabilities/discovery-und-scan/spec.md) (1)
 
@@ -88,9 +86,10 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 ### [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md) (0)
 
 
-### [inventar](capabilities/inventar/spec.md) (1)
+### [inventar](capabilities/inventar/spec.md) (2)
 
 1. `GET /api/systems/{id}` liefert MEMBER die Zugangs-Metadaten (Label, Benutzername, URL, Notizen) des Geräts; nur die UI blendet sie aus. Gewollt? → entschieden in #48: in Ordnung, solange keine Secrets
+2. Der Fehler-Badge verschwindet nie, weil Fehlerereignisse nicht quittiert oder gelöscht werden können (nur Kappung bei 100). → #132
 
 ### [klassifikation-llm](capabilities/klassifikation-llm/spec.md) (5)
 
