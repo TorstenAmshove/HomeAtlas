@@ -128,7 +128,7 @@ Das System MUSS mindestens folgende Fakten übernehmen. **[Muss]**
 | Art | Felder |
 |---|---|
 | network | Name, Standortname, aktiviert, VLAN-ID, CIDR (normalisierte Netzadresse), Gateway-Adresse, DHCP-Bereich (`"<start> - <stop>"` oder leer), Management-Typ, Client-Isolation (bool) |
-| wifi | Name, Standortname, aktiviert, Sicherheitstyp, Typ, externe ID des zugehörigen Netzes |
+| wifi | Name, Standortname, aktiviert, Sicherheitstyp, Typ, externe ID und Name des zugehörigen Netzes (aus dem Netze-Block derselben Site; leer, wenn dieser fehlschlägt) |
 | wan | Name, Standortname; aktiviert immer `true`, keine Fakten |
 
 Eigentümer-Gerät (`ownerSystemId`) ist das Gerät, dem der UniFi-Zugang zugeordnet ist (kann leer
@@ -163,8 +163,8 @@ Das System MUSS ADMINs erlauben, die Notiz einer Ressource zu setzen, und DARF �
 keine anderen Felder ändern. MEMBER erhalten 403. Eine unbekannte ID ergibt 404 mit
 „Netzwerkressource nicht gefunden.“. Antwort: `{"resource": <aktualisierte Ressource>}`. **[Muss]**
 
-Ein Body ohne `manualMd` setzt die Notiz auf leer; es gibt keine Längengrenze und keinen
-Protokolleintrag. **[Impl]**
+Ein Body ohne `manualMd` setzt die Notiz auf leer; die Notiz ist auf 2000 Zeichen
+begrenzt (längere → 422); es gibt keinen Protokolleintrag. **[Impl]**
 
 #### Szenario: Notiz setzen
 - **WENN** ein ADMIN `PATCH /api/network-resources/<id>` mit `{"manualMd": "Nur IoT"}` sendet
@@ -179,15 +179,17 @@ Quelle: `backend/app/main.py:628`, `backend/app/main.py:638`, `backend/app/db.py
 `backend/tests/test_main_network_resources_api.py::test_network_resource_manual_update_returns_404_for_unknown_resource`
 
 ### Requirement: Seite „Netze & WLAN“
-Das System MUSS eine für alle Rollen sichtbare Seite bieten, die nur aktive Ressourcen in drei
+Das System MUSS eine für alle Rollen sichtbare Seite bieten, die standardmäßig nur aktive Ressourcen in drei
 Abschnitten zeigt: „Netze & VLANs“, „WLANs“, „Internet-Anschlüsse“ (leere Abschnitte entfallen).
 Je Zeile: Name (Zusatz „(deaktiviert)“, wenn im Controller deaktiviert), Standort, Details, Notiz.
-Details: Netz = CIDR · „VLAN <id>“; WLAN = Sicherheitstyp. Die Schaltfläche „Bearbeiten“ erscheint
+Details: Netz = CIDR · „VLAN <id>“; WLAN = Sicherheitstyp · Netzname. Die Schaltfläche „Bearbeiten“ erscheint
 nur für ADMIN. Ohne Ressourcen: „Noch keine Controller-Daten. Lege unter Zugänge einen
 UniFi-API-Key an und starte einen Scan.“ **[Muss]**
 
-Notiz wird als einzeiliges Textfeld bearbeitet und als Klartext angezeigt (kein Markdown-Rendering),
-fehlende Werte als „-“. **[Impl]**
+Die Notiz wird in einem mehrzeiligen Textfeld (max. 2000 Zeichen, mit Zähler) bearbeitet und als
+Markdown gerendert (kein rohes HTML). Der Schalter „Inaktive anzeigen“ (Standard aus) blendet auch
+nicht mehr im Controller vorhandene Ressourcen mit dem Hinweis „nicht mehr im Controller“ und ihrer
+Notiz ein; ADMIN kann sie bearbeiten. **[Impl]**
 
 #### Szenario: Deaktiviertes WLAN
 - **WENN** ein aktives WLAN „Gast“ im Controller ausgeschaltet ist
@@ -197,7 +199,7 @@ Quelle: `frontend/src/pages/geraete/NetworksPage.tsx`, `frontend/src/lib/api.ts`
 
 ### Requirement: „Netze & WLAN“-Seite
 Die Route `/netze` MUSS die Seite `NetworksPage` zeigen: kein Seitentitel, je Abschnitt
-eine ruhige Liste (Name, Zusatz „deaktiviert“, darunter Standort · Details, die Notiz als Klartext),
+eine ruhige Liste (Name, Zusatz „deaktiviert“ bzw. „nicht mehr im Controller“, darunter Standort · Details, die Notiz als Markdown),
 für ADMIN „Notiz hinzufügen“/„Notiz bearbeiten“ mit Speichern/Abbrechen, Skeleton beim Laden. Ohne
 Ressourcen erklärt die Seite, dass die Einträge aus dem Netzwerk-Controller (UniFi) kommen und dafür
 ein Zugang vom Typ „UniFi Network (API-Key)“ nötig ist; ADMIN bekommt „Zugang anlegen“ (`/zugaenge`)
@@ -275,7 +277,7 @@ Gelesene Settings (fremde Fähigkeiten, aber auf diese Daten bezogen): `scanEnab
 | Methode | Pfad | Rolle | Zweck |
 |---|---|---|---|
 | GET | `/api/network-resources` | ADMIN, MEMBER | Liste; Query `kind` (`network`/`wifi`/`wan`), `activeOnly` (bool, Default `false`) |
-| PATCH | `/api/network-resources/{resource_id}` | ADMIN | Notiz setzen; Body `{"manualMd": string}` |
+| PATCH | `/api/network-resources/{resource_id}` | ADMIN | Notiz setzen; Body `{"manualMd": string}` (max. 2000 Zeichen) |
 
 Berührte fremde Routen: `POST /api/scans` und `POST /api/systems/{system_id}/probe` lösen den
 Abgleich aus ([discovery-und-scan](../discovery-und-scan/spec.md),
@@ -310,9 +312,6 @@ Rollen). Scan-Netzauswahl in `frontend/src/pages/SettingsPage.tsx` (Route `/eins
 
 ## OFFEN
 
-- > OFFEN: Seite „Netze & WLAN“ zeigt bei WLAN `facts.networkName` und bei WAN `facts.type`/`facts.ip`; der Abgleich liefert diese Felder nie (WLAN hat nur `networkExternalId`, WAN `{}`). WAN-Details sind daher immer „-“, das zugehörige Netz eines WLANs wird nie angezeigt (`frontend/src/pages/geraete/NetworksPage.tsx`). Dasselbe gilt für die WAN-Tabelle der Dokumentation (`backend/app/docs.py:380`). → #145
 - > OFFEN: Fähigkeitsbeschreibung nennt Omada und Discovery-Subnetze als Quelle; im Code liefert nur UniFi Netzwerkressourcen. Soll eine Alternative Omada-Netze übernehmen?
-- > OFFEN: Feld heißt `manualMd`, wird aber weder auf der Seite noch sonst als Markdown gerendert; Eingabe ist einzeilig. → #145
-- > OFFEN: Inaktive Ressourcen sind in der UI nirgends sichtbar (nur über die API), ihre Notizen also faktisch versteckt; gewollt? → #145
-- > OFFEN: Notiz-Änderung erzeugt keinen Eintrag im Zugriffsprotokoll und hat keine Längenbegrenzung. → #122, #145
+- > OFFEN: Notiz-Änderung erzeugt keinen Eintrag im Zugriffsprotokoll. → #122
 - > OFFEN: Der manuelle Abgleich beim Verbindungstest (`backend/app/routes/systems.py:262`) nutzt dieselbe `sync_network_resources` und zählt `emptyScans` mit; zwei Klicks bei leer gemeldetem Bereich deaktivieren dessen Ressourcen also ebenso wie zwei Scans. Gewollt?

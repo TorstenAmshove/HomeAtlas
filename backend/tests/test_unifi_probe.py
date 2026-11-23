@@ -92,7 +92,7 @@ def test_probe_normalizes_all_unifi_sites_without_persisting_api_key(monkeypatch
     assert network["facts"]["cidr"] == "192.168.20.0/24"
     assert network["facts"]["dhcpRange"] == "192.168.20.6 - 192.168.20.254"
     wifi = next(resource for resource in result["resources"] if resource["kind"] == "wifi")
-    assert wifi["facts"] == {"networkExternalId": "iot", "security": "WPA2_WPA3_PERSONAL", "type": "STANDARD"}
+    assert wifi["facts"] == {"networkExternalId": "iot", "networkName": "IoT", "security": "WPA2_WPA3_PERSONAL", "type": "STANDARD"}
     assert "api-secret" not in str(result)
     assert all(request.headers["X-API-Key"] == "api-secret" for request in requests)
     assert all(request.method == "GET" for request in requests)

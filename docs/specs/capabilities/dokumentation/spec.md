@@ -170,14 +170,14 @@ Quelle: `backend/app/docs.py:226`, `backend/app/docs.py:230`, Test: `backend/tes
 ### Requirement: Netzwerkressourcen im Kapitel Netzwerk
 Das System MUSS im Kapitel `netzwerk` den Abschnitt „Vom Controller erfasste Netze“ ausgeben, mit nur
 aktiven Ressourcen, getrennt in drei Tabellen: „VLANs und Netze“ (Name | Standort | VLAN | Netzwerk |
-Notiz), „WLANs“ (Name | Standort | Sicherheit | Notiz), „Internet-Anschlüsse“ (Name | Standort | Typ |
+Notiz), „WLANs“ (Name | Standort | Sicherheit | Netz | Notiz), „Internet-Anschlüsse“ (Name | Standort | Typ |
 Adresse | Notiz). Fehlende Werte erscheinen als `-`; die lokal gepflegte Notiz der Ressource wird
 angezeigt. Ohne Ressourcen: „_Noch keine VLAN-, WLAN- oder WAN-Daten vom Controller erfasst._“
 **[Muss]** Siehe [netzwerkressourcen-vlans](../netzwerkressourcen-vlans/spec.md).
 
 #### Szenario: Netz und WLAN mit Notiz
 - **WENN** ein aktives Netz „IoT“ (VLAN 20, 192.168.20.0/24) und ein WLAN „Haus-IoT“ (WPA2, Notiz „Nur Geräte“) erfasst sind
-- **DANN** enthält das Kapitel `| IoT | Haus | 20 | 192.168.20.0/24 | - |` und `| Haus-IoT | Haus | WPA2 | Nur Geräte |`
+- **DANN** enthält das Kapitel `| IoT | Haus | 20 | 192.168.20.0/24 | - |` und `| Haus-IoT | Haus | WPA2 | - | Nur Geräte |`
 
 Quelle: `backend/app/docs.py:380`, `backend/app/docs.py:547`, Test: `backend/tests/test_docs_network_resources.py::test_network_documentation_includes_active_controller_resources`
 
