@@ -1,6 +1,7 @@
 """Persistence for monitor (see db/__init__ for the package rules)."""
 from __future__ import annotations
 
+from .. import db as _pkg
 from ._core import _conn, _new_id, _now, _rows
 
 
@@ -29,6 +30,11 @@ def record_monitor_state(system_id: str, status: str, detail: str) -> bool:
             conn.execute(
                 "INSERT INTO monitorEvents(id, systemId, at, status, detail) VALUES(?,?,?,?,?)",
                 (_new_id(), system_id, _now(), status, detail[:300]),
+            )
+            conn.execute(
+                "DELETE FROM monitorEvents WHERE systemId = ? AND id NOT IN "
+                "(SELECT id FROM monitorEvents WHERE systemId = ? ORDER BY at DESC, rowid DESC LIMIT ?)",
+                (system_id, system_id, _pkg._MONITOR_EVENT_KEEP),
             )
     return changed
 

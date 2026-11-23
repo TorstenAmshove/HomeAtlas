@@ -14,6 +14,10 @@ Three design points worth stating:
 * **A failure is confirmed before it counts.** A single missed poll flips nothing -- Wi-Fi devices
   drop a packet routinely, and an alert that cries wolf gets ignored. `_FAILURES_BEFORE_DOWN`
   consecutive misses are required, while a single success restores immediately.
+* **`unknown` is not a result.** A check that could not run (e.g. the ping call raised) says nothing
+  about the device, so the round skips it like a raised exception: status, failure counter and
+  events stay untouched. Otherwise offline -> unknown -> offline would reset the counter and
+  flap, producing an event per flip.
 """
 from __future__ import annotations
 
@@ -58,6 +62,30 @@ def effective_ports(system: dict) -> tuple[list[int], bool]:
     return list(preferred)[:3], False
 
 
+def effective_interval(settings: dict) -> int:
+    """Poll interval in seconds as actually used (5-600); unreadable values fall back to 10."""
+    try:
+        value = int(settings.get("monitorIntervalSeconds", 10))
+    except (TypeError, ValueError):
+        value = 10
+    return max(5, min(600, value))
+
+
+def effective_timeout_s(settings: dict) -> float:
+    """Port-check timeout in seconds as actually used (200-10000 ms); unreadable -> 1500 ms."""
+    try:
+        value = int(settings.get("monitorTimeoutMs", 1500))
+    except (TypeError, ValueError):
+        value = 1500
+    return max(200, min(10000, value)) / 1000
+
+
+def is_host_only(system: dict) -> bool:
+    """A Docker container shares the host IP and has no ports to check, so the ping only tells
+    whether the *host* is up -- not the container. The UI says so instead of implying more."""
+    return system.get("kind") == "container" and not effective_ports(system)[0]
+
+
 def _describe_ports(ports: list[int]) -> str:
     return ", ".join(f"{p} ({port_catalog.label_for(p)[0]})" for p in ports)
 
@@ -92,13 +120,18 @@ async def check_system(system: dict, timeout_s: float) -> tuple[str, str]:
     except Exception:  # noqa: BLE001 -- a monitor must never raise into its own loop
         return "unknown", "Prüfung fehlgeschlagen"
 
+    host_only = is_host_only(system)
     if result.get("reachable"):
+        if host_only:
+            return "online", "Antwortet auf Ping (prüft nur den Host)"
         if targets:
             return "online", (f"Antwortet auf Ping, aber Port {_describe_ports(targets)} "
                               "nahm keine Verbindung an")
         return "online", "Antwortet auf Ping"
     if targets:
         return "offline", f"Weder Ping noch Port {_describe_ports(targets)} erreichbar"
+    if host_only:
+        return "offline", "Host antwortet nicht auf Ping (prüft nur den Host)"
     return "offline", "Antwortet nicht auf Ping"
 
 
@@ -126,7 +159,7 @@ class Monitor:
     async def _loop(self) -> None:
         while True:
             settings = db.get_settings()
-            interval = max(5, min(600, int(settings.get("monitorIntervalSeconds", 10))))
+            interval = effective_interval(settings)
             if not settings.get("monitorEnabled", True):
                 await asyncio.sleep(interval)
                 continue
@@ -148,7 +181,7 @@ class Monitor:
 
     async def _run_round(self, settings: dict | None, manual: bool) -> list[dict]:
         settings = settings or db.get_settings()
-        timeout_s = max(0.2, int(settings.get("monitorTimeoutMs", 1500)) / 1000)
+        timeout_s = effective_timeout_s(settings)
         systems = db.list_monitored_systems()
         if not systems:
             self.last_run = time.time()
@@ -162,6 +195,9 @@ class Monitor:
             if isinstance(outcome, BaseException):
                 continue
             status, detail = outcome
+            if status == "unknown":
+                # Not evidence either way; see module docstring.
+                continue
             if status == "offline":
                 if manual:
                     continue

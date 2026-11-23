@@ -24,6 +24,8 @@ DB_PATH = os.environ.get("HOMEATLAS_DB_PATH", "/data/homeatlas.db")
 # user-configurable like the config-backup limit is -- these are diagnostic breadcrumbs, not
 # something anyone restores from, so there is no equivalent tradeoff to expose a setting for.
 _ERROR_EVENT_KEEP = 100
+# Per-device cap on monitorEvents: a flapping device would otherwise grow the table forever.
+_MONITOR_EVENT_KEEP = 200
 
 from ._core import (  # noqa: E402
     _ADDED_COLUMNS,
@@ -207,6 +209,7 @@ __all__ = [
     "acknowledge_device_error_events",
     "DB_PATH",
     "_ERROR_EVENT_KEEP",
+    "_MONITOR_EVENT_KEEP",
     "DEFAULT_SETTINGS",
     "_ACCESS_LOG_KEEP",
     "_ADDED_COLUMNS",

@@ -43,3 +43,65 @@ def test_flapping_back_online_does_not_log_an_error_event(temp_db, monkeypatch):
 
     assert db.list_device_error_events(system["id"]) == []
     assert db.get_system(system["id"])["status"] == "online"
+
+
+def _status_sequence(monkeypatch, statuses):
+    it = iter(statuses)
+
+    async def fake_check_system(sys_arg, timeout_s):
+        return next(it), "detail"
+
+    monkeypatch.setattr(monitor_module, "check_system", fake_check_system)
+
+
+def test_unknown_is_skipped_and_keeps_failure_counter(temp_db, monkeypatch):
+    system = temp_db.create_system({
+        "kind": "server", "name": "NAS", "ip": "10.0.0.32", "monitored": 1, "status": "online",
+    })
+    _status_sequence(monkeypatch, ["offline", "unknown", "offline"])
+    mon = monitor_module.Monitor()
+    settings = {"monitorTimeoutMs": 1500}
+
+    asyncio.run(mon.run_once(settings))
+    assert mon.status()["pendingFailures"] == {system["id"]: 1}
+    asyncio.run(mon.run_once(settings))
+    # unknown neither resets the counter nor flips the status.
+    assert mon.status()["pendingFailures"] == {system["id"]: 1}
+    assert db.get_system(system["id"])["status"] == "online"
+    asyncio.run(mon.run_once(settings))
+
+    assert db.get_system(system["id"])["status"] == "offline"
+    assert len(db.list_monitor_events(system["id"])) == 1
+    assert len(db.list_device_error_events(system["id"])) == 1
+
+
+def test_unknown_is_skipped_in_manual_round(temp_db, monkeypatch):
+    system = temp_db.create_system({
+        "kind": "server", "name": "NAS", "ip": "10.0.0.33", "monitored": 1, "status": "online",
+    })
+    _status_sequence(monkeypatch, ["unknown"])
+    mon = monitor_module.Monitor()
+
+    changes = asyncio.run(mon.run_once({"monitorTimeoutMs": 1500}, manual=True))
+
+    assert changes == []
+    assert db.get_system(system["id"])["status"] == "online"
+    assert db.list_monitor_events(system["id"]) == []
+
+
+def test_recovery_logs_no_error_event(temp_db, monkeypatch):
+    system = temp_db.create_system({
+        "kind": "server", "name": "NAS", "ip": "10.0.0.34", "monitored": 1, "status": "online",
+    })
+    _status_sequence(monkeypatch, ["offline", "offline", "online"])
+    mon = monitor_module.Monitor()
+    settings = {"monitorTimeoutMs": 1500}
+    for _ in range(2):
+        asyncio.run(mon.run_once(settings))
+    assert len(db.list_monitor_events(system["id"])) == 1
+    assert len(db.list_device_error_events(system["id"])) == 1
+
+    asyncio.run(mon.run_once(settings))
+
+    assert len(db.list_monitor_events(system["id"])) == 2
+    assert len(db.list_device_error_events(system["id"])) == 1

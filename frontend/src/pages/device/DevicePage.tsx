@@ -427,7 +427,7 @@ export default function DevicePage() {
     probeSources.length > 0 ? `ausgelesen über ${probeSources.join(", ")}` : "",
   ].filter(Boolean).join(" · ");
   const watching = system.monitored === 1
-    ? `überwacht per ${monitorPorts.length > 0 ? `Port ${monitorPorts.join(", ")}` : "Ping"}`
+    ? `überwacht per ${monitorPorts.length > 0 ? `Port ${monitorPorts.join(", ")}` : system.kind === "container" ? "Ping (prüft nur den Host)" : "Ping"}`
     : "nicht überwacht";
 
   // ---------------------------------------------------------------- actions
