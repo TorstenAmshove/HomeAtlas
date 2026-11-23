@@ -8,7 +8,7 @@ type Status = "connecting" | "connected" | "closed" | "error";
 /** Embeds an interactive terminal wired to a WebSocket console route (SSH or `docker exec`).
  *  Framing: binary WS frames carry raw terminal bytes unmodified in both directions; text frames
  *  are JSON control messages -- currently only `{"type":"resize",...}` sent by us and
- *  `{"type":"error"|"exit",...}` sent by the backend. Matches backend/app/main.py's
+ *  `{"type":"error"|"exit",...}` sent by the backend. Matches backend/app/routes/remote.py's
  *  `_relay_terminal`. */
 export default function Terminal({ wsUrl, onClose }: { wsUrl: string; onClose?: () => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -28,6 +28,7 @@ export default function Terminal({ wsUrl, onClose }: { wsUrl: string; onClose?: 
 
     const ws = new WebSocket(wsUrl);
     ws.binaryType = "arraybuffer";
+    let exited = false;
 
     ws.onopen = () => {
       setStatus("connected");
@@ -42,6 +43,10 @@ export default function Terminal({ wsUrl, onClose }: { wsUrl: string; onClose?: 
             setStatus("error");
             setMessage(control.message || "Fehler in der Sitzung.");
             term.writeln(`\r\n\x1b[31m${control.message || "Fehler in der Sitzung."}\x1b[0m`);
+          } else if (control.type === "exit") {
+            exited = true;
+            setStatus("closed");
+            term.writeln("\r\n\x1b[90m— Sitzung beendet —\x1b[0m");
           }
         } catch {
           /* ignore malformed control frames */
@@ -52,7 +57,7 @@ export default function Terminal({ wsUrl, onClose }: { wsUrl: string; onClose?: 
     };
     ws.onclose = () => {
       setStatus((current) => (current === "error" ? current : "closed"));
-      term.writeln("\r\n\x1b[90m— Verbindung beendet —\x1b[0m");
+      if (!exited) term.writeln("\r\n\x1b[90m— Verbindung beendet —\x1b[0m");
     };
     ws.onerror = () => {
       setStatus("error");
