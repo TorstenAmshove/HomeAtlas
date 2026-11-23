@@ -37,7 +37,7 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (66)
+## Alle Punkte je Fähigkeit (61)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (1)
 
@@ -92,14 +92,6 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 1. `GET /api/systems/{id}` liefert MEMBER die Zugangs-Metadaten (Label, Benutzername, URL, Notizen) des Geräts; nur die UI blendet sie aus. Gewollt? → entschieden in #48: in Ordnung, solange keine Secrets
 2. Der Fehler-Badge verschwindet nie, weil Fehlerereignisse nicht quittiert oder gelöscht werden können (nur Kappung bei 100). → #132
-
-### [klassifikation-llm](capabilities/klassifikation-llm/spec.md) (5)
-
-1. Weil `importance` nach Normalisierung nie leer ist, überschreibt die KI-Wichtigkeit immer die regelbasierte – auch beim Gateway (`critical`), sobald es Kandidat ist (z. B. kein kuratierter Doku-Link bei Nicht-AVM-Routern). Ebenso überschreibt eine ungültige KI-`kind` (→ `other`) eine korrekte Regel-Art wie `router`. → #142
-2. Ein sicher erkanntes Gerät wird schon Kandidat, wenn nur der Doku-Link fehlt. → #142
-3. Nur exakt `"low"` wird verworfen; „LOW“, „niedrig“ o. Ä. gelten als akzeptiert. → #142
-4. Gleiche IP in mehreren Funden (Netzwerk-Fund plus UniFi/Omada/Proxmox/AdGuard) – mehrere Belegsätze pro IP im selben Stapel möglich, der letzte gewinnt, und das Ergebnis wird auf alle Funde dieser IP angewandt. → #142
-5. Der Prompt verlangt dieselbe Reihenfolge wie die Eingabe; der Code ordnet ausschließlich per IP zu (Reihenfolge irrelevant) – unschädlich, aber Anforderung an Modell überflüssig. → #142
 
 ### [monitoring](capabilities/monitoring/spec.md) (5)
 
