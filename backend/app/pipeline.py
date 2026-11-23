@@ -288,7 +288,9 @@ def _link_omada_topology() -> int:
         target_id = by_mac.get(uplink_mac)
         if not target_id or target_id == system["id"] or system.get("parentId") == target_id:
             continue
-        db.update_system(system["id"], {"parentId": target_id})
+        if (system.get("extra") or {}).get("parentSource") == "manual":
+            continue  # counted nowhere: a human-set parent is never replaced
+        db.set_parent_from_source(system["id"], target_id, "omada")
         linked += 1
     return linked
 
@@ -307,7 +309,9 @@ def _link_unifi_topology() -> int:
         target_id = by_device_id.get(unifi.get("uplinkDeviceId"))
         if not target_id or target_id == system["id"] or system.get("parentId") == target_id:
             continue
-        db.update_system(system["id"], {"parentId": target_id})
+        if (system.get("extra") or {}).get("parentSource") == "manual":
+            continue  # counted nowhere: a human-set parent is never replaced
+        db.set_parent_from_source(system["id"], target_id, "unifi")
         linked += 1
     return linked
 
@@ -794,6 +798,9 @@ async def run_full_scan(scan_id: str) -> None:
         for finding in findings:
             system, was_created = db.upsert_discovered_system(finding)
             seen_ids.add(system["id"])
+            # upsert only sets parentId on creation; a migrated VM must follow its node.
+            if (finding.get("extra") or {}).get("proxmox") and finding.get("parentId"):
+                db.set_parent_from_source(system["id"], finding["parentId"], "proxmox")
             created += 1 if was_created else 0
             updated += 0 if was_created else 1
         if skipped_sources:

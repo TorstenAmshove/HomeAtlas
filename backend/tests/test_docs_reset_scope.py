@@ -1,5 +1,8 @@
 import asyncio
 
+import pytest
+from fastapi import HTTPException
+
 from app import db, docs, llm_providers
 from app.routes import docs as routes_docs
 
@@ -72,5 +75,7 @@ def test_generate_without_only_slug_writes_all(temp_db):
 
 def test_reset_unknown_slug(temp_db, monkeypatch):
     calls = _llm(monkeypatch)
-    assert _reset("gibt-es-nicht") == {"page": None}
+    with pytest.raises(HTTPException) as e:
+        _reset("gibt-es-nicht")
+    assert e.value.status_code == 404
     assert calls == []

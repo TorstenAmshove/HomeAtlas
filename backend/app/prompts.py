@@ -107,7 +107,7 @@ Regeln:
 - Erfinde keine Standorte, Räume oder Besitzer. Die kennst du nicht.
 
 Antworte AUSSCHLIESSLICH mit einem JSON-Array, ohne Text davor oder danach, ohne Markdown-Zaun.
-Ein Objekt pro Gerät, in derselben Reihenfolge wie die Eingabe:
+Ein Objekt pro Gerät:
 
 [{"ip": "<IP aus der Eingabe>", "kind": "<Kategorie>", "name": "<kurzer sprechender Name>",
   "vendor": "<Hersteller oder \\"\\">", "model": "<Modell oder \\"\\">",
