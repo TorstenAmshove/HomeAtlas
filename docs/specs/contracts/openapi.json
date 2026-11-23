@@ -5108,7 +5108,7 @@
     },
     "/api/systems/{system_id}/probe": {
       "post": {
-        "description": "Runs all read-only probes for one device, including a full UniFi controller sync.",
+        "description": "Reads one device -- the same code and the same settings as the full scan (#135): device\ncredentials and the default credential through `pipeline.probe_one_system` (honours\n`scanUseCredentials`), UniFi/Proxmox controller accounts through\n`pipeline.read_controller_account` (honour `scanEnableUnifi`/`scanEnableProxmox`). Which\ncontroller accounts: the ones attached to or assigned to this device. Omada and AdGuard are only\nread by the full scan; the outcome says so instead of a bare `ran = false`.",
         "operationId": "probe_system_api_systems__system_id__probe_post",
         "parameters": [
           {
