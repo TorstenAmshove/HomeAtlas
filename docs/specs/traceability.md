@@ -102,7 +102,7 @@ Lücken: **0**
 
 | Eintrag | Spec |
 |---|---|
-| `accessLog` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [monitoring](capabilities/monitoring/spec.md), [remote-admin](capabilities/remote-admin/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
+| `accessLog` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [remote-admin](capabilities/remote-admin/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `accountAssignments` | [credentialed-probing](capabilities/credentialed-probing/spec.md), [inventar](capabilities/inventar/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `accounts` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [credentialed-probing](capabilities/credentialed-probing/spec.md), [dashboard](capabilities/dashboard/spec.md), [dokumentation](capabilities/dokumentation/spec.md), [inventar](capabilities/inventar/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md), [remote-admin](capabilities/remote-admin/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `apiTokens` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |

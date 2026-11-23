@@ -35,13 +35,14 @@ async def monitor_status(_: dict = Depends(current_user)) -> dict:
     systems = db.list_monitored_systems()
     return {
         "enabled": settings.get("monitorEnabled", True),
-        "intervalSeconds": settings.get("monitorIntervalSeconds", 10),
+        "intervalSeconds": monitor_module.effective_interval(settings),
         "status": monitor_module.monitor.status(),
         "systems": [
             {"id": s["id"], "name": s["name"], "ip": s["ip"], "kind": s["kind"],
              "status": s["status"], "importance": s["importance"], "lastSeen": s["lastSeen"],
              "ports": monitor_module.effective_ports(s)[0],
-             "portsExplicit": monitor_module.effective_ports(s)[1]}
+             "portsExplicit": monitor_module.effective_ports(s)[1],
+             "hostOnly": monitor_module.is_host_only(s)}
             for s in systems
         ],
         "events": db.list_monitor_events(limit=50),
@@ -105,7 +106,7 @@ async def dashboard(_: dict = Depends(current_user)) -> dict:
             {**s, "monitorPortsEffective": monitor_module.effective_ports(s)[0]}
             for s in systems if s["importance"] == "critical"
         ][:10],
-        "monitorIntervalSeconds": settings.get("monitorIntervalSeconds", 10),
+        "monitorIntervalSeconds": monitor_module.effective_interval(settings),
         "monitorEnabled": settings.get("monitorEnabled", True),
         # Slim on purpose: MEMBER must not get the scan log/summary (issue #119).
         "lastScan": None if scan is None else {k: scan[k] for k in ("startedAt", "finishedAt", "status")},

@@ -99,6 +99,8 @@ export interface MonitorSystem {
   importance: string;
   lastSeen: string;
   ports: number[];
+  /** Container without ports: the ping only proves the host is up. */
+  hostOnly?: boolean;
 }
 
 export interface MonitorState {
