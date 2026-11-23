@@ -125,7 +125,11 @@ Pipeline je Fehlschlag ein Fehlerereignis schreibt. Ein Fehlschlag, neben dem ei
 derselben Art Erfolg hatte, MUSS mit `superseded = true` markiert werden (die Technik-Seite zeigt
 „nachrangig“); er wird nicht verworfen. TR-064-Fehlschläge MÜSSEN nur bei Geräten mit „fritz“ in
 Hersteller/Modell/Name gespeichert werden (sonst Fehlerereignis je Scan für jeden Nicht-AVM-Router).
-Fehlertexte DÜRFEN keine Zugangsdaten aus der URL (`user:pass@`) enthalten. **[Muss]**
+Ebenso MÜSSEN HTTP-Fehlschläge nur für Zugänge gespeichert werden, die erkennbar für die Weboberfläche
+gedacht sind (`apikey`, eigene URL am Zugang oder `login` mit Port ≠ 22/leer); ein SSH-Login an einem
+Gerät mit Geräte-URL wird per HTTP nur nebenbei versucht, sein Fehlschlag wird verworfen.
+Fehlertexte aller Arten DÜRFEN keine Zugangsdaten aus einer URL (`user:pass@`, auch mit `@` im
+Passwort) enthalten. **[Muss]**
 
 #### Szenario: Abgelaufener zweiter Zugang
 - **WENN** zwei HA-Zugänge existieren, einer funktioniert, einer hat ein abgelaufenes Token
@@ -136,8 +140,12 @@ Fehlertexte DÜRFEN keine Zugangsdaten aus der URL (`user:pass@`) enthalten. **[
 - **DANN** wird keiner als `superseded` markiert
 
 #### Szenario: Abgelehnter Web-Login
-- **WENN** ein `login`-Zugang mit URL von der Weboberfläche abgelehnt wird
+- **WENN** ein `login`-Zugang mit Web-Port (z. B. 8443) oder eigener URL von der Weboberfläche abgelehnt wird
 - **DANN** steht `http:<label>` mit `ok = false` und Fehlertext im Ergebnis
+
+#### Szenario: SSH-Login an Gerät mit Web-Oberfläche
+- **WENN** ein `login`-Zugang mit Port 22 (oder leer) an einem Gerät mit URL beim HTTP-Versuch abgelehnt wird
+- **DANN** fehlt `http:<label>` im Ergebnis, und es entsteht kein Fehlerereignis
 
 ### Requirement: SSH-Verbindungsparameter
 Das System MUSS SSH mit Benutzer (Default `root`), Port (Default 22), Verbindungs-Timeout 10 s

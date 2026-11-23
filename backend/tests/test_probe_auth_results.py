@@ -187,3 +187,43 @@ def test_derive_purpose_ignores_failures(monkeypatch):
     _patch(monkeypatch, ssh={"a": _fail()})
     out = _run({}, [_acct("a", "sshkey")])
     assert out["purpose"] == ""
+
+
+@pytest.mark.parametrize("error", [
+    "http://admin:ge@heim@x.lan war nicht erreichbar",
+    "Fehler bei HTTPS://admin:geheim@x.lan:8443/api",
+])
+def test_url_credentials_removed_completely(monkeypatch, error):
+    _patch(monkeypatch, http={"w": _fail(error)})
+    out = _run({"url": "http://x.lan"}, [_acct("w", "login", port=8443)])
+    text = out["results"]["http:w"]["error"]
+    assert "heim" not in text and "admin" not in text
+    assert "x.lan" in text
+
+
+def test_ha_error_text_has_no_url_credentials(monkeypatch):
+    _patch(monkeypatch, ha={"h": _fail("http://u:geheim@ha.lan:8123 abgelehnt")})
+    out = _run({"url": "http://ha.lan:8123"}, [_acct("h", "homeassistant")])
+    assert "geheim" not in out["results"]["ha:h"]["error"]
+
+
+@pytest.mark.parametrize("port", [0, 22, None])
+def test_ssh_login_http_failure_not_recorded(monkeypatch, port):
+    """An SSH login on a device that has a web URL is tried over HTTP only speculatively: its
+    rejection is not stored, so it cannot raise an error event on every scan."""
+    _patch(monkeypatch, ssh={"l": _ok()}, http={"l": _fail("401")})
+    out = _run({"url": "http://x.lan"}, [_acct("l", "login", port=port)])
+    assert "http:l" not in out["results"]
+    assert out["results"]["ssh:l"]["ok"]
+
+
+def test_ssh_login_http_success_still_recorded(monkeypatch):
+    _patch(monkeypatch, ssh={"l": _ok()}, http={"l": _ok()})
+    out = _run({"url": "http://x.lan"}, [_acct("l", "login", port=22)])
+    assert out["results"]["http:l"]["ok"]
+
+
+def test_login_with_own_url_records_http_failure(monkeypatch):
+    _patch(monkeypatch, ssh={"l": _ok()}, http={"l": _fail("401")})
+    out = _run({}, [_acct("l", "login", port=22, url="http://x.lan:8080")])
+    assert out["results"]["http:l"]["error"] == "401"

@@ -539,7 +539,9 @@ _VERSION_RE = re.compile(
 
 # `scheme://user:pass@host` -> `scheme://host`: error texts are persisted (extra.probe, error events)
 # and shown to every role, so a URL typed with embedded credentials must never leak through them.
-_URL_USERINFO_RE = re.compile(r"(https?://)[^/@\s]+@")
+# Greedy up to the *last* "@" before the first "/" or whitespace, so a password containing an
+# unencoded "@" is removed completely, not just up to its first "@".
+_URL_USERINFO_RE = re.compile(r"([a-z][a-z0-9+.-]*://)[^/\s]*@", re.IGNORECASE)
 
 
 async def probe_http(url: str, account: dict) -> dict:
@@ -1832,9 +1834,20 @@ async def probe_system(system: dict, accounts: list[dict]) -> dict:
         url = account.get("url") or system.get("url")
         if url and category in ("login", "apikey"):
             result = await probe_http(url, account)
-            if not result["ok"] and result.get("error"):
-                result = {**result, "error": _URL_USERINFO_RE.sub(r"\1", result["error"])}
-            results[f"http:{account['label']}"] = result
+            # A failure is only kept for a credential recognisably meant for the web UI (an API key,
+            # its own URL, or a login with a non-SSH port). An SSH login (port 22/unset) on a device
+            # that merely has a URL is tried here speculatively; its rejection would otherwise raise
+            # an error event on every scan and push real ones out of the per-device cap.
+            meant_for_web = (category == "apikey" or bool(account.get("url"))
+                             or (account.get("port") or 0) not in (0, 22))
+            if result["ok"] or meant_for_web:
+                results[f"http:{account['label']}"] = result
+
+    # Error texts are persisted (extra.probe, error events) and shown to every role: a URL typed
+    # with embedded credentials must never leak through any of them (http, ha, ...).
+    for key, result in results.items():
+        if not result.get("ok") and isinstance(result.get("error"), str):
+            results[key] = {**result, "error": _URL_USERINFO_RE.sub(r"\1", result["error"])}
 
     # A failure stays visible (broken/expired credentials matter even when another one works), but
     # one next to a working credential of the same kind (prefix before ":") is flagged as secondary.
