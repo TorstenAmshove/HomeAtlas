@@ -148,7 +148,14 @@ summierte Token-Zahlen (`promptTokens`, `completionTokens`). Modellwahl mit Zwec
 - **WENN** das LLM bei allen 8 LLM-Aufrufen einer Antwort Werkzeuge anfordert
 - **DANN** speichert das System „Ich habe mehrere Prüfungen hintereinander durchgeführt … Magst du die Frage etwas eingrenzen …“ und `model` ist leer
 
-Quelle: `backend/app/tools.py:35`, `backend/app/tools.py:448`, `backend/app/tools.py:462`, `backend/app/tools.py:483`
+### Requirement: Gesamtzeitgrenze je Runde
+Das System MUSS eine Chat-Runde (alle LLM-Aufrufe und Werkzeuge zusammen) nach spätestens 240 Sekunden beenden (unter dem 300-s-Proxy-Timeout von nginx für `/api/`). Dabei MUSS jeder noch unbeantwortete Werkzeugaufruf eine Werkzeugnachricht „Abgebrochen: Zeitgrenze der Runde erreicht.“ erhalten, damit der Verlauf gültig bleibt, und das System speichert eine Assistentennachricht, die den Abbruch nach 4 Minuten erklärt; `model` ist leer. Folgerunden funktionieren normal. **[Muss]** (240 s **[Impl]**)
+
+#### Szenario: Hängender Werkzeugaufruf
+- **WENN** ein Werkzeug die Zeitgrenze überschreitet
+- **DANN** endet die Runde mit der Abbruchmeldung und `duration_ms` gesetzt
+
+Quelle: `backend/app/tools.py` (`_TURN_DEADLINE_S`)
 
 ### Requirement: Jeder Zwischenschritt wird gespeichert
 Das System MUSS die Benutzernachricht vor dem ersten LLM-Aufruf speichern und jeden Assistentenschritt
@@ -383,9 +390,13 @@ Tokens aktualisiert werden. Sitzungscookie und Zwei-Faktor-Anmeldung gelten hier
 - **WENN** ein Client `/api/mcp` ohne Authorization-Header aufruft
 - **DANN** antwortet das System mit 401, ohne die Anfrage an den MCP-Server weiterzureichen
 
+#### Szenario: Zu viele Anfragen
+- **WENN** ein Token mehr als 120 Anfragen innerhalb einer Minute sendet
+- **DANN** antwortet das System mit 429 und `Retry-After`; andere Tokens sind nicht betroffen, ungültige Tokens bleiben 401
+
 #### Szenario: Tool-Aufruf über MCP
 - **WENN** ein Client mit gültigem Token `tools/call` für `network_overview` sendet
-- **DANN** erhält er denselben JSON-Text wie der In-App-Assistent, und `lastUsedAt` des Tokens ist jetzt
+- **DANN** erhält er denselben JSON-Text wie der In-App-Assistent, und `lastUsedAt` des Tokens ist gesetzt (aktualisiert nur, wenn der alte Wert leer oder älter als 60 s ist)
 
 Quelle: `backend/app/main.py:70`, `backend/app/main.py:61`, `backend/app/mcp_server.py:39`, `backend/app/mcp_server.py:47`, `backend/app/mcp_server.py:55`, `backend/app/mcp_server.py:58`, `backend/app/db.py:601`
 
@@ -458,5 +469,3 @@ UI-Seite(n): `frontend/src/pages/ChatPage.tsx` (Routen `/assistent`, `/assistent
 ## OFFEN
 
 - > OFFEN: `list_switches` nutzt jeden HA-Zugang unabhängig vom Opt-in „Zum Auslesen verwenden“ und fragt bei jedem Aufruf live alle HA-Instanzen ab. → #121
-- > OFFEN: Keine Gesamtzeitgrenze je Runde: bis zu 8 LLM-Aufrufe à 120 s plus Werkzeuge. → #120
-- > OFFEN: Kein Rate-Limit auf `/api/mcp`; `lastUsedAt` wird bei jeder Anfrage geschrieben. → #120

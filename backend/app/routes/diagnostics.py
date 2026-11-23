@@ -8,8 +8,13 @@ from pydantic import BaseModel, Field
 
 from .. import diagnostics
 from ..deps import current_user
+from ..limits import SlidingWindowLimiter
 
 router = APIRouter()
+
+# Traceroutes are slow; cap them per user (the global concurrency cap lives in diagnostics.py).
+# Invalid hosts count too, so a bad input can't be used to probe without limit.
+_TRACEROUTE_LIMITER = SlidingWindowLimiter(3, 60)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -22,7 +27,7 @@ class DiagnosticBody(BaseModel):
 
 
 @router.post("/api/diagnostics")
-async def run_diagnostic(body: DiagnosticBody, _: dict = Depends(current_user)) -> dict:
+async def run_diagnostic(body: DiagnosticBody, user: dict = Depends(current_user)) -> dict:
     handlers = {
         "internet_check": lambda a: diagnostics.internet_check(),
         "ping": lambda a: diagnostics.ping(a.get("host", ""), a.get("count", 3)),
@@ -34,7 +39,14 @@ async def run_diagnostic(body: DiagnosticBody, _: dict = Depends(current_user)) 
     handler = handlers.get(body.tool)
     if handler is None:
         raise HTTPException(status_code=400, detail=f"Unbekannte Prüfung '{body.tool}'.")
+    if body.tool == "traceroute":
+        allowed, retry_after = _TRACEROUTE_LIMITER.allow(user["id"])
+        if not allowed:
+            raise HTTPException(status_code=429, headers={"Retry-After": str(retry_after)},
+                                detail="Zu viele Traceroutes. Bitte kurz warten und noch einmal versuchen.")
     try:
         return {"result": await handler(body.args)}
+    except diagnostics.DiagnosticBusy as exc:
+        raise HTTPException(status_code=429, detail=str(exc), headers={"Retry-After": "10"}) from exc
     except diagnostics.DiagnosticError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

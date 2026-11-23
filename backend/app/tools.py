@@ -31,6 +31,7 @@ Two rules shape what is exposed here:
 """
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import json
 import time
@@ -68,6 +69,10 @@ _HA_READ_MAX_RESULT_CHARS = 24000
 _UNIFI_LIVE_TOOLS = ("get_unifi_client", "get_unifi_device", "get_unifi_network", "get_unifi_events")
 _UNIFI_LIVE_MAX_RESULT_CHARS = 20000
 _MAX_ITERATIONS = 8
+# Wall-clock cap for one whole chat turn (all model calls and tools together), in seconds. Kept
+# well below nginx's `proxy_read_timeout 300s` for /api/ (frontend/nginx.conf.template): otherwise
+# the proxy answers 504 before the explanatory message below can reach the browser.
+_TURN_DEADLINE_S = 240
 
 
 # Live diagnostics run on the HomeAtlas host. Saying so in the schema and in every result keeps the model from
@@ -927,26 +932,46 @@ async def _run_chat_turn(chat_id: str, user_text: str, settings: dict) -> dict:
     # whole took, not just the final model call.
     started = time.monotonic()
 
-    for _ in range(_MAX_ITERATIONS):
-        result = await llm_providers.chat(
-            provider, settings, system_prompt, history_for_llm(chat_id),
-            purpose="CHAT", tools=TOOL_DEFINITIONS,
-        )
-        prompt_tokens += result.prompt_tokens or 0
-        completion_tokens += result.completion_tokens or 0
+    unanswered: list[dict] = []
+    try:
+        async with asyncio.timeout(_TURN_DEADLINE_S) as deadline:
+            for _ in range(_MAX_ITERATIONS):
+                result = await llm_providers.chat(
+                    provider, settings, system_prompt, history_for_llm(chat_id),
+                    purpose="CHAT", tools=TOOL_DEFINITIONS,
+                )
+                prompt_tokens += result.prompt_tokens or 0
+                completion_tokens += result.completion_tokens or 0
 
-        if not result.tool_calls:
-            duration_ms = round((time.monotonic() - started) * 1000)
-            message = db.add_chat_message(chat_id, "assistant", result.text, duration_ms=duration_ms)
-            return {"message": message, "model": result.model, "toolsUsed": used_tools,
-                    "usage": {"promptTokens": prompt_tokens, "completionTokens": completion_tokens}}
+                if not result.tool_calls:
+                    duration_ms = round((time.monotonic() - started) * 1000)
+                    message = db.add_chat_message(chat_id, "assistant", result.text, duration_ms=duration_ms)
+                    return {"message": message, "model": result.model, "toolsUsed": used_tools,
+                            "usage": {"promptTokens": prompt_tokens, "completionTokens": completion_tokens}}
 
-        db.add_chat_message(chat_id, "assistant", result.text, tool_calls=result.tool_calls,
-                            provider_raw=result.provider_raw or None)
-        for call in result.tool_calls:
-            used_tools.append(call["name"])
-            output = await dispatch(call["name"], call.get("arguments") or {})
-            db.add_chat_message(chat_id, "tool", output, tool_call_id=call["id"], name=call["name"])
+                db.add_chat_message(chat_id, "assistant", result.text, tool_calls=result.tool_calls,
+                                    provider_raw=result.provider_raw or None)
+                unanswered[:] = list(result.tool_calls)
+                for call in result.tool_calls:
+                    used_tools.append(call["name"])
+                    output = await dispatch(call["name"], call.get("arguments") or {})
+                    db.add_chat_message(chat_id, "tool", output, tool_call_id=call["id"], name=call["name"])
+                    unanswered.remove(call)
+    except TimeoutError:
+        if not deadline.expired():
+            raise  # a TimeoutError from inside the turn, not the turn deadline
+        # Hard deadline for the whole turn (LLM calls and tools together). Keep the transcript
+        # replayable: every tool call the model issued needs a tool message before the next turn.
+        for call in unanswered:
+            db.add_chat_message(chat_id, "tool", "Abgebrochen: Zeitgrenze der Runde erreicht.",
+                                tool_call_id=call["id"], name=call["name"])
+        duration_ms = round((time.monotonic() - started) * 1000)
+        message = db.add_chat_message(chat_id, "assistant", (
+            "Die Anfrage hat zu lange gedauert und wurde nach 4 Minuten abgebrochen. "
+            "Magst du die Frage eingrenzen oder es noch einmal versuchen?"
+        ), duration_ms=duration_ms)
+        return {"message": message, "model": "", "toolsUsed": used_tools,
+                "usage": {"promptTokens": prompt_tokens, "completionTokens": completion_tokens}}
 
     # Out of iterations: say so in the transcript rather than silently returning the last tool
     # output, which would look like the assistant ignored the question.

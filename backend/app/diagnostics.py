@@ -40,6 +40,18 @@ class DiagnosticError(ValueError):
     pass
 
 
+class DiagnosticBusy(DiagnosticError):
+    """An expensive check is already running (or too many are); the caller should retry later.
+    A DiagnosticError subclass so tools.dispatch hands the message to the model unchanged."""
+
+
+# At most one speed test at a time (it moves tens of MB); at most _MAX_TRACEROUTES traceroutes at
+# once, counted across REST, chat and MCP. Checked and taken without an await in between.
+_speedtest_lock = asyncio.Lock()
+_MAX_TRACEROUTES = 2
+_traceroute_slots = 0
+
+
 def _validate_host(host: str) -> str:
     host = (host or "").strip()
     if not _HOST_RE.match(host):
@@ -262,9 +274,16 @@ async def http_check(url: str) -> dict:
 async def traceroute(host: str, max_hops: int = 15) -> dict:
     host = _validate_host(host)
     max_hops = _bounded_int(max_hops, 15, 1, 30, "die maximale Zahl der Zwischenstationen")
-    code, output = await _run(
-        ["traceroute", "-n", "-w", "1", "-q", "1", "-m", str(max_hops), host], timeout=max_hops * 2 + 10
-    )
+    global _traceroute_slots
+    if _traceroute_slots >= _MAX_TRACEROUTES:
+        raise DiagnosticBusy("Es laufen bereits mehrere Traceroutes. Bitte kurz warten und noch einmal versuchen.")
+    _traceroute_slots += 1
+    try:
+        code, output = await _run(
+            ["traceroute", "-n", "-w", "1", "-q", "1", "-m", str(max_hops), host], timeout=max_hops * 2 + 10
+        )
+    finally:
+        _traceroute_slots -= 1
     if code == 127:
         return {"host": host, "hops": [], "explanation": output}
     hops = []
@@ -399,26 +418,29 @@ async def speedtest() -> dict:
     timing, since a multi-second bulk transfer's start-to-finish time says nothing useful about
     round-trip time.
     """
-    try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=8.0)) as client:
-            ping_started = time.monotonic()
-            await client.get(f"{_SPEEDTEST_DOWNLOAD_URL}?bytes=0")
-            ping_ms = (time.monotonic() - ping_started) * 1000
+    if _speedtest_lock.locked():
+        raise DiagnosticBusy("Es läuft bereits ein Speedtest. Bitte kurz warten.")
+    async with _speedtest_lock:
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=8.0)) as client:
+                ping_started = time.monotonic()
+                await client.get(f"{_SPEEDTEST_DOWNLOAD_URL}?bytes=0")
+                ping_ms = (time.monotonic() - ping_started) * 1000
 
-            download_started = time.monotonic()
-            response = await client.get(f"{_SPEEDTEST_DOWNLOAD_URL}?bytes={_SPEEDTEST_DOWNLOAD_BYTES}")
-            downloaded = len(response.content)
-            download_elapsed = time.monotonic() - download_started
-            download_mbps = (downloaded * 8 / 1_000_000) / download_elapsed if download_elapsed > 0 else 0.0
+                download_started = time.monotonic()
+                response = await client.get(f"{_SPEEDTEST_DOWNLOAD_URL}?bytes={_SPEEDTEST_DOWNLOAD_BYTES}")
+                downloaded = len(response.content)
+                download_elapsed = time.monotonic() - download_started
+                download_mbps = (downloaded * 8 / 1_000_000) / download_elapsed if download_elapsed > 0 else 0.0
 
-            payload = os.urandom(_SPEEDTEST_UPLOAD_BYTES)
-            upload_started = time.monotonic()
-            await client.post(_SPEEDTEST_UPLOAD_URL, content=payload)
-            upload_elapsed = time.monotonic() - upload_started
-            upload_mbps = (len(payload) * 8 / 1_000_000) / upload_elapsed if upload_elapsed > 0 else 0.0
-    except httpx.HTTPError as exc:
-        return {"ok": False, "error": f"Speedtest fehlgeschlagen -- ist eine Internetverbindung vorhanden? ({exc})",
-                "downloadMbps": None, "uploadMbps": None, "pingMs": None, "explanation": ""}
+                payload = os.urandom(_SPEEDTEST_UPLOAD_BYTES)
+                upload_started = time.monotonic()
+                await client.post(_SPEEDTEST_UPLOAD_URL, content=payload)
+                upload_elapsed = time.monotonic() - upload_started
+                upload_mbps = (len(payload) * 8 / 1_000_000) / upload_elapsed if upload_elapsed > 0 else 0.0
+        except httpx.HTTPError as exc:
+            return {"ok": False, "error": f"Speedtest fehlgeschlagen -- ist eine Internetverbindung vorhanden? ({exc})",
+                    "downloadMbps": None, "uploadMbps": None, "pingMs": None, "explanation": ""}
 
     return {
         "ok": True, "error": "",

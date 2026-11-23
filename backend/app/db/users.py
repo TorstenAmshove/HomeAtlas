@@ -135,6 +135,19 @@ def delete_api_token(token_id: str) -> None:
         conn.execute("DELETE FROM apiTokens WHERE id = ?", (token_id,))
 
 
+_LAST_USED_MIN_AGE_S = 60
+_TS_FORMAT = "%Y-%m-%dT%H:%M:%SZ"  # the format `_now` produces
+
+
+def _older_than(previous: str | None, now: str, seconds: int) -> bool:
+    """True if `previous` is empty/unreadable or more than `seconds` before `now`."""
+    try:
+        age = datetime.strptime(now, _TS_FORMAT) - datetime.strptime(previous or "", _TS_FORMAT)
+    except ValueError:
+        return True
+    return age.total_seconds() > seconds
+
+
 def touch_api_token(token: str) -> dict | None:
     """Looked up on every MCP request (see mcp_server.py). Updates `lastUsedAt` on a hit so the
     settings UI can show which tokens are actually in use versus long-forgotten."""
@@ -143,6 +156,8 @@ def touch_api_token(token: str) -> dict | None:
         if row is None:
             return None
         now = _now()
-        conn.execute("UPDATE apiTokens SET lastUsedAt = ? WHERE id = ?", (now, row["id"]))
-        row["lastUsedAt"] = now
+        # Throttled: a busy client would otherwise cause a write per request.
+        if _older_than(row.get("lastUsedAt"), now, _LAST_USED_MIN_AGE_S):
+            conn.execute("UPDATE apiTokens SET lastUsedAt = ? WHERE id = ?", (now, row["id"]))
+            row["lastUsedAt"] = now
         return row

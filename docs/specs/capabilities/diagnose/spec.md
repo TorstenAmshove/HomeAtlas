@@ -139,7 +139,18 @@ Das System MUSS den Weg zu einem Ziel ermitteln (1 Probe je Hop, numerisch) und 
 - **WENN** keine Hop-Zeile auswertbar ist
 - **DANN** `hops: []`, Erklärung „Zu <host> ließ sich kein Weg ermitteln.“
 
-Quelle: `backend/app/diagnostics.py:174`–`backend/app/diagnostics.py:191`
+### Requirement: Traceroute begrenzen
+Das System MUSS höchstens 2 Traceroutes gleichzeitig zulassen (über REST, Chat und MCP zusammen; weitere scheitern sofort mit einer verständlichen Meldung, im Chat als Werkzeugfehlertext) und über `POST /api/diagnostics` höchstens 3 Traceroutes je Benutzer und Minute (Gleitfenster; auch Anfragen mit ungültigem Ziel zählen). **[Muss]** (Zahlen **[Impl]**)
+
+#### Szenario: Zu viele Traceroutes
+- **WENN** ein Benutzer innerhalb einer Minute eine vierte Traceroute über die Route anfordert
+- **DANN** antwortet das System mit 429 und `Retry-After` (Sekunden); andere Benutzer sind nicht betroffen
+
+#### Szenario: Gleichzeitige Obergrenze
+- **WENN** bereits 2 Traceroutes laufen und eine dritte startet
+- **DANN** wird sie abgelehnt (REST: 429, Chat/MCP: Fehlertext an das Modell)
+
+Quelle: `backend/app/diagnostics.py`, `backend/app/routes/diagnostics.py`, `backend/app/limits.py`
 
 ### Requirement: Internet-Check in drei Schichten
 Das System MUSS die Internetverbindung in drei unabhängigen Schichten prüfen – Namensauflösung (`www.google.com`), Erreichbarkeit (2 Pings an `1.1.1.1`), Webseiten (`GET https://www.gstatic.com/generate_204`, Erfolg bei 200/204) – und `dnsWorks`, `internetReachable`, `websitesLoad`, `explanation`, `details` liefern. Verdikt in dieser Reihenfolge: alles ok ⇒ „funktioniert vollständig“; Ping ok, DNS nicht ⇒ DNS-Störung am Router; Ping+DNS ok, HTTP nicht ⇒ Filter/Kindersicherung/Proxy; Ping nicht ⇒ keine Verbindung, Hinweis auf DSL-Lampe; sonst „nur teilweise nutzbar“. **[Muss]** (Zielhosts **[Impl]**)
@@ -164,11 +175,15 @@ Das System MUSS mehrere externe Namen nacheinander auflösen und je Name Ergebni
 Quelle: `backend/app/main.py:1595`–`backend/app/main.py:1599`, `backend/app/diagnostics.py:194`–`backend/app/diagnostics.py:245`, `backend/app/discovery.py:215`, `backend/app/db.py:456`
 
 ### Requirement: Speedtest nur auf ausdrücklichen Klick
-Das System MUSS einen Durchsatztest gegen einen öffentlichen Speedtest-Dienst nur auf direkte Anforderung eines Benutzers ausführen und DARF ihn dem Assistenten/MCP NICHT als Werkzeug anbieten. Gemessen werden Latenz (Anfrage mit 0 Byte), Download (25 MB) und Upload (10 MB); Ergebnis `ok`, `downloadMbps`, `uploadMbps` (1 Nachkommastelle), `pingMs`, `explanation`; bei Netzwerkfehler `ok: false` mit verständlicher `error`-Meldung (HTTP 200). **[Muss]** (Dienst und Datenmengen **[Impl]**)
+Das System MUSS höchstens einen Speedtest gleichzeitig zulassen und MUSS einen Durchsatztest gegen einen öffentlichen Speedtest-Dienst nur auf direkte Anforderung eines Benutzers ausführen und DARF ihn dem Assistenten/MCP NICHT als Werkzeug anbieten. Gemessen werden Latenz (Anfrage mit 0 Byte), Download (25 MB) und Upload (10 MB); Ergebnis `ok`, `downloadMbps`, `uploadMbps` (1 Nachkommastelle), `pingMs`, `explanation`; bei Netzwerkfehler `ok: false` mit verständlicher `error`-Meldung (HTTP 200). **[Muss]** (Dienst und Datenmengen **[Impl]**)
 
 #### Szenario: Keine Internetverbindung
 - **WENN** der Speedtest-Dienst nicht erreichbar ist
 - **DANN** `ok: false`, `error` „Speedtest fehlgeschlagen -- ist eine Internetverbindung vorhanden? (…)“, alle Messwerte leer
+
+#### Szenario: Zweiter paralleler Speedtest
+- **WENN** bereits ein Speedtest läuft und ein weiterer angefordert wird
+- **DANN** antwortet `POST /api/diagnostics/speedtest` mit 429 („Es läuft bereits ein Speedtest. Bitte kurz warten.“); die Sperre wird auch bei Abbruch freigegeben
 
 Quelle: `backend/app/diagnostics.py:292`–`backend/app/diagnostics.py:341`, `backend/app/main.py:1602`, `backend/app/tools.py:38` (kein Speedtest-Tool)
 
@@ -206,6 +221,5 @@ UI-Seite(n): `frontend/src/pages/start/StartPage.tsx` (Route `/`, Internet-Check
 
 ## OFFEN
 
-- > OFFEN: Keine Ratenbegrenzung/Parallelitätssperre: jeder MEMBER kann Speedtests (35 MB Verkehr) und lange Traceroutes beliebig oft parallel auslösen. → #120
 - > OFFEN: Die Latenz des Speedtests ist die erste Anfrage auf einer neuen Verbindung und enthält TCP- und TLS-Aufbau – systematisch zu hoch. → #151
 - > OFFEN: REST-Tool-Namen weichen von den LLM-Werkzeugnamen ab (`ping` vs. `ping_host`); Alternative vereinheitlichen? → #151

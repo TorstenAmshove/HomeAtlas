@@ -32,6 +32,10 @@ from mcp.server.lowlevel import Server
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 
 from . import db, tools
+from .limits import SlidingWindowLimiter
+
+# Per token (keyed by token id, never the secret). Process-local, see limits.py.
+_LIMITER = SlidingWindowLimiter(120, 60)
 
 server = Server("homeatlas")
 
@@ -76,6 +80,14 @@ class _BearerAuth:
                 {"error": "Kein gültiges MCP-Token. Siehe Einstellungen -> MCP-Server."},
                 status_code=401,
                 headers={"WWW-Authenticate": 'Bearer realm="homeatlas-mcp"'},
+            )
+            await response(scope, receive, send)
+            return
+        allowed, retry_after = _LIMITER.allow(row["id"])
+        if not allowed:
+            response = JSONResponse(
+                {"error": "Zu viele Anfragen. Bitte später erneut versuchen."},
+                status_code=429, headers={"Retry-After": str(retry_after)},
             )
             await response(scope, receive, send)
             return

@@ -37,13 +37,11 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (97)
+## Alle Punkte je Fähigkeit (94)
 
-### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (3)
+### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (1)
 
 1. `list_switches` nutzt jeden HA-Zugang unabhängig vom Opt-in „Zum Auslesen verwenden“ und fragt bei jedem Aufruf live alle HA-Instanzen ab. → #121
-2. Keine Gesamtzeitgrenze je Runde: bis zu 8 LLM-Aufrufe à 120 s plus Werkzeuge. → #120
-3. Kein Rate-Limit auf `/api/mcp`; `lastUsedAt` wird bei jeder Anfrage geschrieben. → #120
 
 ### [auth-und-rollen](capabilities/auth-und-rollen/spec.md) (14)
 
@@ -78,11 +76,10 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 2. Bei mehr als 10 kritischen Geräten werden still nur die ersten 10 (alphabetisch) gezeigt; die Kachel nennt die volle Zahl, ein Hinweis auf weitere fehlt. → #131
 3. Status `unknown` und jeder andere Wert erscheinen gleichermaßen als „wird geprüft…", auch wenn die Überwachung abgeschaltet ist (dann wird nichts geprüft). → #131
 
-### [diagnose](capabilities/diagnose/spec.md) (3)
+### [diagnose](capabilities/diagnose/spec.md) (2)
 
-1. Keine Ratenbegrenzung/Parallelitätssperre: jeder MEMBER kann Speedtests (35 MB Verkehr) und lange Traceroutes beliebig oft parallel auslösen. → #120
-2. Die Latenz des Speedtests ist die erste Anfrage auf einer neuen Verbindung und enthält TCP- und TLS-Aufbau – systematisch zu hoch. → #151
-3. REST-Tool-Namen weichen von den LLM-Werkzeugnamen ab (`ping` vs. `ping_host`); Alternative vereinheitlichen? → #151
+1. Die Latenz des Speedtests ist die erste Anfrage auf einer neuen Verbindung und enthält TCP- und TLS-Aufbau – systematisch zu hoch. → #151
+2. REST-Tool-Namen weichen von den LLM-Werkzeugnamen ab (`ping` vs. `ping_host`); Alternative vereinheitlichen? → #151
 
 ### [discovery-und-scan](capabilities/discovery-und-scan/spec.md) (2)
 
