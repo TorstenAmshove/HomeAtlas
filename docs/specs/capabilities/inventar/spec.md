@@ -150,16 +150,25 @@ Quelle: `backend/app/db.py:1133`, `backend/app/db.py:1224`, `backend/app/db.py:1
 Feldregeln für bestätigte/unbestätigte Geräte und UniFi-Namensvorrang: Requirement „Wiedererkennung
 bestehender Geräte“ in [discovery-und-scan](../discovery-und-scan/spec.md)
 
-### Requirement: „Kritisch" startet Überwachung sofort
-Das System MUSS jedes Gerät mit `importance=critical` und nicht-leerer IP oder Hostname sofort in
-die Dauerüberwachung aufnehmen (`monitored=1`): nach Anlegen, Bearbeiten, Zusammenführen, beim
-Start und vor jeder Überwachungsrunde – nicht erst beim nächsten Scan. **[Muss]**
+### Requirement: „Kritisch" schaltet die Überwachung einmalig ein
+Das System MUSS beim Übergang einer Bedeutung auf `critical` (Anlegen, Bearbeiten, Zusammenführen,
+Scan-Übernahme) für ein Gerät mit nicht-leerer IP oder Hostname einmalig `monitored=1` setzen.
+„Kritisch ⇒ überwacht" ist nur dieser Standard beim Markieren, keine feste Regel: ADMIN kann die
+Überwachung danach abwählen und sie bleibt aus (kein Zurücksetzen bei PATCH, Monitor-Runde, Scan
+oder Start). Ein im selben Schreibvorgang geänderter `monitored`-Wert gewinnt über den Standard.
+Ohne Adresse bleibt `monitored` unverändert (eine später nachgetragene Adresse schaltet nichts
+ein). Entfernen von „kritisch" ändert `monitored` nicht; erneutes Markieren ist ein neuer Übergang
+und schaltet wieder ein. **[Muss]**
 
 #### Szenario: Gerät wird kritisch
 - **WENN** ADMIN ein Gerät mit IP auf „kritisch" setzt
 - **DANN** ist es in der Antwort des PATCH bereits `monitored=1`
 
-Quelle: `backend/app/main.py:574`, `backend/app/db.py:1890`, `backend/app/monitor.py:144`
+#### Szenario: Überwachung abgewählt
+- **WENN** ADMIN bei einem kritischen Gerät `monitored` auf 0 setzt
+- **DANN** bleibt es 0, auch nach weiteren PATCHes, Monitor-Runden und Scans
+
+Quelle: `backend/app/db/systems.py::_enables_monitoring_on_critical`, Test: `backend/tests/test_critical_monitoring.py`
 
 ### Requirement: Gerät löschen
 Das System MUSS ADMIN erlauben, ein Gerät zu löschen. Dabei MÜSSEN mitgelöscht werden: direkt
@@ -522,5 +531,4 @@ UI-Seite(n): `frontend/src/pages/geraete/InventoryPage.tsx` (Route `/geraete`),
 - > OFFEN: `GET /api/systems/{id}` liefert MEMBER die Zugangs-Metadaten (Label, Benutzername, URL, Notizen) des Geräts; nur die UI blendet sie aus. Gewollt? → entschieden in #48: in Ordnung, solange keine Secrets
 - > OFFEN: DELETE lässt `deviceConfigVersions`, `deviceErrorEvents` und `monitorEvents` des Geräts verwaist zurück (`backend/app/db.py:692`), obwohl Merge sie bewusst umhängt; antwortet `ok` auch für unbekannte IDs. → #127
 - > OFFEN: Ist das behaltene Gerät Kind des entfernten, setzt Merge `parentId` des behaltenen auf sich selbst (`backend/app/db.py:884`). → #127
-- > OFFEN: Ein kritisches Gerät lässt sich nicht aus der Überwachung nehmen (`monitored=0` wird in der nächsten Runde wieder 1); wird „kritisch" entfernt, bleibt die Überwachung an. Gewollt? → #131
 - > OFFEN: Der Fehler-Badge verschwindet nie, weil Fehlerereignisse nicht quittiert oder gelöscht werden können (nur Kappung bei 100). → #132

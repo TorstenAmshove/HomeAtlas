@@ -38,7 +38,14 @@ export default function DeviceEditForm({ draft, onChange, onSave, onCancel, savi
         <div className="field">
           <label htmlFor="device-importance">Bedeutung</label>
           <select id="device-importance" value={draft.importance ?? "normal"}
-                  onChange={(e) => setDraft({ ...draft, importance: e.target.value as System["importance"] })}>
+                  onChange={(e) => {
+                    const importance = e.target.value as System["importance"];
+                    // Marking as critical switches monitoring on (if there is an address); it can be
+                    // unticked again below. Leaving "critical" keeps the tick as it is.
+                    const turnOn = importance === "critical" && draft.importance !== "critical"
+                      && Boolean(draft.ip || draft.hostname);
+                    setDraft({ ...draft, importance, ...(turnOn ? { monitored: 1 } : {}) });
+                  }}>
             <option value="critical">kritisch — Ausfall fällt im Haus auf</option>
             <option value="normal">normal</option>
             <option value="low">gering</option>
@@ -74,6 +81,9 @@ export default function DeviceEditForm({ draft, onChange, onSave, onCancel, savi
                onChange={(e) => setDraft({ ...draft, monitored: e.target.checked ? 1 : 0 })} />
         Dauerhaft überwachen (alle paar Sekunden prüfen)
       </label>
+      <div className="muted" style={{ fontSize: 13, marginBottom: 8 }}>
+        Kritische Geräte werden beim Markieren automatisch überwacht; hier lässt es sich wieder abschalten.
+      </div>
       {Boolean(draft.monitored) && (
         <div className="field">
           <label htmlFor="device-ports">Zu prüfende Ports (optional, max. 3)</label>
