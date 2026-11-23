@@ -100,6 +100,9 @@ def delete_system(system_id: str) -> None:
         conn.execute("DELETE FROM accounts WHERE systemId = ?", (system_id,))
         conn.execute("DELETE FROM systemAliases WHERE systemId = ?", (system_id,))
         conn.execute("DELETE FROM duplicateDismissals WHERE idA = ? OR idB = ?", (system_id, system_id))
+        # History rows belong to the device; merge_systems repoints them, a delete drops them.
+        for table in ("deviceConfigVersions", "deviceErrorEvents", "monitorEvents"):
+            conn.execute(f"DELETE FROM {table} WHERE systemId = ?", (system_id,))
         conn.execute("DELETE FROM systems WHERE id = ?", (system_id,))
 
 
@@ -209,7 +212,9 @@ def merge_systems(keep_id: str, remove_id: str) -> dict | None:
     row it's merged into. Every other table that points at `remove_id` by systemId is repointed to
     `keep_id` rather than dropped, so its accounts, config/error history and monitor events survive
     the merge instead of vanishing with the deleted row -- same manual-cleanup convention as
-    delete_system above, since this codebase declares no FK constraints anywhere.
+    delete_system above, since this codebase declares no FK constraints anywhere. Children of
+    `remove_id` move to `keep_id`; if `keep_id` itself was a child of `remove_id` it takes over
+    `remove_id`'s parent (or none), never itself.
     """
     if keep_id == remove_id:
         return get_system(keep_id)
@@ -275,7 +280,12 @@ def merge_systems(keep_id: str, remove_id: str) -> dict | None:
         if keep_mac:
             conn.execute("DELETE FROM systemAliases WHERE aliasKey = ?", (f"mac:{keep_mac}",))
         conn.execute("DELETE FROM duplicateDismissals WHERE idA = ? OR idB = ?", (remove_id, remove_id))
-        conn.execute("UPDATE systems SET parentId = ? WHERE parentId = ?", (keep_id, remove_id))
+        # If `keep` was a child of `remove`, it inherits remove's parent (or none) -- repointing
+        # it below would make it its own parent. Must run before the children are repointed.
+        conn.execute("UPDATE systems SET parentId = ? WHERE id = ? AND parentId = ?",
+                     (remove.get("parentId") or None, keep_id, remove_id))
+        conn.execute("UPDATE systems SET parentId = ? WHERE parentId = ? AND id != ?",
+                     (keep_id, remove_id, keep_id))
         conn.execute("UPDATE accounts SET systemId = ? WHERE systemId = ?", (keep_id, remove_id))
         conn.execute(
             "UPDATE accountAssignments SET targetValue = ? WHERE targetType = 'system' AND targetValue = ?",
