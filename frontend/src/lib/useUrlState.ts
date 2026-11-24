@@ -7,7 +7,8 @@ import { useSearchParams } from "react-router-dom";
  *
  * The default value is never written: `?tab=` disappears when the tab is back at its default.
  * Updates replace the history entry by default (typing into a filter must not create one entry per
- * key stroke); pass `{ push: true }` for changes that should be their own Back step, such as tabs.
+ * key stroke); pass `{ push: true }` for changes that should be their own Back step. (Tabs do not: they replace the
+ * entry, so Back leaves the page in one step.)
  */
 export function useUrlState(
   key: string,

@@ -52,6 +52,8 @@ const TAB_HINT: Record<Tab, string> = {
  * and "Token widerrufen" under "⋯" with a review step.
  */
 
+type TabSource = "nav" | "list";
+
 export default function SettingsPage() {
   const { isAdmin, user } = useAuth();
   const navigate = useNavigate();
@@ -64,7 +66,7 @@ export default function SettingsPage() {
   const [editedTab, setEditedTab] = useState<Tab | null>(null);
   const [accountDirty, setAccountDirty] = useState(false);
   const [accountKey, setAccountKey] = useState(0);
-  const [pendingTab, setPendingTab] = useState<Tab | "" | null>(null);
+  const [pendingTab, setPendingTab] = useState<{ tab: Tab | ""; source: TabSource } | null>(null);
 
   const TABS: [Tab, string][] = isAdmin
     ? [["general", "Allgemein"], ["llm", "KI-Assistent"], ["scan", "Netzwerk-Scan"],
@@ -83,22 +85,25 @@ export default function SettingsPage() {
   const dirtyWhere = [formDirty ? tabLabel(editedTab) : "", accountDirty ? tabLabel("account") : ""].filter(Boolean);
   const [leaveDialog] = useLeaveGuard(dirty, "den Einstellungen");
 
-  function goTab(value: Tab | "") {
+  function goTab(value: Tab | "", source: TabSource = "list") {
     // From the phone's list into a sub-page: remember it, so "← Einstellungen" is a real Back.
     if (value === "") {
       if ((location.state as { fromList?: boolean } | null)?.fromList) navigate(-1);
       else setTabParam("", { push: true });
     } else {
-      navigate({ search: `?tab=${value}` }, { state: { fromList: onList } });
+      // Desktop tab strip: switching tabs replaces the entry, so Back leaves Settings in one step.
+      // Phone list: a real push, remembered via fromList so "← Einstellungen" is a real Back.
+      if (source === "nav") navigate({ search: `?tab=${value}` }, { replace: true, state: { fromList: false } });
+      else navigate({ search: `?tab=${value}` }, { state: { fromList: onList } });
     }
   }
 
-  function setTab(value: Tab) {
+  function setTab(value: Tab, source: TabSource) {
     if (dirty && value !== tab) {
-      setPendingTab(value);
+      setPendingTab({ tab: value, source });
       return;
     }
-    goTab(value);
+    goTab(value, source);
   }
 
   function discardChanges() {
@@ -734,14 +739,14 @@ export default function SettingsPage() {
           const target = pendingTab;
           setPendingTab(null);
           discardChanges();
-          if (target !== null) goTab(target);
+          if (target !== null) goTab(target.tab, target.source);
         }}
       />
 
       <nav className="settings-nav" aria-label="Einstellungen: Bereiche">
         {TABS.map(([value, label]) => (
           <button key={value} type="button" className="settings-nav-item" aria-current={tab === value ? "page" : undefined}
-                  onClick={() => setTab(value)}>
+                  onClick={() => setTab(value, "nav")}>
             {label}
             {dirtyDot(value)}
           </button>
@@ -751,7 +756,7 @@ export default function SettingsPage() {
       <ul className="settings-list" aria-label="Einstellungen: Bereiche (Liste)">
         {TABS.map(([value, label]) => (
           <li key={value}>
-            <button type="button" className="settings-nav-item" onClick={() => setTab(value)}>
+            <button type="button" className="settings-nav-item" onClick={() => setTab(value, "list")}>
               <span style={{ flex: 1 }}>
                 {label}
                 <span className="settings-nav-sub">{TAB_HINT[value]}</span>

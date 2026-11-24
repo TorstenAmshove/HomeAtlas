@@ -628,7 +628,7 @@ export default function DevicePage() {
 
           <nav className={`dv-tabs${tab === "ueberblick" ? "" : " dv-tabs-top"}`} aria-label="Bereiche dieses Geräts">
             {tabs.map((t) => (
-              <Link key={t.id} to={{ search: t.id === "ueberblick" ? "" : `?tab=${t.id}` }}
+              <Link key={t.id} replace to={{ search: t.id === "ueberblick" ? "" : `?tab=${t.id}` }}
                     className={`dv-tab${tab === t.id ? " active" : ""}`} aria-current={tab === t.id ? "page" : undefined}>
                 {t.label}
               </Link>

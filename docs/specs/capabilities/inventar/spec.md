@@ -520,6 +520,11 @@ Ein angezeigtes Passwort wird nach 30 s wieder verborgen. **[Muss]** (Aufteilung
 - **WENN** jemand `/geraete/<id>?tab=technik` neu lädt
 - **DANN** ist wieder der Tab „Technik“ offen
 
+#### Szenario: Zurück überspringt die Tabs
+- **WENN** jemand aus der Geräteliste (oder Netzplan, Suche) ein Gerät öffnet und mehrere Tabs wechselt
+- **DANN** ersetzt jeder Tab-Wechsel den Verlaufseintrag, und Zurück (Kopf-Button und Browser) führt in einem
+  Schritt dorthin zurück, wo das Gerät geöffnet wurde; bei Direktaufruf geht der Kopf-Button zur Geräteliste
+
 #### Szenario: Passwort verbirgt sich
 - **WENN** ein ADMIN im Tab „Zugänge“ „Passwort anzeigen“ klickt
 - **DANN** ist das Passwort nach 30 s nicht mehr zu sehen

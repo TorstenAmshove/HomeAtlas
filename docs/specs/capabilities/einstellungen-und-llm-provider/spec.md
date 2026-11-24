@@ -95,7 +95,9 @@ Quelle: `backend/app/db.py:462`, `backend/app/db.py:474`, Test: `backend/tests/t
 
 ### Requirement: Einstellungs-Reiter in der URL
 Die Seite MUSS den offenen Reiter in `?tab=` halten (`general`, `llm`, `scan`, `monitor`,
-`mcp`, `account`, `display`, `about`), sodass Zurück und Neuladen auf ihm landen; ein Reiter, den die
+`mcp`, `account`, `display`, `about`), sodass Neuladen und ein geteilter Link auf ihm landen. Ein Reiterwechsel auf dem
+Desktop ersetzt den Verlaufseintrag, Zurück verlässt die Einstellungen in einem Schritt (die Telefon-Liste dagegen legt
+einen Eintrag an, damit „← Einstellungen“ ein echtes Zurück ist); ein Reiter, den die
 Rolle nicht hat, fällt auf den ersten erlaubten zurück (MEMBER: Konto). Auf dem Desktop MUSS
 die Seite die Reiter als Liste links zeigen und auf dem Handy als Liste mit
 Unterseite (ohne `?tab=` die Liste); mit ungespeicherten Änderungen MUSS ein Reiterwechsel nachfragen

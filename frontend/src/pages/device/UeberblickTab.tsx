@@ -57,7 +57,7 @@ export default function UeberblickTab({ system, derived, accounts, isAdmin, hist
         </Section>
 
         <Section title="Zuletzt" id="dv-recent"
-                 aside={<Link className="dv-link" to="?tab=verlauf">Alle anzeigen</Link>}>
+                 aside={<Link className="dv-link" replace to="?tab=verlauf">Alle anzeigen</Link>}>
           {history === null ? (
             <SkeletonText lines={2} />
           ) : latest.length === 0 ? (
@@ -87,7 +87,7 @@ export default function UeberblickTab({ system, derived, accounts, isAdmin, hist
             ["Strom", needsPoe ? "braucht PoE (PoE-Switch oder Injector)" : ""],
             ["Schlagworte", (system.tags ?? []).join(", ")],
             ["Zugänge", isAdmin && accounts.length > 0
-              ? <Link className="dv-link" to="?tab=zugaenge">{accounts.length === 1 ? "1 Zugang hinterlegt" : `${accounts.length} Zugänge hinterlegt`}</Link>
+              ? <Link className="dv-link" replace to="?tab=zugaenge">{accounts.length === 1 ? "1 Zugang hinterlegt" : `${accounts.length} Zugänge hinterlegt`}</Link>
               : ""],
           ]} />
           {!system.model && !system.vendor && !system.location && !needsPoe && (
