@@ -98,7 +98,7 @@ Paar `(idA, idB)`, das ein Mensch als „kein Duplikat“ markiert hat.
 |---|---|
 | systemId | optional, zugehöriges Gerät |
 | label | |
-| category | `contract, login, sshkey, snmp, unifi, homeassistant, proxmox, wifi, apikey, other` (`frontend/src/pages/AccountsPage.tsx:5`) |
+| category | `contract, login, sshkey, unifi, homeassistant, proxmox, wifi, apikey, other` (`frontend/src/pages/AccountsPage.tsx:5`) |
 | username | |
 | secretEnc | Passwort / privater Schlüssel / Token, verschlüsselt **[Muss]** |
 | passphraseEnc | Passphrase eines SSH-Schlüssels, verschlüsselt |

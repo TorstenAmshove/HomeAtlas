@@ -118,11 +118,6 @@
 .app-shell .device-page .dv-secret-value {
   padding: 2px 8px; border-radius: 6px; background: var(--c-surface-2); overflow-wrap: anywhere; user-select: all;
 }
-.app-shell .device-page .dv-supply { margin: 8px 0 12px; }
-.app-shell .device-page .dv-supply-head { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 14px; }
-.app-shell .device-page .dv-bar { height: 8px; border-radius: 999px; background: var(--c-surface-2); overflow: hidden; }
-.app-shell .device-page .dv-bar > div { height: 100%; background: var(--c-ok); }
-.app-shell .device-page .dv-bar.low > div { background: var(--c-bad); }
 .app-shell .device-page .dv-probe { margin: 12px 0 16px; }
 .app-shell .device-page .dv-probe summary { min-height: 36px; display: inline-flex; align-items: center; }
 

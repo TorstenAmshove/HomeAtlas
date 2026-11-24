@@ -483,8 +483,7 @@ Die Detailseite MUSS zeigen: Kopf (Name, Zweck, Zustand, kritisch, Fehleranzahl 
 Fehlerprotokoll, PoE, überwacht mit Port/Ping, „automatisch gefunden", Links Weboberfläche /
 Hersteller-Doku / eigene Doku), Beschreibung (eigene oder abgeleitet mit Hinweis) und Notiz,
 technische Daten (IP, Hostname, MAC, Hersteller, Modell, Standort, zuletzt/erstmals gesehen,
-Quelle; nur befüllte), je nach Daten: Verbrauchsmaterial (Drucker, Balken rot ≤ 15 %),
-Container-Details, „Direkt vom Gerät ausgelesen", Konfigurationsverlauf (nur Art `router`/`network`,
+Quelle; nur befüllte), je nach Daten: Container-Details, „Direkt vom Gerät ausgelesen", Konfigurationsverlauf (nur Art `router`/`network`,
 Ansehen/Herunterladen; Base64-Inhalt als `.cfg`, sonst `.txt`), erreichbare Dienste (mit
 Adressspalte bei mehreren Interfaces). ADMIN zusätzlich: Bearbeiten, Löschen, Auslesen,
 Zusammenführen-Bereich („Weitere IPs/MACs", Duplikat-Hinweise, „Zusammenführen…") und

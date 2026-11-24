@@ -20,13 +20,10 @@ def _acct(label, category, **kw):
     return {"label": label, "category": category, **kw}
 
 
-def _patch(monkeypatch, *, ssh=None, snmp=None, ha=None, http=None, tr064=None):
+def _patch(monkeypatch, *, ssh=None, ha=None, http=None, tr064=None):
     """Each argument maps account label -> result (tr064: a single result)."""
     async def fake_ssh(host, account, platform=""):
         return (ssh or {})[account["label"]]
-
-    async def fake_snmp(host, account, kind=""):
-        return (snmp or {})[account["label"]]
 
     async def fake_ha(url, account):
         return (ha or {})[account["label"]]
@@ -38,7 +35,6 @@ def _patch(monkeypatch, *, ssh=None, snmp=None, ha=None, http=None, tr064=None):
         return tr064 if tr064 is not None else _fail("keine Antwort")
 
     monkeypatch.setattr(probe_auth, "probe_ssh", fake_ssh)
-    monkeypatch.setattr(probe_auth, "probe_snmp", fake_snmp)
     monkeypatch.setattr(probe_auth, "probe_homeassistant", fake_ha)
     monkeypatch.setattr(probe_auth, "probe_http", fake_http)
     monkeypatch.setattr(probe_auth, "probe_fritzbox", fake_fritz)
@@ -65,10 +61,10 @@ def test_all_failed_kept_not_superseded(monkeypatch):
     assert out["ran"] is True
 
 
-def test_snmp_superseded(monkeypatch):
-    _patch(monkeypatch, snmp={"a": _fail(), "b": _ok()})
-    out = _run({}, [_acct("a", "snmp"), _acct("b", "snmp")])
-    assert out["results"]["snmp:a"]["superseded"] is True
+def test_ssh_superseded(monkeypatch):
+    _patch(monkeypatch, ssh={"a": _fail(), "b": _ok()})
+    out = _run({}, [_acct("a", "sshkey"), _acct("b", "sshkey")])
+    assert out["results"]["ssh:a"]["superseded"] is True
 
 
 def test_ha_superseded(monkeypatch):
@@ -86,22 +82,22 @@ def test_mixed_kinds_http_failure_not_superseded(monkeypatch):
 
 
 def test_two_ok_one_failed(monkeypatch):
-    _patch(monkeypatch, snmp={"a": _ok(), "b": _ok(), "c": _fail()})
-    out = _run({}, [_acct("a", "snmp"), _acct("b", "snmp"), _acct("c", "snmp")])
-    assert out["results"]["snmp:c"]["superseded"] is True
-    assert "superseded" not in out["results"]["snmp:a"]
+    _patch(monkeypatch, ssh={"a": _ok(), "b": _ok(), "c": _fail()})
+    out = _run({}, [_acct("a", "sshkey"), _acct("b", "sshkey"), _acct("c", "sshkey")])
+    assert out["results"]["ssh:c"]["superseded"] is True
+    assert "superseded" not in out["results"]["ssh:a"]
 
 
 def test_failure_without_error_field(monkeypatch):
-    _patch(monkeypatch, snmp={"a": {"ok": False, "facts": {}}, "b": _ok()})
-    out = _run({}, [_acct("a", "snmp"), _acct("b", "snmp")])
-    assert out["results"]["snmp:a"]["superseded"] is True
+    _patch(monkeypatch, ssh={"a": {"ok": False, "facts": {}}, "b": _ok()})
+    out = _run({}, [_acct("a", "sshkey"), _acct("b", "sshkey")])
+    assert out["results"]["ssh:a"]["superseded"] is True
 
 
 def test_same_label_same_kind_overwrites(monkeypatch):
-    _patch(monkeypatch, snmp={"a": _ok()})
-    out = _run({}, [_acct("a", "snmp"), _acct("a", "snmp")])
-    assert list(out["results"]) == ["snmp:a"]
+    _patch(monkeypatch, ssh={"a": _ok()})
+    out = _run({}, [_acct("a", "sshkey"), _acct("a", "sshkey")])
+    assert list(out["results"]) == ["ssh:a"]
 
 
 @pytest.mark.parametrize("category", ["login", "apikey"])

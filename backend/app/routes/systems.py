@@ -278,7 +278,6 @@ async def probe_system(system_id: str, _: dict = Depends(require_admin)) -> dict
     purpose = ""
     ran = False
     learned_arp: dict[str, str] = {}
-    printer_supplies: list[dict] = []
 
     if device_path:
         if settings.get("scanUseCredentials", True):
@@ -286,7 +285,7 @@ async def probe_system(system_id: str, _: dict = Depends(require_admin)) -> dict
             results.update(device["results"])
             purpose = device["purpose"]
             ran = device["ran"]
-            learned_arp, printer_supplies = device["learnedArp"], device["printerSupplies"]
+            learned_arp = device["learnedArp"]
             if not device["ran"] and device["reason"]:
                 reasons.append(device["reason"])
         else:
@@ -327,8 +326,6 @@ async def probe_system(system_id: str, _: dict = Depends(require_admin)) -> dict
         pipeline._link_unifi_topology()
     if learned_arp:
         await pipeline._learn_devices_from_arp(learned_arp, lambda _line: None)
-    if printer_supplies:
-        pipeline._apply_printer_supplies(printer_supplies, lambda _line: None)
 
     outcome = {"ran": ran, "results": results, "purpose": purpose,
                "reason": "" if ran else " · ".join(reasons)}
@@ -337,7 +334,7 @@ async def probe_system(system_id: str, _: dict = Depends(require_admin)) -> dict
 
 @router.get("/api/systems/{system_id}/config-versions")
 async def list_config_versions(system_id: str, _: dict = Depends(require_admin)) -> dict:
-    """Admin-only, like the content below: an export can carry SNMP communities, RADIUS secrets and
+    """Admin-only, like the content below: an export can carry RADIUS secrets and
     WiFi keys, the same class of data as accounts.secretEnc."""
     if db.get_system(system_id) is None:
         raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")

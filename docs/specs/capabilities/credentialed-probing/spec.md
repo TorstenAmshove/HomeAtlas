@@ -7,7 +7,7 @@
 Hat ein Admin für ein Gerät Zugangsdaten hinterlegt und ausdrücklich zum Auslesen freigegeben,
 meldet sich HomeAtlas dort an und liest Eckdaten, die ein reiner Netzwerkscan nicht sieht:
 Betriebssystem, Hardware, VLANs, Nachbarn, ARP-Tabellen, Gerätekonfiguration, Automationen,
-Tonerstand, verwaltete Geräte eines Controllers, VMs eines Hypervisors. Das Auslesen ist
+verwaltete Geräte eines Controllers, VMs eines Hypervisors. Das Auslesen ist
 beweisbar lesend: nichts wird am Gerät geändert. Läuft automatisch im Vollscan und auf Knopfdruck
 je Gerät.
 
@@ -106,7 +106,7 @@ Adresse läuft nichts, Grund „Keine Adresse hinterlegt.“): **[Muss]**
   wäre ein Fehlversuch mit Zugangsdaten für einen anderen Dienst – bewusst so, `sshkey` ist
   eindeutig SSH und darf jeden Port haben), wenn eine Netzwerk-Plattform erkannt ist oder `kind` ∈
   {server, nas, vm, pc, container}.
-- `snmp`: SNMP. `homeassistant`: Home-Assistant-API (URL des Zugangs, sonst des Geräts).
+- `homeassistant`: Home-Assistant-API (URL des Zugangs, sonst des Geräts).
 - `login`/`apikey` mit URL (Zugang, sonst Gerät): HTTP-GET-Anmeldung.
 - Gerät mit „fritz“ in Hersteller/Modell/Name oder `kind = router`: TR-064. Der erste Zugang der
   Kategorie `login` wird nur bei „fritz“ in Hersteller/Modell/Name mitgegeben (auch ohne Zugang,
@@ -126,7 +126,7 @@ Adresse läuft nichts, Grund „Keine Adresse hinterlegt.“): **[Muss]**
 Quelle: `backend/app/probe_auth.py:1367`
 
 ### Requirement: Ergebnisse je Art
-Das System MUSS jedes Probe-Ergebnis unter `<art>:<label>` (`ssh`, `snmp`, `ha`, `http`) bzw.
+Das System MUSS jedes Probe-Ergebnis unter `<art>:<label>` (`ssh`, `ha`, `http`) bzw.
 `tr064` speichern, auch Fehlschläge (inkl. HTTP-Anmeldung abgelehnt/nicht erreichbar), damit die
 Pipeline je Fehlschlag ein Fehlerereignis schreibt. Ein Fehlschlag, neben dem ein Zugang
 derselben Art Erfolg hatte, MUSS mit `superseded = true` markiert werden (die Technik-Seite zeigt
@@ -236,41 +236,14 @@ Das System MUSS mit Long-Lived-Token (Bearer) zuerst `GET <basis>/api/` prüfen 
 prüfen“ melden; dann `GET /api/states` lesen und liefern: bis zu 60 Automationen inkl.
 deaktivierter („ein“/„aus“), Beschreibung aus der Automationskonfiguration oder ersatzweise
 Kurzfassung „Auslöser: …; Aktion: …“, „zuletzt ausgelöst“ als `TT.MM.JJJJ HH:MM` (unparsbar →
-Rohwert); KNX-Anbindung aus `knx_interface`-Sensoren; Drucker-Verbrauchsmaterial aus
-`sensor.*`-Entitäten mit toner/ink/cartridge/drum. Timeout 15 s/Connect 5 s; nur GET. **[Muss]**
+Rohwert); KNX-Anbindung aus `knx_interface`-Sensoren. Timeout 15 s/Connect 5 s; nur GET. **[Muss]**
 
 #### Szenario: Falsche Adresse
 - **WENN** unter `/api/` ein anderer Webserver ohne die erwartete Meldung antwortet
 - **DANN** ist der Fehler „… hat nicht wie die Home-Assistant-API geantwortet -- Adresse prüfen …“,
   nicht „Token abgelehnt“
 
-Quelle: `backend/app/probe_auth.py:675`, `backend/app/probe_auth.py:704`, Test: `backend/tests/test_probe_auth_homeassistant.py::test_self_check_reports_wrong_endpoint_distinctly_from_auth_failure`, `backend/tests/test_probe_auth_printer_supplies.py::test_probe_homeassistant_includes_disabled_automations_with_explicit_status`, `backend/tests/test_probe_auth_homeassistant.py::test_automation_line_includes_last_triggered_when_present`
-
-### Requirement: SNMP nur lesend
-Das System MUSS SNMP v2c mit der Community aus dem Zugang (Port aus Zugang, Default 161) nur per
-`snmpget`/`snmpwalk` mit fester Argumentliste (kein Shell-String) abfragen, je Aufruf `-t 3 -r 1`
-und harte Obergrenze 10 s; feste OIDs: sysName, sysDescr, ifDescr (Walk), LLDP-Remote-Tabelle,
-Q-BRIDGE-VLANs, ipNetToMediaPhysAddress. Ausgaben mit „Timeout“/„No Such“ werden verworfen, sonst
-≤20.000 Zeichen. Ohne Antwort: „Keine SNMP-Antwort von <host:port>. Community-Zeichenkette prüfen …“. **[Muss]**
-
-#### Szenario: Kein Druckerteil bei Nicht-Druckern
-- **WENN** der Zugang an einem Gerät mit `kind ≠ printer` hängt
-- **DANN** werden keine Toner-OIDs abgefragt
-
-Quelle: `backend/app/probe_auth.py:905`, Test: `backend/tests/test_probe_auth_printer_snmp.py::test_probe_snmp_skips_printer_supplies_for_non_printer_kind`
-
-### Requirement: Druckerverbrauchsmaterial per SNMP
-Das System MUSS bei `kind = printer` Tonerstände je Farbe (Schwarz, Magenta, Cyan, Gelb) aus den
-Brother-OIDs lesen und bei fehlendem oder exakt 0 % Wert auf die Printer-MIB-Zeile der Farbe
-(englischer Farbname in der Beschreibung) zurückfallen; ohne verlässlichen Wert entfällt die Farbe.
-Negative Level (RFC-3805-Statuscodes) und Kapazität ≤ 0 sind nie Prozentwerte. Nicht-Toner-Teile
-(Trommel, Band …) erscheinen separat als Wartungsteile. Jeder Fallback wird mit Rohwerten geloggt. **[Muss]**
-
-#### Szenario: Falsche 0 % bei Magenta
-- **WENN** die Brother-OID für Magenta 0 liefert, die Printer-MIB-Zeile „Magenta Toner“ aber 40/100
-- **DANN** wird Magenta mit 40 % gespeichert, die anderen Farben bleiben unberührt
-
-Quelle: `backend/app/probe_auth.py:1115`, Test: `backend/tests/test_probe_auth_printer_snmp.py::test_merge_brother_toner_levels_falls_back_when_direct_oid_is_zero`, `backend/tests/test_probe_auth_printer_snmp.py::test_percent_from_level_capacity_rejects_negative_level_and_nonpositive_capacity`, `backend/tests/test_probe_auth_printer_snmp.py::test_probe_snmp_reports_drum_and_belt_under_consumables_maintenance`
+Quelle: `backend/app/probe_auth.py:675`, `backend/app/probe_auth.py:704`, Test: `backend/tests/test_probe_auth_homeassistant.py::test_self_check_reports_wrong_endpoint_distinctly_from_auth_failure`, `backend/tests/test_probe_auth_homeassistant_no_printer.py::test_printer_sensors_ignored_automations_kept`, `backend/tests/test_probe_auth_homeassistant.py::test_automation_line_includes_last_triggered_when_present`
 
 ### Requirement: FRITZ!Box TR-064
 Das System MUSS auf Port 49000 `tr64desc.xml` ohne Anmeldung lesen (Gerätename, Modell,
@@ -299,7 +272,7 @@ Quelle: `backend/app/probe_auth.py:1328`, `backend/app/pipeline.py:83`
 
 ### Requirement: Ergebnisse am Gerät speichern
 Das System MUSS die Ergebnisse je Quelle (Schlüssel `<art>:<Zugangsbezeichnung>`, z. B.
-`ssh:Root`, `snmp:…`, `ha:…`, `http:…`, `tr064`, `unifi:…`) mit `ok`, `error`, `facts`
+`ssh:Root`, `ha:…`, `http:…`, `tr064`, `unifi:…`) mit `ok`, `error`, `facts`
 (`{label, value}`) und ggf. `warnings` am Gerät ablegen und dabei das vorige Probe-Ergebnis
 vollständig ersetzen. Leere Felder `purpose` (aus Rollenhinweisen: Docker → Server mit Containern,
 Virtualisierung → VM/Container), im Vollscan zusätzlich `os` (erste Zeile, ≤120) und `model`
@@ -330,29 +303,13 @@ Assistenten. **[Muss]** Test: `backend/tests/test_secrets_at_rest.py`
 Quelle: `backend/app/probe_auth.py:1529`, `backend/app/db.py:1694`
 
 ### Requirement: Geräte aus Router-ARP-Tabellen lernen
-Das System MUSS im Vollscan aus ARP-/Hostlisten-Fakten (`arp_table`, `arpTable`, `hostList`)
+Das System MUSS im Vollscan aus ARP-/Hostlisten-Fakten (`arp_table`, `hostList`)
 erfolgreicher Probes von Geräten mit `kind = router` IP→MAC-Paare lesen (Formate: Linux, RouterOS,
-Cisco-Punktnotation, Aruba `aabbcc-ddeeff`, SNMP-Oktette; 0.0.0.0/255.255.255.255 ignoriert) und
+Cisco-Punktnotation, Aruba `aabbcc-ddeeff`; 0.0.0.0/255.255.255.255 ignoriert) und
 für Paare, deren MAC und IP noch unbekannt sind, Geräte anlegen: `kind = other`, Name aus
 Reverse-DNS, sonst „<Herstellerwort> (<letztes Oktett>)“, sonst IP; Quelle `gateway-arp`. **[Muss]**
 
-#### Szenario: SNMP-Walk-Zeile
-- **WENN** eine Zeile `IP-MIB::ipNetToMediaPhysAddress.6.192.168.1.40 = STRING: aa bb cc dd ee ff` lautet
-- **DANN** ergibt sich `192.168.1.40 → aa:bb:cc:dd:ee:ff` (Schnittstellenindex 6 nicht als Oktett)
-
-Quelle: `backend/app/probe_auth.py:1465`, `backend/app/pipeline.py:142`, Test: `backend/tests/test_probe_auth_arp.py::test_parse_arp_pairs_snmp_walk_space_separated_octets`, `backend/tests/test_probe_auth_arp.py::test_extract_arp_entries_merges_across_facts_and_skips_failed_results`
-
-### Requirement: Druckerstände dem richtigen Drucker zuordnen
-Das System MUSS im Vollscan Prozentzeilen („- Name: Wert%“) aus `printerSupplies`-Fakten an
-Drucker im Inventar (`extra.printerSupplies`) hängen: bei genau einem Drucker alles an diesen,
-sonst je Wert an den Drucker mit größter Wortüberlappung (Wörter ≥3 Zeichen aus Name/Hersteller/
-Modell); ohne Überlappung verworfen. Nicht-Prozentwerte werden nicht übernommen. **[Muss]**
-
-#### Szenario: Rohcode statt Prozent
-- **WENN** ein Sensor einen HP-Versorgungscode statt eines Prozentwerts liefert
-- **DANN** wird er nicht als Füllstand übernommen
-
-Quelle: `backend/app/probe_auth.py:1494`, `backend/app/pipeline.py:196`, Test: `backend/tests/test_probe_auth_printer_supplies.py::test_extract_printer_supplies_ignores_non_percentage_and_failed_results`
+Quelle: `backend/app/probe_auth.py:1465`, `backend/app/pipeline.py:142`, Test: `backend/tests/test_probe_auth_arp.py::test_extract_arp_entries_merges_across_facts_and_skips_failed_results`
 
 ### Requirement: Fehler und Warnungen je Gerät protokollieren
 Das System MUSS im Vollscan jedes fehlgeschlagene Ergebnis als Fehlerereignis und jede Warnung
@@ -444,7 +401,7 @@ Druckerfüllstände) ab, nicht die Controller-Probes. **[Muss]**
 #### Szenario: Auslesen abgeschaltet
 - **WENN** `scanUseCredentials = false` und ein freigegebener `unifi`-Zugang existiert
 - **DANN** protokolliert der Scan „Auslesen per Zugangsdaten ist in den Einstellungen abgeschaltet“
-  und liest kein Gerät einzeln aus (SSH/HTTP/SNMP/TR-064/HA), meldet sich aber weiterhin mit dem Zugang am
+  und liest kein Gerät einzeln aus (SSH/HTTP/TR-064/HA), meldet sich aber weiterhin mit dem Zugang am
   UniFi-Controller an (ebenso Proxmox, sofern deren `scanEnable*` an ist)
 
 Quelle: `backend/app/pipeline.py:376`, `backend/app/pipeline.py:387`–`:455`, `backend/app/pipeline.py:521`
@@ -498,7 +455,7 @@ Siehe [data-model](../../contracts/data-model.md).
 - Liest `accounts` (alle Felder, `secretEnc`/`passphraseEnc` entschlüsselt nur im Speicher),
   `accountAssignments`, `systems` (ip, hostname, kind, vendor, model, name, os, openPorts, url, purpose).
 - Schreibt `systems.extra.probe` (Ergebnisse), `systems.purpose/os/model` (nur leer),
-  `systems.extra.printerSupplies`, neue/aktualisierte `systems` aus
+  neue/aktualisierte `systems` aus
   Controller-/Docker-/ARP-Funden, `networkResources` (UniFi), `deviceConfigVersions`
   (`content` verschlüsselt), `deviceErrorEvents` (Level `error`/`warning`).
 - Settings: `scanUseCredentials`, `scanEnableDocker`, `scanEnableUnifi`,
@@ -525,13 +482,12 @@ auslesen“, nur Admin und nur wenn ein Zugang `allowProbe` hat).
 - Keine Konfigurationsänderung, kein Neustart, kein Zurückspielen von Sicherungen; HomeAtlas hat keine
   Fernwartung (ADR-0023). Bestehende `sshkey`-Zugänge werden weiter nur lesend genutzt.
 - Keine Hostschlüssel-/Zertifikatsprüfung (SSH, HTTPS, Controller-APIs).
-- SNMP nur v2c; keine strukturierte Auswertung von VLAN-/LLDP-Walks (Rohtext).
 - Klassisches Aruba (das Zugangsformular der Kategorie `login` weist am Benutzernamen darauf hin): kein Beantworten einer `enable`-Passwortabfrage – nur Konten mit
   Manager-Rechten liefern `show running-config`.
 
 ## Ist-Implementierung (nur Referenz, [Impl])
 
-- Python/asyncssh, httpx, net-snmp-CLI (`snmpget`/`snmpwalk`) per `create_subprocess_exec`.
+- Python/asyncssh, httpx.
 - Pro SSH-Befehl ein eigener Exec-Kanal (außer klassisches Aruba: eine interaktive Sitzung).
 - `persist_config_backups` ist der einzige Speicherzugriff in `probe_auth.py`.
 - Ergebnis-Dict je Probe: `{ok, error, facts, warnings?}`; Faktwerte sind Text, mehrzeilig möglich.

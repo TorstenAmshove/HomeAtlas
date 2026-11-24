@@ -64,7 +64,7 @@ def test_manual_and_full_scan_same_facts(client, monkeypatch):
     for s in db.list_systems():
         if s["id"] != system["id"]:
             db.delete_system(s["id"])
-    probed, _w, arp, _p = asyncio.run(pipeline._probe_with_credentials(lambda _l: None))
+    probed, _w, arp = asyncio.run(pipeline._probe_with_credentials(lambda _l: None))
     asyncio.run(pipeline._learn_devices_from_arp(arp, lambda _l: None))
     assert probed == 1
     assert _snapshot(system["id"]) == manual

@@ -33,11 +33,6 @@ def test_parse_arp_pairs_aruba_dashed_hex_sextets():
     assert probe_auth.parse_arp_pairs(text) == {"192.168.1.30": "aa:bb:cc:dd:ee:ff"}
 
 
-def test_parse_arp_pairs_snmp_walk_space_separated_octets():
-    text = "IP-MIB::ipNetToMediaPhysAddress.6.192.168.1.40 = STRING: aa bb cc dd ee ff\n"
-    assert probe_auth.parse_arp_pairs(text) == {"192.168.1.40": "aa:bb:cc:dd:ee:ff"}
-
-
 def test_parse_arp_pairs_ignores_broadcast_and_unspecified():
     text = (
         "0.0.0.0 dev eth0 lladdr aa:bb:cc:dd:ee:ff\n"
@@ -61,8 +56,8 @@ def test_extract_arp_entries_merges_across_facts_and_skips_failed_results():
             "ssh:router": {"ok": True, "facts": {
                 "arp_table": {"label": "ARP", "value": "192.168.1.1 dev eth0 lladdr aa:bb:cc:dd:ee:ff\n"},
             }},
-            "snmp:switch": {"ok": True, "facts": {
-                "arpTable": {"label": "ARP", "value": "192.168.1.2 dev eth0 lladdr 11:22:33:44:55:66\n"},
+            "ssh:switch": {"ok": True, "facts": {
+                "hostList": {"label": "ARP", "value": "192.168.1.2 dev eth0 lladdr 11:22:33:44:55:66\n"},
             }},
             "ha:hub": {"ok": False, "facts": {}},
         }

@@ -28,8 +28,6 @@ export default function TechnikTab({ system, monitorPorts, aliases, canProbe, pr
   );
   const multiHomed = interfaceEntries.length > 1;
   const probeResults = Object.entries((system.extra?.probe ?? {}) as Record<string, ProbeResult>);
-  // Populated by pipeline.py after a scan with a Home Assistant credential.
-  const printerSupplies = (system.extra?.printerSupplies ?? []) as { name: string; percent: number }[];
   const extraIps = Array.from(new Set((aliases ?? []).map((a) => a.ip).filter((ip) => ip && ip !== system.ip)));
   const extraMacs = Array.from(new Set((aliases ?? []).map((a) => a.mac).filter((m) => m && m !== system.mac)));
 
@@ -114,23 +112,6 @@ export default function TechnikTab({ system, monitorPorts, aliases, canProbe, pr
           {docker.dockerSocket && (
             <NoticeLine notice={{ kind: "error", text: "Container hat Vollzugriff auf Docker (entspricht Root auf dem Host). Empfehlung: Zugriff über einen Socket-Proxy mit nur lesenden Pfaden statt docker.sock einzubinden." }} />
           )}
-        </Section>
-      )}
-
-      {system.kind === "printer" && printerSupplies.length > 0 && (
-        <Section title="Verbrauchsmaterial" id="dv-supplies">
-          <p className="dv-hint">Über Home Assistant ausgelesen — Stand vom letzten Netzwerk-Scan.</p>
-          {printerSupplies.map((supply) => (
-            <div key={supply.name} className="dv-supply">
-              <div className="dv-supply-head">
-                <span>{supply.name}</span>
-                <span className="mono">{Math.round(supply.percent)}%</span>
-              </div>
-              <div className={`dv-bar${supply.percent <= 15 ? " low" : ""}`}>
-                <div style={{ width: `${Math.max(0, Math.min(100, supply.percent))}%` }} />
-              </div>
-            </div>
-          ))}
         </Section>
       )}
 

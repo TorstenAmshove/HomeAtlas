@@ -115,14 +115,14 @@ Quelle: `backend/app/topology.py:425`, `backend/app/topology.py:440`, `backend/a
 
 ### Requirement: Nachbarschaftsdaten auswerten
 Das System MUSS aus den beim Auslesen gesammelten Nachbardaten (MikroTik-Neighbor-Liste, ArubaOS
-LLDP-Remote-Tabelle, Cisco CDP-Detail, SNMP-LLDP-MIB-Walk) Kanten zwischen zwei bekannten
+LLDP-Remote-Tabelle, Cisco CDP-Detail) Kanten zwischen zwei bekannten
 Inventargeräten bilden: Abgleich zuerst über MAC (format- und schreibweisenunabhängig), dann über
 den Namen (ohne Groß/Klein, getrimmt). Kanten entstehen nur, wenn beide Enden bekannt sind, sind
 ungerichtet, und Selbstbezüge werden verworfen. Ein nicht lesbares Format MUSS ohne Fehler zu
 „keine Kante“ führen. **[Muss]**
 
 Parserdetails (Regex statt fester Spalten; Aruba-Chassis-ID als sechs Hex-Oktette mit Leerzeichen;
-CDP liefert nur Namen; SNMP gruppiert nach den letzten drei OID-Komponenten) **[Impl]**.
+CDP liefert nur Namen) **[Impl]**.
 
 #### Szenario: Unbekannter Nachbar
 - **WENN** ein Switch einen Nachbarn „printer-xyz“ meldet, den das Inventar nicht kennt

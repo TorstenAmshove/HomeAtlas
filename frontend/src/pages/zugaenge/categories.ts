@@ -3,7 +3,6 @@ export const CATEGORIES = [
   ["contract", "Vertrag / Kundenkonto"],
   ["login", "Anmeldung an Gerät oder Dienst"],
   ["sshkey", "SSH-Schlüssel"],
-  ["snmp", "SNMP (Community-Zeichenkette)"],
   ["unifi", "UniFi Network (API-Key)"],
   ["homeassistant", "Home Assistant (Long-Lived Access Token)"],
   ["proxmox", "Proxmox VE (API-Token)"],
