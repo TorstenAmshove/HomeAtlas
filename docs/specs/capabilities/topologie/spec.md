@@ -252,7 +252,8 @@ Quelle: `backend/app/topology.py:675`, `backend/app/topology.py:685`, Test:
 
 ### Requirement: Layer-3 – Router und ihre Netze
 Das System MUSS jedem Router alle Subnetze zuordnen, in denen er eine Schnittstellenadresse hat
-(aus ausgelesenen Schnittstellendaten), alle aktiven Controller-Netze, deren Eigentümer er ist, und
+(aus ausgelesenen Schnittstellendaten oder seinen weiteren bekannten Adressen, `systemAliases`,
+nur private IPv4), alle aktiven Controller-Netze, deren Eigentümer er ist, und
 das Netz seiner privaten WAN-Schnittstellenadresse (aktive WAN-Ressource mit `interfaceIp`, engstes
 Controller-Netz, sonst /24; öffentliche Adressen zählen nicht). Ohne Schnittstellendaten gilt das /24
 seiner eigenen IP. Subnetzmasken, `0.x`, `127.x`,
@@ -296,6 +297,11 @@ erscheinen. Bei gleichwertigen Ansprüchen gewinnt der alphabetisch erste Router
 - **WENN** FritzBox die Netze {192.168.178.0/24} und Mikrotik {192.168.178.0/24, 10.1.1.0/24} hat
 - **DANN** hängt Mikrotik unter FritzBox, 192.168.178.0/24 unter FritzBox und 10.1.1.0/24 unter
   Mikrotik (jeweils sofern das Subnetz mindestens 3 Geräte zählt)
+
+#### Szenario: Weitere Adresse im FritzBox-Netz
+- **WENN** die UCG 192.168.42.2 hat, als weitere Adresse 192.168.178.20 bekannt ist und die
+  FritzBox 192.168.178.1 hat (ohne WAN-Daten der klassischen UniFi-API)
+- **DANN** hängt die UCG in beiden Ansichten unter der FritzBox
 
 #### Szenario: UniFi-Gateway ohne eigene IP hinter FritzBox
 - **WENN** die UCG keine IP hat, aber die Controller-Netze 192.168.1.0/24 (VLAN 1) und

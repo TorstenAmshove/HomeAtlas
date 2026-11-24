@@ -761,7 +761,9 @@ def _wan_uplink_subnets(controller_networks: list[_ControllerNetwork]) -> dict[s
 
 def _router_subnet_sets(routers: list[dict], controller_networks: list[_ControllerNetwork]) -> dict[str, set[str]]:
     """router id -> every subnet it has an address in: interface facts or its own IP (`_router_subnets`),
-    the controller networks it owns, and the subnet of its WAN interface address.
+    its further known addresses (`systemAliases`, the "Weitere Adressen" a multi-homed gateway is
+    seen under -- for a UniFi gateway in a cascade that includes its WAN address in the upstream
+    LAN), the controller networks it owns, and the subnet of its WAN interface address.
 
     A /24 approximation (from probe facts or the router's IP) that overlaps an exact controller CIDR
     is dropped in favour of the CIDR, so one physical network never enters the chain inference twice.
@@ -783,9 +785,22 @@ def _router_subnet_sets(routers: list[dict], controller_networks: list[_Controll
         if owner_id:
             owned.setdefault(owner_id, set()).add(str(network))
     wan = _wan_uplink_subnets(controller_networks)
+
+    def alias_subnets(router_id: str) -> set[str]:
+        result: set[str] = set()
+        for alias in db.list_aliases(router_id):
+            ip = str(alias.get("ip") or "").strip()
+            try:
+                address = ipaddress.ip_address(ip)
+            except ValueError:
+                continue
+            if isinstance(address, ipaddress.IPv4Address) and address.is_private and not address.is_loopback:
+                result.add(_subnet_for(ip, controller_networks))
+        return result
+
     return {
         r["id"]: {s for s in _router_subnets(r) if approximation_kept(s)}
-        | owned.get(r["id"], set()) | wan.get(r["id"], set())
+        | alias_subnets(r["id"]) | owned.get(r["id"], set()) | wan.get(r["id"], set())
         for r in routers
     }
 
