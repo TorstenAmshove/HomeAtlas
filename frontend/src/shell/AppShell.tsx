@@ -124,7 +124,10 @@ export default function AppShell({ user, isAdmin, onLogout, children }: {
   function goBack(fallback: string) {
     // "Back lands where you were" (filters in the URL included); a deep link has nothing to go
     // back to inside the app, so it falls back to the list.
-    if (location.key !== "default") navigate(-1);
+    // `idx` (React Router's own counter in history.state) instead of `location.key`: a `replace`
+    // (tab switch) hands out a new key, so a deep link plus a tab switch would no longer look like one.
+    const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+    if (idx > 0) navigate(-1);
     else navigate(fallback);
   }
 

@@ -489,6 +489,46 @@ test("login, MFA enrollment, setup and main routes render without errors", async
     await expect(page.locator("#device-name")).toHaveCount(0);
   });
 
+  await test.step("device tabs do not add Back steps", async () => {
+    const list = await page.request.get("/api/systems");
+    const device = ((await list.json()).systems as { id: string; name: string }[]).find((s) => s.name === "Smoke-NAS");
+    expect(device).toBeTruthy();
+    const tabs = page.locator(".dv-tabs");
+    // (a) list with filter -> device -> two tabs -> header Back lands on the list, filter intact
+    await page.goto("/geraete?q=Smoke");
+    await page.getByRole("link", { name: "Smoke-NAS" }).first().click();
+    await tabs.getByRole("link", { name: "Technik" }).click();
+    await tabs.getByRole("link", { name: "Verlauf" }).click();
+    await expect(tabs.getByRole("link", { name: "Verlauf" })).toHaveAttribute("aria-current", "page");
+    await page.locator(".shell-back-desktop").click();
+    await expect(page).toHaveURL(/\/geraete\?q=Smoke/);
+    // same with the browser's Back button
+    await page.getByRole("link", { name: "Smoke-NAS" }).first().click();
+    await tabs.getByRole("link", { name: "Technik" }).click();
+    await page.goBack();
+    await expect(page).toHaveURL(/\/geraete\?q=Smoke/);
+    // (c) deep link + tab switch: header Back falls back to the list
+    await page.goto(`/geraete/${device!.id}?tab=verlauf`);
+    await tabs.getByRole("link", { name: "Technik" }).click();
+    await page.locator(".shell-back-desktop").click();
+    await expect(page).toHaveURL(/\/geraete$/);
+    // (d) reload keeps the tab
+    await page.goto(`/geraete/${device!.id}?tab=technik`);
+    await page.reload();
+    await expect(tabs.getByRole("link", { name: "Technik" })).toHaveAttribute("aria-current", "page");
+  });
+
+  await test.step("settings tabs on desktop do not add Back steps", async () => {
+    await page.goto("/");
+    await page.goto("/einstellungen?tab=display");
+    const nav = page.locator("nav.settings-nav");
+    await nav.getByRole("button", { name: "Konto" }).click();
+    await nav.getByRole("button", { name: "Über" }).click();
+    await expect(page).toHaveURL(/tab=about/);
+    await page.goBack();
+    await expect(page).not.toHaveURL(/einstellungen/);
+  });
+
   await test.step("keys of the removed UI switch are cleaned up and ?ui=classic changes nothing", async () => {
     await page.evaluate(() => {
       window.localStorage.setItem("homeatlas.ui", "classic");

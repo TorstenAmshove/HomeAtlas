@@ -46,6 +46,9 @@ Menüeintrag lässt den Build scheitern.
 | Einstellungen | `tab` |
 | Protokoll | `action`, `failures=1` |
 
+Tab-Wechsel (Gerät, Einstellungen am Desktop) ersetzen den Verlaufseintrag: Neuladen und Link landen auf dem Tab,
+Zurück verlässt die Seite in einem Schritt.
+
 Ungespeicherte Entwürfe (Doku-Text, Notizen, Geräte-Formular, Chat-Eingabe) liegen zusätzlich in
 `sessionStorage` und lösen beim Verlassen eine Rückfrage aus.
 
