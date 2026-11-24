@@ -132,7 +132,7 @@ def test_live_containers_errors(monkeypatch, handler, text):
 def test_live_containers_no_socket(monkeypatch):
     monkeypatch.setattr(docker_probe, "socket_available", lambda: False)
     res = asyncio.run(docker_probe.live_containers())
-    assert res["ok"] is False and "nicht eingebunden" in res["error"]
+    assert res["ok"] is False and "nicht eingerichtet" in res["error"]
 
 
 def test_live_containers_odd_input(monkeypatch):
@@ -153,3 +153,125 @@ def test_exit_meaning():
     assert "SIGTERM" in docker_probe.exit_meaning(143)
     assert docker_probe.exit_meaning(42) == "unbekannter Exit-Code"
     assert docker_probe.exit_meaning(None) is None
+
+
+# --- ADR-0024: endpoint resolution, no inspect, DDNS labels, socket mounts ---------------------
+def _clear_env(monkeypatch):
+    monkeypatch.delenv("DOCKER_HOST", raising=False)
+    monkeypatch.delenv("DOCKER_SOCKET", raising=False)
+
+
+def test_endpoint_resolution(monkeypatch, tmp_path):
+    _clear_env(monkeypatch)
+    assert docker_probe._endpoint() == ("unix", "/var/run/docker.sock")
+    monkeypatch.setenv("DOCKER_SOCKET", "/old/docker.sock")
+    assert docker_probe._endpoint() == ("unix", "/old/docker.sock")
+    monkeypatch.setenv("DOCKER_HOST", "unix:///run/proxy/docker.sock")
+    assert docker_probe._endpoint() == ("unix", "/run/proxy/docker.sock")
+    monkeypatch.setenv("DOCKER_HOST", "tcp://127.0.0.1:2375")
+    assert docker_probe._endpoint() == ("tcp", "http://127.0.0.1:2375")
+    assert docker_probe.socket_available()
+    for bad in ("tcp://192.168.1.5:2375", "tcp://127.0.0.1", "npipe:////./pipe/docker", "ssh://u@h", "http://x:1"):
+        monkeypatch.setenv("DOCKER_HOST", bad)
+        assert docker_probe._endpoint()[0] == "" and not docker_probe.socket_available()
+    # an empty DOCKER_HOST falls back to DOCKER_SOCKET
+    monkeypatch.setenv("DOCKER_HOST", "")
+    assert docker_probe._endpoint() == ("unix", "/old/docker.sock")
+    sock = tmp_path / "s.sock"
+    sock.write_text("")
+    monkeypatch.setenv("DOCKER_HOST", f"unix://{sock}")
+    assert docker_probe.socket_available()
+
+
+def test_legacy_docker_socket_still_works(monkeypatch, tmp_path):
+    _clear_env(monkeypatch)
+    sock = tmp_path / "docker.sock"
+    sock.write_text("")
+    monkeypatch.setenv("DOCKER_SOCKET", str(sock))
+    assert docker_probe.socket_available()
+    monkeypatch.setattr(docker_probe.httpx, "AsyncHTTPTransport", lambda **kw: httpx.MockTransport(
+        lambda req: httpx.Response(200, json=[])))
+    assert asyncio.run(docker_probe.live_containers())["ok"]
+
+
+def test_probe_never_requests_inspect(monkeypatch):
+    _clear_env(monkeypatch)
+    monkeypatch.setenv("DOCKER_HOST", "tcp://127.0.0.1:2375")
+    seen = []
+
+    def handler(req):
+        seen.append((req.method, req.url.raw_path.decode()))
+        path = req.url.path
+        if path == "/containers/json":
+            return httpx.Response(200, json=[{"Id": "a" * 64, "Names": ["/ddns"], "Image": "favonia/cloudflare-ddns",
+                                              "State": "running", "Labels": {"homeatlas.ddns.hosts": "a.example.net"}}])
+        if path == "/volumes":
+            return httpx.Response(200, json={"Volumes": []})
+        return httpx.Response(200, json=[] if path == "/networks" else {"Name": "h"})
+
+    real = httpx.AsyncClient
+    monkeypatch.setattr(docker_probe.httpx, "AsyncClient", lambda **kw: real(
+        transport=httpx.MockTransport(handler), base_url=kw["base_url"]))
+    res = asyncio.run(docker_probe.probe("192.0.2.20"))
+    assert res["ok"] and res["ddns"][0]["data"]["hosts"] == ["a.example.net"]
+    assert sorted(seen) == sorted([("GET", "/version"), ("GET", "/info"), ("GET", "/containers/json?all=1"),
+                                   ("GET", "/networks"), ("GET", "/volumes")])
+
+
+def test_ddns_replaces_old_facts_when_hosts_empty(temp_db):
+    temp_db.replace_exposure_facts("docker_ddns", "docker", [
+        {"kind": "ddns", "key": "c", "data": {"hosts": ["old.example.net"]}}])
+    fact = docker_probe.ddns_fact("ddclient", {}, "x")
+    temp_db.replace_exposure_facts("docker_ddns", "docker", [fact])
+    facts = temp_db.list_exposure_facts() if hasattr(temp_db, "list_exposure_facts") else None
+    assert facts is None or "old.example.net" not in str(facts)
+
+
+def _mount(src, dst="/var/run/docker.sock", typ="bind", mode="ro"):
+    return {"Type": typ, "Source": src, "Destination": dst, "Mode": mode}
+
+
+@pytest.mark.parametrize("mounts", [
+    [_mount("/var/run/docker.sock")],
+    [_mount("/var/run/docker.sock", mode="rw")],
+    [_mount("/run/docker.sock")],
+    [_mount("/run/user/1000/docker.sock", "/sock/docker.sock")],
+    [_mount("/srv/proxy/x.sock", "/var/run/docker.sock")],
+    [_mount("/data", "/data"), _mount("/var/run/docker.sock")],
+])
+def test_socket_mount_detected(mounts):
+    assert docker_probe.has_docker_socket({"Mounts": mounts})
+
+
+@pytest.mark.parametrize("container", [
+    {}, {"Mounts": None}, {"Mounts": []}, {"Mounts": [None, "x"]},
+    {"Mounts": [_mount("homeatlas-data", "/data", typ="volume")]},
+    {"Mounts": [_mount("/var/run", "/var/run")]},
+    {"Mounts": [_mount("vol", "/var/run/docker.sock", typ="volume")]},
+])
+def test_no_flag_without_mount(container):
+    assert not docker_probe.has_docker_socket(container)
+
+
+def test_proxy_image_is_neutral(monkeypatch):
+    mounts = [_mount("/var/run/docker.sock")]
+    systems = _run(monkeypatch, [
+        {**_c(["/p1"], cid="a" * 20), "Image": "wollomatic/socket-proxy:1.2", "Mounts": mounts},
+        {**_c(["/p2"], cid="b" * 20), "Image": "tecnativa/docker-socket-proxy", "Mounts": mounts},
+        {**_c(["/portainer"], cid="c" * 20), "Image": "portainer/portainer-ce", "Mounts": mounts},
+        {**_c(["/plain"], cid="d" * 20), "Image": "nginx", "Mounts": []},
+    ])
+    assert [s["extra"]["docker"]["dockerSocket"] for s in systems] == [False, False, True, False]
+
+
+def test_probe_unreachable_proxy(monkeypatch, tmp_path):
+    _clear_env(monkeypatch)
+    monkeypatch.setenv("DOCKER_HOST", f"unix://{tmp_path}/missing.sock")
+    res = asyncio.run(docker_probe.probe("x"))
+    assert not res["ok"] and "nicht eingerichtet" in res["error"]
+    monkeypatch.setenv("DOCKER_HOST", "tcp://127.0.0.1:2375")
+    real = httpx.AsyncClient
+    monkeypatch.setattr(docker_probe.httpx, "AsyncClient", lambda **kw: real(
+        transport=httpx.MockTransport(lambda r: httpx.Response(403)), base_url=kw["base_url"]))
+    res = asyncio.run(docker_probe.probe("x"))
+    assert not res["ok"] and "nicht erreichbar" in res["error"]

@@ -53,8 +53,8 @@ def test_unreadable_waf_rules_are_reported_not_silently_dropped(monkeypatch):
 
 
 def test_ddnss_hostname_is_kept_and_its_key_is_not():
-    env = ["DOMAIN_DDNSS=home.ddnss.example", "DOMAIN_KEY=SECRETKEY"]
-    fact = docker_probe.ddns_fact("alcapone1933/ddns-ddnss:v0.0.8", env, "192.0.2.20")
+    labels = {"homeatlas.ddns.hosts": "home.ddnss.example", "DOMAIN_KEY": "SECRETKEY"}
+    fact = docker_probe.ddns_fact("alcapone1933/ddns-ddnss:v0.0.8", labels, "192.0.2.20")
     assert fact["data"]["hosts"] == ["home.ddnss.example"] and "SECRETKEY" not in str(fact)
 
 

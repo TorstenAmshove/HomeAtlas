@@ -250,6 +250,21 @@ def _device_table(systems: list[dict]) -> str:
     return "\n".join(lines) + "\n"
 
 
+DOCKER_SOCKET_WARNING = "Container hat Vollzugriff auf Docker (entspricht Root auf dem Host)"
+DOCKER_SOCKET_ADVICE = "den Zugriff über einen Socket-Proxy mit nur lesenden Pfaden führen statt `docker.sock` einzubinden"
+
+
+def _docker_socket_notice(systems: list[dict]) -> str:
+    """Chapter-level summary of containers with a mounted docker.sock (empty when there are none)."""
+    names = sorted((s["name"] for s in systems if ((s.get("extra") or {}).get("docker") or {}).get("dockerSocket")),
+                   key=str.lower)
+    if not names:
+        return ""
+    listed = ", ".join(f"**{_escape(n)}**" for n in names)
+    return (f"> **Achtung:** {DOCKER_SOCKET_WARNING}: {listed}. "
+            f"Empfehlung: {DOCKER_SOCKET_ADVICE}.\n")
+
+
 def _compose_project(system: dict) -> str:
     return (((system.get("extra") or {}).get("docker") or {}).get("composeProject") or "").strip()
 
@@ -336,6 +351,8 @@ def _device_details(systems: list[dict], by_id: dict[str, dict], children_by_par
                 docker_facts.append(f"- **Port-Zuordnungen (Docker):** `{', '.join(docker['portMappings'])}`")
             if docker.get("volumes"):
                 docker_facts.append(f"- **Datenablagen (Volumes):** `{', '.join(docker['volumes'][:6])}`")
+            if docker.get("dockerSocket"):
+                docker_facts.append(f"- **Achtung:** {DOCKER_SOCKET_WARNING}. Empfehlung: {DOCKER_SOCKET_ADVICE}")
             parts.append("\n".join(docker_facts) + "\n")
 
         proxmox = (s.get("extra") or {}).get("proxmox") or {}
@@ -805,6 +822,8 @@ async def _generate(settings: dict, use_llm: bool, log, only_slug: str | None) -
                 sections.append("\n## Geräte auf einen Blick\n")
                 sections.append(_device_table(systems))
                 if systems:
+                    if topic.slug == "container-und-vms" and (notice := _docker_socket_notice(systems)):
+                        sections.append("\n" + notice)
                     sections.append("\n## Die Geräte im Einzelnen\n")
                     details = _grouped_device_details if topic.slug == "container-und-vms" else _device_details
                     sections.append(details(systems, by_id, children_by_parent))

@@ -43,3 +43,4 @@ Menschen und für KI-Agenten, die sonst bewusste Entscheidungen „wegrefaktorie
 | [0021](0021-proxmox-live-lesepfade.md) | Lesender Live-Zugriff auf die Proxmox-API für den Assistenten | Ersetzt durch ADR-0022 |
 | [0022](0022-container-live-status.md) | Live-Status lokaler Docker-Container für den Assistenten, ohne Inspect | Ersetzt durch ADR-0023 |
 | [0023](0023-keine-fernwartung.md) | Keine Fernwartung, einzige Steuerung ist Home-Assistant-Schalten | Akzeptiert |
+| [0024](0024-docker-socket-proxy.md) | Docker nur lesend über einen mitgelieferten Socket-Proxy, kein Inspect | Akzeptiert |

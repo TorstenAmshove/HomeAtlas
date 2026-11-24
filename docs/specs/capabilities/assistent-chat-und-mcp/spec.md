@@ -213,7 +213,7 @@ Inventar, Dokumentation, Zugänge, Einstellungen, Container oder Hosts veränder
 verändernde Fähigkeit erfordert eine neue Architekturentscheidung (ADR 0004). **[Muss]**
 
 Werkzeuggruppen (Details, Schemas und Grenzen: [llm-tools](../../contracts/llm-tools.md)):
-- Inventar: `list_systems` (Filter `kind`, `query`, `onlyOnline`), `get_system`, `network_overview`, `list_containers` (Stand des letzten Scans)
+- Inventar: `list_systems` (Filter `kind`, `query`, `onlyOnline`), `get_system`, `network_overview`, `list_containers` (Stand des letzten Scans, inkl. `dockerSocket` für Container mit gemountetem `docker.sock`)
 - Dokumentation: `list_documentation`, `get_documentation`
 - Zugänge: `list_accounts` (ohne Passwörter)
 - Erreichbarkeit: `list_exposure` (nur aus der Datenbank, begrenzt auf 15 Zeilen je Liste mit Kürzungshinweis, Filter `host`, ohne Geheimnisse und ohne Quell-Zugangs-IDs, kein Live-DNS)

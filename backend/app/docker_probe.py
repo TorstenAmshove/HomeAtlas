@@ -1,32 +1,39 @@
-"""Reads the Docker host through its socket (mounted read-only, see docker-compose.yml).
+"""Reads the Docker host through a read-only socket proxy (see docker-compose.yml, ADR-0024).
 
 This is the single highest-value discovery source in a self-hosted household: a port scan can only
 say "something answers on 8180", while the Docker API says which image it is, which compose
 project it belongs to, which volumes hold its data and whether it is set to restart on boot --
 exactly the facts someone needs six months later when it breaks.
 
-Read-only in the honest sense: only GET endpoints are ever called. The socket mount itself is
-root-equivalent on the host, which the README states outright.
+Read-only in the honest sense: only GET endpoints are ever called, and only these paths: /version,
+/info, /containers/json, /networks, /volumes. Never the per-container inspect endpoint (it returns
+`Config.Env` in clear text, and a proxy cannot filter content), so the shipped proxy can deny it
+completely. The endpoint comes from `DOCKER_HOST` (unix:// or loopback tcp://), then `DOCKER_SOCKET`
+(installations that still mount the raw socket), then the default socket path.
 """
 from __future__ import annotations
 
 import os
 import re
+from urllib.parse import urlsplit
 
 import httpx
 
-_SOCKET = os.environ.get("DOCKER_SOCKET", "/var/run/docker.sock")
+_DEFAULT_SOCKET = "/var/run/docker.sock"
 _TIMEOUT = httpx.Timeout(15.0, connect=5.0)
 
 
-# DynDNS clients are recognised by image name only; the environment is read (one GET per match) and
-# reduced to this allowlist of non-secret keys. Tokens/passwords (CF_API_TOKEN, PASSWORD, CONFIG, ...)
-# are never copied, and values are validated as hostnames before they are kept.
+# DynDNS clients are recognised by image name only. Their hostnames are NOT read from the container
+# environment (that would need the inspect endpoint, ADR-0024) but from an operator-set label on the
+# container, which `/containers/json` already returns:
+#   homeatlas.ddns.hosts=home.example.net,vpn.example.net   (comma/space separated)
+#   homeatlas.ddns.ipv6=true|false                           (default: true for Cloudflare, else false)
 _DDNS_IMAGES = {
     "favonia/cloudflare-ddns": "Cloudflare", "cloudflare-ddns": "Cloudflare", "ddclient": "ddclient",
     "ddns-updater": "ddns-updater", "inadyn": "inadyn", "ddnss": "DDNSS",
 }
-_DDNS_HOST_KEYS = ("DOMAINS", "DOMAIN", "DOMAIN_DDNSS", "HOSTNAME", "HOSTS")
+_DDNS_LABEL_HOSTS = "homeatlas.ddns.hosts"
+_DDNS_LABEL_IPV6 = "homeatlas.ddns.ipv6"
 _HOSTNAME = re.compile(r"^([a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9_])?\.)+[a-z0-9-]{2,63}$")
 
 
@@ -35,34 +42,85 @@ def _ddns_provider(image: str) -> str:
     return next((label for key, label in _DDNS_IMAGES.items() if key in low), "")
 
 
-def ddns_fact(image: str, env: list[str], via: str) -> dict | None:
-    """Builds a `ddns` fact from an image name and its env list, keeping allowlisted keys only."""
+def ddns_fact(image: str, labels: dict | None, via: str) -> dict | None:
+    """Builds a `ddns` fact from an image name and the container labels (no environment involved)."""
     provider = _ddns_provider(image)
     if not provider:
         return None
-    values = {k: v for k, _, v in (e.partition("=") for e in env or []) if k in (*_DDNS_HOST_KEYS, "IP4_PROVIDER", "IP6_PROVIDER")}
+    labels = labels if isinstance(labels, dict) else {}
     hosts: list[str] = []
-    for key in _DDNS_HOST_KEYS:
-        for part in re.split(r"[,\s]+", values.get(key, "")):
-            part = part.strip().lower().rstrip(".")
-            if part and len(part) <= 253 and _HOSTNAME.match(part) and part not in hosts:
-                hosts.append(part)
-    cloudflare = provider == "Cloudflare"
-    ipv4 = values.get("IP4_PROVIDER", "").lower() != "none"
-    ipv6 = values.get("IP6_PROVIDER", "").lower() != "none" if cloudflare and "IP6_PROVIDER" not in values \
-        else values.get("IP6_PROVIDER", "none").lower() != "none"
+    for part in re.split(r"[,\s]+", str(labels.get(_DDNS_LABEL_HOSTS) or "")[:2000]):
+        part = part.strip().lower().rstrip(".")
+        if part and len(part) <= 253 and _HOSTNAME.match(part) and part not in hosts:
+            hosts.append(part)
+    flag = str(labels.get(_DDNS_LABEL_IPV6) or "").strip().lower()
+    ipv6 = flag == "true" if flag in ("true", "false") else provider == "Cloudflare"
     name = image.rsplit("/", 1)[-1].split(":", 1)[0][:100]
     return {"kind": "ddns", "key": name, "data": {
-        "client": name, "provider": provider, "hosts": hosts[:20], "ipv4": ipv4, "ipv6": ipv6, "via": via}}
+        "client": name, "provider": provider, "hosts": hosts[:20], "ipv4": True, "ipv6": ipv6, "via": via}}
+
+
+# Socket proxies are recognised by image name; a renamed or mirrored proxy image is deliberately
+# still reported (a false warning is the safe direction).
+_PROXY_IMAGES = ("wollomatic/socket-proxy", "tecnativa/docker-socket-proxy", "linuxserver/socket-proxy")
+
+
+def _is_socket_path(path: str) -> bool:
+    return str(path or "").rstrip("/").endswith("docker.sock")
+
+
+def has_docker_socket(container: dict) -> bool:
+    """True when the container bind-mounts a Docker socket (also `:ro`, which does not limit the API)."""
+    for m in container.get("Mounts") or []:
+        if isinstance(m, dict) and m.get("Type", "bind") == "bind" \
+                and (_is_socket_path(m.get("Source")) or _is_socket_path(m.get("Destination"))):
+            return True
+    return False
+
+
+def is_socket_proxy(image: str) -> bool:
+    low = (image or "").lower()
+    return any(p in low for p in _PROXY_IMAGES)
+
+
+def _endpoint() -> tuple[str, str]:
+    """Returns ("unix", path) or ("tcp", base_url); ("", reason) when nothing usable is configured.
+
+    Read from the environment on every call. tcp:// is accepted for loopback only: the proxy must
+    never be reachable from the LAN, and a remote host would also send the inventory over plain HTTP.
+    """
+    host = os.environ.get("DOCKER_HOST", "").strip()
+    if host:
+        parts = urlsplit(host)
+        if parts.scheme == "unix" and parts.path:
+            return "unix", parts.path
+        if parts.scheme == "tcp" and parts.hostname in ("127.0.0.1", "localhost", "::1") and parts.port:
+            netloc = f"[{parts.hostname}]" if ":" in parts.hostname else parts.hostname
+            return "tcp", f"http://{netloc}:{parts.port}"
+        return "", "DOCKER_HOST muss unix://… oder tcp://127.0.0.1:<Port> sein"
+    return "unix", os.environ.get("DOCKER_SOCKET", "").strip() or _DEFAULT_SOCKET
 
 
 def socket_available() -> bool:
-    return os.path.exists(_SOCKET)
+    """A unix endpoint needs its socket file; for tcp only a failing request can tell (-> "nicht erreichbar")."""
+    kind, value = _endpoint()
+    if kind == "unix":
+        return os.path.exists(value)
+    return kind == "tcp"
+
+
+_NOT_SET_UP = "Docker-Zugriff nicht eingerichtet (DOCKER_HOST bzw. Socket-Proxy fehlt)"
 
 
 async def _get(path: str) -> object:
-    transport = httpx.AsyncHTTPTransport(uds=_SOCKET)
-    async with httpx.AsyncClient(transport=transport, base_url="http://docker", timeout=_TIMEOUT) as client:
+    kind, value = _endpoint()
+    if kind == "unix":
+        client = httpx.AsyncClient(transport=httpx.AsyncHTTPTransport(uds=value), base_url="http://docker", timeout=_TIMEOUT)
+    elif kind == "tcp":
+        client = httpx.AsyncClient(base_url=value, timeout=_TIMEOUT)
+    else:
+        raise ValueError(value)
+    async with client:
         resp = await client.get(path)
     resp.raise_for_status()
     return resp.json()
@@ -102,7 +160,7 @@ async def probe(host_ip: str = "") -> dict:
     `systems` entries are ready for `db.upsert_discovered_system`.
     """
     if not socket_available():
-        return {"ok": False, "error": f"Docker-Socket {_SOCKET} ist nicht eingebunden.", "systems": []}
+        return {"ok": False, "error": f"{_NOT_SET_UP}.", "systems": []}
     try:
         version = await _get("/version")
         info = await _get("/info")
@@ -124,12 +182,7 @@ async def probe(host_ip: str = "") -> dict:
     for container in containers:
         if container.get("State") != "running" or not _ddns_provider(container.get("Image", "")):
             continue
-        cid = str(container.get("Id", ""))
-        try:
-            env = ((await _get(f"/containers/{cid}/json")).get("Config") or {}).get("Env") or [] if re.match(r"^[0-9a-f]{12,64}$", cid) else []
-        except (httpx.HTTPError, ValueError, AttributeError):
-            env = []
-        fact = ddns_fact(container.get("Image", ""), env, host_ip)
+        fact = ddns_fact(container.get("Image", ""), container.get("Labels"), host_ip)
         if fact:
             ddns.append(fact)
 
@@ -196,6 +249,8 @@ async def probe(host_ip: str = "") -> dict:
                                           ((container.get("NetworkSettings") or {}).get("Networks") or {}).values()
                                           if isinstance(n, dict) and n.get("IPAddress")}),
                     "created": container.get("Created"),
+                    # Full Docker access (= root on the host); a socket proxy image is not flagged.
+                    "dockerSocket": has_docker_socket(container) and not is_socket_proxy(container.get("Image", "")),
                 }
             },
         })
@@ -299,7 +354,7 @@ async def live_containers() -> dict:
     Rows carry the internal keys `_service` and `_id`, which `tools.py` uses for matching and drops.
     """
     if not socket_available():
-        return {"ok": False, "error": "Docker-Socket nicht eingebunden – Live-Status nicht verfügbar", "containers": []}
+        return {"ok": False, "error": f"{_NOT_SET_UP} – Live-Status nicht verfügbar", "containers": []}
     try:
         data = await _get(_LIVE_LIST_PATH)
     except (httpx.HTTPError, ValueError, OSError) as exc:

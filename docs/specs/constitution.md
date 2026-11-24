@@ -153,8 +153,10 @@
 - **B3 [Impl]** Zwei Container mit `network_mode: host`; Backend bindet an `127.0.0.1:8281`, nginx
   im Frontend-Container auf `:8280` leitet `/api/*` weiter. ([ADR-0003](../adr/0003-host-netzwerk-und-loopback-backend.md))
 - **B4 [Muss]** Kein HTTPS eingebaut; Zugriff von außen nur hinter einem Reverse Proxy mit TLS.
-- **B5 [Muss]** Der Docker-Socket ist optional und wird nur gelesen (GET). Ohne Socket funktioniert alles außer
-  Container-Erkennung und dem Live-Container-Status. Ein Socket-Proxy steht aus (#101).
+- **B5 [Muss]** Docker wird nur lesend über einen Socket-Proxy mit pfadgenauer GET-Allowlist gelesen
+  (`/version`, `/info`, `/containers/json`, `/networks`, `/volumes`); das Backend mountet den Socket nicht und ruft
+  nie Inspect auf. Ohne erreichbaren Endpunkt („Docker-Zugriff nicht eingerichtet“) funktioniert alles außer
+  Container-Erkennung und dem Live-Container-Status. ([ADR-0024](../adr/0024-docker-socket-proxy.md))
 - **B6 [Muss]** Die Erkennung arbeitet unter Windows/Docker Desktop nur eingeschränkt (keine
   `ip`/`ping`/`traceroute`); das ist eine bekannte Grenze, kein Fehler. ([ADR-0003](../adr/0003-host-netzwerk-und-loopback-backend.md))
 

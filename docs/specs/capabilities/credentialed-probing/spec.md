@@ -435,11 +435,22 @@ Hostname und MAC werden als Funde geliefert, je MAC nur einmal (Lease vor Client
 Quelle: `backend/app/adguard_probe.py:100`, `backend/app/pipeline.py:458`, Test: `backend/tests/test_adguard_probe.py::test_probe_skips_dhcp_leases_without_a_hostname`, `backend/tests/test_adguard_probe.py::test_probe_survives_missing_stats_endpoint`, `backend/tests/test_adguard_probe.py::test_probe_deduplicates_a_mac_seen_in_both_dhcp_and_clients`
 
 ### Requirement: Docker-Host lesen
-Das System MUSS den lokalen Docker-Socket (`DOCKER_SOCKET`, Default `/var/run/docker.sock`) nur
-per GET (`/version`, `/info`, `/containers/json?all=1`, `/networks`, `/volumes`; Timeout 15 s/5 s)
-lesen. Container-Name „<service> · <projekt>“ bei Compose, sonst Containername; stabiler Schlüssel
+Das System MUSS Docker über den Endpunkt aus `DOCKER_HOST` (`unix://…` oder `tcp://` nur auf Loopback), sonst
+`DOCKER_SOCKET` (Default `/var/run/docker.sock`) nur per GET (`/version`, `/info`, `/containers/json?all=1`,
+`/networks`, `/volumes`; Timeout 15 s/5 s) lesen, nie `/containers/{id}/json` (Inspect). Das mitgelieferte Compose
+lässt diese Pfade über den Dienst `docker-proxy` durch und mountet den Socket nicht ins Backend (ADR-0024).
+Container mit Bind-Mount von `docker.sock` (auch `:ro`) werden mit `extra.docker.dockerSocket` markiert (Proxy-Images
+nicht) und in Doku, Containerseite und `list_containers` mit Hinweis angezeigt. Container-Name „<service> · <projekt>“ bei Compose, sonst Containername; stabiler Schlüssel
 `docker:<projekt>:<service>` bzw. `docker:<name>`, Alt-Schlüssel `docker:<id12>` zur Migration;
-nur veröffentlichte Ports; Standort = Docker-Hostname. Fehlender Socket ist kein Scan-Fehler. **[Muss]**
+nur veröffentlichte Ports; Standort = Docker-Hostname. Fehlender Endpunkt („Docker-Zugriff nicht eingerichtet“) ist kein Scan-Fehler. **[Muss]**
+
+#### Szenario: Container mit Docker-Socket
+- **WENN** ein Container `docker.sock` als Bind-Mount hat und kein Socket-Proxy-Image ist
+- **DANN** trägt er `dockerSocket: true` und die Doku nennt „Container hat Vollzugriff auf Docker (entspricht Root auf dem Host)“ samt Empfehlung Socket-Proxy; ein Container ohne Mount nicht
+
+#### Szenario: Kein Inspect
+- **WENN** der Scan läuft
+- **DANN** sind `/version`, `/info`, `/containers/json?all=1`, `/networks` und `/volumes` die einzigen Pfade
 
 #### Szenario: Gleichnamige Dienste in zwei Projekten
 - **WENN** `immich` und `paperless` je einen Dienst `postgres` haben

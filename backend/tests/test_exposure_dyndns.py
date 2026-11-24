@@ -1,21 +1,35 @@
 from app import docker_probe, exposure
 
 
-def test_env_allowlist_and_hostname_validation():
-    env = ["DOMAINS=home.example.net, *.bad.example.net,nope", "CLOUDFLARE_API_TOKEN=SECRETTOKEN",
-           "IP6_PROVIDER=none", "PASSWORD=hunter2"]
-    fact = docker_probe.ddns_fact("favonia/cloudflare-ddns:latest", env, "192.0.2.20")
+def test_label_hosts_and_hostname_validation():
+    labels = {"homeatlas.ddns.hosts": "home.example.net, *.bad.example.net,nope", "homeatlas.ddns.ipv6": "false",
+              "unrelated": "SECRETTOKEN"}
+    fact = docker_probe.ddns_fact("favonia/cloudflare-ddns:latest", labels, "192.0.2.20")
     assert fact["data"] == {"client": "cloudflare-ddns", "provider": "Cloudflare", "hosts": ["home.example.net"],
                             "ipv4": True, "ipv6": False, "via": "192.0.2.20"}
-    assert "SECRETTOKEN" not in str(fact) and "hunter2" not in str(fact)
+    assert "SECRETTOKEN" not in str(fact)
+
+
+def test_label_normalisation_and_limits():
+    hosts = ",".join(f"h{i}.example.net" for i in range(30))
+    fact = docker_probe.ddns_fact("inadyn", {"homeatlas.ddns.hosts": "A.Example.NET. a.example.net\tb.example.net"}, "x")
+    assert fact["data"]["hosts"] == ["a.example.net", "b.example.net"]
+    assert len(docker_probe.ddns_fact("inadyn", {"homeatlas.ddns.hosts": hosts}, "x")["data"]["hosts"]) == 20
+
+
+def test_ipv6_default_and_label():
+    assert docker_probe.ddns_fact("favonia/cloudflare-ddns", {}, "x")["data"]["ipv6"] is True
+    assert docker_probe.ddns_fact("favonia/cloudflare-ddns", {"homeatlas.ddns.ipv6": "false"}, "x")["data"]["ipv6"] is False
+    assert docker_probe.ddns_fact("ddclient", {}, "x")["data"]["ipv6"] is False
+    assert docker_probe.ddns_fact("ddclient", {"homeatlas.ddns.ipv6": "true"}, "x")["data"]["ipv6"] is True
 
 
 def test_unknown_image_is_ignored():
-    assert docker_probe.ddns_fact("nginx:1", ["DOMAINS=a.example.net"], "192.0.2.20") is None
+    assert docker_probe.ddns_fact("nginx:1", {"homeatlas.ddns.hosts": "a.example.net"}, "192.0.2.20") is None
 
 
-def test_ddclient_without_env_has_no_hosts():
-    fact = docker_probe.ddns_fact("linuxserver/ddclient", [], "192.0.2.20")
+def test_ddclient_without_label_has_no_hosts():
+    fact = docker_probe.ddns_fact("linuxserver/ddclient", None, "192.0.2.20")
     assert fact["data"]["hosts"] == [] and fact["data"]["provider"] == "ddclient" and not fact["data"]["ipv6"]
 
 
