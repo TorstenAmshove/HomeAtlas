@@ -71,7 +71,7 @@ Quelle: `backend/app/classify.py:50`, Test: `backend/tests/test_classify_source_
 ### Requirement: KI-Ergebnis bleibt bei Folge-Scans erhalten
 Das System MUSS bei unbestätigten Zeilen mit `extra.aiConfidence` Art, Name, Hersteller, Modell,
 Zweck, Beschreibung, Doku-Link und Wichtigkeit nicht mit Regelwerten späterer Scans überschreiben;
-von Quellen (Docker, Proxmox, UniFi, Omada) oder vom Gerät selbst gemeldete Namen/Arten wirken weiter.
+von Quellen (Docker, Proxmox, UniFi) oder vom Gerät selbst gemeldete Namen/Arten wirken weiter.
 **[Muss]**
 
 Quelle: `backend/app/db/systems.py` (`upsert_discovered_system`), Test: `backend/tests/test_discovery_lookup.py::test_ai_result_survives_next_scan`
@@ -178,8 +178,7 @@ Quelle: `backend/app/classify.py:134`, `backend/app/pipeline.py:471`
 ### Requirement: Additiv anwenden
 Beim Übernehmen MUSS gelten:
 - leere Werte des Modells überschreiben nie einen vorhandenen Wert;
-- bei Funden mit Namensquelle (Quellen-Token oder `extra`-Schlüssel `docker`, `proxmox`, `unifi`,
-  `omada`) bleiben `name` und `kind` unverändert, andere Felder (Zweck, Beschreibung, …) werden ergänzt;
+- bei Funden mit Namensquelle (Quellen-Token oder `extra`-Schlüssel `docker`, `proxmox`, `unifi`) bleiben `name` und `kind` unverändert, andere Felder (Zweck, Beschreibung, …) werden ergänzt;
 - bei Funden mit selbst gemeldetem Namen (`extra.nameSource` = `upnp`, `mdns` oder `shelly`, von
   Discovery gesetzt) bleibt der `name` unverändert; `kind` darf die KI nur setzen, wenn die Regel-Art
   unsicher war (siehe nächster Punkt). Ist zusätzlich eine Namensquelle (oben) im Spiel, gilt deren
@@ -277,7 +276,7 @@ Siehe [data-model](../../contracts/data-model.md).
 
 - Liest (Funde im Speicher, vor dem Inventar): `ip, hostname, vendor, kind, purpose, services,
   docUrl, openPorts, discoverySource, extra.{mdns, ssdp, httpBanner, guessConfident, docker,
-  proxmox, unifi, omada}`.
+  proxmox, unifi}`.
 - Schreibt (in den Fund, danach per Inventar-Zusammenführen in **systems**): `kind, name, vendor,
   model, purpose, descriptionMd, importance, docUrl, discoverySource (+ki), extra.aiConfidence`.
 - Settings gelesen: `scanUseLlm`, `llmProvider` sowie über den LLM-Client die Schlüssel/Modelle/

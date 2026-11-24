@@ -29,7 +29,7 @@ Das System MUSS Netzwerkressourcen ausschließlich aus einem Controller-Abgleich
 drei Arten kennen: `network` (Netz/VLAN), `wifi` (WLAN/SSID) und `wan` (Internet-Anschluss).
 Einträge anderer Art oder ohne Standort-ID (Site) oder externe ID MÜSSEN verworfen werden. **[Muss]**
 
-Heute liefert nur der UniFi-Controller Ressourcen; Omada, Discovery-Subnetze und Freitext-Netze
+Heute liefert nur der UniFi-Controller Ressourcen; Discovery-Subnetze und Freitext-Netze
 erzeugen keine Netzwerkressourcen. **[Impl]**
 
 #### Szenario: Unbekannte Art wird ignoriert
@@ -299,7 +299,7 @@ Rollen). Scan-Netzauswahl in `frontend/src/pages/SettingsPage.tsx` (Route `/eins
 - Kein Scanner-Agent je VLAN, keine Trunk-Konfiguration durch HomeAtlas (siehe
   `docs/multi-vlan.md`).
 - Nur IPv4-CIDRs werden für Scan und Layer-3-Plan ausgewertet.
-- Keine Ressourcen von Omada, Proxmox oder aus der Discovery.
+- Keine Ressourcen von Proxmox oder aus der Discovery.
 
 ## Ist-Implementierung (nur Referenz, [Impl])
 
@@ -315,5 +315,4 @@ Rollen). Scan-Netzauswahl in `frontend/src/pages/SettingsPage.tsx` (Route `/eins
 
 ## OFFEN
 
-- > OFFEN: Fähigkeitsbeschreibung nennt Omada und Discovery-Subnetze als Quelle; im Code liefert nur UniFi Netzwerkressourcen. Soll eine Alternative Omada-Netze übernehmen?
 - > OFFEN: Der manuelle Abgleich beim Verbindungstest (`backend/app/routes/systems.py:262`) nutzt dieselbe `sync_network_resources` und zählt `emptyScans` mit; zwei Klicks bei leer gemeldetem Bereich deaktivieren dessen Ressourcen also ebenso wie zwei Scans. Gewollt?

@@ -452,6 +452,36 @@ def init_db() -> None:
             conn.execute("DELETE FROM exposureFacts WHERE sourceAccountId = ?", (old["id"],))
             conn.execute("DELETE FROM accounts WHERE id = ?", (old["id"],))
 
+        # Omada and AdGuard Home sources were removed (issue #227): drop their accounts with the
+        # steps of delete_account, their scan switches and the per-device stats. Systems, names and
+        # parents stay untouched (no `updatedAt` change).
+        for old in conn.execute("SELECT id FROM accounts WHERE category IN ('omada', 'adguard')").fetchall():
+            conn.execute("DELETE FROM accountAssignments WHERE accountId = ?", (old["id"],))
+            conn.execute("UPDATE networkResources SET active = 0, updatedAt = ? WHERE sourceAccountId = ?",
+                         (_now(), old["id"]))
+            conn.execute("DELETE FROM exposureFacts WHERE sourceAccountId = ?", (old["id"],))
+            conn.execute("DELETE FROM firewallFacts WHERE sourceAccountId = ?", (old["id"],))
+            conn.execute("DELETE FROM accounts WHERE id = ?", (old["id"],))
+        row = conn.execute("SELECT value FROM settings WHERE key = 'app'").fetchone()
+        if row:
+            try:
+                blob = json.loads(row["value"])
+            except json.JSONDecodeError:
+                blob = None
+            if isinstance(blob, dict) and ("scanEnableOmada" in blob or "scanEnableAdguard" in blob):
+                blob.pop("scanEnableOmada", None)
+                blob.pop("scanEnableAdguard", None)
+                conn.execute("UPDATE settings SET value = ? WHERE key = 'app'", (json.dumps(blob),))
+        for row in conn.execute("SELECT id, extra FROM systems WHERE extra IS NOT NULL").fetchall():
+            try:
+                extra = json.loads(row["extra"])
+            except (json.JSONDecodeError, TypeError):
+                continue
+            if isinstance(extra, dict) and ("omada" in extra or "adguard" in extra):
+                extra.pop("omada", None)
+                extra.pop("adguard", None)
+                conn.execute("UPDATE systems SET extra = ? WHERE id = ?", (json.dumps(extra), row["id"]))
+
         # The `router` category was evaluated by the backend but never offered in the UI; its
         # accounts are plain logins (issue #134).
         conn.execute("UPDATE accounts SET category = 'login' WHERE category = 'router'")

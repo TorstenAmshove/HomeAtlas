@@ -294,10 +294,10 @@ Das System MUSS den Gerätenamen nach fester Rangfolge bilden: manuell gepflegt 
 > mDNS-Instanzname > DNS-Hostname (erstes Label) > Webseitentitel > „<erstes Wort des Herstellers>
 (<letztes IP-Oktett>)“ > IP. Namen werden auf 80 Zeichen gekürzt. Die Stufen ab Shelly bildet der
 Netzwerkscan je Fund; UniFi und „manuell“ greifen erst beim Zusammenführen ins Inventar (siehe
-„Wiedererkennung bestehender Geräte“). Namen anderer Quellen (Docker, Omada, Proxmox, AdGuard,
+„Wiedererkennung bestehender Geräte“). Namen anderer Quellen (Docker, Proxmox,
 KI-Einordnung) stehen nicht in dieser Kette: Bei unbestätigten Geräten überschreibt jeder nicht
 leere Name des später zusammengeführten Funds den bisherigen (Reihenfolge im Scan: Netzwerkscan,
-Docker, UniFi, Omada, Proxmox, AdGuard), außer ein UniFi-Name ist bekannt. **[Muss]**
+Docker, UniFi, Proxmox), außer ein UniFi-Name ist bekannt. **[Muss]**
 
 #### Szenario: Bestätigtes Gerät
 - **WENN** ein Gerät bestätigt wurde und der Scan einen anderen Namen findet
@@ -362,11 +362,11 @@ Reihenfolge suchen und das erste Ergebnis aktualisieren statt neu anzulegen: (1)
 `discoveryKey`, (2) einer der `legacyDiscoveryKeys` des Funds, (3) Alias aus einer manuellen
 Zusammenführung (Schlüssel, Alt-Schlüssel oder `mac:<mac>` des Funds), (4) gleiche MAC,
 (5) Proxmox-Gast mit gleichem (node, vmid), (6) gleiche IP *und* gleicher Hostname, (7) genau ein
-Gerät mit dieser IP, sofern Fund oder Gerät aus UniFi/Omada stammt und die MACs sich nicht
+Gerät mit dieser IP, sofern Fund oder Gerät aus UniFi stammt und die MACs sich nicht
 widersprechen. Ohne Treffer entsteht ein neues Gerät. Für das gefundene Gerät gilt: **[Muss]**
 - immer aktualisiert: IP, Status, `extra` (zusammengeführt), `lastSeen`, `discoveryKey` (auf den
   Schlüssel des Funds);
-- offene Ports/Dienste nur, wenn der Fund `openPorts` mitbringt – fehlen sie (UniFi, Omada,
+- offene Ports/Dienste nur, wenn der Fund `openPorts` mitbringt – fehlen sie (UniFi,
   Proxmox), bleiben die gespeicherten erhalten;
 - bringt der Fund keine MAC mit und hat das Gerät einen `mac:`-Schlüssel samt MAC, bleibt dieser
   Schlüssel (kein Hin- und Herspringen zwischen Scan und Controller);
@@ -477,7 +477,7 @@ Quelle: `backend/app/pipeline.py:307`, Tests: `backend/tests/test_pipeline_uniqu
 
 ### Requirement: Scan-Ablauf und Fehlertoleranz
 Das System MUSS die Phasen in dieser Reihenfolge ausführen: OUI laden (falls fehlend) → Netzwerk-
-Discovery → Docker → Controller-Quellen (UniFi, Omada, Proxmox, AdGuard; je abschaltbar) →
+Discovery → Docker → Controller-Quellen (UniFi, Proxmox; je abschaltbar) →
 KI-Einordnung (`scanUseLlm`, nur neue Funde) → eindeutige Namen → Inventar zusammenführen → nicht gesehene
 entdeckte Geräte `offline` → Container dem Host zuordnen → Uplinks verknüpfen → Netze
 synchronisieren → kritische Geräte überwachen → Abfrage mit Zugangsdaten (`scanUseCredentials`) →
@@ -499,7 +499,7 @@ Test: `backend/tests/test_pipeline_probe_warnings.py::test_pipeline_logs_discove
 Jedes zuvor entdeckte Gerät (`discovered=1`), das in keinem Fund dieses Scans auftaucht, MUSS auf
 `offline` gesetzt werden; manuell angelegte Geräte bleiben unberührt. Ausgenommen sind Geräte,
 deren `discoverySource` (Tokens, getrennt durch „+“) eine Quelle enthält, die in diesem Scan
-abgeschaltet oder nicht vollständig gelesen wurde (Docker, UniFi, Omada, Proxmox, AdGuard): ihr
+abgeschaltet oder nicht vollständig gelesen wurde (Docker, UniFi, Proxmox): ihr
 Status bleibt unverändert, und das Scan-Protokoll nennt die Quelle. Als nicht gelesen gilt eine
 aktive Quelle, wenn ein abgefragter Zugang scheitert, sein Secret nicht lesbar ist (der Zugang wird
 dann mit der Warnung „Secret nicht lesbar – übersprungen“ übersprungen und nie mit leerem Passwort
@@ -597,7 +597,7 @@ Siehe [data-model](../../contracts/data-model.md).
 - Datei: OUI-Cache (`HOMEATLAS_OUI_PATH`, Default `/data/oui.json`).
 - Settings gelesen: `scanSubnets, scanControllerNetworkIds, scanExtraTargets, scanExcludeIps,
   scanTimeoutMs, scanConcurrency, scanEnableMdns, scanEnableSsdp, scanEnableHttpBanner,
-  scanEnableDocker, scanEnableUnifi, scanEnableOmada, scanEnableProxmox, scanEnableAdguard, scanEnableTraefik, scanEnableUnifiClassic, scanEnableExposureFiles, scanEnableFirewallUnifi, scanEnableFirewallNft,
+  scanEnableDocker, scanEnableUnifi, scanEnableProxmox, scanEnableTraefik, scanEnableUnifiClassic, scanEnableExposureFiles, scanEnableFirewallUnifi, scanEnableFirewallNft,
   scanUseLlm, scanUseCredentials, scanAutoEnabled, scanAutoIntervalHours`.
 
 ## Schnittstellen
@@ -634,7 +634,7 @@ solange der Scan läuft und der Tab sichtbar ist). Scan-Einstellungen in `fronte
   Rückfall; mDNS über `zeroconf` in einem Thread; Gateway aus `ip route show default`, DNS aus
   `/etc/resolv.conf`; Host-IP über verbundenen UDP-Socket zu 8.8.8.8:53 (sendet nichts).
 - Fortschrittswerte: 1 OUI, 2 Bereiche, 5–35 Lebend-Erkennung (Update alle 16 Adressen), 36–60
-  Ports, 62 Namen/Banner, 76 mDNS/UPnP, 78 Shelly, 86 Docker, 87 UniFi/Omada, 88 Proxmox/AdGuard/
+  Ports, 62 Namen/Banner, 76 mDNS/UPnP, 78 Shelly, 86 Docker, 87 UniFi, 88 Proxmox/
   Firewalls/Traefik/Konfigurationen/Cloudflare/öffentliches DNS, 89 KI, 92 Inventar, 94 Zugänge,
   96 Doku, 100 Fertig. `progress()` klemmt auf den bisher höchsten Wert, die Anzeige fällt nie.
 - Scan läuft als `asyncio.Task` im API-Prozess; Bezeichnung im Feld `subnets` beim manuellen Start

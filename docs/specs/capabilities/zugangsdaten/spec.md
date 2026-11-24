@@ -52,13 +52,12 @@ Quelle: `backend/app/main.py:656`, `backend/app/main.py:619`, `backend/app/db.py
 
 ### Requirement: Kategorien
 Das System MUSS die Kategorien `contract` (Vertrag/Kundenkonto), `login`, `sshkey`, `snmp`,
-`omada`, `unifi`, `homeassistant`, `proxmox`, `adguard`, `traefik`, `cloudflare`,
+`unifi`, `homeassistant`, `proxmox`, `traefik`, `cloudflare`,
 `exposure_cloudflared`, `exposure_caddy`, `exposure_ddclient`, `firewall_nftables`, `wifi`, `apikey`,
 `other` anbieten; jede andere Kategorie wird beim Anlegen und Ändern mit 422 abgelehnt. Die
-Kategorie bestimmt die Bedeutung der Felder: `omada` Benutzer = Client-ID, Secret = Client-Secret;
-`proxmox` Benutzer = Token-ID (`user@realm!name`), Secret = Token-Secret; `homeassistant` Secret =
+Kategorie bestimmt die Bedeutung der Felder: `proxmox` Benutzer = Token-ID (`user@realm!name`), Secret = Token-Secret; `homeassistant` Secret =
 Long-Lived-Token; `snmp` Secret = Community; `unifi` Secret = API-Key; `sshkey` Secret = privater
-Schlüssel (PEM), Passphrase optional. Bei `omada`/`homeassistant`/`proxmox`/`adguard` ist die URL
+Schlüssel (PEM), Passphrase optional. Bei `homeassistant`/`proxmox` ist die URL
 Pflicht in der UI. Port ist nur für `sshkey`/`login`/`snmp` relevant. **[Muss]**
 
 #### Szenario: Proxmox-Zugang

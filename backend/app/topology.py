@@ -433,10 +433,10 @@ def render(settings: dict | None = None) -> str:
         previous = _midpoint(leaf_anchors)
 
     # --- Verteilung -----------------------------------------------------------------------
-    # Chained by parentId, same as the router section above -- an Omada AP's parentId (set by
-    # pipeline.py's _link_omada_topology from the controller's own uplink info) places it under
+    # Chained by parentId, same as the router section above -- a UniFi AP's parentId (set by
+    # pipeline.py's _link_unifi_topology from the controller's own uplink info) places it under
     # the switch it is actually plugged into instead of beside it in an unordered row. A device
-    # with no resolved uplink (no Omada credential, or the field wasn't present in the API
+    # with no resolved uplink (no UniFi credential, or the field wasn't present in the API
     # response) still renders -- `_chain_layers` treats an unresolved parentId as root, same
     # degrade-gracefully posture as the LLDP-based links in "Wichtige Geräte" below.
     if network:
@@ -671,7 +671,7 @@ def _infer_router_hierarchy(routers: list[dict], raw_subnets: dict[str, set[str]
     unrelated boxes both hanging directly off Internet.
 
     Nothing in this codebase ever sets a router's own `parentId` today (that field is only ever
-    filled in for Proxmox guests and Omada-linked switches/APs), so without this every router
+    filled in for Proxmox guests and UniFi-linked switches/APs), so without this every router
     would render as its own root. Inferred instead from subnet containment, which needs no extra
     configuration: a downstream router's own interface set always includes its upstream's subnet
     too (its WAN/uplink side is an ordinary client address on the upstream router's LAN) plus

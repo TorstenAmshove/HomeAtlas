@@ -7,7 +7,7 @@ betreffen auch HomeAtlas selbst und eignen sich als Issues.
 
 Jeder Punkt der Liste unten trägt am Ende `→ #N`, das GitHub-Issue, in dem er bearbeitet wird
 (mehrere zusammengehörige Punkte teilen sich ein Issue), oder die Entscheidung, die ihn erledigt hat.
-Ohne Verweis sind nur die Punkte zu Omada und TP-Link, für sie gibt es noch kein Issue.
+Ohne Verweis sind nur die Punkte zu TP-Link und `omada_backup`, für sie gibt es noch kein Issue.
 
 ## Zuerst ansehen
 
@@ -33,11 +33,10 @@ Bereinigt in #50: README (Docker-Socket, Ausnahme `set_switch`), `CLAUDE.md` (Sc
 Netzplan-Ebenen, `set_switch`), ADR-0009 für die Netzplan-Ebenen. Behoben in #39 (PR #61): Der
 KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben:
 
-- Netzwerkressourcen kommen nur von UniFi, nicht von Omada (netzwerkressourcen-vlans).
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (11)
+## Alle Punkte je Fähigkeit (8)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (1)
 
@@ -46,12 +45,10 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 ### [auth-und-rollen](capabilities/auth-und-rollen/spec.md) (0)
 
 
-### [credentialed-probing](capabilities/credentialed-probing/spec.md) (4)
+### [credentialed-probing](capabilities/credentialed-probing/spec.md) (2)
 
 1. TP-Link-Pager-Abschaltung nutzt `configure` / `no clipaging` – ein Konfigurationsmodus-Befehl, entgegen „kein Config-Mode“. Ob die Einstellung persistent in der Running-Config landet, ist ungeprüft.
-2. Manuelles Auslesen liest `omada`/`adguard`-Zugänge nicht (`reason` nennt das); deren Besonderheiten werden separat behandelt.
-3. `omada_backup` läuft auf jedem Linux-Host und wird Base64-kodiert als Fakt gespeichert; ein Restore ist bewusst nicht vorgesehen, Nutzen der Speicherung ist unklar.
-4. Omada liest nur Seite 1 (Geräte 100, Clients 500); größere Sites werden still abgeschnitten. Ein `errorCode` bei Geräten überspringt auch die Clients der Site.
+2. `omada_backup` läuft auf jedem Linux-Host und wird Base64-kodiert als Fakt gespeichert; ein Restore ist bewusst nicht vorgesehen, Nutzen der Speicherung ist unklar.
 
 ### [dashboard](capabilities/dashboard/spec.md) (0)
 
@@ -70,10 +67,9 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 1. `GET /api/systems/{id}` liefert MEMBER die Zugangs-Metadaten (Label, Benutzername, URL, Notizen) des Geräts; nur die UI blendet sie aus. Gewollt? → entschieden in #48: in Ordnung, solange keine Secrets
 
-### [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) (2)
+### [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) (1)
 
-1. Fähigkeitsbeschreibung nennt Omada und Discovery-Subnetze als Quelle; im Code liefert nur UniFi Netzwerkressourcen. Soll eine Alternative Omada-Netze übernehmen?
-2. Der manuelle Abgleich beim Verbindungstest (`backend/app/routes/systems.py:262`) nutzt dieselbe `sync_network_resources` und zählt `emptyScans` mit; zwei Klicks bei leer gemeldetem Bereich deaktivieren dessen Ressourcen also ebenso wie zwei Scans. Gewollt?
+1. Der manuelle Abgleich beim Verbindungstest (`backend/app/routes/systems.py:262`) nutzt dieselbe `sync_network_resources` und zählt `emptyScans` mit; zwei Klicks bei leer gemeldetem Bereich deaktivieren dessen Ressourcen also ebenso wie zwei Scans. Gewollt?
 
 ### [topologie](capabilities/topologie/spec.md) (1)
 

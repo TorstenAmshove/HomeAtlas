@@ -1,6 +1,6 @@
 """Public DNS resolution of the public hostnames found by the other sources.
 
-Why not the system resolver: with split DNS (AdGuard rewrites, router) it would answer with the
+Why not the system resolver: with split DNS (DNS rewrites, router) it would answer with the
 *internal* address and make every host look "not on the WAN IP". So this module asks a fixed public
 resolver over DNS-over-HTTPS (GET), the only contact besides Cloudflare outside the LAN (ADR-0014).
 Opt-in (`scanEnablePublicDns`, default off). It reveals the household's hostnames to that resolver;

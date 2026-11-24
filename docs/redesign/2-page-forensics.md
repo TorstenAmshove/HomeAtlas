@@ -72,7 +72,7 @@ Querschnitt (alle Seiten):
    die wie Badges aussehen („Weboberfläche ↗“). Fix: Summary-Strip (Status · Wichtigkeit · IP ·
    zuletzt gesehen · Quelle) + eine Linkzeile.
 5. 15 `<h2>`-Abschnitte untereinander (Beschreibung, Technische Daten, Verbrauchsmaterial,
-   AdGuard, Container, Schalten, Direkt ausgelesen, Fehlerprotokoll, Konfigurationsverlauf,
+   Container, Schalten, Direkt ausgelesen, Fehlerprotokoll, Konfigurationsverlauf,
    Dienste, Zugänge, Konsole …). Fix: Tabs `Überblick · Technik · Verlauf · Zugänge · Steuern`
    mit `?tab=` in der URL; nur „Überblick“ trägt die Zusammenfassung.
 6. `MergePanel` ist immer offen für Admins, auch wenn es keinen Kandidaten gibt. Fix: nur als Chip,

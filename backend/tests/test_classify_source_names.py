@@ -22,7 +22,7 @@ def test_containers_with_same_ip_untouched():
 
 
 def test_source_names_keep_name_and_kind_but_get_purpose():
-    for source, key in (("unifi", "unifi"), ("proxmox", "proxmox"), ("omada", "omada"), ("arp+unifi", "unifi")):
+    for source, key in (("unifi", "unifi"), ("proxmox", "proxmox"), ("arp+unifi", "unifi")):
         f = {"name": "Mein Gerät", "kind": "network", "discoverySource": source, "extra": {key: {}}}
         out = classify.apply(f, CLS)
         assert out["name"] == "Mein Gerät" and out["kind"] == "network"

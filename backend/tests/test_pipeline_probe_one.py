@@ -166,12 +166,6 @@ def test_manual_respects_scan_enable_proxmox(client, monkeypatch):
     assert "Proxmox" in body["outcome"]["reason"]
 
 
-def test_manual_omada_gives_reason(client):
-    host = _controller("omada")
-    body = client.post(f"/api/systems/{host['id']}/probe").json()
-    assert body["outcome"]["ran"] is False
-    assert "Omada" in body["outcome"]["reason"]
-
 
 def test_mixed_ssh_and_controller_partial_success(client, monkeypatch):
     async def fake(system, accounts):

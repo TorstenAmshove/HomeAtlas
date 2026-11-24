@@ -19,8 +19,8 @@
 | **Zum Auslesen freigegeben (allowProbe)** | Opt-in je Zugang, ohne das wird ein Zugang nie automatisch benutzt. |
 | **Zuordnung (Assignment)** | Ein Zugang gilt zusätzlich für ein weiteres System, eine ganze Geräteart oder ein Subnetz. |
 | **Secret** | Der geschützte Teil eines Zugangs (Passwort, Schlüssel, Passphrase, Token). Verlässt den Server nur einzeln und nur für ADMIN. |
-| **Netzwerkressource** | Netz/VLAN, WLAN oder WAN-Anschluss, gelesen aus einem Controller (UniFi, Omada). Entität `networkResources`. |
-| **Controller** | Zentrale Verwaltung von Netzgeräten (UniFi Network, TP-Link Omada), über deren API HomeAtlas Geräte, Uplinks, VLANs, WLANs, WANs liest. |
+| **Netzwerkressource** | Netz/VLAN, WLAN oder WAN-Anschluss, gelesen aus einem Controller (UniFi). Entität `networkResources`. |
+| **Controller** | Zentrale Verwaltung von Netzgeräten (UniFi Network, Proxmox), über deren API HomeAtlas Geräte, Uplinks, VLANs, WLANs, WANs liest. |
 | **Doku-Kapitel (Doc-Seite)** | Eines der 13 thematischen Markdown-Kapitel, aus dem Inventar erzeugt. Slug als Schlüssel. |
 | **Manuelle Notizen** | Eigener Abschnitt je Kapitel, den die Generierung nie anfasst. |
 | **Manueller Override** | Ganze Kapitelseite von Hand überschrieben; sie wird dann nicht mehr automatisch erzeugt, bis sie zurückgesetzt wird. |
@@ -28,7 +28,7 @@
 | **Netzplan (Topologie)** | Automatisch erzeugtes Bild des Netzes in festen Schichten: Internet → Router → Verteilung (Backbone: Switches, Access Points) → Wichtige Geräte; der Rest als Liste darunter. Zusätzlich eine Layer-3-Ansicht (Netze/VLANs). |
 | **Vollscan vs. manuelles Auslesen** | Vollscan: der ganze Scan-Ablauf über alle Geräte. Manuelles Auslesen: Knopf „Auslesen“ an einem einzelnen Gerät; nutzt nur einen Teil der Quellen (siehe [credentialed-probing](capabilities/credentialed-probing/spec.md)). |
 | **Platzhalter-Einordnung (guessConfident)** | Die regelbasierte Erkennung konnte Art/Name nicht sicher bestimmen; nur solche Geräte gehen an die KI-Klassifikation. |
-| **Namensquelle** | Woher der aktuelle Name eines Geräts stammt (manuell, UniFi, Docker, Proxmox, Omada, mDNS …); bestimmt, ob Automatik ihn ersetzen darf. |
+| **Namensquelle** | Woher der aktuelle Name eines Geräts stammt (manuell, UniFi, Docker, Proxmox, mDNS …); bestimmt, ob Automatik ihn ersetzen darf. |
 | **Plattform (SSH)** | Erkannte Gerätefamilie (z. B. Linux, MikroTik, Cisco, Aruba, TP-Link), von der die feste SSH-Befehlsliste abhängt. |
 | **Interface** | Netzwerkschnittstelle eines Geräts (IP/MAC), gespeichert unter `extra.interfaces`; ein Gerät kann mehrere haben. |
 | **Assistent** | Chat mit einem LLM, das über Werkzeuge das Inventar kennt und live nachmisst. |

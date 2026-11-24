@@ -250,7 +250,6 @@ async def merge_system(system_id: str, body: dict = Body(...), _: dict = Depends
 # ---------------------------------------------------------------------------------------------
 
 _CONTROLLER_LABELS = {"unifi": "UniFi", "proxmox": "Proxmox"}
-_SCAN_ONLY_CATEGORIES = {"omada": "Omada", "adguard": "AdGuard Home"}
 
 
 @router.post("/api/systems/{system_id}/probe")
@@ -259,8 +258,7 @@ async def probe_system(system_id: str, _: dict = Depends(require_admin)) -> dict
     credentials and the default credential through `pipeline.probe_one_system` (honours
     `scanUseCredentials`), UniFi/Proxmox controller accounts through
     `pipeline.read_controller_account` (honour `scanEnableUnifi`/`scanEnableProxmox`). Which
-    controller accounts: the ones attached to or assigned to this device. Omada and AdGuard are only
-    read by the full scan; the outcome says so instead of a bare `ran = false`."""
+    controller accounts: the ones attached to or assigned to this device."""
     system = db.get_system(system_id)
     if system is None:
         raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
@@ -271,7 +269,7 @@ async def probe_system(system_id: str, _: dict = Depends(require_admin)) -> dict
             "Für dieses Gerät ist kein Zugang freigegeben. Unter Zugänge beim gewünschten Eintrag "
             "„Zum Auslesen verwenden“ aktivieren."
         ))
-    controller_categories = (*pipeline.CONTROLLER_CATEGORIES, *_SCAN_ONLY_CATEGORIES)
+    controller_categories = pipeline.CONTROLLER_CATEGORIES
     controller_accounts = [a for a in accounts if a.get("category") in controller_categories]
     device_path = not accounts or any(a.get("category") not in controller_categories for a in accounts)
 
@@ -301,10 +299,6 @@ async def probe_system(system_id: str, _: dict = Depends(require_admin)) -> dict
     unifi_synced = False
     for account in controller_accounts:
         category = account["category"]
-        if category in _SCAN_ONLY_CATEGORIES:
-            reasons.append(f"{_SCAN_ONLY_CATEGORIES[category]} ({account['label']}) wird beim manuellen "
-                           "Auslesen noch nicht unterstützt – nur im Netzwerk-Scan")
-            continue
         name = _CONTROLLER_LABELS[category]
         if not pipeline.controller_enabled(category, settings):
             reasons.append(f"{name}-Abfrage ist in den Einstellungen abgeschaltet")

@@ -14,7 +14,7 @@ export function hasConfigHistory(system: System): boolean {
   return system.kind === "router" || system.kind === "network";
 }
 
-/** Downloads one stored config backup. Binary backups (e.g. an Omada Controller export) are stored
+/** Downloads one stored config backup. Binary backups are stored
  *  as one unbroken Base64 string -- everything else is multi-line device config text, which no real
  *  Base64 payload looks like, so this tells the two apart without a dedicated flag. */
 export async function downloadConfigVersion(systemId: string, version: ConfigVersion): Promise<void> {

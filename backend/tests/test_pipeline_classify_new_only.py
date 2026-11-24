@@ -31,9 +31,7 @@ def test_second_scan_sends_nothing(temp_db, monkeypatch):
 
 def test_new_findings_per_source(temp_db, monkeypatch):
     fs = [_f("192.168.1.6", discoverySource="unifi", extra={"unifi": {}}),
-          _f("192.168.1.7", discoverySource="proxmox", extra={"proxmox": {}}),
-          _f("192.168.1.8", discoverySource="omada", extra={"omada": {}}),
-          _f("192.168.1.9", discoverySource="adguard")]
+          _f("192.168.1.7", discoverySource="proxmox", extra={"proxmox": {}})]
     out, calls = _run(fs, monkeypatch, {f["ip"]: GOOD for f in fs})
     assert calls == [[f["ip"] for f in fs]]
     assert all(o["purpose"] == "Zweck" for o in out)

@@ -112,11 +112,11 @@ fixed: manually maintained HomeAtlas name > assigned UniFi name > self-reported 
 `friendlyName`, then mDNS) > DNS hostname > page title > vendor + IP octet. `classify.py`
 (LLM-assisted identification) runs once per device, only over findings new to the inventory (`db.find_existing_for_discovery`; later scans never re-ask, the upsert keeps the result via `extra.aiConfidence`; admins re-run it per device via `POST /api/systems/{id}/classify`), and only over devices the rule-based guess in `discovery._guess`
 couldn't confidently place, and a low-confidence LLM answer is discarded rather than stored. It never overwrites a name or kind
-that a source supplied (manual, UniFi, Docker, Proxmox, Omada), nor a self-reported name (UPnP/mDNS/Shelly app name, `extra.nameSource`; `kind` may still be set) and skips Docker containers entirely
+that a source supplied (manual, UniFi, Docker, Proxmox), nor a self-reported name (UPnP/mDNS/Shelly app name, `extra.nameSource`; `kind` may still be set) and skips Docker containers entirely
 (they share the host IP, which is the key its answers are mapped by).
 
-**`pipeline.py`** orchestrates a full scan (discovery → Docker → controller APIs (UniFi, Omada,
-Proxmox, AdGuard) → classification → inventory merge → credentialed probing → doc regeneration; classification runs
+**`pipeline.py`** orchestrates a full scan (discovery → Docker → controller APIs (UniFi,
+Proxmox) → classification → inventory merge → credentialed probing → doc regeneration; classification runs
 before probing, so probe facts only inform the next scan's classification) and owns the scan `Scheduler`. **`docs.py`** renders the
 14-chapter Markdown documentation from the inventory; each doc page has a separate
 never-auto-touched "manual notes" field (`db.set_doc_page_manual`) plus an independent

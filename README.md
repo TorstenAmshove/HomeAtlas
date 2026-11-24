@@ -16,7 +16,7 @@ Läuft als Docker-Container im eigenen Netz. Keine Cloud, keine Registrierung.
 | | |
 |---|---|
 | **Selbstständige Erkennung** | Ping/ARP-Sweep, Portscan, Reverse-DNS, mDNS/Bonjour, UPnP/SSDP, HTTP-Banner und Docker-API — fünf unabhängige Quellen, weil keine davon allein alles sieht |
-| **Container-Namen & Compose-Stacks** | Docker-Container heißen `<service> · <projekt>` (z. B. `postgres · immich`); die Geräteliste gruppiert sie nach Compose-Projekt (einklappbar, mit Projekt-Filter), die Dokumentation zeigt eine Überschrift je Stack. Die KI-Einordnung benennt nie ein Gerät um, dessen Name aus einer Quelle stammt (UniFi, Docker, Proxmox, Omada) oder vom Gerät selbst gemeldet wird (UPnP, mDNS) |
+| **Container-Namen & Compose-Stacks** | Docker-Container heißen `<service> · <projekt>` (z. B. `postgres · immich`); die Geräteliste gruppiert sie nach Compose-Projekt (einklappbar, mit Projekt-Filter), die Dokumentation zeigt eine Überschrift je Stack. Die KI-Einordnung benennt nie ein Gerät um, dessen Name aus einer Quelle stammt (UniFi, Docker, Proxmox) oder vom Gerät selbst gemeldet wird (UPnP, mDNS) |
 | **Verständliche Doku** | 14 Kapitel nach Themen (Internet & Router, Netzwerk, Server, Container, Smart Home, Wärme & Energie, Erreichbarkeit von außen, Zugänge, Notfall, Wer darf mit wem sprechen …) als Markdown im Browser |
 | **KI-Assistent** | Kennt das Inventar, misst live nach und führt Schritt für Schritt durch die Fehlersuche |
 | **Zugangsverwaltung** | Passwörter, SSH-Schlüssel und Passphrasen verschlüsselt gespeichert, nie in der Doku, nie beim KI-Anbieter |
@@ -409,7 +409,7 @@ wird, ist eine Eigenschaft des Codes, keine Zusicherung im Text:
   gebaut — die `Set*`-Hälfte dieser Schnittstelle kommt im Quelltext nicht vor.
 - **Opt-in pro Zugang.** Ohne den Haken „Zum Auslesen verwenden“ passiert nichts, und das
   Auslesen einzelner Geräte lässt sich unter *Einstellungen → Netzwerk-Scan* mit einem Schalter
-  abschalten. Die Abfragen der Controller (UniFi, Omada, Proxmox, AdGuard) und weiterer Quellen haben
+  abschalten. Die Abfragen der Controller (UniFi, Proxmox) und weiterer Quellen haben
   jeweils eigene Schalter und melden sich mit ihrem Zugang an, solange diese aktiv sind.
 
 Bewusste Abwägung: SSH-Hostschlüssel werden **nicht** geprüft. HomeAtlas hat keinen Vertrauensspeicher,
@@ -526,7 +526,7 @@ Inventar über die Auswahl mehrerer Geräte. Konten, Verlauf und Monitoring wand
   löst keinen Hinweis aus.
 - **„Kein Duplikat"** blendet einen Hinweis dauerhaft aus, auch nach neuen Scans.
 - **Ausnahme Controller-Funde:** Ein nur per IP gefundenes (geroutetes) Gerät wird automatisch mit
-  dem UniFi-/Omada-Eintrag zusammengeführt, wenn genau ein Eintrag diese IP hat und die MACs nicht
+  dem UniFi-Eintrag zusammengeführt, wenn genau ein Eintrag diese IP hat und die MACs nicht
   widersprechen (siehe [docs/multi-vlan.md](docs/multi-vlan.md)).
 - Sonst wird **nie automatisch** zusammengeführt, nur nach Klick und Bestätigung. Ein
   manuelles Zusammenführen lässt sich nicht rückgängig machen.

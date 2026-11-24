@@ -88,14 +88,6 @@ export const ACCOUNT_FIELDS: Record<CategoryId, CategoryFields> = {
     port: { visible: true, label: "Abweichender Port (optional)", placeholder: "Standard (SNMP: 161)" },
     allowProbe: { visible: true },
   },
-  omada: {
-    username: { visible: true, required: true, label: "Client-ID" },
-    url: { visible: true, required: true, label: "Adresse", placeholder: "https://192.168.1.10:8043",
-      hint: "Basis-Adresse des Controllers. Client-ID und Client Secret werden unter Einstellungen → Plattform-Integration → Open API im Controller selbst angelegt." },
-    secret: { visible: true, required: true, label: "Client Secret", keepLabel: "das gespeicherte Client Secret", hint: SECRET_STORED },
-    port: HIDDEN,
-    allowProbe: { visible: true },
-  },
   unifi: {
     username: HIDDEN,
     url: { visible: true, required: true, label: "Adresse", placeholder: "https://192.168.1.1",
@@ -122,13 +114,6 @@ export const ACCOUNT_FIELDS: Record<CategoryId, CategoryFields> = {
       hint: "Basis-Adresse des Proxmox-Hosts. Dieser Zugang sollte am Proxmox-Host selbst (als „Gehört zu welchem Gerät?“) hängen, damit gefundene VMs/Container dort eingeordnet werden." },
     secret: { visible: true, required: true, label: "Token-Secret (UUID)", keepLabel: "das gespeicherte Token-Secret",
       hint: "Wird verschlüsselt gespeichert. Erzeugt unter Datacenter → Berechtigungen → API-Tokens." },
-    port: HIDDEN,
-    allowProbe: { visible: true },
-  },
-  adguard: {
-    ...userUrl({ label: "Adresse", required: true, placeholder: "http://192.168.1.2:3000",
-      hint: "Basis-Adresse von AdGuard Home. Benutzername und Passwort sind die des AdGuard-Administrators (dieselben wie für die Weboberfläche)." }),
-    secret: password(),
     port: HIDDEN,
     allowProbe: { visible: true },
   },
