@@ -20,7 +20,7 @@ def client(temp_db, tmp_path, monkeypatch):
 
 
 def test_assignment_round_trip(client):
-    account = db.create_account({"label": "Aruba Switch Admin", "category": "login", "allowProbe": 1})
+    account = db.create_account({"label": "Switch Admin", "category": "login", "allowProbe": 1})
 
     put_response = client.put(
         f"/api/accounts/{account['id']}/assignments",

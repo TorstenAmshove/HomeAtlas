@@ -29,7 +29,6 @@
 | **Vollscan vs. manuelles Auslesen** | Vollscan: der ganze Scan-Ablauf über alle Geräte. Manuelles Auslesen: Knopf „Auslesen“ an einem einzelnen Gerät; nutzt nur einen Teil der Quellen (siehe [credentialed-probing](capabilities/credentialed-probing/spec.md)). |
 | **Platzhalter-Einordnung (guessConfident)** | Die regelbasierte Erkennung konnte Art/Name nicht sicher bestimmen; nur solche Geräte gehen an die KI-Klassifikation. |
 | **Namensquelle** | Woher der aktuelle Name eines Geräts stammt (manuell, UniFi, Docker, Proxmox, mDNS …); bestimmt, ob Automatik ihn ersetzen darf. |
-| **Plattform (SSH)** | Erkannte Gerätefamilie (z. B. Linux, MikroTik, Cisco, Aruba, TP-Link), von der die feste SSH-Befehlsliste abhängt. |
 | **Interface** | Netzwerkschnittstelle eines Geräts (IP/MAC), gespeichert unter `extra.interfaces`; ein Gerät kann mehrere haben. |
 | **Assistent** | Chat mit einem LLM, das über Werkzeuge das Inventar kennt und live nachmisst. |
 | **Werkzeug (Tool)** | Eine Fähigkeit des Assistenten; die Liste ist die vollständige Fähigkeitsgrenze des Modells. |

@@ -47,14 +47,14 @@ es zeigen, ohne Duplikate, sortiert nach (Kategorie, Bezeichnung case-insensitiv
 Quelle: `backend/app/db.py:1408`, Test: `backend/tests/test_db_account_assignments.py::test_list_probe_accounts_includes_subnet_assigned_credential`, `backend/tests/test_db_account_assignments.py::test_list_probe_accounts_includes_kind_assigned_credential`
 
 ### Requirement: Feste, nicht erweiterbare SSH-Befehlsliste
-Das System MUSS per SSH ausschließlich Befehle aus fest eingebauten, lesenden Listen ausführen;
-keine Einstellung, kein API-Parameter und kein LLM-Werkzeug darf die Listen erweitern oder
+Das System MUSS per SSH ausschließlich Befehle aus einer fest eingebauten, lesenden Linux-Liste ausführen;
+keine Einstellung, kein API-Parameter und kein LLM-Werkzeug darf die Liste erweitern oder
 Befehle frei zusammensetzen. Verboten sind Paketmanager, Dienststeuerung, Umleitungen, `sudo`,
-Konfigurationsmodus-Befehle (Ausnahmen siehe unten) und `/export show-sensitive`. **[Muss]**
+Konfigurationsmodus-Befehle und `/export show-sensitive`. **[Muss]**
 
-Vollständige Listen (Schlüssel → Befehl), Quelle `backend/app/probe_auth.py:64`–`223`:
+Vollständige Liste (Schlüssel → Befehl), Quelle `backend/app/probe_auth.py` (`_SSH_COMMANDS`); es gibt keine Plattform-Varianten:
 
-- **Linux (Default)**: `hostname` → `hostname`; `os` → `grep -E '^(PRETTY_NAME|NAME|VERSION)=' /etc/os-release 2>/dev/null | head -3 || uname -sr`;
+- **Linux**: `hostname` → `hostname`; `os` → `grep -E '^(PRETTY_NAME|NAME|VERSION)=' /etc/os-release 2>/dev/null | head -3 || uname -sr`;
   `kernel` → `uname -sr`; `model` → `cat /sys/firmware/devicetree/base/model 2>/dev/null || cat /sys/devices/virtual/dmi/id/product_name 2>/dev/null`;
   `virt` → `systemd-detect-virt 2>/dev/null`; `uptime` → `uptime -p 2>/dev/null || uptime`; `cpu` → `nproc 2>/dev/null`;
   `memory` → `free -h 2>/dev/null | awk 'NR==2{print $2" gesamt, "$3" belegt"}'`;
@@ -62,41 +62,12 @@ Vollständige Listen (Schlüssel → Befehl), Quelle `backend/app/probe_auth.py:
   `ip` → `ip -4 -o addr show scope global 2>/dev/null | awk '{print $2" "$4}' | head -6`;
   `arp_table` → `ip neigh show 2>/dev/null | grep lladdr | head -200 || arp -an 2>/dev/null | head -200`;
   `docker` → `docker ps --format '{{.Names}} ({{.Image}}) {{.Status}}' 2>/dev/null | head -25`;
-  `services` → `systemctl list-units --type=service --state=running --no-pager --no-legend 2>/dev/null | awk '{print $1}' | head -20`;
-  `omada_backup` → `ls -1t /opt/tplink/EAPController/data/backup/*.cfg 2>/dev/null | head -1 | xargs -r base64 -w0 2>/dev/null`
-- **MikroTik**: `/system identity print`, `/system resource print`, `/system routerboard print`,
-  `/interface vlan print detail without-paging`, `/interface bridge port print detail without-paging`,
-  `/ip neighbor print detail without-paging`, `/interface print detail without-paging`,
-  `/ip address print without-paging`, `/ip arp print detail without-paging`, `/export compact` (`config_export`)
-- **ArubaOS-Switch (klassisch)**: `show system-information`, `show vlan`, `show vlan ports all detail`,
-  `show lldp info remote-device`, `show interfaces brief`, `show ip`, `show arp`, `show running-config`
-  (`config_export`); Sitzungsvorlauf: Newline, ggf. `enable`, `no page`
-- **ArubaOS-CX**: je mit vorangestelltem `no paging`: `show system`, `show vlan`, `show lldp neighbor-info`,
-  `show interface brief`, `show interface vlan`, `show arp`, `show running-config`
-- **Cisco IOS**: je mit `| no-more`: `show version`, `show vlan brief`, `show cdp neighbors detail`,
-  `show interfaces status`, `show ip interface brief`, `show ip arp`, `show running-config`
-- **TP-Link JetStream**: je mit vorangestelltem `configure` / `no clipaging` / `exit`: `show system-info`,
-  `show vlan`, `show lldp neighbor-information`, `show interface status`, `show arp`, `show running-config`
+  `services` → `systemctl list-units --type=service --state=running --no-pager --no-legend 2>/dev/null | awk '{print $1}' | head -20`
+#### Szenario: Befehlsliste ist fest und rein Linux
+- **WENN** die Befehlsliste geprüft wird
+- **DANN** enthält sie genau die oben genannten Schlüssel (kein `omada_backup`, keine Plattform-Varianten)
 
-#### Szenario: Klassisches Aruba sendet reine show-Befehle
-- **WENN** die Aruba-Befehlsliste geprüft wird
-- **DANN** enthält jeder Eintrag genau einen `show …`-Befehl ohne eingefalteten Pager-Befehl
-
-Quelle: `backend/app/probe_auth.py:64`, Test: `backend/tests/test_probe_auth_aruba.py::test_aruba_commands_are_bare_show_commands_run_one_at_a_time`, `backend/tests/test_probe_auth_switch_paging.py::test_every_tplink_command_disables_paging_first`
-
-### Requirement: Plattform-Erkennung
-Das System MUSS die Befehlsliste anhand der Geräteangaben (Hersteller, Modell, Name, OS,
-case-insensitiv) wählen, in dieser Reihenfolge: `mikrotik`/`routeros` → MikroTik; `aruba`/
-`procurve`/`hewlett`/Wort `hp` → Aruba, darin `arubaos-cx`/`aos-cx`/Wort `cx` → ArubaOS-CX;
-`cisco` → Cisco; `tp-link`/`tplink`/`jetstream` → TP-Link; sonst Linux. Die Kategorie eines
-Zugangs bestimmt nie die Plattform. **[Muss]**
-
-#### Szenario: HP ProCurve
-- **WENN** ein Gerät als „HP ProCurve 2530“ beschrieben ist
-- **DANN** wird die klassische Aruba-Liste verwendet, nicht ArubaOS-CX; „hp“ als Teilwort
-  (z. B. Hersteller „Shpock GmbH“) löst keinen Treffer aus
-
-Quelle: `backend/app/probe_auth.py:271`, Test: `backend/tests/test_probe_auth_platform.py::test_detect_platform_hp_procurve_maps_to_aruba`, `backend/tests/test_probe_auth_platform.py::test_detect_platform_hp_word_boundary_does_not_match_substring`, `backend/tests/test_probe_auth_aruba.py::test_detect_platform_arubaos_cx_by_explicit_string`
+Quelle: `backend/app/probe_auth.py:60`, Test: `backend/tests/test_probe_auth_results.py::test_linux_command_set_unchanged`
 
 ### Requirement: Welche Probes je Zugangskategorie laufen
 Das System MUSS je Probe-Zugang folgende Leseverfahren starten (Host = IP, sonst Hostname; ohne
@@ -104,8 +75,7 @@ Adresse läuft nichts, Grund „Keine Adresse hinterlegt.“): **[Muss]**
 - `sshkey`: immer SSH.
 - `login` mit Port 0 oder 22: SSH nur (ein anderer Port gehört meist zur Weboberfläche; SSH dorthin
   wäre ein Fehlversuch mit Zugangsdaten für einen anderen Dienst – bewusst so, `sshkey` ist
-  eindeutig SSH und darf jeden Port haben), wenn eine Netzwerk-Plattform erkannt ist oder `kind` ∈
-  {server, nas, vm, pc, container}.
+  eindeutig SSH und darf jeden Port haben), wenn `kind` ∈ {server, nas, vm, pc, container}.
 - `homeassistant`: Home-Assistant-API (URL des Zugangs, sonst des Geräts).
 - `login`/`apikey` mit URL (Zugang, sonst Gerät): HTTP-GET-Anmeldung.
 - Gerät mit „fritz“ in Hersteller/Modell/Name oder `kind = router`: TR-064. Der erste Zugang der
@@ -119,11 +89,11 @@ Adresse läuft nichts, Grund „Keine Adresse hinterlegt.“): **[Muss]**
 - **DANN** läuft TR-064 ohne Zugang (nur unauthentifizierter Teil); das Passwort wird nicht gesendet
 - `unifi`/`proxmox`: eigene Controller-Probes (siehe unten).
 
-#### Szenario: Login-Zugang auf Drucker ohne Plattform
-- **WENN** ein `login`-Zugang (Port 0) an einem Gerät `kind = printer` ohne erkannte Plattform hängt
-- **DANN** wird keine SSH-Verbindung aufgebaut, nur ggf. HTTP gegen die hinterlegte URL
+#### Szenario: Login-Zugang auf Netzwerkgerät oder Drucker
+- **WENN** ein `login`-Zugang (Port 0 oder 22) an einem Gerät mit `kind` network, router, printer oder leer hängt (unabhängig vom Hersteller)
+- **DANN** wird keine SSH-Verbindung aufgebaut, nur ggf. HTTP gegen die hinterlegte URL; ein `sshkey`-Zugang wird weiterhin per SSH genutzt
 
-Quelle: `backend/app/probe_auth.py:1367`
+Quelle: `backend/app/probe_auth.py` (`probe_system`), Test: `backend/tests/test_probe_auth_results.py::test_login_on_network_device_not_probed_via_ssh`, `backend/tests/test_probe_auth_results.py::test_login_on_server_like_kinds_still_probed`
 
 ### Requirement: Ergebnisse je Art
 Das System MUSS jedes Probe-Ergebnis unter `<art>:<label>` (`ssh`, `ha`, `http`) bzw.
@@ -178,44 +148,13 @@ aggressiveren Zweitversuch. **[Muss]**
 - **WENN** ein Befehl nicht innerhalb von 15 s antwortet
 - **DANN** enthält `warnings` einen Hinweis mit dem Befehlslabel, übrige Fakten bleiben erhalten
 
-Quelle: `backend/app/probe_auth.py:493`, Test: `backend/tests/test_probe_auth_aruba.py::test_probe_ssh_logs_a_clear_warning_when_a_command_times_out`
-
-### Requirement: Klassisches ArubaOS-Switch ohne Fremd-Credentials
-Das System MUSS bei klassischem Aruba eine einzige interaktive Sitzung (Terminal vt100) nutzen:
-Banner per Newline bestätigen; nur am Operator-Prompt (`>`) einmal `enable` senden, aber NIE eine
-Benutzer-/Passwortabfrage beantworten – erscheint eine, bricht die Probe mit Warnung ab; danach
-`no page` und die Befehle. Gesamtbudget 45 s, ein Befehl gilt nach 0,6 s Ruhe als fertig;
-Echo-Zeile und abschließender Prompt werden entfernt. **[Muss]** (Nie-antworten), Zeiten **[Impl]**
-
-#### Szenario: enable verlangt Manager-Passwort
-- **WENN** der Switch nach `enable` mit „Password:“ antwortet
-- **DANN** wird nichts eingegeben, keine Fakten gesammelt und die Warnung „„enable“ verlangt
-  eigene Manager-Zugangsdaten …“ zurückgegeben
-
-Quelle: `backend/app/probe_auth.py:371`, Test: `backend/tests/test_probe_auth_aruba.py::test_probe_ssh_aruba_gives_up_without_answering_a_manager_credential_prompt`, `backend/tests/test_probe_auth_aruba.py::test_probe_ssh_aruba_skips_enable_when_session_already_at_manager_prompt`
-
-### Requirement: Pager-Unterdrückung und Terminal
-Das System MUSS Pager so unterdrücken, dass lange Ausgaben vollständig ankommen: Cisco über
-`| no-more`, ArubaOS-CX und TP-Link durch Einfalten des Pager-Befehls in dieselbe Befehlszeichenkette;
-für ArubaOS-CX, Cisco und TP-Link mit Pseudo-Terminal (vt100), für Linux und MikroTik ohne. **[Impl]**
-
-#### Szenario: Linux ohne PTY
-- **WENN** ein Linux-Host per SSH ausgelesen wird
-- **DANN** wird kein Pseudo-Terminal angefordert
-
-Quelle: `backend/app/probe_auth.py:236`, Test: `backend/tests/test_probe_auth_aruba.py::test_probe_ssh_does_not_request_a_pty_for_plain_linux_hosts`, `backend/tests/test_probe_auth_switch_paging.py::test_cisco_running_config_already_suppresses_paging_with_no_more`
+Quelle: `backend/app/probe_auth.py` (`probe_ssh`)
 
 ### Requirement: Größenbegrenzung gespeicherter Fakten
 Das System MUSS die Ausgabe je Fakt begrenzen: allgemein 1.200 Zeichen, Konfigurationsexport
-(`config_export`) 60.000 Zeichen; binäre Sicherung (`omada_backup`, Base64) wird ab 4.000.000
-Zeichen komplett verworfen statt gekürzt. Leere Ausgabe ergibt keinen Fakt. **[Muss]** (Verwerfen
-statt Kürzen bei Binärdaten), Zahlen **[Impl]**
+(`config_export`) 60.000 Zeichen. Leere Ausgabe ergibt keinen Fakt. **[Impl]**
 
-#### Szenario: Zu große Binärsicherung
-- **WENN** die Base64-Sicherung ≥ 4.000.000 Zeichen lang ist
-- **DANN** wird kein `omada_backup`-Fakt gespeichert
-
-Quelle: `backend/app/probe_auth.py:253`, Test: `backend/tests/test_probe_auth_aruba.py::test_bounded_fact_drops_an_oversized_binary_backup_entirely`, `backend/tests/test_probe_auth_aruba.py::test_bounded_fact_gives_config_export_the_wide_limit`
+Quelle: `backend/app/probe_auth.py` (`_bounded_fact`)
 
 ### Requirement: HTTP-Anmeldung nur per GET
 Das System MUSS die Web-URL nur per GET abrufen, zuerst mit Basic-, dann mit Digest-Auth
@@ -285,7 +224,7 @@ Virtualisierung → VM/Container), im Vollscan zusätzlich `os` (erste Zeile, �
 Quelle: `backend/app/pipeline.py:115`, `backend/app/probe_auth.py:1315`
 
 ### Requirement: Konfigurationsversionen sichern
-Das System MUSS Fakten `config_export` und `omada_backup` erfolgreicher Ergebnisse als
+Das System MUSS Fakten `config_export` (Altbestand: auch `omada_backup`) erfolgreicher Ergebnisse als
 Konfigurationsversion des Geräts (Label „<Gerätename> – <Faktlabel>“, Quelle = Ergebnisschlüssel)
 verschlüsselt speichern, aber nur, wenn sich der Inhalt gegenüber der neuesten Version gleichen
 Labels geändert hat (Vergleich ohne Zeilen, die mit `#` beginnen). Je Gerät und Label bleiben die
@@ -297,15 +236,16 @@ Versionen gespeichert haben, auch aus Doku-Ständen und gespeicherten Werkzeuger
 Assistenten. **[Muss]** Test: `backend/tests/test_secrets_at_rest.py`
 
 #### Szenario: Nur Zeitstempel geändert
-- **WENN** ein MikroTik-Export sich nur in der Kommentarzeile mit Zeitstempel unterscheidet
+- **WENN** ein Konfigurationsexport sich nur in der Kommentarzeile mit Zeitstempel unterscheidet
 - **DANN** wird keine neue Version angelegt
 
 Quelle: `backend/app/probe_auth.py:1529`, `backend/app/db.py:1694`
 
 ### Requirement: Geräte aus Router-ARP-Tabellen lernen
 Das System MUSS im Vollscan aus ARP-/Hostlisten-Fakten (`arp_table`, `hostList`)
-erfolgreicher Probes von Geräten mit `kind = router` IP→MAC-Paare lesen (Formate: Linux, RouterOS,
-Cisco-Punktnotation, Aruba `aabbcc-ddeeff`; 0.0.0.0/255.255.255.255 ignoriert) und
+erfolgreicher Probes von Geräten mit `kind = router` IP→MAC-Paare lesen (Formate: Linux `ip neigh`/`arp -an`,
+SNMP-Oktette, FRITZ!Box-Hostliste; Punktnotation (`aabb.ccdd.eeff`) und Sextetts (`aabbcc-ddeeff`) werden nicht gelesen;
+0.0.0.0/255.255.255.255 ignoriert) und
 für Paare, deren MAC und IP noch unbekannt sind, Geräte anlegen: `kind = other`, Name aus
 Reverse-DNS, sonst „<Herstellerwort> (<letztes Oktett>)“, sonst IP; Quelle `gateway-arp`. **[Muss]**
 
@@ -482,21 +422,13 @@ auslesen“, nur Admin und nur wenn ein Zugang `allowProbe` hat).
 - Keine Konfigurationsänderung, kein Neustart, kein Zurückspielen von Sicherungen; HomeAtlas hat keine
   Fernwartung (ADR-0023). Bestehende `sshkey`-Zugänge werden weiter nur lesend genutzt.
 - Keine Hostschlüssel-/Zertifikatsprüfung (SSH, HTTPS, Controller-APIs).
-- Klassisches Aruba (das Zugangsformular der Kategorie `login` weist am Benutzernamen darauf hin): kein Beantworten einer `enable`-Passwortabfrage – nur Konten mit
-  Manager-Rechten liefern `show running-config`.
+- Nur der Linux-Befehlssatz: Router, Switches und Drucker mit `login`-Zugang werden nicht per SSH
+  gelesen; Verkabelung und VLANs kommen aus den Controllern (UniFi).
 
 ## Ist-Implementierung (nur Referenz, [Impl])
 
 - Python/asyncssh, httpx.
-- Pro SSH-Befehl ein eigener Exec-Kanal (außer klassisches Aruba: eine interaktive Sitzung).
+- Pro SSH-Befehl ein eigener Exec-Kanal.
 - `persist_config_backups` ist der einzige Speicherzugriff in `probe_auth.py`.
 - Ergebnis-Dict je Probe: `{ok, error, facts, warnings?}`; Faktwerte sind Text, mehrzeilig möglich.
 - Fortschritt im Scan: Docker 86 %, UniFi 87 %, Proxmox 88 %, Zugänge 93 %.
-
-## OFFEN
-
-- > OFFEN: TP-Link-Pager-Abschaltung nutzt `configure` / `no clipaging` – ein
-  Konfigurationsmodus-Befehl, entgegen „kein Config-Mode“. Ob die Einstellung persistent in der
-  Running-Config landet, ist ungeprüft.
-- > OFFEN: `omada_backup` läuft auf jedem Linux-Host und wird Base64-kodiert als Fakt gespeichert;
-  ein Restore ist bewusst nicht vorgesehen, Nutzen der Speicherung ist unklar.

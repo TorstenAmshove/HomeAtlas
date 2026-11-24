@@ -199,3 +199,33 @@ def test_layer3_exact_cidr_beats_24_approximation(temp_db, monkeypatch):
         {"ownerSystemId": r["id"], "facts": {"cidr": "192.168.1.0/26"}}])
     svg = topology.render_layer3({})
     assert "192.168.1.0/26" in svg and "192.168.1.0/24" not in svg
+
+
+# --- edges only from parentId; router subnets from the Linux `ip` fact (#229) ------------------
+
+def _probe(ip_text):
+    return {"probe": {"ssh:x": {"ok": True, "facts": {"ip": {"label": "Netzwerkadressen", "value": ip_text}}}}}
+
+
+def test_router_subnets_from_linux_ip_fact_and_fallback():
+    multi = {"ip": "10.0.0.1", "extra": _probe("eth0 10.0.0.1/24\neth1 192.168.5.1/24\nlo 127.0.0.1/8")}
+    assert topology._router_subnets(multi) == {"10.0.0.0/24", "192.168.5.0/24"}
+    assert topology._router_subnets({"ip": "10.9.9.9", "extra": {}}) == {"10.9.9.0/24"}
+
+
+def test_router_subnets_ignore_legacy_platform_facts():
+    legacy = {"ip": "10.0.0.1", "extra": {"probe": {"ssh:x": {"ok": True, "facts": {
+        "ip_addresses": {"label": "x", "value": "172.16.1.1/24"},
+        "neighbors": {"label": "x", "value": "identity=sw"},
+        "vlan": {"label": "x", "value": "vlan-id=10"},
+    }}}}}
+    assert topology._router_subnets(legacy) == {"10.0.0.0/24"}
+
+
+def test_important_device_edge_from_parent_id_and_unknown_parent_falls_back(temp_db):
+    router = _mk(temp_db, "router", "GW", "10.0.0.1", 1)
+    switch = _mk(temp_db, "network", "SW", "10.0.0.2", 2, parentId=router["id"])
+    known = _mk(temp_db, "server", "Srv", "10.0.0.3", 3, parentId=switch["id"], importance="critical")
+    orphan = _mk(temp_db, "server", "Orphan", "10.0.0.4", 4, parentId="does-not-exist", importance="critical")
+    svg = topology.render()
+    assert known["name"] in svg and orphan["name"] in svg

@@ -18,21 +18,6 @@ def test_parse_arp_pairs_arp_an_fallback():
     assert probe_auth.parse_arp_pairs(text) == {"192.168.1.5": "aa:bb:cc:dd:ee:ff"}
 
 
-def test_parse_arp_pairs_mikrotik_print_detail():
-    text = " 0   address=192.168.1.10 mac-address=AA:BB:CC:DD:EE:01 interface=bridge status=reachable\n"
-    assert probe_auth.parse_arp_pairs(text) == {"192.168.1.10": "aa:bb:cc:dd:ee:01"}
-
-
-def test_parse_arp_pairs_cisco_dotted_mac():
-    text = "Internet  192.168.1.20          5   aabb.ccdd.eeff  ARPA   Vlan1\n"
-    assert probe_auth.parse_arp_pairs(text) == {"192.168.1.20": "aa:bb:cc:dd:ee:ff"}
-
-
-def test_parse_arp_pairs_aruba_dashed_hex_sextets():
-    text = "192.168.1.30     aabbcc-ddeeff     dynamic  A1      1\n"
-    assert probe_auth.parse_arp_pairs(text) == {"192.168.1.30": "aa:bb:cc:dd:ee:ff"}
-
-
 def test_parse_arp_pairs_ignores_broadcast_and_unspecified():
     text = (
         "0.0.0.0 dev eth0 lladdr aa:bb:cc:dd:ee:ff\n"
@@ -45,9 +30,17 @@ def test_parse_arp_pairs_skips_header_and_separator_lines():
     text = (
         "IP Address      MAC Address       Type    Port    VLAN\n"
         "--------------- ----------------- ------- ------- ----\n"
-        "192.168.1.30     aabbcc-ddeeff     dynamic  A1      1\n"
+        "192.168.1.30     aa:bb:cc:dd:ee:ff     dynamic  A1      1\n"
     )
     assert probe_auth.parse_arp_pairs(text) == {"192.168.1.30": "aa:bb:cc:dd:ee:ff"}
+
+
+def test_parse_arp_pairs_ignores_dotted_and_sextet_mac_formats():
+    text = (
+        "Internet  192.168.1.20          5   aabb.ccdd.eeff  ARPA   Vlan1\n"
+        "192.168.1.30     aabbcc-ddeeff     dynamic  A1      1\n"
+    )
+    assert probe_auth.parse_arp_pairs(text) == {}
 
 
 def test_extract_arp_entries_merges_across_facts_and_skips_failed_results():
