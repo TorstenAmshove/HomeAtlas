@@ -11,7 +11,7 @@ Hintergrund und Auswahl der Methoden: [methoden-und-skills.md](methoden-und-skil
 ## Ablauf
 
 ```
-Issue über Formular (Bug / Feature / Idee)          status:inbox
+Issue über Formular (Fehler / Idee oder Änderungswunsch)  status:inbox
   ├─ Idee vage?  @claude /grill   → Rückfragen, mehrere Runden,
   │                                  am Ende Spec mit Akzeptanzkriterien   status:triaged
   ├─ Kommentar  @claude /triage   → Labels, Risiko, Rückfragen      status:triaged
@@ -99,7 +99,7 @@ Schritte auch von Hand in einer Claude-Code-Sitzung (lokal oder claude.ai/code):
 ## Prüfen, ob alles läuft
 
 1. Je Formular ein Test-Issue anlegen → Labels `type:*` und `status:inbox` sind gesetzt.
-   Auf das Ideen-Issue `@claude /grill` → Rückfragen. Antworten, erneut `/grill` → Spec-Kommentar.
+   Auf das Feature-Issue `@claude /grill` → Rückfragen. Antworten, erneut `/grill` → Spec-Kommentar.
 2. Auf einem Test-Issue „Datum auf der Startseite falsch formatiert“ `@claude /triage` → `risk:low`.
    Auf „2FA abschaltbar machen“ → `risk:high` + `needs-human`.
 3. Auf dem ersten Issue `@claude /plan` → Plankommentar mit Abschnitt „Goldfish-Prüfung“.
