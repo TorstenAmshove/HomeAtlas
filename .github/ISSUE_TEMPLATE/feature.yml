@@ -1,6 +1,6 @@
-name: Änderungswunsch / Feature
-description: Eine konkrete Verbesserung oder neue Funktion.
-title: "[Feature] "
+name: Idee / Änderungswunsch
+description: Ein Wunsch, eine Verbesserung oder eine noch vage Idee.
+title: "[Idee] "
 labels: ["type:feature", "status:inbox"]
 body:
   - type: markdown
@@ -9,40 +9,20 @@ body:
         **Nach dem Anlegen:** `@claude /grill` (Idee schärfen) · `@claude /triage` (bewerten) ·
         `@claude /plan` (planen) · Label `status:approved` (umsetzen lassen) · `@claude /help` (Übersicht)
   - type: textarea
-    id: problem
+    id: request
     attributes:
-      label: Welches Problem soll gelöst werden?
-      description: Das Warum zuerst – für wen ist es nützlich und in welcher Situation?
-    validations:
-      required: true
-  - type: textarea
-    id: proposal
-    attributes:
-      label: Vorschlag
-      description: Wie könnte es aussehen? Gern auch grob.
-    validations:
-      required: true
-  - type: textarea
-    id: acceptance
-    attributes:
-      label: Woran erkennt man, dass es fertig ist?
-      description: Akzeptanzkriterien – der Maßstab für Plan und Review. Leer lassen geht, dann schlägt Claude welche vor.
+      label: Was möchtest du?
+      description: |
+        Stichpunkte reichen. Hilfreich sind:
+        - Problem / Nutzen: für wen ist es nützlich, in welcher Situation?
+        - Gewünschtes Verhalten: wie könnte es aussehen? Gern auch grob.
+        - Woran erkennt man, dass es fertig ist?
+        - Was gehört ausdrücklich nicht dazu?
+        Unvollständig ist ok, den Rest klären wir im Dialog.
       placeholder: |
-        - [ ] …
-  - type: dropdown
-    id: area
-    attributes:
-      label: Bereich
-      options:
-        - discovery (Netzwerk-Scan, Geräteerkennung)
-        - docs (Dokumentation, Handbuch)
-        - chat (Assistent, LLM, MCP)
-        - auth (Login, Rollen, 2FA)
-        - inventory (Geräte, Zugangsdaten, Konten)
-        - integrations (UniFi, Proxmox, Docker, Home Assistant …)
-        - monitor (Überwachung wichtiger Geräte)
-        - frontend (Oberfläche allgemein)
-        - deploy (Container, CI, Installation)
-        - weiß nicht
+        - Problem / Nutzen: …
+        - Gewünschtes Verhalten: …
+        - Fertig, wenn: …
+        - Nicht dazu: …
     validations:
       required: true
