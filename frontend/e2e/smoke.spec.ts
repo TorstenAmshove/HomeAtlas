@@ -523,7 +523,7 @@ test("login, MFA enrollment, setup and main routes render without errors", async
     await page.goto("/einstellungen?tab=display");
     const nav = page.locator("nav.settings-nav");
     await nav.getByRole("button", { name: "Konto" }).click();
-    await nav.getByRole("button", { name: "Über" }).click();
+    await nav.getByRole("button", { name: "Über", exact: true }).click();
     await expect(page).toHaveURL(/tab=about/);
     await page.goBack();
     await expect(page).not.toHaveURL(/einstellungen/);
