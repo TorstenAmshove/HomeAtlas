@@ -10,6 +10,7 @@ import OverflowMenu from "../components/OverflowMenu";
 import { Skeleton, SkeletonText } from "../components/Skeleton";
 import { useLeaveGuard } from "../lib/useLeaveGuard";
 import { useUrlState } from "../lib/useUrlState";
+import { formatVersion } from "../lib/version";
 import "./mehr/mehr.css";
 
 const KEY_FIELD: Record<string, string> = {
@@ -694,13 +695,13 @@ export default function SettingsPage() {
           <div className="table-wrap">
             <table>
               <tbody>
-                <tr><th>Version</th><td className="mono">{serverVersion ?? __APP_VERSION__}</td></tr>
+                <tr><th>Version</th><td className="mono">{formatVersion(serverVersion ?? __APP_VERSION__)}</td></tr>
               </tbody>
             </table>
           </div>
           {serverVersion !== null && serverVersion !== __APP_VERSION__ && (
             <p className="muted" style={{ marginTop: 12 }}>
-              Oberfläche (Version {__APP_VERSION__}) und Server (Version {serverVersion}) laufen mit
+              Oberfläche (Version {formatVersion(__APP_VERSION__)}) und Server (Version {formatVersion(serverVersion)}) laufen mit
               unterschiedlichen Versionen. Seite neu laden bzw. beide Container aktualisieren.
             </p>
           )}

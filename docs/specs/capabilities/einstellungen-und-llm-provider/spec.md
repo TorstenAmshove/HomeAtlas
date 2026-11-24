@@ -308,17 +308,23 @@ Der Reiter „Über“ MUSS die tatsächlich laufende Release-Version des Server
 aus dem Build-Arg `HOMEATLAS_VERSION`; ohne Build-Arg `dev`) und sonst weder Build-Kennung noch
 Zeitstempel. Weicht die Version der Oberfläche (Build-Arg `VITE_APP_VERSION`, sonst `dev`) von der
 des Servers ab, MUSS ein Hinweis erscheinen; schlägt der Abruf fehl, MUSS die Oberflächen-Version
-ohne Hinweis erscheinen. **[Muss]**
+ohne Hinweis erscheinen. Rohwert in `GET /api/version` und Build-Arg ist `X.Y.Z`; die Anzeige
+setzt bei Werten dieser Form ein `v` davor (`vX.Y.Z`), alle anderen Werte (z. B. `dev`) bleiben
+unverändert. **[Muss]**
 
 #### Szenario: Gleiche Versionen
 - **WENN** Oberfläche und Server mit derselben Version laufen
 - **DANN** zeigt „Über“ nur diese Version, ohne Hinweis
 
+#### Szenario: Release-Version
+- **WENN** der Server `1.2.3` meldet und die Oberfläche `1.2.3` ist
+- **DANN** zeigt „Über“ `v1.2.3` ohne Hinweis
+
 #### Szenario: Abweichende Versionen
 - **WENN** der Server `1.2.3` meldet, die Oberfläche aber `dev` ist
-- **DANN** erscheint ein Hinweis auf die unterschiedlichen Versionen
+- **DANN** erscheint ein Hinweis auf die unterschiedlichen Versionen (`v1.2.3` und `dev`)
 
-Quelle: `backend/app/version.py`, `backend/app/routes/settings.py`, `frontend/src/pages/SettingsPage.tsx`
+Quelle: `backend/app/version.py`, `backend/app/routes/settings.py`, `frontend/src/pages/SettingsPage.tsx`, `frontend/src/lib/version.ts`
 
 ### Requirement: Server-Adresse des Anbieters wird eingeschränkt
 Die frei eingebbare Server-Adresse (Ollama, Claude-Basis-URL, OpenAI-kompatible Anbieter) bleibt
