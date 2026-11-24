@@ -98,15 +98,14 @@ async def probe_one_system(system: dict, settings: dict) -> dict:
     **only where those are still empty**. An authenticated read is more authoritative than a port
     guess, but it must not overwrite what a human typed.
 
-    Returns `{ran, results, purpose, reason, warnings, learnedArp, printerSupplies, usedFallback}`.
+    Returns `{ran, results, purpose, reason, warnings, learnedArp, usedFallback}`.
     `learnedArp` is every IP->MAC pair read from a router's own ARP/host-list table (routers only --
-    the one place such a table covers the whole LAN); `printerSupplies` is every toner/ink reading
-    Home Assistant reported (matched to a printer separately, see `_apply_printer_supplies`).
+    the one place such a table covers the whole LAN).
     `reason` says why nothing ran. Controller categories are not handled here, see
     `read_controller_account`.
     """
     outcome: dict = {"ran": False, "results": {}, "purpose": "", "reason": "", "warnings": [],
-                     "learnedArp": {}, "printerSupplies": [], "usedFallback": False,
+                     "learnedArp": {}, "usedFallback": False,
                      "configSaved": 0}
     accounts = db.list_probe_accounts(system["id"])
     if not accounts:
@@ -166,17 +165,15 @@ async def probe_one_system(system: dict, settings: dict) -> dict:
     outcome["configSaved"] = probe_auth.persist_config_backups(system, probed)
     if system.get("kind") == "router":
         outcome["learnedArp"] = probe_auth.extract_arp_entries(probed)
-    outcome["printerSupplies"] = probe_auth.extract_printer_supplies(probed)
     return outcome
 
 
-async def _probe_with_credentials(log) -> tuple[int, list[str], dict[str, str], list[dict]]:
+async def _probe_with_credentials(log) -> tuple[int, list[str], dict[str, str]]:
     """Runs `probe_one_system` over every device. Returns (devices read, warnings, learned ARP
     pairs, printer supplies)."""
     warnings: list[str] = []
     probed = 0
     learned_arp: dict[str, str] = {}
-    printer_supplies: list[dict] = []
     settings = db.get_settings()
     used_fallback = 0
 
@@ -191,11 +188,10 @@ async def _probe_with_credentials(log) -> tuple[int, list[str], dict[str, str], 
         if outcome["configSaved"]:
             log(f"Konfiguration von {system['name']} gesichert")
         learned_arp.update(outcome["learnedArp"])
-        printer_supplies += outcome["printerSupplies"]
 
     if used_fallback:
         log(f"Standard-Zugang bei {used_fallback} Gerät(en) ohne eigenen Zugang versucht")
-    return probed, warnings, learned_arp, printer_supplies
+    return probed, warnings, learned_arp
 
 
 async def _learn_devices_from_arp(learned_arp: dict[str, str], log) -> int:
@@ -252,52 +248,6 @@ def _tokens(*parts: str) -> set[str]:
     return {w for p in parts for w in _WORD_RE.findall(p.lower()) if len(w) >= 3}
 
 
-def _match_printer_supplies(supplies: list[dict], printers: list[dict]) -> dict[str, list[dict]]:
-    """Groups toner/ink readings by which printer in the inventory they most likely belong to.
-
-    Home Assistant's own printer name is the only link back to the inventory -- there is no shared
-    ID between "what HA calls it" and "what this app calls it" -- so this is a best-effort token
-    overlap between the HA sensor's friendly name and each printer's name/vendor/model, not an
-    exact match. A household with exactly one printer skips the guessing entirely and attaches
-    everything to it, since that is by far the common case and token matching has the most room to
-    fail on a printer named something HA's own device name shares no words with at all.
-    """
-    if not supplies or not printers:
-        return {}
-    if len(printers) == 1:
-        return {printers[0]["id"]: supplies}
-
-    printer_tokens = [(p["id"], _tokens(p.get("name", ""), p.get("vendor", ""), p.get("model", "")))
-                       for p in printers]
-    by_printer: dict[str, list[dict]] = {}
-    for supply in supplies:
-        supply_tokens = _tokens(supply["name"])
-        best_id, best_overlap = None, 0
-        for printer_id, tokens in printer_tokens:
-            overlap = len(supply_tokens & tokens)
-            if overlap > best_overlap:
-                best_id, best_overlap = printer_id, overlap
-        if best_id:
-            by_printer.setdefault(best_id, []).append(supply)
-    return by_printer
-
-
-def _apply_printer_supplies(printer_supplies: list[dict], log) -> int:
-    """Persists matched toner/ink readings onto each printer's own `extra.printerSupplies`, so
-    SystemDetailPage can render them at the device they actually belong to instead of only in the
-    generic facts block of whatever system holds the Home Assistant credential."""
-    printers = [s for s in db.list_systems() if s["kind"] == "printer"]
-    by_printer = _match_printer_supplies(printer_supplies, printers)
-    for printer_id, supplies in by_printer.items():
-        printer = db.get_system(printer_id)
-        if printer is None:
-            continue
-        db.update_system(printer_id, {"extra": {**(printer.get("extra") or {}), "printerSupplies": supplies}})
-    if by_printer:
-        log(f"Verbrauchsmaterial-Stand für {len(by_printer)} Drucker aus Home Assistant übernommen")
-    return len(by_printer)
-
-
 def _assign_proxmox_parents(guests: list[dict], fallback_host_id: str | None) -> None:
     """Points each Proxmox guest's `parentId` at its own node's system row, so a guest ends up
     nested under the node it actually runs on rather than always under whichever single host the
@@ -305,8 +255,7 @@ def _assign_proxmox_parents(guests: list[dict], fallback_host_id: str | None) ->
     row, but a cluster can run guests across several nodes at several addresses.
 
     Matched by hostname/name against the guest's own `extra.proxmox.node` (set by
-    proxmox_probe.probe) -- the same "known name, no shared id" situation `_match_printer_supplies`
-    above already deals with, just for hosts instead of printers. Falls back to the credential's
+    proxmox_probe.probe) -- a "known name, no shared id" situation, here for hosts. Falls back to the credential's
     own host when no separate row for that node exists yet, which is also the correct answer for
     the common single-node setup (there, every guest's node *is* that one host).
     """
@@ -789,12 +738,10 @@ async def run_full_scan(scan_id: str) -> None:
         probed = 0
         if settings.get("scanUseCredentials", True):
             progress("Geräte mit hinterlegtem Zugang abfragen", 94, None)
-            probed, probe_warnings, learned_arp, printer_supplies = await _probe_with_credentials(log)
+            probed, probe_warnings, learned_arp = await _probe_with_credentials(log)
             warnings += probe_warnings
             if learned_arp:
                 await _learn_devices_from_arp(learned_arp, log)
-            if printer_supplies:
-                _apply_printer_supplies(printer_supplies, log)
         else:
             log("Auslesen per Zugangsdaten ist in den Einstellungen abgeschaltet")
 

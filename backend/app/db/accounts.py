@@ -95,7 +95,7 @@ def list_probe_accounts(system_id: str) -> list[dict]:
     either attached directly (`accounts.systemId`) or reaching it through a group/multi-device
     credential profile (see `list_account_assignments`'s own docstring). This is the one place that
     resolution happens, so every caller (pipeline.py's credentialed-probe step, the on-demand
-    SNMP/HTTP probes, anything added later) automatically picks up a group-assigned credential
+    HTTP probes, anything added later) automatically picks up a group-assigned credential
     without having to know the assignment mechanism exists."""
     system = get_system(system_id)
     if system is None:

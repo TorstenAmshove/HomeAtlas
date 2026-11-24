@@ -25,8 +25,7 @@ things enforce it:
    retry with something more aggressive.
 3. **HTTP is GET-only** (the one exception: Home Assistant's WebSocket, which only ever sends
    `trace/list`/`trace/get`, ADR-0012/ADR-0014), TR-064 uses only `GetInfo`-style SOAP actions -- the `Set*` half of that
-   API is never constructed -- and SNMP (`probe_snmp`) only ever runs `snmpget`/`snmpwalk`, never
-   `snmpset`.
+   API is never constructed.
 4. **Opt-in per credential.** Nothing here runs unless a human ticked `allowProbe` on that
    specific stored credential (see `db.list_probe_accounts`).
 
@@ -44,7 +43,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import re
 import xml.etree.ElementTree as ElementTree
 from datetime import datetime, timedelta, timezone
@@ -53,11 +51,6 @@ import httpx
 import websockets
 
 from . import crypto, db
-
-# Diagnostic-only -- never used to decide behaviour, just to make an otherwise-invisible fallback
-# decision (see `merge_brother_toner_levels`) traceable in the server log. Child of "homeatlas" so
-# it inherits main.py's `logging.basicConfig` formatting/level without configuring its own handler.
-_logger = logging.getLogger("homeatlas.probe_auth")
 
 _SSH_TIMEOUT = 15.0
 _HTTP_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
@@ -242,7 +235,7 @@ _PTY_PLATFORMS = {"arubacx", "cisco", "tplink"}
 # fed into deviceConfigVersions. Kept separate from the general truncation limit (see probe_ssh)
 # because a whole router/switch config is the point of collecting it, not a side note.
 _CONFIG_BACKUP_KEYS = {"config_export", "omada_backup"}
-# Public name for the same set: these facts may carry secrets (SNMP communities, RADIUS shared
+# Public name for the same set: these facts may carry secrets (RADIUS shared
 # secrets, WiFi keys) and therefore live *only* encrypted in deviceConfigVersions -- never in
 # systems.extra.probe, which MEMBER, the generated docs and the LLM can all read.
 CONFIG_BACKUP_KEYS = frozenset(_CONFIG_BACKUP_KEYS)
@@ -627,35 +620,6 @@ _HA_SERVICE_LABELS = {
     "send_message": "Nachricht senden",
 }
 
-# entity_id is the only signal that holds across printer integrations -- device_class and unit
-# vary (some report "%", some a raw HP/Brother supply code that isn't a percentage at all).
-_HA_SUPPLY_RE = re.compile(r"(toner|ink|cartridge|drum)", re.IGNORECASE)
-_HA_SUPPLY_LINE_RE = re.compile(r"^- (.+): ([0-9]+(?:[.,][0-9]+)?)\s*%$")
-
-
-def _ha_printer_supplies(states: list) -> list[dict]:
-    """Printer toner/ink/drum-level sensors HA already exposes (its own printer integrations, or
-    SNMP OIDs someone wired up by hand as sensors). Read-only, same as everything else here --
-    this only reads `sensor.*` state, never calls a service."""
-    supplies = []
-    for state in states:
-        if not isinstance(state, dict):
-            continue
-        entity_id = state.get("entity_id", "")
-        if not entity_id.startswith("sensor.") or not _HA_SUPPLY_RE.search(entity_id):
-            continue
-        value = state.get("state", "")
-        if value in ("unknown", "unavailable", ""):
-            continue
-        attrs = state.get("attributes") or {}
-        supplies.append({
-            "name": attrs.get("friendly_name") or entity_id,
-            "value": value,
-            "unit": attrs.get("unit_of_measurement") or "",
-        })
-    return supplies
-
-
 def _ha_trigger_summary(triggers: object) -> str:
     if not isinstance(triggers, list):
         return ""
@@ -731,9 +695,8 @@ async def _ha_self_check(client: httpx.AsyncClient, base_url: str) -> str:
 
 async def probe_homeassistant(url: str, account: dict) -> dict:
     """Reads a Home Assistant instance's own REST API with a Long-Lived Access Token: every
-    automation with its on/off status and a short description of what it does, plus printer
-    toner/ink levels (see `extract_printer_supplies`) and, if the KNX integration is set up, its
-    connection details. Read-only -- only GET is ever called; nothing here can flip a switch, run
+    automation with its on/off status and a short description of what it does and, if the KNX
+    integration is set up, its connection details. Read-only -- only GET is ever called; nothing here can flip a switch, run
     a service, or edit an automation.
 
     A native `description` an automation was given in its own config is always the best answer to
@@ -837,14 +800,6 @@ async def probe_homeassistant(url: str, account: dict) -> dict:
                 facts["automations"] = {"label": f"Automationen ({len(lines)})",
                                         "value": "\n".join(lines)[:20000]}
 
-            supplies = _ha_printer_supplies(states)
-            if supplies:
-                # Format is deliberately parseable back out by `extract_printer_supplies` below
-                # (a leading "- name: value%" per line) as well as human-readable in the generic
-                # facts view -- one representation, not two data channels to keep in sync.
-                supply_lines = [f"- {s['name']}: {s['value']}{s['unit']}" for s in supplies]
-                facts["printerSupplies"] = {"label": f"Drucker-Verbrauchsmaterial ({len(supplies)})",
-                                            "value": "\n".join(supply_lines)[:5000]}
     except (httpx.HTTPError, ValueError, KeyError) as exc:
         return {"ok": False, "error": f"Home Assistant unter {base_url} nicht erreichbar: {exc}", "facts": {}}
 
@@ -1316,326 +1271,6 @@ async def ha_traces(url: str, account: dict, entity_id: str, run_id: str = "") -
 
 
 # ---------------------------------------------------------------------------------------------
-# SNMP (v2c community string only), for switches that have no SSH management at all
-# ---------------------------------------------------------------------------------------------
-
-_SNMP_TIMEOUT = 10.0
-_SNMP_PORT = 161
-
-# (Schlüssel, Beschriftung, OID, ist_walk). Same allowlist posture as `_SSH_COMMANDS`: only
-# `snmpget`/`snmpwalk` are ever invoked, never `snmpset` -- there is no code path that can write.
-_SNMP_OIDS: tuple[tuple[str, str, str, bool], ...] = (
-    ("sysName", "Systemname", "1.3.6.1.2.1.1.5.0", False),
-    ("sysDescr", "Systembeschreibung", "1.3.6.1.2.1.1.1.0", False),
-    ("interfaces", "Schnittstellen", "1.3.6.1.2.1.2.2.1.2", True),  # IF-MIB ifDescr
-    ("lldpNeighbors", "Nachbargeräte (LLDP)", "1.0.8802.1.1.2.1.4.1.1", True),  # LLDP-MIB remote table
-    ("vlans", "VLANs (Q-BRIDGE-MIB)", "1.3.6.1.2.1.17.7.1.4.3.1", True),  # dot1qVlanStaticTable
-    ("arpTable", "ARP-Tabelle (IP-NET-TO-MEDIA-MIB)", "1.3.6.1.2.1.4.22.1.2", True),  # ipNetToMediaPhysAddress
-)
-
-
-async def _snmp_run(*args: str) -> str:
-    """Fixed argv via exec, never a shell string -- `args` are only ever the constants above plus
-    the target host/community, never anything composed from free-form user input."""
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
-        )
-    except OSError:  # snmpget/snmpwalk not installed -- treated as "no output", like a missing
-        # binary already is in the SSH command loop.
-        return ""
-    try:
-        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=_SNMP_TIMEOUT)
-    except asyncio.TimeoutError:
-        proc.kill()
-        return ""
-    return stdout.decode("utf-8", errors="replace").strip()
-
-
-async def probe_snmp(host: str, account: dict, kind: str = "") -> dict:
-    """Walks a fixed OID set with the stored community string. Read-only by construction: an SNMP
-    SET has no counterpart anywhere in this function. Output is kept as raw walk text rather than
-    parsed into structured VLAN/neighbor tables -- formats vary enough between net-snmp versions
-    and vendor MIB implementations that a parser would be more fragile than useful here.
-
-    `kind` additionally triggers a toner/ink read (see `_snmp_printer_supplies`) when the
-    credential is attached to a `printer`-kind system -- worth a special case, unlike the VLAN/
-    neighbor facts above, because it feeds `extract_printer_supplies`/pipeline.py's inventory
-    update rather than just the generic facts view, and needs one specific, structured shape
-    (`printerSupplies`, same "- name: value%" format `probe_homeassistant` already produces) to do
-    that."""
-    try:
-        community, _ = _decode_secret(account)
-    except crypto.SecretUnreadable:
-        return {"ok": False, "error": _UNREADABLE_ERROR, "facts": {}}
-    if not community:
-        return {"ok": False, "error": "Keine Community-Zeichenkette hinterlegt.", "facts": {}}
-    port = int(account.get("port") or 0) or _SNMP_PORT
-    target = f"{host}:{port}"
-
-    facts: dict[str, dict] = {}
-    for key, label, oid, is_walk in _SNMP_OIDS:
-        binary = "snmpwalk" if is_walk else "snmpget"
-        output = await _snmp_run(binary, "-v2c", "-c", community, "-t", "3", "-r", "1", target, oid)
-        if output and "Timeout" not in output and "No Such" not in output:
-            facts[key] = {"label": label, "value": output[:20000]}
-
-    if kind == "printer":
-        supplies = await _snmp_printer_supplies(target, community)
-        toner = supplies["toner_levels"]
-        maintenance = supplies["consumables_maintenance"]
-        # Fact key "printerSupplies" is kept as-is -- it's what extract_printer_supplies (and, via
-        # pipeline._apply_printer_supplies, the toner gauge on the device page) already reads, and
-        # it is now toner_levels exclusively rather than a mix of toner and drum/belt readings.
-        if toner:
-            lines = [f"- {s['name']}: {s['percent']}%" for s in toner]
-            facts["printerSupplies"] = {"label": f"Toner-Füllstand ({len(toner)})",
-                                        "value": "\n".join(lines)[:5000]}
-        if maintenance:
-            lines = [f"- {s['name']}: {s['percent']}%" for s in maintenance]
-            facts["consumablesMaintenance"] = {"label": f"Wartungsteile ({len(maintenance)})",
-                                               "value": "\n".join(lines)[:5000]}
-
-    if not facts:
-        return {"ok": False, "facts": {}, "error": (
-            f"Keine SNMP-Antwort von {target}. Community-Zeichenkette prüfen oder ob SNMP auf dem "
-            "Gerät aktiviert ist."
-        )}
-    return {"ok": True, "error": "", "facts": facts}
-
-
-# ---------------------------------------------------------------------------------------------
-# Printer toner/ink levels via SNMP -- standard Printer-MIB first, a Brother private OID as
-# fallback for firmware that leaves the standard table unpopulated. Community string and port come
-# from the same "snmp"-category account as the rest of `probe_snmp` -- there is deliberately no
-# separate credential type or hardcoded "public" community for this, so it stays covered by the
-# same opt-in-per-credential rule as everything else in this module (see module docstring, point
-# 4); "public" is simply the value a household typically stores in that account, same as any other
-# SNMP-managed device here.
-# ---------------------------------------------------------------------------------------------
-
-_PRINTER_MIB_DESCR_OID = "1.3.6.1.2.1.43.11.1.1.6"  # prtMarkerSuppliesDescription
-_PRINTER_MIB_LEVEL_OID = "1.3.6.1.2.1.43.11.1.1.9"  # prtMarkerSuppliesLevel
-_PRINTER_MIB_MAX_OID = "1.3.6.1.2.1.43.11.1.1.8"    # prtMarkerSuppliesMaxCapacity
-_PRINTER_MIB_TYPE_OID = "1.3.6.1.2.1.43.11.1.1.5"   # prtMarkerSuppliesType
-
-# RFC 3805 PrtMarkerSuppliesTypeTC's "toner" value -- used to keep drum/OPC units (9), transfer
-# belts (20), waste toner (4), fusers (15), ... out of `parse_printer_mib_maintenance_supplies`'s
-# sibling function `merge_brother_toner_levels`/`_standard_mib_toner_fallback` matches by colour
-# name instead of this column (see their own docstrings for why), but `consumables_maintenance`
-# still needs to know what to leave out of "everything that isn't toner".
-_PRINTER_MIB_TYPE_TONER = "3"
-
-# RFC 3805 sentinels specific to prtMarkerSuppliesLevel (the -1/-2/-3 family means something
-# slightly different on other Printer-MIB columns, but this is the one relevant here): a negative
-# value is a *status code*, never a percentage, and must never be fed into the level/capacity
-# division below no matter how "valid-looking" the surrounding data is. Kept only for log
-# messages -- the actual skip-negative-values behaviour lives in `_percent_from_level_capacity`
-# regardless of whether a given code is in this table or not.
-_PRINTER_MIB_LEVEL_STATUS = {"-1": "unbekannt", "-2": "Normal/OK", "-3": "Toner niedrig (Low)"}
-
-# Brother's private enterprise MIB (1.3.6.1.4.1.2435): one plain-integer (0-100) OID per toner
-# colour, queried directly rather than walked. (Anzeigename, OID, Suchwort). The search word is
-# used to find that colour's own row in the *standard* Printer-MIB table (`prtMarkerSuppliesDescription`
-# text is vendor free text but is written in English regardless of the device's UI language, e.g.
-# "Magenta Toner Cartridge" -- matching against the German display name would never hit) for
-# `merge_brother_toner_levels`'s fallback -- see its own docstring for when and why that fallback
-# fires.
-_BROTHER_TONER_OIDS: tuple[tuple[str, str, str], ...] = (
-    ("Toner Schwarz", "1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.8.0", "black"),
-    ("Toner Magenta", "1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.9.0", "magenta"),
-    ("Toner Cyan", "1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.10.0", "cyan"),
-    ("Toner Gelb", "1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.11.0", "yellow"),
-)
-
-
-def _parse_printer_mib_walk(text: str, base_oid: str) -> dict[str, str]:
-    """Row-index -> raw value from one `snmpwalk -O n <base_oid>` output. The index is whatever
-    follows `base_oid` in each returned OID -- Printer-MIB's supplies table key (host-resource
-    device index + supply index) varies by vendor/model, so nothing here assumes a fixed shape for
-    it beyond "it's the table's own row key", the same posture `probe_snmp` already takes on
-    VLAN/neighbor output."""
-    prefix = base_oid.strip(".") + "."
-    values: dict[str, str] = {}
-    for line in text.splitlines():
-        oid_part, sep, rest = line.partition("=")
-        if not sep:
-            continue
-        oid = oid_part.strip().lstrip(".")
-        if not oid.startswith(prefix):
-            continue
-        index = oid[len(prefix):]
-        value = rest.split(":", 1)[-1].strip().strip('"') if ":" in rest else rest.strip()
-        if index:
-            values[index] = value
-    return values
-
-
-def _percent_from_level_capacity(level_raw: str | None, capacity_raw: str | None) -> float | None:
-    """0-100 percent from one Printer-MIB row's raw prtMarkerSuppliesLevel/MaxCapacity strings, or
-    None when either is missing/unparseable, or Level is negative -- RFC 3805 defines negative
-    Level values as status codes (-1 unknown, -2 "Normal/OK" on this device's firmware, -3 "Toner
-    niedrig" -- see `_PRINTER_MIB_LEVEL_STATUS`), never a literal reading, so `-3 / capacity * 100`
-    must never be computed as if it were one. A non-positive capacity is likewise not a real
-    "supply holds this much" figure (0, or RFC 3805's own -1/-2 sentinels on that column) and is
-    rejected the same way. Shared by the type-filtered whole-table parse below and Brother's
-    per-colour toner fallback, so the two never disagree on what counts as a real reading."""
-    if level_raw is None or capacity_raw is None:
-        return None
-    try:
-        level, capacity = int(level_raw), int(capacity_raw)
-    except ValueError:
-        return None
-    if level < 0 or capacity <= 0:
-        return None
-    return max(0.0, min(100.0, round(level * 100 / capacity, 1)))
-
-
-def parse_printer_mib_maintenance_supplies(
-    descr_text: str, level_text: str, max_text: str, type_text: str,
-) -> list[dict]:
-    """(name, percent) pairs for every supply the standard Printer-MIB reports that ISN'T toner --
-    drums/OPC units, transfer belts, waste-toner boxes, fusers, and so on -- matched by the row
-    index shared across the four separate `snmpwalk` outputs (description, level, max capacity,
-    type). Optional, supplementary "how worn is this part" context (see `_snmp_printer_supplies`'s
-    `consumables_maintenance`) -- unlike toner_levels (see `merge_brother_toner_levels`, which
-    matches toner by colour name rather than this column), it is never wired to a "running low,
-    reorder" gauge, so a row whose type is unknown/wasn't read at all is kept rather than dropped:
-    there is no toner gauge here to accidentally miscolour."""
-    descriptions = _parse_printer_mib_walk(descr_text, _PRINTER_MIB_DESCR_OID)
-    levels = _parse_printer_mib_walk(level_text, _PRINTER_MIB_LEVEL_OID)
-    capacities = _parse_printer_mib_walk(max_text, _PRINTER_MIB_MAX_OID)
-    types = _parse_printer_mib_walk(type_text, _PRINTER_MIB_TYPE_OID)
-
-    supplies: list[dict] = []
-    for index, level_raw in levels.items():
-        if types.get(index) == _PRINTER_MIB_TYPE_TONER:
-            continue
-        percent = _percent_from_level_capacity(level_raw, capacities.get(index))
-        if percent is None:
-            continue
-        name = descriptions.get(index) or f"Verbrauchsmaterial {index}"
-        supplies.append({"name": name, "percent": percent})
-    return supplies
-
-
-def _parse_brother_toner_reply(text: str) -> float | None:
-    """Percentage from one Brother `brInfoTonerLevel*`-style OID reply -- a plain `INTEGER: <0-100>`
-    `snmpget` reply, not a packed blob. None for anything that isn't a usable in-range integer
-    (missing OID, "No Such Object", a negative or >100 value some firmware uses as its own
-    not-applicable sentinel). A reply of exactly 0 is still returned here (this function only
-    checks "is this a syntactically valid percentage") -- whether 0 should actually be trusted or
-    treated as a misread is `merge_brother_toner_levels`'s decision, not this parser's."""
-    match = re.search(r"INTEGER:\s*(-?\d+)", text)
-    if not match:
-        return None
-    value = int(match.group(1))
-    return float(value) if 0 <= value <= 100 else None
-
-
-def _describe_level(level_raw: str | None) -> str:
-    """Raw prtMarkerSuppliesLevel value plus, for the RFC 3805 status codes, what it actually means
-    -- e.g. "-3 (Toner niedrig (Low))" -- so a log line naming it doesn't require looking up
-    `_PRINTER_MIB_LEVEL_STATUS` by hand to understand."""
-    if level_raw is None:
-        return "kein Wert"
-    status = _PRINTER_MIB_LEVEL_STATUS.get(level_raw)
-    return f"{level_raw} ({status})" if status else level_raw
-
-
-def _standard_mib_toner_fallback(
-    descr_text: str, level_text: str, max_text: str, keyword: str,
-) -> tuple[float | None, dict[str, str | None]]:
-    """(percent, raw) for the one Printer-MIB supplies-table row whose own description contains
-    `keyword` (English colour name, case-insensitive) -- `merge_brother_toner_levels`'s fallback
-    when Brother's direct OID for that colour gave nothing trustworthy. Matching by description
-    text rather than an exact key is inherently a best guess (`prtMarkerSuppliesDescription` is
-    vendor free text -- "Magenta Toner Cartridge", a TN-xxx part number, ...), the same trade-off
-    `pipeline._match_printer_supplies` already accepts for Home Assistant sensor names. `raw`
-    always carries {"index", "level", "maxCapacity"}, even when no percent could be computed, so
-    the exact reading behind a dropped or fallback value is loggable, not just the final number."""
-    descriptions = _parse_printer_mib_walk(descr_text, _PRINTER_MIB_DESCR_OID)
-    levels = _parse_printer_mib_walk(level_text, _PRINTER_MIB_LEVEL_OID)
-    capacities = _parse_printer_mib_walk(max_text, _PRINTER_MIB_MAX_OID)
-
-    index = next((i for i, name in descriptions.items() if keyword.lower() in name.lower()), None)
-    if index is None:
-        return None, {"index": None, "level": None, "maxCapacity": None}
-    raw = {"index": index, "level": levels.get(index), "maxCapacity": capacities.get(index)}
-    return _percent_from_level_capacity(raw["level"], raw["maxCapacity"]), raw
-
-
-def merge_brother_toner_levels(
-    readings: dict[str, str], descr_text: str, level_text: str, max_text: str,
-) -> list[dict]:
-    """Final (name, percent) list for the four Brother toner colours (`_BROTHER_TONER_OIDS`,
-    `readings` keyed by the same label each was queried under). The direct per-colour OID wins when
-    it gives a usable, *nonzero* reading. When it comes back missing or exactly 0 -- Brother
-    firmware is known to occasionally misreport one colour that way even while the other three read
-    correctly, which is the concrete bug this exists to fix (Magenta showing as a false 0.0%) --
-    the same colour's standard Printer-MIB row is tried instead (`_standard_mib_toner_fallback`,
-    matched by colour name, independent of whatever the *other* colours' direct OIDs returned).
-    Every fallback decision is logged with the raw SNMP index/level/maxCapacity behind it, so a
-    wrong-looking percentage is traceable to the exact reading that produced it rather than only
-    visible after the fact in the UI. On devices that don't answer these Brother-private OIDs at
-    all (any non-Brother printer), every reading is empty/"No Such Object", `_parse_brother_toner_
-    reply` returns None for all four, and this transparently becomes a per-colour version of the
-    standard-Printer-MIB read -- the Brother-specific step never has to be skipped explicitly."""
-    keywords = {label: keyword for label, _oid, keyword in _BROTHER_TONER_OIDS}
-    supplies: list[dict] = []
-    for label, raw_text in readings.items():
-        percent = _parse_brother_toner_reply(raw_text)
-        if percent is None or percent == 0:
-            fallback_percent, raw = _standard_mib_toner_fallback(
-                descr_text, level_text, max_text, keywords.get(label, label))
-            _logger.info(
-                "Toner %s: direkte Brother-OID lieferte %s -- Fallback über Printer-MIB "
-                "(Index=%s, Level=%s, MaxCapacity=%s) -> %s",
-                label, "keinen Wert" if percent is None else "0",
-                raw["index"], _describe_level(raw["level"]), raw["maxCapacity"],
-                "kein Wert" if fallback_percent is None else f"{fallback_percent}%",
-            )
-            # Always overwritten, never merely "if it improves on the old value" -- an untrusted 0
-            # from the direct OID must not survive as the final answer just because the fallback
-            # also came up empty; "no data" (None, dropped below) beats a value already known to be
-            # unreliable.
-            percent = fallback_percent
-        if percent is not None:
-            supplies.append({"name": label, "percent": percent})
-    return supplies
-
-
-async def _snmp_printer_supplies(target: str, community: str) -> dict[str, list[dict]]:
-    """Returns {"toner_levels": [...], "consumables_maintenance": [...]}. toner_levels always goes
-    through the per-colour Brother-OID-with-Printer-MIB-fallback merge (`merge_brother_toner_
-    levels`) -- Brother's private OIDs are harmless no-ops on non-Brother hardware (an unanswered
-    OID falls straight through to that same colour's standard-MIB row), so this one path covers
-    both cases rather than an all-or-nothing "try the whole standard table, else try Brother
-    wholesale" that let one bad colour (Magenta reading 0%) hide the other three, or a bad standard
-    row hide an otherwise-fine Brother reading. consumables_maintenance has no vendor-specific
-    fallback -- drum/belt wear is supplementary context, not worth a private-OID effort the way
-    toner (the thing that actually blocks printing) is."""
-    descr = await _snmp_run("snmpwalk", "-v2c", "-c", community, "-t", "3", "-r", "1", "-O", "n",
-                            target, _PRINTER_MIB_DESCR_OID)
-    level = await _snmp_run("snmpwalk", "-v2c", "-c", community, "-t", "3", "-r", "1", "-O", "n",
-                            target, _PRINTER_MIB_LEVEL_OID)
-    maxcap = await _snmp_run("snmpwalk", "-v2c", "-c", community, "-t", "3", "-r", "1", "-O", "n",
-                             target, _PRINTER_MIB_MAX_OID)
-    type_ = await _snmp_run("snmpwalk", "-v2c", "-c", community, "-t", "3", "-r", "1", "-O", "n",
-                            target, _PRINTER_MIB_TYPE_OID)
-
-    maintenance = parse_printer_mib_maintenance_supplies(descr, level, maxcap, type_)
-
-    readings = {
-        label: await _snmp_run("snmpget", "-v2c", "-c", community, "-t", "3", "-r", "1", target, oid)
-        for label, oid, _keyword in _BROTHER_TONER_OIDS
-    }
-    toner = merge_brother_toner_levels(readings, descr, level, maxcap)
-
-    return {"toner_levels": toner, "consumables_maintenance": maintenance}
-
-
-# ---------------------------------------------------------------------------------------------
 # FRITZ!Box TR-064
 # ---------------------------------------------------------------------------------------------
 
@@ -1857,8 +1492,6 @@ async def probe_system(system: dict, accounts: list[dict]) -> dict:
             # it just never had a matching platform to run non-Linux commands against before.
             if category == "sshkey" or platform or system.get("kind") in ("server", "nas", "vm", "pc", "container"):
                 results[f"ssh:{account['label']}"] = await probe_ssh(host, account, platform)
-        if category == "snmp":
-            results[f"snmp:{account['label']}"] = await probe_snmp(host, account, system.get("kind", ""))
         if category == "homeassistant":
             results[f"ha:{account['label']}"] = await probe_homeassistant(
                 account.get("url") or system.get("url"), account)
@@ -1891,14 +1524,14 @@ async def probe_system(system: dict, accounts: list[dict]) -> dict:
 
 
 # ---------------------------------------------------------------------------------------------
-# ARP/host-list parsing -- turns whatever raw text `arp_table`/`arpTable`/`hostList` facts hold
+# ARP/host-list parsing -- turns whatever raw text `arp_table`/`hostList` facts hold
 # (Linux `ip neigh`/`arp -an`, RouterOS `/ip arp print`, ArubaOS `show arp`, Cisco `show ip arp`,
-# an SNMP ipNetToMediaTable walk, or a FRITZ!Box host list) into IP -> MAC pairs.
+# or a FRITZ!Box host list) into IP -> MAC pairs.
 # ---------------------------------------------------------------------------------------------
 
 # Every one of the formats above prints exactly one MAC per record, just in a different notation
 # -- colon/dash-separated (Linux, RouterOS, generic), Cisco's dotted triples (aabb.ccdd.eeff),
-# ArubaOS/ProCurve's dashed hex-sextets (aabbcc-ddeeff), or an SNMP walk's space-separated octets.
+# ArubaOS/ProCurve's dashed hex-sextets (aabbcc-ddeeff), or space-separated octets.
 # Matching all four and normalizing afterwards is simpler and more robust than a parser per vendor,
 # because unlike topology.py's neighbour parsers (which also need a *name*), an ARP record only
 # ever needs "is there an IP and a MAC on this line", and that shape is the same everywhere.
@@ -1908,13 +1541,10 @@ _ARP_MAC_PATTERNS: tuple[re.Pattern, ...] = (
     re.compile(r"\b[0-9A-Fa-f]{6}-[0-9A-Fa-f]{6}\b"),
     re.compile(r"\b([0-9A-Fa-f]{2}\s){5}[0-9A-Fa-f]{2}\b"),
 )
-# A plain ARP dump has the IP as a standalone 4-octet run. An SNMP walk instead embeds it at the
-# *end* of a longer numeric run (the OID index is `<ifIndex>.<ip1>.<ip2>.<ip3>.<ip4>`), so matching
-# only 4 groups would grab "<ifIndex>.<ip1>.<ip2>.<ip3>" instead -- a real IP with its first octet
-# silently replaced by the SNMP table's row index. Matching the whole run and keeping only its last
-# four groups handles both shapes with one regex.
+# A plain ARP dump has the IP as a standalone 4-octet run. Matching a longer numeric run and
+# keeping only its last four groups also copes with an IP embedded at the end of an index prefix.
 _ARP_NUMERIC_RUN_RE = re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3,}\b")
-_ARP_FACT_KEYS = {"arp_table", "arpTable", "hostList"}
+_ARP_FACT_KEYS = {"arp_table", "hostList"}
 
 
 def _extract_mac(text: str) -> str:
@@ -1964,27 +1594,6 @@ def extract_arp_entries(outcome: dict) -> dict[str, str]:
     return pairs
 
 
-def extract_printer_supplies(outcome: dict) -> list[dict]:
-    """(name, percent) pairs from any `printerSupplies` fact a probe outcome collected -- pure
-    function, same shape as `extract_arp_entries`. Only percentage readings are returned: a raw
-    HP/Brother supply code isn't something a progress bar can render, and the generic facts view
-    (see `probe_homeassistant`) already shows the reading as-is regardless. Matching a supply to
-    a specific printer in the inventory is pipeline.py's job, not this module's -- it never touches
-    the inventory."""
-    supplies: list[dict] = []
-    for result in outcome.get("results", {}).values():
-        if not result.get("ok"):
-            continue
-        fact = result.get("facts", {}).get("printerSupplies")
-        if not fact:
-            continue
-        for line in fact["value"].splitlines():
-            match = _HA_SUPPLY_LINE_RE.match(line)
-            if match:
-                supplies.append({"name": match.group(1), "percent": float(match.group(2).replace(",", "."))})
-    return supplies
-
-
 def without_config_backups(results: dict) -> dict:
     """A copy of a probe outcome's `results` with every full-config-export fact removed -- the
     form that may be stored in `systems.extra.probe`. The exports themselves are persisted
@@ -2018,7 +1627,7 @@ def persist_config_backups(system: dict, outcome: dict) -> int:
     `_normalize_config_text`), so a scan that finds nothing different doesn't grow the history.
     Called from both probe call sites (routes/systems.py's manual probe endpoint, pipeline.py's scheduled
     scan) so the logic lives once. Content is encrypted before it ever reaches the database -- a
-    device export can carry secrets (SNMP community strings, RADIUS shared secrets, WiFi keys),
+    device export can carry secrets (RADIUS shared secrets, WiFi keys),
     the same threat model as `accounts.secretEnc`. Returns how many new versions were written."""
     saved = 0
     for label, content, source in extract_config_backups(system, outcome):

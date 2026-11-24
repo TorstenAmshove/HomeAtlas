@@ -43,7 +43,7 @@ Abschnitt 11.
 | [discovery-und-scan](capabilities/discovery-und-scan/spec.md) | Netz scannen aus mehreren Quellen, Namensregeln, Zeitplan | ADMIN | Netzwerk-Scan (`/scan`) | `/api/scans*`, `/api/settings/oui/refresh` |
 | [klassifikation-llm](capabilities/klassifikation-llm/spec.md) | unsichere Geräte per LLM einordnen, Hersteller-Doku-Links | – (im Scan) | – | – |
 | [inventar](capabilities/inventar/spec.md) | Geräte ansehen, bearbeiten, Duplikate zusammenführen, Konfigurationsversionen | alle lesen / ADMIN ändern | Geräte (`/geraete`, `/geraete/:id`) | `/api/systems*` |
-| [credentialed-probing](capabilities/credentialed-probing/spec.md) | Geräte mit freigegebenen Zugängen streng lesend auslesen (SSH, HTTP, TR-064, SNMP, UniFi, Proxmox, Docker) | ADMIN | Gerätedetail | `/api/systems/{id}/probe` |
+| [credentialed-probing](capabilities/credentialed-probing/spec.md) | Geräte mit freigegebenen Zugängen streng lesend auslesen (SSH, HTTP, TR-064, UniFi, Proxmox, Docker) | ADMIN | Gerätedetail | `/api/systems/{id}/probe` |
 | [zugangsdaten](capabilities/zugangsdaten/spec.md) | Zugänge verschlüsselt speichern, einzeln anzeigen, zuordnen | ADMIN | Zugänge (`/zugaenge`) | `/api/accounts*` |
 | [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) | Netze/VLANs, WLANs, WANs aus Controllern | alle lesen / ADMIN ändern | Netze & WLAN (`/netze`) | `/api/network-resources*` |
 | [topologie](capabilities/topologie/spec.md) | automatischer Netzplan für Laien, Layer-3-Ansicht | alle | Netzplan (`/plan`) | `/api/topology*.svg` |

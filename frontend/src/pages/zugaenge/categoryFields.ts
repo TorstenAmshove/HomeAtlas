@@ -23,7 +23,7 @@ export interface CategoryFields {
   username: FieldDef;
   url: FieldDef;
   secret: FieldDef & { keepLabel: string };
-  /** SSH/SNMP port override; `label`/`placeholder` only matter when visible. */
+  /** SSH port override; `label`/`placeholder` only matter when visible. */
   port: FieldDef;
   /** "Use for probing" checkbox; hidden for pure storage categories. */
   allowProbe: { visible: boolean; hint?: string };
@@ -78,14 +78,6 @@ export const ACCOUNT_FIELDS: Record<CategoryId, CategoryFields> = {
       keepLabel: "den gespeicherten Schlüssel",
       hint: "Der private Schlüssel, vollständig mit BEGIN- und END-Zeile. Wird verschlüsselt gespeichert und nie zwischengespeichert." },
     port: SSH_PORT,
-    allowProbe: { visible: true },
-  },
-  snmp: {
-    username: HIDDEN,
-    url: HIDDEN,
-    secret: { visible: true, label: "Community-Zeichenkette", keepLabel: "die gespeicherte Community-Zeichenkette",
-      hint: SECRET_STORED },
-    port: { visible: true, label: "Abweichender Port (optional)", placeholder: "Standard (SNMP: 161)" },
     allowProbe: { visible: true },
   },
   unifi: {

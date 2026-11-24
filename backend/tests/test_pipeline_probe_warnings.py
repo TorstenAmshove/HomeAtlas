@@ -36,7 +36,7 @@ def test_probe_with_credentials_logs_failure_even_when_another_credential_on_sam
 
     monkeypatch.setattr(probe_auth, "probe_system", fake_probe_system)
     logs: list[str] = []
-    probed, warnings, learned_arp, printer_supplies = asyncio.run(
+    probed, warnings, learned_arp = asyncio.run(
         pipeline._probe_with_credentials(logs.append)
     )
 

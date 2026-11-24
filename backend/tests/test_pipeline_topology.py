@@ -5,42 +5,6 @@ def test_tokens_lowercases_and_drops_short_words():
     assert pipeline._tokens("HP OfficeJet Pro 9010") == {"officejet", "pro", "9010"}
 
 
-def test_match_printer_supplies_single_printer_gets_everything_unconditionally():
-    # A single-printer household is the common case, and token matching has the most room to fail
-    # when HA's own device name shares no words with the inventory entry at all.
-    supplies = [{"name": "Unrelated HA Sensor Name", "percent": 50.0}]
-    printers = [{"id": "p1", "name": "Buerodrucker", "vendor": "", "model": ""}]
-    assert pipeline._match_printer_supplies(supplies, printers) == {"p1": supplies}
-
-
-def test_match_printer_supplies_multiple_printers_uses_token_overlap():
-    supplies = [
-        {"name": "HP OfficeJet Pro 9010 Schwarz", "percent": 40.0},
-        {"name": "Brother HL-L2350DW Toner", "percent": 10.0},
-    ]
-    printers = [
-        {"id": "hp", "name": "HP OfficeJet Pro 9010", "vendor": "HP", "model": ""},
-        {"id": "brother", "name": "Brother HL-L2350DW", "vendor": "Brother", "model": ""},
-    ]
-    result = pipeline._match_printer_supplies(supplies, printers)
-    assert result["hp"] == [supplies[0]]
-    assert result["brother"] == [supplies[1]]
-
-
-def test_match_printer_supplies_unmatched_supply_is_dropped_not_misassigned():
-    supplies = [{"name": "Completely Unrelated Name", "percent": 5.0}]
-    printers = [
-        {"id": "a", "name": "Canon Pixma", "vendor": "Canon", "model": ""},
-        {"id": "b", "name": "Epson EcoTank", "vendor": "Epson", "model": ""},
-    ]
-    assert pipeline._match_printer_supplies(supplies, printers) == {}
-
-
-def test_match_printer_supplies_no_printers_or_no_supplies_returns_empty():
-    assert pipeline._match_printer_supplies([], [{"id": "a", "name": "x", "vendor": "", "model": ""}]) == {}
-    assert pipeline._match_printer_supplies([{"name": "x", "percent": 1.0}], []) == {}
-
-
 def test_assign_proxmox_parents_matches_guest_to_its_own_node(temp_db):
     pve1 = temp_db.create_system({"kind": "server", "name": "pve1", "hostname": "pve1"})
     pve2 = temp_db.create_system({"kind": "server", "name": "pve2", "hostname": "pve2"})

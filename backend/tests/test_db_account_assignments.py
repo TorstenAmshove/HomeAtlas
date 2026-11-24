@@ -1,4 +1,4 @@
-"""Credential-profile assignments: one `accounts` row (an SSH key, SNMP community, API token, ...)
+"""Credential-profile assignments: one `accounts` row (an SSH key, login, API token, ...)
 can apply to more than the single device its own `systemId` points at -- a whole device kind or a
 subnet, in addition to specific further systems. list_probe_accounts is where a scan resolves that
 back to "which credentials apply to this device" -- these tests cover both ends: writing/validating
@@ -23,7 +23,7 @@ def test_set_and_list_account_assignments(temp_db):
 
 
 def test_set_account_assignments_replaces_the_whole_list(temp_db):
-    account = temp_db.create_account({"label": "SNMP", "category": "snmp", "allowProbe": 1})
+    account = temp_db.create_account({"label": "Switch-Login", "category": "login", "allowProbe": 1})
     temp_db.set_account_assignments(account["id"], [{"targetType": "kind", "targetValue": "network"}])
 
     temp_db.set_account_assignments(account["id"], [{"targetType": "kind", "targetValue": "printer"}])
@@ -33,7 +33,7 @@ def test_set_account_assignments_replaces_the_whole_list(temp_db):
 
 
 def test_set_account_assignments_drops_unparseable_subnet_and_unknown_type(temp_db):
-    account = temp_db.create_account({"label": "SNMP", "category": "snmp", "allowProbe": 1})
+    account = temp_db.create_account({"label": "Switch-Login", "category": "login", "allowProbe": 1})
 
     assignments = temp_db.set_account_assignments(account["id"], [
         {"targetType": "subnet", "targetValue": "not-a-cidr"},
@@ -69,7 +69,7 @@ def test_list_probe_accounts_includes_kind_assigned_credential(temp_db):
 def test_list_probe_accounts_includes_subnet_assigned_credential(temp_db):
     in_subnet = temp_db.create_system({"kind": "server", "name": "In-Subnet", "ip": "192.168.2.50"})
     outside = temp_db.create_system({"kind": "server", "name": "Outside", "ip": "192.168.3.50"})
-    account = temp_db.create_account({"label": "Home-Lab-Netz", "category": "snmp", "allowProbe": 1})
+    account = temp_db.create_account({"label": "Home-Lab-Netz", "category": "login", "allowProbe": 1})
     temp_db.set_account_assignments(account["id"], [{"targetType": "subnet", "targetValue": "192.168.2.0/24"}])
 
     assert [a["label"] for a in temp_db.list_probe_accounts(in_subnet["id"])] == ["Home-Lab-Netz"]

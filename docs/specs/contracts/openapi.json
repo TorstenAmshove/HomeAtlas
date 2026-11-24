@@ -4375,7 +4375,7 @@
     },
     "/api/systems/{system_id}/config-versions": {
       "get": {
-        "description": "Admin-only, like the content below: an export can carry SNMP communities, RADIUS secrets and\nWiFi keys, the same class of data as accounts.secretEnc.",
+        "description": "Admin-only, like the content below: an export can carry RADIUS secrets and\nWiFi keys, the same class of data as accounts.secretEnc.",
         "operationId": "list_config_versions_api_systems__system_id__config_versions_get",
         "parameters": [
           {

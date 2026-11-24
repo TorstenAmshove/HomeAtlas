@@ -60,8 +60,7 @@ def _truncate(text: str, limit: int) -> str:
 
 # ---------------------------------------------------------------------------------------------
 # LLDP neighbour resolution -- turns the raw text facts probe_auth.py already collects (Mikrotik
-# `/ip neighbor print`, Aruba `show lldp info remote-device`, Cisco `show cdp neighbors detail`,
-# generic SNMP LLDP-MIB walks) into
+# `/ip neighbor print`, Aruba `show lldp info remote-device`, Cisco `show cdp neighbors detail`) into
 # actual edges between two systems already in the inventory, so "important devices" below can be
 # connected the way they are actually wired instead of only guessed from `kind`.
 #
@@ -143,42 +142,9 @@ def _parse_cisco_neighbors(text: str) -> list[dict]:
     return neighbors
 
 
-def _parse_snmp_lldp(text: str) -> list[dict]:
-    """Generic SNMP LLDP-MIB walk output (`snmpwalk`), one line per `OID = TYPE: value`. Groups
-    lines by their trailing `timeMark.localPort.index` OID suffix (standardised by the MIB, so
-    this grouping is reliable even though the exact column-to-field mapping is not hardcoded
-    here) and classifies each line's value within a group by shape: a hex string of six octets is
-    treated as the chassis MAC, a quoted string containing letters as the candidate system name."""
-    groups: dict[str, dict] = {}
-    for line in text.splitlines():
-        match = re.match(r"(\S+)\s*=\s*(\S+):\s*(.*)", line.strip())
-        if not match:
-            continue
-        oid, value_type, raw_value = match.groups()
-        # Grouping key is the trailing timeMark.localPort.index (the last three numeric OID
-        # components), NOT the column number right before them -- two lines from the same
-        # neighbour entry differ only in which column they report, so including the column in the
-        # key would put them in different groups instead of merging them.
-        parts = [p for p in oid.split(".") if p.isdigit()]
-        if len(parts) < 3:
-            continue
-        suffix = ".".join(parts[-3:])
-        group = groups.setdefault(suffix, {"mac": None, "name": None})
-        if "Hex-STRING" in value_type or re.fullmatch(r"([0-9A-Fa-f]{2}\s*){6}", raw_value.strip()):
-            octets = raw_value.split()
-            if len(octets) == 6:
-                group["mac"] = ":".join(octets)
-        elif "STRING" in value_type:
-            candidate = raw_value.strip().strip('"')
-            if candidate and re.search(r"[A-Za-z]", candidate) and not group["name"]:
-                group["name"] = candidate
-    return [g for g in groups.values() if g["mac"] or g["name"]]
-
-
 def _neighbors_for_system(system: dict) -> list[dict]:
     """Reads whatever probe_auth.py already stored in `extra.probe` for this system and picks the
-    matching parser by which fact carries the neighbour data -- `"neighbors"` for the Mikrotik/
-    Aruba/Cisco SSH command sets, `"lldpNeighbors"` for the SNMP one."""
+    matching parser by the `"neighbors"` fact of the Mikrotik/Aruba/Cisco SSH command sets."""
     probe = (system.get("extra") or {}).get("probe") or {}
     neighbors: list[dict] = []
     for source, result in probe.items():
@@ -192,8 +158,6 @@ def _neighbors_for_system(system: dict) -> list[dict]:
             else:
                 parser = _parse_aruba_neighbors
             neighbors += parser(text)
-        if "lldpNeighbors" in facts:
-            neighbors += _parse_snmp_lldp(facts["lldpNeighbors"]["value"])
     return neighbors
 
 

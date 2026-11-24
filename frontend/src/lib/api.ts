@@ -278,7 +278,7 @@ export interface ProbeFact {
 export interface ProbeResult {
   ok: boolean;
   error: string;
-  /** Failure next to a working credential of the same kind (ssh/snmp/ha/http). */
+  /** Failure next to a working credential of the same kind (ssh/ha/http). */
   superseded?: boolean;
   facts: Record<string, ProbeFact>;
 }

@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from app import auth, crypto, db, docs, llm_providers, main, probe_auth
 
-EXPORT = "snmp-server community S3cr3tCommunity\nradius-server key R4diusKey"
+EXPORT = "username admin secret S3cr3tCommunity\nradius-server key R4diusKey"
 
 
 @pytest.fixture()

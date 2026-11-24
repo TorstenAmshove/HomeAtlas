@@ -323,7 +323,7 @@ CREATE INDEX IF NOT EXISTS idx_docversions_slug ON docPageVersions(slug, created
 -- Backups of a device's own textual configuration (Mikrotik `/export`, Aruba `show
 -- running-config`, ...), view-only history modeled on docPageVersions. `content` is encrypted at
 -- rest (see probe_auth.persist_config_backups) -- unlike documentation text, a device export can
--- contain secrets (SNMP community strings, RADIUS shared secrets, WiFi keys). Never written back
+-- contain secrets (RADIUS shared secrets, WiFi keys). Never written back
 -- to the device: see the read-only invariant in probe_auth.py's module docstring.
 CREATE TABLE IF NOT EXISTS deviceConfigVersions (
     id TEXT PRIMARY KEY,
@@ -480,6 +480,31 @@ def init_db() -> None:
             if isinstance(extra, dict) and ("omada" in extra or "adguard" in extra):
                 extra.pop("omada", None)
                 extra.pop("adguard", None)
+                conn.execute("UPDATE systems SET extra = ? WHERE id = ?", (json.dumps(extra), row["id"]))
+
+        # SNMP probing and printer supplies were removed (issue #228): drop `snmp` accounts with the
+        # steps of delete_account, then the stored supplies and the `snmp:*` probe results (LLDP/ARP
+        # facts live inside those). Old error events stay as history; `updatedAt` is not touched.
+        for old in conn.execute("SELECT id FROM accounts WHERE category = 'snmp'").fetchall():
+            conn.execute("DELETE FROM accountAssignments WHERE accountId = ?", (old["id"],))
+            conn.execute("UPDATE networkResources SET active = 0, updatedAt = ? WHERE sourceAccountId = ?",
+                         (_now(), old["id"]))
+            conn.execute("DELETE FROM exposureFacts WHERE sourceAccountId = ?", (old["id"],))
+            conn.execute("DELETE FROM firewallFacts WHERE sourceAccountId = ?", (old["id"],))
+            conn.execute("DELETE FROM accounts WHERE id = ?", (old["id"],))
+        for row in conn.execute("SELECT id, extra FROM systems WHERE extra IS NOT NULL").fetchall():
+            try:
+                extra = json.loads(row["extra"])
+            except (json.JSONDecodeError, TypeError):
+                continue
+            if not isinstance(extra, dict):
+                continue
+            probe = extra.get("probe")
+            stale = [k for k in probe if str(k).startswith("snmp:")] if isinstance(probe, dict) else []
+            if "printerSupplies" in extra or stale:
+                extra.pop("printerSupplies", None)
+                for k in stale:
+                    probe.pop(k, None)
                 conn.execute("UPDATE systems SET extra = ? WHERE id = ?", (json.dumps(extra), row["id"]))
 
         # The `router` category was evaluated by the backend but never offered in the UI; its
