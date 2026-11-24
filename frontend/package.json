@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && node scripts/check-nav.ts && vite build",
+    "build": "tsc -b && node scripts/check-nav.ts && node scripts/check-version.ts && vite build",
     "check:nav": "node scripts/check-nav.ts",
+    "check:version": "node scripts/check-version.ts",
     "preview": "vite preview"
   },
   "dependencies": {
