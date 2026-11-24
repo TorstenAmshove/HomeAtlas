@@ -383,7 +383,10 @@ def render(settings: dict | None = None) -> str:
 
     routers = by_kind.get("router", [])
     network = by_kind.get("network", [])
-    drawn_routers = routers[:_MAX_ROUTERS]
+    # Routers carry no uplink of their own (no source sets a router's parentId), so a cascade is
+    # inferred from subnets exactly like in the Layer-3 plan; a manual parent on a router still wins.
+    router_parents = _router_parents(routers)
+    drawn_routers = [{**r, "parentId": router_parents.get(r["id"])} for r in routers[:_MAX_ROUTERS]]
     drawn_network = network[:_MAX_NETWORK]
     backbone_ids = {r["id"] for r in drawn_routers} | {n["id"] for n in drawn_network}
     # A critical router/switch is already drawn in its backbone row; only the rest gets a box in
@@ -670,9 +673,10 @@ def _infer_router_hierarchy(routers: list[dict], raw_subnets: dict[str, set[str]
     drawn as a chain -- Internet -> FritzBox -> Mikrotik -> its own networks -- instead of as two
     unrelated boxes both hanging directly off Internet.
 
-    Nothing in this codebase ever sets a router's own `parentId` today (that field is only ever
-    filled in for Proxmox guests and UniFi-linked switches/APs), so without this every router
-    would render as its own root. Inferred instead from subnet containment, which needs no extra
+    Nothing in this codebase ever sets a router's own `parentId` automatically (no controller
+    reports an uplink for a gateway), so without this every router would render as its own root --
+    in the Layer-3 plan and, via `_router_parents`, in the physical plan. Inferred instead from
+    subnet containment, which needs no extra
     configuration: a downstream router's own interface set always includes its upstream's subnet
     too (its WAN/uplink side is an ordinary client address on the upstream router's LAN) plus
     subnets of its own the upstream router never sees -- so its raw subnet set is always a strict
@@ -694,9 +698,102 @@ def _infer_router_hierarchy(routers: list[dict], raw_subnets: dict[str, set[str]
             parent_by_id[r["id"]] = manual_parent
             continue
         own = raw_subnets.get(r["id"]) or set()
-        candidates = [o for o in routers if o["id"] != r["id"] and (raw_subnets.get(o["id"]) or set()) < own]
+        # An empty set is a strict subset of everything; a router without any known subnet (no IP,
+        # no controller networks) says nothing about the chain, so it is never picked as upstream.
+        candidates = [o for o in routers
+                      if o["id"] != r["id"] and raw_subnets.get(o["id"]) and raw_subnets[o["id"]] < own]
         parent_by_id[r["id"]] = min(candidates, key=lambda o: len(raw_subnets[o["id"]]))["id"] if candidates else None
     return parent_by_id
+
+
+_ControllerNetwork = tuple[ipaddress.IPv4Network, "str | None", "str | None"]
+
+
+def _controller_networks() -> list[_ControllerNetwork]:
+    """Active controller networks (UniFi) as (IPv4 network, owner system id, VLAN id)."""
+    networks: list[_ControllerNetwork] = []
+    for resource in db.list_network_resources(kind="network", active_only=True):
+        try:
+            network = ipaddress.ip_network((resource.get("facts") or {}).get("cidr", ""), strict=False)
+        except ValueError:
+            continue
+        if isinstance(network, ipaddress.IPv4Network):
+            networks.append((network, resource.get("ownerSystemId"),
+                             str((resource.get("facts") or {}).get("vlanId") or "") or None))
+    return networks
+
+
+def _subnet_for(ip: str, controller_networks: list[_ControllerNetwork]) -> str:
+    """The narrowest controller network containing `ip`, else its /24 approximation."""
+    try:
+        address = ipaddress.ip_address(ip)
+    except ValueError:
+        return _subnet_of(ip)
+    matches = [network for network, _, _ in controller_networks if address in network]
+    return str(max(matches, key=lambda network: network.prefixlen)) if matches else _subnet_of(ip)
+
+
+def _wan_uplink_subnets(controller_networks: list[_ControllerNetwork]) -> dict[str, set[str]]:
+    """owner system id -> the subnet its active WAN interface address lies in.
+
+    A UniFi gateway in a router cascade (FritzBox -> UCG) gets a private WAN address from the
+    upstream router's LAN; the classic UniFi API reports it as `interfaceIp` on the WAN resource
+    (unifi_classic_probe.py, db.set_wan_status). That subnet is what makes the gateway's own subnet
+    set a strict superset of its upstream's, which `_infer_router_hierarchy` needs to chain it --
+    the controller networks alone never include the upstream LAN. A public WAN address belongs to
+    no LAN here and is ignored.
+    """
+    result: dict[str, set[str]] = {}
+    for resource in db.list_network_resources(kind="wan", active_only=True):
+        owner_id = resource.get("ownerSystemId")
+        ip = str((resource.get("facts") or {}).get("interfaceIp") or "").strip()
+        if not owner_id or not ip:
+            continue
+        try:
+            address = ipaddress.ip_address(ip)
+        except ValueError:
+            continue
+        if not isinstance(address, ipaddress.IPv4Address) or address.is_global:
+            continue
+        result.setdefault(owner_id, set()).add(_subnet_for(ip, controller_networks))
+    return result
+
+
+def _router_subnet_sets(routers: list[dict], controller_networks: list[_ControllerNetwork]) -> dict[str, set[str]]:
+    """router id -> every subnet it has an address in: interface facts or its own IP (`_router_subnets`),
+    the controller networks it owns, and the subnet of its WAN interface address.
+
+    A /24 approximation (from probe facts or the router's IP) that overlaps an exact controller CIDR
+    is dropped in favour of the CIDR, so one physical network never enters the chain inference twice.
+    """
+    active_cidrs = [network for network, _, _ in controller_networks]
+    cidr_strs = {str(n) for n in active_cidrs}
+
+    def approximation_kept(subnet: str) -> bool:
+        if subnet in cidr_strs:
+            return True
+        try:
+            net = ipaddress.ip_network(subnet, strict=False)
+        except ValueError:
+            return True
+        return not any(isinstance(net, ipaddress.IPv4Network) and net.overlaps(c) for c in active_cidrs)
+
+    owned: dict[str, set[str]] = {}
+    for network, owner_id, _ in controller_networks:
+        if owner_id:
+            owned.setdefault(owner_id, set()).add(str(network))
+    wan = _wan_uplink_subnets(controller_networks)
+    return {
+        r["id"]: {s for s in _router_subnets(r) if approximation_kept(s)}
+        | owned.get(r["id"], set()) | wan.get(r["id"], set())
+        for r in routers
+    }
+
+
+def _router_parents(routers: list[dict]) -> dict[str, str | None]:
+    """Upstream router per router for the physical plan -- the same inference the Layer-3 plan uses,
+    so a cascade (FritzBox -> UCG) is drawn as a chain in both views rather than side by side."""
+    return _infer_router_hierarchy(routers, _router_subnet_sets(routers, _controller_networks()))
 
 
 def render_layer3(settings: dict | None = None) -> str:
@@ -713,13 +810,14 @@ def render_layer3(settings: dict | None = None) -> str:
     rather than all lumped together as roots, so a household with FritzBox -> Mikrotik -> its own
     LANs actually renders as that chain instead of two disconnected boxes.
 
-    Routers are recognised by `kind == "router"` and a stored IP, not by the IP's last octet; a
-    router without an IP has no derivable subnet and stays off this view (the physical plan is
-    unaffected). Device counts leave out Docker containers (they share their host's IP) and
+    Routers are recognised by `kind == "router"` plus a stored IP or ownership of an active
+    controller network, not by the IP's last octet; a router with neither has no derivable subnet
+    and stays off this view (the physical plan is unaffected). A gateway's WAN interface address
+    (`_wan_uplink_subnets`) adds the upstream LAN to its subnet set, which is what chains a UniFi
+    gateway below the FritzBox in a router cascade. Device counts leave out Docker containers (they share their host's IP) and
     discovered devices that have been offline for more than `_STALE_DAYS` days.
 
-    A /24 approximation (from probe facts) that overlaps an exact controller CIDR is dropped in
-    favour of the CIDR, so one physical network never enters the chain inference twice.
+    Subnet sets per router come from `_router_subnet_sets` (shared with the physical plan).
 
     A subnet a router shares with its own upstream is that upstream's LAN, not something the
     downstream router "serves" -- excluded from the downstream router's own networks (see
@@ -728,55 +826,20 @@ def render_layer3(settings: dict | None = None) -> str:
     """
     settings = settings or db.get_settings()
     all_systems = db.list_systems()
+    controller_networks = _controller_networks()
+    network_owners = {owner_id for _, owner_id, _ in controller_networks if owner_id}
     routers = sorted(
-        (s for s in all_systems if s["kind"] == "router" and s.get("ip")),
+        (s for s in all_systems if s["kind"] == "router" and (s.get("ip") or s["id"] in network_owners)),
         key=lambda r: r["name"].lower(),
     )
     others = [s for s in all_systems if s["kind"] != "router" and s.get("ip") and _counts_in_layer3(s)]
 
-    controller_networks: list[tuple[ipaddress.IPv4Network, str | None, str | None]] = []
-    for resource in db.list_network_resources(kind="network", active_only=True):
-        try:
-            network = ipaddress.ip_network((resource.get("facts") or {}).get("cidr", ""), strict=False)
-        except ValueError:
-            continue
-        if isinstance(network, ipaddress.IPv4Network):
-            controller_networks.append((network, resource.get("ownerSystemId"),
-                                        str((resource.get("facts") or {}).get("vlanId") or "") or None))
-
-    def subnet_for(ip: str) -> str:
-        try:
-            address = ipaddress.ip_address(ip)
-        except ValueError:
-            return _subnet_of(ip)
-        matches = [network for network, _, _ in controller_networks if address in network]
-        return str(max(matches, key=lambda network: network.prefixlen)) if matches else _subnet_of(ip)
-
-    controller_subnets_by_owner: dict[str, set[str]] = {}
     controller_vlans_by_owner: dict[str, dict[str, str]] = {}
     for network, owner_id, vlan_id in controller_networks:
-        if owner_id:
-            controller_subnets_by_owner.setdefault(owner_id, set()).add(str(network))
-            if vlan_id:
-                controller_vlans_by_owner.setdefault(owner_id, {})[str(network)] = vlan_id
+        if owner_id and vlan_id:
+            controller_vlans_by_owner.setdefault(owner_id, {})[str(network)] = vlan_id
 
-    active_cidrs = [network for network, _, _ in controller_networks]
-    controller_cidr_strs = {str(n) for n in active_cidrs}
-
-    def _approximation_kept(subnet: str) -> bool:
-        if subnet in controller_cidr_strs:
-            return True
-        try:
-            net = ipaddress.ip_network(subnet, strict=False)
-        except ValueError:
-            return True
-        return not any(isinstance(net, ipaddress.IPv4Network) and net.overlaps(c) for c in active_cidrs)
-
-    raw_subnets = {
-        r["id"]: {s for s in _router_subnets(r) if _approximation_kept(s)}
-        | controller_subnets_by_owner.get(r["id"], set())
-        for r in routers
-    }
+    raw_subnets = _router_subnet_sets(routers, controller_networks)
     router_vlans = {r["id"]: _router_vlan_ids(r) for r in routers}
     for router_id, vlans in controller_vlans_by_owner.items():
         router_vlans.setdefault(router_id, {}).update(vlans)
@@ -789,7 +852,7 @@ def render_layer3(settings: dict | None = None) -> str:
 
     others_by_subnet: dict[str, list[dict]] = {}
     for s in others:
-        others_by_subnet.setdefault(subnet_for(s["ip"]), []).append(s)
+        others_by_subnet.setdefault(_subnet_for(s["ip"], controller_networks), []).append(s)
 
     # First router (in the already name-sorted list) to claim a subnet as its own wins -- a tie is
     # only possible between two routers whose subnet sets are identical, which is not something

@@ -252,8 +252,9 @@ export default function PlanPage() {
         ) : (
           <p>
             Internet, Router, Verteilung, dann als Nächstes die als „kritisch“ markierten Geräte —
-            soweit bekannt mit ihrer tatsächlichen Verbindung (per LLDP erkannt), sonst am Netz
-            angehängt. Alles andere steht ausklappbar darunter. Kritische Server mit Container/VMs
+            soweit bekannt mit ihrer tatsächlichen Verbindung (vom Controller oder per LLDP erkannt),
+            sonst am Netz angehängt. Ein Router hinter einem anderen (z. B. ein UniFi-Gateway hinter
+            der FritzBox) steht eine Zeile tiefer, wie im Layer-3-Plan. Alles andere steht ausklappbar darunter. Kritische Server mit Container/VMs
             zeigen nur sich selbst — ein Klick auf den Kasten öffnet die zugehörigen virtuellen Systeme.
             Ein Klick auf ein Gerät öffnet seine Seite.
           </p>

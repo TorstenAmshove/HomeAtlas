@@ -60,9 +60,18 @@ Elterngerät verbunden. Geräte ohne bekannten Uplink innerhalb derselben Ebene 
 vorherigen Ebene. Geräte in einem Uplink-Zyklus MÜSSEN trotzdem erscheinen (eigene Restzeile).
 **[Muss]**
 
+Der Uplink eines Routers ist ein manuell gesetzter Uplink auf einen anderen Router, sonst der wie im
+[Layer-3-Plan](#requirement-layer-3--router-kette) aus den Subnetzen abgeleitete Upstream-Router.
+Beide Ansichten zeigen eine Router-Kaskade damit gleich. **[Muss]**
+
 #### Szenario: Zweitrouter hinter FritzBox
 - **WENN** „Mikrotik“ (Router) als Uplink „FritzBox“ (Router) hat
 - **DANN** steht Mikrotik eine Zeile unter FritzBox mit Linie zu FritzBox, FritzBox hängt am Internet
+
+#### Szenario: UniFi-Gateway hinter FritzBox
+- **WENN** die UCG (Router, UniFi-Zugang zugeordnet) eine WAN-Adresse 192.168.178.2 meldet und die
+  FritzBox 192.168.178.1 hat
+- **DANN** steht die UCG eine Zeile unter der FritzBox mit Linie zu ihr
 
 #### Szenario: Zyklus
 - **WENN** zwei Switche sich gegenseitig als Uplink haben
@@ -243,12 +252,15 @@ Quelle: `backend/app/topology.py:675`, `backend/app/topology.py:685`, Test:
 
 ### Requirement: Layer-3 – Router und ihre Netze
 Das System MUSS jedem Router alle Subnetze zuordnen, in denen er eine Schnittstellenadresse hat
-(aus ausgelesenen Schnittstellendaten) sowie alle aktiven Controller-Netze, deren Eigentümer er ist.
-Ohne Schnittstellendaten gilt das /24 seiner eigenen IP. Subnetzmasken, `0.x`, `127.x`,
+(aus ausgelesenen Schnittstellendaten), alle aktiven Controller-Netze, deren Eigentümer er ist, und
+das Netz seiner privaten WAN-Schnittstellenadresse (aktive WAN-Ressource mit `interfaceIp`, engstes
+Controller-Netz, sonst /24; öffentliche Adressen zählen nicht). Ohne Schnittstellendaten gilt das /24
+seiner eigenen IP. Subnetzmasken, `0.x`, `127.x`,
 `255.255.255.255` und Zeilen mit „gateway“ zählen nicht als Schnittstellenadresse. **[Muss]**
 
-Als Router gelten in dieser Ansicht alle Geräte der Art `router` mit IP, unabhängig von der
-IP-Endung; ein Router ohne IP fehlt in dieser Ansicht. Router werden nach Name sortiert. **[Impl]**
+Als Router gelten in dieser Ansicht alle Geräte der Art `router` mit IP oder als Eigentümer eines
+aktiven Controller-Netzes, unabhängig von der IP-Endung; ein Router mit keinem von beiden fehlt in
+dieser Ansicht. Router werden nach Name sortiert. **[Impl]**
 
 Gerätezahlen der Subnetze (inkl. „N erreichbar“ und Mindestschwelle) zählen keine Docker-Container
 und keine entdeckten, offline gemeldeten Geräte, deren `lastSeen` älter als 30 Tage ist (nicht
@@ -275,8 +287,8 @@ Quelle: `backend/app/topology.py:507`, `backend/app/topology.py:632`, `backend/a
 ### Requirement: Layer-3 – Router-Kette
 Das System MUSS hintereinandergeschaltete Router als Kette Internet → erster Router → zweiter Router
 → dessen Netze zeigen. Ein manuell gesetzter Uplink auf einen anderen Router gewinnt; sonst ist der
-Upstream derjenige Router mit den wenigsten Subnetzen, dessen Subnetzmenge eine echte Teilmenge der
-eigenen ist. Ein Subnetz, das ein Router mit seinem Upstream teilt, MUSS nur beim Upstream
+Upstream derjenige Router mit den wenigsten Subnetzen, dessen nicht leere Subnetzmenge eine echte
+Teilmenge der eigenen ist. Ein Subnetz, das ein Router mit seinem Upstream teilt, MUSS nur beim Upstream
 erscheinen. Bei gleichwertigen Ansprüchen gewinnt der alphabetisch erste Router. **[Muss]**
 (Inferenzverfahren **[Impl]**)
 
@@ -285,7 +297,14 @@ erscheinen. Bei gleichwertigen Ansprüchen gewinnt der alphabetisch erste Router
 - **DANN** hängt Mikrotik unter FritzBox, 192.168.178.0/24 unter FritzBox und 10.1.1.0/24 unter
   Mikrotik (jeweils sofern das Subnetz mindestens 3 Geräte zählt)
 
-Quelle: `backend/app/topology.py:597`, `backend/app/topology.py:707`, `backend/app/topology.py:719`
+#### Szenario: UniFi-Gateway ohne eigene IP hinter FritzBox
+- **WENN** die UCG keine IP hat, aber die Controller-Netze 192.168.1.0/24 (VLAN 1) und
+  192.168.20.0/24 (VLAN 20) besitzt und ihre WAN-Schnittstelle 192.168.178.2 meldet
+- **DANN** hängt die UCG unter der FritzBox, ihre beiden Netze mit „VLAN 1“/„VLAN 20“ unter der UCG
+  und 192.168.178.0/24 nur unter der FritzBox
+
+Quelle: `backend/app/topology.py:597`, `backend/app/topology.py:707`, `backend/app/topology.py:719`,
+Test: `backend/tests/test_topology_router_cascade.py`
 
 ### Requirement: Layer-3 – Subnetzkästen
 Das System MUSS je Subnetz einen Kasten mit Titel = CIDR und Untertitel „<N> Gerät“/„<N> Geräte“
