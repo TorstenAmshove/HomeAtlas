@@ -4,9 +4,9 @@ from app import docker_probe, docs
 MARKERS = ["MARKER-TOKEN", "MARKER-PASS"]
 
 
-def test_docker_env_markers_never_reach_facts():
-    env = ["DOMAINS=a.example.net", "CF_API_TOKEN=MARKER-TOKEN", "PASSWORD=MARKER-PASS", "CONFIG={\"token\":\"MARKER-TOKEN\"}"]
-    blob = str(docker_probe.ddns_fact("qmcgaw/ddns-updater", env, "192.0.2.20"))
+def test_docker_label_markers_never_reach_facts():
+    labels = {"homeatlas.ddns.hosts": "a.example.net", "x.token": "MARKER-TOKEN", "x.pass": "MARKER-PASS"}
+    blob = str(docker_probe.ddns_fact("qmcgaw/ddns-updater", labels, "192.0.2.20"))
     assert not any(m in blob for m in MARKERS)
 
 

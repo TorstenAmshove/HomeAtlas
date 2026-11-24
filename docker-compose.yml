@@ -1,6 +1,8 @@
 services:
   backend:
     build: ./backend
+    depends_on:
+      - docker-proxy
     restart: unless-stopped
     # Required, not a convenience: discovery reads the host's ARP/neighbour table and sends
     # multicast (mDNS/SSDP) that a bridge network would not carry. On a bridge the app would only
@@ -8,16 +10,17 @@ services:
     network_mode: host
     volumes:
       - homeatlas-data:/data
-      # `:ro` does NOT stop writes over an already-connected socket -- it only blocks filesystem-
-      # level operations on the special file itself (open-for-write, delete, rename). HomeAtlas
-      # has no container control (ADR-0023): discovery and the live container status
-      # (docker_probe.py) only ever issue GET calls, but that is an application-code choice, not
-      # something this flag enforces. Socket access is root-equivalent on the host either way --
-      # remove this line to run without Docker discovery; everything else keeps working. A
-      # read-only socket proxy is tracked in #101.
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # The backend has no Docker socket mount (ADR-0024). It reads Docker through the read-only
+      # proxy below, over a unix socket in this shared volume (no TCP port, so nothing on the host
+      # network or LAN can reach it).
+      - docker-proxy-sock:/docker-proxy:ro
     environment:
       - TZ=Europe/Berlin
+      # Docker endpoint: the proxy's unix socket (or tcp://127.0.0.1:<port> as a fallback). Without
+      # a reachable endpoint the documentation says "Docker-Zugriff nicht eingerichtet" and
+      # everything else keeps working. Installations that still mount the raw socket themselves
+      # keep working through DOCKER_SOCKET (default /var/run/docker.sock) when this is unset.
+      - DOCKER_HOST=unix:///docker-proxy/proxy.sock
       # On the host network this is the HOST's loopback, so it collides with anything else
       # already listening there (8000 is a popular default -- hence 8281). Must match the
       # frontend's HOMEATLAS_API_PORT.
@@ -33,6 +36,38 @@ services:
       # - ADMIN_USERNAME=admin
       # - ADMIN_PASSWORD=change-me
 
+  # The only service that mounts the Docker socket. `:ro` on that mount does not limit the Docker API
+  # (an already connected socket still accepts writes), so the restriction is the allowlist below:
+  # exactly the GET paths docker_probe.py uses, nothing else. Everything not listed is refused --
+  # in particular container inspect (`Config.Env` in clear text), logs, archive, export, exec and
+  # every POST/PUT/DELETE. The proxy filters by method and path, not by content, which is why
+  # `/containers/{id}/json` and friends are not allowed at all. Allowed paths may carry an API
+  # version prefix (/v1.NN). The image's default user (65534) cannot open the host's root-owned
+  # docker.sock ("permission denied"), so the proxy runs as root -- without capabilities, with a
+  # read-only root filesystem and no network. Verified against 1.14.0: the allowed paths answer 200,
+  # inspect/logs/archive/export 403, POST/DELETE 405.
+  docker-proxy:
+    image: docker.io/wollomatic/socket-proxy:1.14.0@sha256:fead157c4de4092461267092be49c993c2e6dd296a54c89ed04b8c870016b045
+    restart: unless-stopped
+    # No network at all: the proxy only speaks over the unix socket below.
+    network_mode: none
+    user: "0:0"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 64M
+    command:
+      - '-proxysocketendpoint=/docker-proxy/proxy.sock'
+      - '-proxysocketendpointfilemode=0600'
+      - '-allowGET=(/v1\.[0-9]{1,2})?/(version|info|containers/json|networks|volumes)'
+      - '-watchdoginterval=300'
+      - '-stoponwatchdog'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - docker-proxy-sock:/docker-proxy
+
   frontend:
     build:
       context: ./frontend
@@ -47,3 +82,4 @@ services:
 
 volumes:
   homeatlas-data:
+  docker-proxy-sock:

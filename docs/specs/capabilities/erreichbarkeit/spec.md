@@ -129,7 +129,9 @@ Das System MUSS Cloudflare-DNS-Einträge, Tunnel-Status und mTLS-WAF-Regeln (nur
 `scanEnablePublicDns`, Standard **aus**) und `allowProbe`-Zugang (Kategorie `cloudflare`: Adresse = Zone-ID,
 Benutzername = Account-ID, Geheimnis = Token). Das Tunnel-Token wird nie abgerufen; das öffentliche DNS fragt nur
 validierte Hostnamen ohne Wildcards, höchstens 200 Abfragen je Scan. DynDNS-Container werden am Image erkannt
-(feste Liste); aus ihrer Umgebung bleiben nur Hostnamen und die IPv4/IPv6-Schalter. Sind Tunnel-Status oder
+(feste Liste); die Hostnamen kommen aus dem Label `homeatlas.ddns.hosts` des Containers (kommagetrennt, validiert,
+höchstens 20), der IPv6-Schalter aus `homeatlas.ddns.ipv6` (Standard: nur bei Cloudflare an). Die Container-Umgebung
+wird nie gelesen (kein Inspect, ADR-0024); ohne Label bleibt die Hostliste leer. Sind Tunnel-Status oder
 WAF-Regeln nicht lesbar, läuft der Scan weiter und meldet das als Warnung. **[Muss]**
 
 #### Szenario: WAF-Regeln nicht lesbar

@@ -115,6 +115,9 @@ export default function TechnikTab({ system, monitorPorts, aliases, canProbe, pr
             ["Port-Zuordnungen (Docker)", docker.portMappings?.length > 0 ? docker.portMappings.join(", ") : ""],
             ["Datenablagen", docker.volumes?.length > 0 ? docker.volumes.join(", ") : ""],
           ]} />
+          {docker.dockerSocket && (
+            <NoticeLine notice={{ kind: "error", text: "Container hat Vollzugriff auf Docker (entspricht Root auf dem Host). Empfehlung: Zugriff über einen Socket-Proxy mit nur lesenden Pfaden statt docker.sock einzubinden." }} />
+          )}
         </Section>
       )}
 

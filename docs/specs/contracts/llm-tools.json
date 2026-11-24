@@ -82,7 +82,7 @@
     "name": "list_accounts"
   },
   {
-    "description": "Listet die Docker-Container auf dem Server laut Stand des letzten Scans: Image, Status, veröffentlichte Ports, Volumes. Für den aktuellen Zustand get_container_status nutzen.",
+    "description": "Listet die Docker-Container auf dem Server laut Stand des letzten Scans: Image, Status, veröffentlichte Ports, Volumes; `dockerSocket: true` = Container mit gemountetem docker.sock (Vollzugriff auf Docker, entspricht Root auf dem Host). Für den aktuellen Zustand get_container_status nutzen.",
     "inputSchema": {
       "properties": {},
       "type": "object"

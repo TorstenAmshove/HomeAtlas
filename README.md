@@ -74,6 +74,11 @@ docker compose up -d --build
 
 Danach: **http://<host>:8280**
 
+Das Compose-File startet neben Backend und Frontend den `docker-proxy` (siehe „Sicherheit“). **Upgrade:** Wer
+von einer Version mit direktem `docker.sock`-Mount im Backend kommt, zieht die Compose-Datei nach; sonst gilt der
+alte Direkt-Mount (über `DOCKER_SOCKET`) weiter. Das Compose im Deploy-Repo `ansible-docker.lan` wird dort
+separat nachgezogen.
+
 Sind die Ports dort schon belegt, andere wählen:
 
 ```bash
@@ -178,7 +183,7 @@ Browser ── :8280 ──▶│ nginx (Frontend, React + TypeScript)         �
                     ┌───────────────────▼──────────────────────────┐
                     │ FastAPI-Backend (Host-Netz)                  │
                     │   discovery ─ ping/ARP, Ports, mDNS, SSDP    │
-                    │   docker_probe ─ /var/run/docker.sock (ro)   │
+                    │   docker_probe ─ Docker über Socket-Proxy    │
                     │   classify ─ KI-Einordnung unbekannter Geräte│
                     │   docs ─ Markdown-Kapitel                    │
                     │   tools ─ Werkzeuge für den Assistenten      │
@@ -285,8 +290,8 @@ des HomeAtlas-Hosts (läuft, beendet mit Exit-Code und Einordnung, startet neu, 
 eine Abfrage, `GET /containers/json?all=1`, ohne Inspect: Umgebungsvariablen (mögliche Geheimnisse), Befehle, Mounts
 und Labels außer dem Compose-Projekt erreichen HomeAtlas nie. Keine Logs, keine Steuerung, keine entfernten
 Docker-Hosts. Kann der Assistent etwas nicht selbst beheben, erklärt er die Ursache und formuliert eine Nachricht an
-den Admin zum Weitergeben (ADR-0022). Ein Docker-Socket-Proxy braucht dafür nur `GET /containers/json`;
-`/containers/{id}/json` kann gesperrt bleiben.
+den Admin zum Weitergeben (ADR-0022). Der mitgelieferte Socket-Proxy lässt dafür nur `GET /containers/json` durch;
+`/containers/{id}/json` ist gesperrt (ADR-0024).
 
 **Erreichbarkeit im Assistenten und auf der Geräteseite.** Das Werkzeug `list_exposure` beantwortet
 Fragen wie „warum ist app2.example.net nicht erreichbar?“. Es liest nur die beim letzten Scan
@@ -423,11 +428,29 @@ Rollos; siehe oben). Shelly-Geräte werden weiter erkannt und dokumentiert, aber
 geschaltet. Bestehende SSH-Schlüssel-Zugänge nutzt HomeAtlas weiter für das lesende Auslesen; neue
 Schlüssel legt der Admin außerhalb an (z. B. per Ansible) und trägt sie als Zugang ein.
 
-**Der Docker-Socket ist root-äquivalent.** HomeAtlas ruft ausschließlich GET-Endpunkte auf (Erkennung und
-Live-Status der Container); nichts schreibt darüber. Das `:ro` in `docker-compose.yml` schützt nur die
-Socket-Datei, nicht die API dahinter: Wer den Socket erreicht, kann auf dem Host viel. Ein Socket-Proxy, der
-nur lesende Pfade durchlässt, ist geplant (#101). Wem das zu weit geht, entfernt die Zeile in
-`docker-compose.yml`; alles außer Container-Erkennung und dem Live-Container-Status funktioniert weiter.
+**Docker nur lesend über einen Socket-Proxy (ADR-0024).** Der Docker-Socket ist root-äquivalent, und das `:ro`
+am Mount schützt nur die Socket-Datei, nicht die API dahinter. Deshalb mountet in `docker-compose.yml` nur der
+Dienst `docker-proxy` den Socket (`wollomatic/socket-proxy`). Er lässt ausschließlich `GET` auf `/version`,
+`/info`, `/containers/json`, `/networks` und `/volumes` durch; Inspect (`Config.Env` im Klartext), Logs, Archive,
+Export und jede schreibende Methode sind gesperrt. Der Proxy hat kein Netz und keinen TCP-Port: Das Backend spricht
+mit ihm über einen Unix-Socket in einem gemeinsamen Volume (`DOCKER_HOST=unix:///docker-proxy/proxy.sock`). Als
+Rückfall geht `DOCKER_HOST=tcp://127.0.0.1:<Port>`; andere Hosts lehnt HomeAtlas ab. Der Proxy läuft als Root ohne
+Capabilities, weil das Image-Standardkonto den Socket nicht öffnen darf. Ein Proxy filtert nach Pfad, nicht nach
+Inhalt: Was er durchlässt (Container-Liste, Namen, Images, Labels, Mounts), kommt vollständig an. Fehlt der Proxy,
+zeigt die Dokumentation „Docker-Zugriff nicht eingerichtet“; alles außer Container-Erkennung und dem
+Live-Container-Status funktioniert weiter.
+
+**Container mit Docker-Vollzugriff.** Ein Container, der `docker.sock` einbindet (auch `:ro`), hat Root auf dem
+Host. HomeAtlas erkennt das an den Mounts, zeigt den Hinweis im Kapitel „Container und virtuelle Maschinen“ und auf
+der Containerseite (Tab Technik) und gibt das Feld `dockerSocket` in `list_containers` aus. Container, die über
+einen Socket-Proxy gehen, werden nicht markiert. Eingebunden wird der Socket in Traefik, Portainer & Co. nicht von
+HomeAtlas, die Umstellung gehört in das Deploy-Repo des Docker-Hosts.
+
+**DDNS-Hostnamen per Label.** Container mit DDNS-Client (z. B. `favonia/cloudflare-ddns`, `ddclient`, `inadyn`)
+erkennt HomeAtlas am Image. Die gepflegten Hostnamen liest es nicht mehr aus der Umgebung des Containers (das wäre
+Inspect), sondern aus dem Label `homeatlas.ddns.hosts` (kommagetrennt, höchstens 20 gültige Hostnamen) am
+Container; optional `homeatlas.ddns.ipv6=true|false`. Das Label setzt der Betreiber selbst in der Compose-Datei des
+DDNS-Containers, HomeAtlas ändert nichts. Ohne Label bleibt die Hostliste leer.
 
 **Anmeldeschutz.** Nach wiederholten Fehlversuchen (Passwort oder Code) sperrt HomeAtlas weitere
 Anmeldeversuche für bis zu 15 Minuten: von derselben Adresse für denselben Namen nach 5, für
@@ -521,6 +544,7 @@ Inventar über die Auswahl mehrerer Geräte. Konten, Verlauf und Monitoring wand
 | `HOMEATLAS_OUI_PATH` | `/data/oui.json` | Zwischenspeicher der IEEE-Herstellerdatenbank |
 | `HOMEATLAS_COOKIE_SECURE` | `auto` | `Secure`-Flag des Session-Cookies: `auto` (bei `X-Forwarded-Proto: https`), `always` oder `never` |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | — | Erstes Konto vorgeben statt generieren lassen (Passwort muss die Richtlinie erfüllen, sonst wird eines generiert) |
+| `DOCKER_HOST` | `unix:///docker-proxy/proxy.sock` (Compose) | Docker-Endpunkt: `unix://…` oder `tcp://127.0.0.1:<Port>`. Ohne Wert gilt `DOCKER_SOCKET` (Standard `/var/run/docker.sock`) |
 | `TZ` | `Europe/Berlin` | Zeitzone für Anzeigen und Protokolle |
 
 Scan-Verhalten (Bereiche, Ausnahmen, Timeouts, welche Quellen aktiv sind, ob die KI mitarbeitet)

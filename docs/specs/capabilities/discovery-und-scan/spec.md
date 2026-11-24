@@ -447,7 +447,7 @@ Test: `backend/tests/test_oui.py::test_refresh_identifies_homeatlas_to_ieee`
 Wenn `scanEnableDocker` (Default an) gesetzt ist, MUSS der Scan die Container des lokalen Docker-Hosts
 als Funde aufnehmen (Details: Docker-Probe). Name: `<service> · <projekt>` bei Compose-Labels, sonst
 Container-Name; stabiler Schlüssel `docker:<projekt>:<service>` bzw. `docker:<name>`, mit
-Rückfall auf alten Schlüssel `docker:<id12>`. Fehlt der Docker-Socket, nur Protokollzeile; ist er da,
+Rückfall auf alten Schlüssel `docker:<id12>`. Fehlt der Docker-Endpunkt (`DOCKER_HOST`/Socket-Proxy), nur Protokollzeile; ist er da,
 aber die API scheitert, Warnung. **[Muss]**
 
 #### Szenario: Unbestätigter Container bekommt neuen Namen

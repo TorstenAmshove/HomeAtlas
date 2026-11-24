@@ -90,7 +90,7 @@ have to ask. Key structural rules that span multiple files:
 
 **HomeAtlas has no remote administration (ADR-0023).** There is no SSH key generation/deployment, no
 console, no container/Proxmox control, no reboot; admins use Portainer, Ansible and Proxmox. The
-read side stays a hard split: `docker_probe.py` (GET-only Docker API calls) and `probe_auth.py`
+read side stays a hard split: `docker_probe.py` (GET-only Docker API calls, never inspect, via the `docker-proxy` socket proxy, ADR-0024) and `probe_auth.py`
 (read-only SSH/HTTP/TR-064 device probing, hardcoded command allowlist in `_SSH_COMMANDS` with no
 setting/parameter/tool able to extend it; existing `sshkey` accounts are still used for it) never
 import a write module. The only write-capable device module is `switch_admin.py` (Home Assistant
@@ -102,7 +102,7 @@ be a bug, not a refactor.
 **`tools.py` is the LLM's entire capability surface** (used by both the in-app chat and
 `mcp_server.py`'s external MCP endpoint). It is read-only plus bounded live diagnostics, with one
 documented exception (`set_switch`: Home Assistant `switch`/`light` on/off plus shutter-class `cover`
-open/close/stop, never garage doors, gates or windows, see ADR-0018; Home Assistant automation traces and the system-log fallback are read over a WebSocket limited to `trace/list`/`trace/get`/`system_log/list`, ADR-0018); live UniFi reads go through `unifi_live.py` (ADR-0017: fixed allowlist incl. exactly one read-only POST for the event log, `X-API-Key`, field allowlist) and live Proxmox reads through `proxmox_live.py` (ADR-0021: GET-only path allowlist, scan token, no task log text) and live local container status through `docker_probe.live_containers` (ADR-0022: exactly `GET /containers/json?all=1`, never inspect, field allowlist); these three are the only source modules `tools.py` may import; nothing else reachable from here mutates inventory, docs, or devices, and `list_accounts` always strips
+open/close/stop, never garage doors, gates or windows, see ADR-0018; Home Assistant automation traces and the system-log fallback are read over a WebSocket limited to `trace/list`/`trace/get`/`system_log/list`, ADR-0018); live UniFi reads go through `unifi_live.py` (ADR-0017: fixed allowlist incl. exactly one read-only POST for the event log, `X-API-Key`, field allowlist) and live Proxmox reads through `proxmox_live.py` (ADR-0021: GET-only path allowlist, scan token, no task log text) and live local container status through `docker_probe.live_containers` (ADR-0022: exactly `GET /containers/json?all=1`, never inspect, field allowlist; the backend has no Docker socket mount, ADR-0024); these three are the only source modules `tools.py` may import; nothing else reachable from here mutates inventory, docs, or devices, and `list_accounts` always strips
 passwords before they reach a model — secrets never enter a prompt, provider log, or chat
 history. When adding a new assistant capability, this boundary is the thing to preserve.
 

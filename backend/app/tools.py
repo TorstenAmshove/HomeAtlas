@@ -154,7 +154,9 @@ TOOL_DEFINITIONS: list[dict] = [
     {
         "name": "list_containers",
         "description": ("Listet die Docker-Container auf dem Server laut Stand des letzten Scans: Image, Status, "
-                        "veröffentlichte Ports, Volumes. Für den aktuellen Zustand get_container_status nutzen."),
+                        "veröffentlichte Ports, Volumes; `dockerSocket: true` = Container mit gemountetem docker.sock "
+                        "(Vollzugriff auf Docker, entspricht Root auf dem Host). Für den aktuellen Zustand "
+                        "get_container_status nutzen."),
         "inputSchema": {"type": "object", "properties": {}},
     },
     {
@@ -877,7 +879,8 @@ async def _dispatch(name: str, args: dict) -> object:
         return {"count": len(systems), "containers": [
             {"name": s["name"], "image": s["model"], "status": s["status"], "ports": s["openPorts"] or [],
              **{k: v for k, v in ((s.get("extra") or {}).get("docker") or {}).items()
-                if k in ("state", "status", "composeProject", "portMappings", "volumes", "networks")}}
+                if k in ("state", "status", "composeProject", "portMappings", "volumes", "networks",
+                             "dockerSocket")}}
             for s in systems
         ]}
 
