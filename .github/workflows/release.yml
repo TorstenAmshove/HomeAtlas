@@ -89,6 +89,13 @@ jobs:
       - name: Determine build time
         id: build_metadata
         run: printf 'time=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+      - name: Determine release version
+        id: release_version
+        env:
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          test -n "$RELEASE_TAG"
+          printf 'version=%s\n' "${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Log in to GHCR
@@ -117,6 +124,8 @@ jobs:
           build-args: |
             VITE_BUILD_SHA=${{ github.sha }}
             VITE_BUILD_TIME=${{ steps.build_metadata.outputs.time }}
+            HOMEATLAS_VERSION=${{ steps.release_version.outputs.version }}
+            VITE_APP_VERSION=${{ steps.release_version.outputs.version }}
 
   tag:
     needs: [version, publish]
