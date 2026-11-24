@@ -59,10 +59,10 @@ def test_list_probe_accounts_includes_directly_attached_credential(temp_db):
 def test_list_probe_accounts_includes_kind_assigned_credential(temp_db):
     switch = temp_db.create_system({"kind": "network", "name": "Switch-1", "ip": "10.0.0.20"})
     router = temp_db.create_system({"kind": "router", "name": "Router-1", "ip": "10.0.0.1"})
-    account = temp_db.create_account({"label": "Aruba Switch Admin", "category": "login", "allowProbe": 1})
+    account = temp_db.create_account({"label": "Switch Admin", "category": "login", "allowProbe": 1})
     temp_db.set_account_assignments(account["id"], [{"targetType": "kind", "targetValue": "network"}])
 
-    assert [a["label"] for a in temp_db.list_probe_accounts(switch["id"])] == ["Aruba Switch Admin"]
+    assert [a["label"] for a in temp_db.list_probe_accounts(switch["id"])] == ["Switch Admin"]
     assert temp_db.list_probe_accounts(router["id"]) == []  # different kind, not assigned
 
 

@@ -22,7 +22,7 @@ def _acct(label, category, **kw):
 
 def _patch(monkeypatch, *, ssh=None, ha=None, http=None, tr064=None):
     """Each argument maps account label -> result (tr064: a single result)."""
-    async def fake_ssh(host, account, platform=""):
+    async def fake_ssh(host, account):
         return (ssh or {})[account["label"]]
 
     async def fake_ha(url, account):
@@ -139,7 +139,7 @@ def test_tr064_failure_kept_for_fritz(monkeypatch, field):
 
 def test_tr064_failure_dropped_for_non_fritz_router(monkeypatch):
     _patch(monkeypatch)
-    out = _run({"kind": "router", "name": "Mikrotik"}, [_acct("l", "login", port=8443)])
+    out = _run({"kind": "router", "name": "Router"}, [_acct("l", "login", port=8443)])
     assert "tr064" not in out["results"]
     assert out["ran"] is False
 
@@ -232,7 +232,7 @@ def _record_fritz(monkeypatch):
 def test_tr064_gets_no_account_for_non_fritz_router(monkeypatch):
     _patch(monkeypatch, ssh={"l": _ok()})
     seen = _record_fritz(monkeypatch)
-    _run({"kind": "router", "name": "Mikrotik", "vendor": "MikroTik"},
+    _run({"kind": "router", "name": "Router", "vendor": "Acme"},
          [_acct("l", "login", port=0)])
     assert seen == [None]
 
@@ -251,3 +251,39 @@ def test_tr064_runs_for_fritz_repeater_not_router_kind(monkeypatch):
     login = _acct("l", "login")
     _run({"kind": "network", "name": "FRITZ!Repeater"}, [login])
     assert seen == [login]
+
+
+_LINUX_COMMANDS_PINNED = [
+    ("hostname", "Hostname"), ("os", "Betriebssystem"), ("kernel", "Kernel"), ("model", "Hardware"),
+    ("virt", "Virtualisierung"), ("uptime", "Laufzeit"), ("cpu", "Prozessorkerne"),
+    ("memory", "Arbeitsspeicher"), ("disks", "Speicherplatz"), ("ip", "Netzwerkadressen"),
+    ("arp_table", "ARP-/Nachbartabelle"), ("docker", "Docker-Container"), ("services", "Laufende Dienste"),
+]
+
+
+def test_linux_command_set_unchanged():
+    """The allowlist only ever shrinks: exactly the Linux facts, no Omada backup, no platform sets."""
+    assert [(k, label) for k, label, _ in probe_auth._SSH_COMMANDS] == _LINUX_COMMANDS_PINNED
+    assert not any(name.startswith("_SSH_COMMANDS_") for name in dir(probe_auth))
+
+
+@pytest.mark.parametrize("kind", ["network", "router", "printer", ""])
+@pytest.mark.parametrize("vendor", ["HP", "Acme"])
+@pytest.mark.parametrize("port", [0, 22])
+def test_login_on_network_device_not_probed_via_ssh(monkeypatch, kind, vendor, port):
+    _patch(monkeypatch, ssh={"l": _ok()})
+    out = _run({"kind": kind, "vendor": vendor, "name": "Switch"}, [_acct("l", "login", port=port)])
+    assert "ssh:l" not in out["results"]
+
+
+@pytest.mark.parametrize("kind", ["server", "nas", "vm", "pc", "container"])
+def test_login_on_server_like_kinds_still_probed(monkeypatch, kind):
+    _patch(monkeypatch, ssh={"l": _ok()})
+    out = _run({"kind": kind, "vendor": "HP"}, [_acct("l", "login", port=22)])
+    assert "ssh:l" in out["results"]
+
+
+def test_sshkey_on_network_device_still_probed(monkeypatch):
+    _patch(monkeypatch, ssh={"k": _ok()})
+    out = _run({"kind": "network", "vendor": "HP"}, [_acct("k", "sshkey")])
+    assert "ssh:k" in out["results"]

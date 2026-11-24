@@ -63,8 +63,7 @@ const password = (hint = SECRET_STORED) =>
 export const ACCOUNT_FIELDS: Record<CategoryId, CategoryFields> = {
   contract: storage("Passwort", "Benutzername / Kundennummer", "Adresse"),
   login: {
-    username: { visible: true, label: "Benutzername",
-      hint: "Klassisches ArubaOS-Switch: Das Konto muss direkt mit Manager-Rechten anmelden; ein enable-Passwort wird nicht beantwortet." },
+    username: { visible: true, label: "Benutzername" },
     url: { visible: true, label: "Adresse (optional)", placeholder: "https://… (nur für Web-Anmeldung)" },
     secret: password(),
     port: SSH_PORT,

@@ -3,8 +3,6 @@
 settings blob. Covers the write paths that no longer store them, the read paths that no longer
 expose them, and the one-time startup migration (main._migrate_plaintext_secrets)."""
 import json
-import re
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -60,9 +58,9 @@ def test_without_config_backups_strips_only_export_facts():
 def test_config_backup_labels_cover_every_export_command():
     """CONFIG_BACKUP_LABELS drives the doc/chat scrub; a new export command with another label
     would silently slip through it."""
-    source = Path(probe_auth.__file__).read_text(encoding="utf-8")
-    labels = set(re.findall(r'\("(?:config_export|omada_backup)",\s*"([^"]+)"', source))
-    assert labels and labels <= set(probe_auth.CONFIG_BACKUP_LABELS)
+    for key, label, _command in probe_auth._SSH_COMMANDS:
+        if key in probe_auth.CONFIG_BACKUP_KEYS:
+            assert label in probe_auth.CONFIG_BACKUP_LABELS
 
 
 # --- read paths -------------------------------------------------------------------------------

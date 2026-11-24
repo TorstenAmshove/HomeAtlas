@@ -78,9 +78,6 @@
   (`scanUseCredentials`); Controller-Abfragen (UniFi, Proxmox) haben eigene Schalter.
   Das gilt auch für die Werkzeuge des Assistenten (`list_switches`, `set_switch` für Home Assistant,
   `get_ha_*`, `get_unifi_*`, `get_proxmox_*`).
-- **L3a [Muss]** Manche Plattformen brauchen zum Lesen einen Befehl, der formal in einen
-  Konfigurationsmodus wechselt (TP-Link `configure` / `no clipaging` gegen Seitenumbruch). Erlaubt
-  ist das nur, um die Ausgabe lesbar zu machen, nie, um etwas zu ändern.
 - **L4 [Muss]** HomeAtlas hat keine Fernwartung: kein Befehl auf Geräten, keine Konsole, keine
   Container-/Proxmox-Steuerung, kein Neustart, kein Erzeugen oder Verteilen von SSH-Schlüsseln.
   Verwaltung erfolgt über externe Werkzeuge. ([ADR-0023](../adr/0023-keine-fernwartung.md))

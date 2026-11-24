@@ -563,14 +563,6 @@
     },
     {
       "match": [
-        "tp-link",
-        "tplink"
-      ],
-      "title": "TP-Link Support",
-      "url": "https://www.tp-link.com/de/support/"
-    },
-    {
-      "match": [
         "zyxel"
       ],
       "title": "Zyxel Support",

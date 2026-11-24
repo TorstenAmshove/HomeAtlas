@@ -7,7 +7,6 @@ betreffen auch HomeAtlas selbst und eignen sich als Issues.
 
 Jeder Punkt der Liste unten trägt am Ende `→ #N`, das GitHub-Issue, in dem er bearbeitet wird
 (mehrere zusammengehörige Punkte teilen sich ein Issue), oder die Entscheidung, die ihn erledigt hat.
-Ohne Verweis sind nur die Punkte zu TP-Link und `omada_backup`, für sie gibt es noch kein Issue.
 
 ## Zuerst ansehen
 
@@ -36,7 +35,7 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (8)
+## Alle Punkte je Fähigkeit (6)
 
 ### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (1)
 
@@ -44,11 +43,6 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 ### [auth-und-rollen](capabilities/auth-und-rollen/spec.md) (0)
 
-
-### [credentialed-probing](capabilities/credentialed-probing/spec.md) (2)
-
-1. TP-Link-Pager-Abschaltung nutzt `configure` / `no clipaging` – ein Konfigurationsmodus-Befehl, entgegen „kein Config-Mode“. Ob die Einstellung persistent in der Running-Config landet, ist ungeprüft.
-2. `omada_backup` läuft auf jedem Linux-Host und wird Base64-kodiert als Fakt gespeichert; ein Restore ist bewusst nicht vorgesehen, Nutzen der Speicherung ist unklar.
 
 ### [dashboard](capabilities/dashboard/spec.md) (0)
 

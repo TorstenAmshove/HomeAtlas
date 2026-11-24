@@ -58,132 +58,6 @@ def _truncate(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
-# ---------------------------------------------------------------------------------------------
-# LLDP neighbour resolution -- turns the raw text facts probe_auth.py already collects (Mikrotik
-# `/ip neighbor print`, Aruba `show lldp info remote-device`, Cisco `show cdp neighbors detail`) into
-# actual edges between two systems already in the inventory, so "important devices" below can be
-# connected the way they are actually wired instead of only guessed from `kind`.
-#
-# None of these three formats has been verified against real hardware -- see probe_auth.py's own
-# command sets, which have the same caveat. The parsers below are deliberately defensive: regex-
-# based rather than fixed column positions, and a neighbour that cannot be matched to a known
-# system (by MAC, falling back to name) simply yields no edge rather than a wrong one. A rendering
-# with zero resolved links still falls back to the pre-LLDP trunk connection (see render()), so a
-# format mismatch degrades the plan, it does not break it.
-# ---------------------------------------------------------------------------------------------
-
-_MAC_RE = re.compile(r"\b([0-9A-Fa-f]{2}[:\-]){5}[0-9A-Fa-f]{2}\b")
-
-
-def _normalize_mac(mac: str) -> str:
-    return re.sub(r"[^0-9A-Fa-f]", "", mac).lower()
-
-
-def _parse_mikrotik_neighbors(text: str) -> list[dict]:
-    """RouterOS `print detail` output: one record per line/wrapped-block, `key=value` pairs
-    (`key="quoted value"` when the value contains spaces). Extracts `mac-address` and `identity`
-    per record via a line-oriented regex rather than assuming a fixed field order or wrapping."""
-    neighbors = []
-    for block in re.split(r"\n(?=\s*\d+\s+\S+=)", text):
-        mac_match = re.search(r"mac-address=([0-9A-Fa-f:]{17})", block, re.IGNORECASE)
-        name_match = re.search(r'identity="([^"]*)"|identity=(\S+)', block)
-        mac = mac_match.group(1) if mac_match else None
-        name = (name_match.group(1) or name_match.group(2)) if name_match else None
-        if mac or name:
-            neighbors.append({"mac": mac, "name": name})
-    return neighbors
-
-
-def _parse_aruba_neighbors(text: str) -> list[dict]:
-    """ArubaOS-Switch `show lldp info remote-device`: a header row containing "ChassisId" marks
-    where the table starts; each following non-separator line is tokenized on runs of 2+ spaces.
-    Chassis IDs are commonly printed as space-separated hex octets rather than colon-separated."""
-    lines = text.splitlines()
-    header_index = next((i for i, line in enumerate(lines) if "ChassisId" in line or "SysName" in line), None)
-    if header_index is None:
-        return []
-    neighbors = []
-    for line in lines[header_index + 1:]:
-        if not line.strip() or set(line.strip()) <= {"-", "+", " "}:
-            continue
-        # "|" is a column separator here, not data -- turned into a hard split point first so it
-        # never ends up glued to the next cell regardless of how much whitespace surrounds it.
-        cells = [c.strip() for c in re.split(r"\s{2,}|\|", line.strip()) if c.strip()]
-        if not cells:
-            continue
-        mac = None
-        for cell in cells:
-            hex_octets = cell.split()
-            if len(hex_octets) == 6 and all(re.fullmatch(r"[0-9A-Fa-f]{2}", o) for o in hex_octets):
-                mac = ":".join(hex_octets)
-                break
-            mac_match = _MAC_RE.search(cell)
-            if mac_match:
-                mac = mac_match.group(0)
-                break
-        # The system name is conventionally the last column and the only one that is not the
-        # chassis id, a bare port number, or a port description -- take the last non-empty,
-        # non-MAC-shaped cell as a best-effort guess.
-        name = next((c for c in reversed(cells) if c != mac and not re.fullmatch(r"[\w/.-]{1,4}", c)), None)
-        if mac or name:
-            neighbors.append({"mac": mac, "name": name})
-    return neighbors
-
-
-def _parse_cisco_neighbors(text: str) -> list[dict]:
-    """Cisco IOS `show cdp neighbors detail`: entries are separated by a dashed rule line, each
-    carrying a `Device ID: <name>` line. Unlike the LLDP-based formats above, CDP detail output
-    does not include the neighbour's chassis MAC, so entries here only ever resolve by name."""
-    neighbors = []
-    for block in re.split(r"\n-{5,}\n", text):
-        name_match = re.search(r"Device ID:\s*(\S+)", block)
-        if name_match:
-            neighbors.append({"mac": None, "name": name_match.group(1)})
-    return neighbors
-
-
-def _neighbors_for_system(system: dict) -> list[dict]:
-    """Reads whatever probe_auth.py already stored in `extra.probe` for this system and picks the
-    matching parser by the `"neighbors"` fact of the Mikrotik/Aruba/Cisco SSH command sets."""
-    probe = (system.get("extra") or {}).get("probe") or {}
-    neighbors: list[dict] = []
-    for source, result in probe.items():
-        facts = (result or {}).get("facts") or {}
-        if "neighbors" in facts:
-            text = facts["neighbors"]["value"]
-            if source.startswith("ssh:") and "identity=" in text:
-                parser = _parse_mikrotik_neighbors
-            elif "Device ID:" in text:
-                parser = _parse_cisco_neighbors
-            else:
-                parser = _parse_aruba_neighbors
-            neighbors += parser(text)
-    return neighbors
-
-
-def _resolve_system_links(systems: list[dict]) -> dict[str, set[str]]:
-    """One MAC->id and name->id index built once, then each system's parsed neighbours are
-    resolved against it (MAC first, name as fallback, both case/format-insensitive). Only pairs
-    where BOTH ends resolve to a known system produce an edge -- an unresolvable neighbour is
-    simply not drawn, never guessed at."""
-    by_mac = {_normalize_mac(s["mac"]): s["id"] for s in systems if s.get("mac")}
-    by_name = {s["name"].strip().lower(): s["id"] for s in systems if s.get("name")}
-
-    links: dict[str, set[str]] = {}
-    for system in systems:
-        for neighbor in _neighbors_for_system(system):
-            target_id = None
-            if neighbor.get("mac"):
-                target_id = by_mac.get(_normalize_mac(neighbor["mac"]))
-            if target_id is None and neighbor.get("name"):
-                target_id = by_name.get(neighbor["name"].strip().lower())
-            if target_id is None or target_id == system["id"]:
-                continue
-            links.setdefault(system["id"], set()).add(target_id)
-            links.setdefault(target_id, set()).add(system["id"])
-    return links
-
-
 _STATUS_WORD = {"online": "erreichbar", "offline": "nicht erreichbar"}
 
 
@@ -258,7 +132,7 @@ def _row(items: list[dict], y: float, box_w_max: float = 200,
 
 def _chain_layers(items: list[dict]) -> list[list[dict]]:
     """Groups items into generations by `parentId` within the same list -- e.g. a secondary
-    router (Mikrotik) plugged into the primary one (FritzBox) renders one row below it instead of
+    router (UCG) plugged into the primary one (FritzBox) renders one row below it instead of
     beside it, matching how the household actually wired it rather than a flat guess."""
     ids = {i["id"] for i in items}
     by_parent: dict[str | None, list[dict]] = {}
@@ -368,7 +242,7 @@ def render(settings: dict | None = None) -> str:
     svg: list[str] = []
     y = 40
     # Anchors of every backbone/important box placed so far, kept across layers (not reset per
-    # section) so a later "Wichtige Geräte" row can point a resolved LLDP edge at a specific
+    # section) so a later "Wichtige Geräte" row can point a parentId edge at a specific
     # router or switch instead of only the generic trunk below it.
     anchor_by_id: dict[str, tuple[float, float]] = {}
 
@@ -383,7 +257,7 @@ def render(settings: dict | None = None) -> str:
     previous = internet_anchor[0]
     y += _LAYER_GAP
 
-    # --- Router, chained by parentId (Internet -> FritzBox -> Mikrotik -> …) ------------
+    # --- Router, chained by parentId (Internet -> FritzBox -> UCG -> …) ------------
     if routers:
         svg.append(_label(40, y - 12, "Router"))
         leaf_anchors: list[tuple[float, float]] = []
@@ -405,7 +279,7 @@ def render(settings: dict | None = None) -> str:
     # the switch it is actually plugged into instead of beside it in an unordered row. A device
     # with no resolved uplink (no UniFi credential, or the field wasn't present in the API
     # response) still renders -- `_chain_layers` treats an unresolved parentId as root, same
-    # degrade-gracefully posture as the LLDP-based links in "Wichtige Geräte" below.
+    # degrade-gracefully posture as the parentId links in "Wichtige Geräte" below.
     if network:
         svg.append(_label(40, y - 12, "Verteilung (Switche, WLAN)"))
         leaf_anchors: list[tuple[float, float]] = []
@@ -440,10 +314,8 @@ def render(settings: dict | None = None) -> str:
 
     if critical:
         svg.append(_label(40, y - 12, "Wichtige Geräte"))
-        # Real, discovered connections where LLDP data resolved them (see _resolve_system_links);
-        # a device whose neighbour isn't already anchored above (router/switch) falls back to the
-        # plain trunk connection below, so a parsing miss loses a specific line, never the device.
-        links = _resolve_system_links(systems)
+        # Lines come from `parentId` only (UniFi uplink, Proxmox/Docker host); a device whose
+        # parent isn't anchored above (router/switch) falls back to the plain trunk connection below.
         items = []
         for s in critical:
             subtitle = s["ip"]
@@ -454,13 +326,9 @@ def render(settings: dict | None = None) -> str:
                     running = sum(1 for c in children if c["status"] == "online")
                     subtitle = f'{s["ip"]} · {len(children)} Container/VM, {running} aktiv ▸'
                     expand = True
-            # A container/VM's own parentId (set by pipeline.py from the Proxmox/Docker credential
-            # that found it) names its actual host directly -- a far more reliable anchor than
-            # LLDP, which containers/VMs never speak in the first place. Real neighbour data still
-            # wins for everything else that has it.
+            # A device's parentId (UniFi uplink, or the Proxmox/Docker host a container/VM was
+            # found on, set by pipeline.py) names what it hangs off directly.
             resolved_parent = s.get("parentId") if s.get("parentId") in anchor_by_id else None
-            if resolved_parent is None:
-                resolved_parent = next((nid for nid in links.get(s["id"], ()) if nid in anchor_by_id), None)
             items.append({"id": s["id"], "parentId": resolved_parent, "title": s["name"],
                          "subtitle": subtitle, "status": s["status"], "expand": expand})
         row_svg, anchors = _row(items, y, width=width)
@@ -504,11 +372,10 @@ def _subnet_sort_key(subnet: str) -> tuple:
 
 
 # Any dotted-quad that is itself a plausible subnet mask (255.255.255.0, 255.255.0.0, ...) rather
-# than a host address -- "show ip"/"show ip interface brief"/"/ip address print" all print masks
+# than a host address -- some interface listings print masks
 # right next to the address they belong to, and this keeps them out of `_router_subnets` below.
 _MASK_OCTETS = {"0", "128", "192", "224", "240", "248", "252", "254", "255"}
 _IP_RE = re.compile(r"\b(\d{1,3}(?:\.\d{1,3}){3})\b")
-_CIDR_RE = re.compile(r"\b(\d{1,3}(?:\.\d{1,3}){3})/(\d{1,2})\b")
 
 
 def _looks_like_mask(ip: str) -> bool:
@@ -524,86 +391,29 @@ def _looks_like_mask(ip: str) -> bool:
 
 
 def _router_subnets(system: dict) -> set[str]:
-    """Every /24 this router has an interface address in, read from whichever platform-specific
-    "ip_addresses" fact probe_auth.py collected for it (Mikrotik/Aruba/Cisco), or the generic
-    Linux "ip" fact for a Linux-based router/gateway -- a coarse regex scan across formats rather
-    than a strict per-platform parser, since all that matters here is which subnets touch this
-    router, not the exact interface name or mask.
+    """Every /24 this router has an interface address in, read from the Linux "ip" fact
+    probe_auth.py collected for a Linux-based router/gateway -- a coarse regex scan rather than a
+    strict parser, since all that matters here is which subnets touch this router.
 
     Falls back to the subnet implied by the router's own single stored `ip` when no such fact
     exists (an unprobed router, or one behind a credential without allowProbe) -- a single-homed
     guess is still better than dropping the router from the Layer-3 plan entirely.
     """
     probe = (system.get("extra") or {}).get("probe") or {}
-    texts = [facts[key]["value"]
+    texts = [facts["ip"]["value"]
              for result in probe.values()
              for facts in [(result or {}).get("facts") or {}]
-             for key in ("ip_addresses", "ip") if key in facts]
+             if "ip" in facts]
 
     subnets: set[str] = set()
     for text in texts:
-        # ArubaOS's "show ip" prints a "Default Gateway" line alongside the VLAN interface table --
-        # that address belongs to whatever device is upstream, not to this router's own interfaces,
-        # so lines naming it are excluded before the regex scan picks up every dotted-quad in sight.
-        filtered = "\n".join(line for line in text.splitlines() if "gateway" not in line.lower())
-        for ip in _IP_RE.findall(filtered):
+        for ip in _IP_RE.findall(text):
             if _looks_like_mask(ip) or ip.startswith(("0.", "127.")) or ip == "255.255.255.255":
                 continue
             subnets.add(_subnet_of(ip))
     if not subnets and system.get("ip"):
         subnets.add(_subnet_of(system["ip"]))
     return subnets
-
-
-def _mikrotik_vlan_ids_by_interface(text: str) -> dict[str, str]:
-    """interface name -> VLAN ID, from RouterOS `/interface vlan print detail`
-    (` 0  R name="vlan10" mtu=1500 arp=enabled vlan-id=10 interface=bridge1 ...`), one record per
-    line/wrapped block, same split heuristic as `_parse_mikrotik_neighbors` above."""
-    result: dict[str, str] = {}
-    for block in re.split(r"\n(?=\s*\d+\s+\S)", text):
-        name_match = re.search(r'name="([^"]+)"', block)
-        vlan_match = re.search(r"vlan-id=(\d+)", block)
-        if name_match and vlan_match:
-            result[name_match.group(1)] = vlan_match.group(1)
-    return result
-
-
-def _mikrotik_subnet_interfaces(text: str) -> dict[str, str]:
-    """subnet (/24, via `_subnet_of`) -> interface name, from RouterOS `/ip address print`
-    (` 1   10.1.1.1/24        10.1.1.0/24     vlan10`). The interface name is reliably the line's
-    last whitespace-separated token regardless of which flag/index columns precede the address, so
-    this takes that rather than assuming a fixed column count."""
-    result: dict[str, str] = {}
-    for line in text.splitlines():
-        match = _CIDR_RE.search(line)
-        tokens = line.split()
-        if not match or not tokens:
-            continue
-        result[_subnet_of(match.group(1))] = tokens[-1]
-    return result
-
-
-def _router_vlan_ids(system: dict) -> dict[str, str]:
-    """subnet -> VLAN ID label, by joining RouterOS's `vlan` fact (interface -> VLAN ID) with its
-    `ip_addresses` fact (subnet -> interface) on the interface name. Mikrotik-only for now -- the
-    one platform whose two facts this module can reliably join this way; Aruba/Cisco's own `vlan`
-    fact formats aren't parsed here, so a subnet behind one of those simply gets no VLAN label,
-    same degrade-gracefully posture as everything else in this file."""
-    probe = (system.get("extra") or {}).get("probe") or {}
-    result: dict[str, str] = {}
-    for src, res in probe.items():
-        if not src.startswith("ssh:"):
-            continue
-        facts = (res or {}).get("facts") or {}
-        if "vlan" not in facts or "ip_addresses" not in facts:
-            continue
-        vlan_by_interface = _mikrotik_vlan_ids_by_interface(facts["vlan"]["value"])
-        if not vlan_by_interface:
-            continue
-        for subnet, interface in _mikrotik_subnet_interfaces(facts["ip_addresses"]["value"]).items():
-            if interface in vlan_by_interface:
-                result[subnet] = vlan_by_interface[interface]
-    return result
 
 
 # Subnets with fewer active IPs than this are left off the plan entirely -- a household with a
@@ -633,8 +443,8 @@ def _counts_in_layer3(system: dict) -> bool:
 
 def _infer_router_hierarchy(routers: list[dict], raw_subnets: dict[str, set[str]]) -> dict[str, str | None]:
     """Which router is the effective *parent* of which (its upstream, closer to Internet), so a
-    secondary router plugged into the household's primary one (a Mikrotik behind a FritzBox) is
-    drawn as a chain -- Internet -> FritzBox -> Mikrotik -> its own networks -- instead of as two
+    secondary router plugged into the household's primary one (a UCG behind a FritzBox) is
+    drawn as a chain -- Internet -> FritzBox -> UCG -> its own networks -- instead of as two
     unrelated boxes both hanging directly off Internet.
 
     Nothing in this codebase ever sets a router's own `parentId` automatically (no controller
@@ -650,7 +460,7 @@ def _infer_router_hierarchy(routers: list[dict], raw_subnets: dict[str, set[str]
     at another router in this list wins over the inference, same "confirmed data wins" rule as
     everywhere else in this app.
 
-    A router with no SSH probe data at all falls back (see `_router_subnets`) to the single subnet
+    A router with no probe data at all falls back (see `_router_subnets`) to the single subnet
     implied by its own stored `ip` -- still enough for this containment check to work as long as at
     least the *upstream* router's address is known, which discovery always has.
     """
@@ -783,10 +593,10 @@ def render_layer3(settings: dict | None = None) -> str:
 
     End-device subnet membership uses a controller-provided CIDR whenever one contains its stored
     IP, otherwise it falls back to the historic /24 approximation. Routers are placed more accurately: a router
-    probed over SSH is checked against *every* subnet its own interface table shows an address in
+    probed over SSH (Linux) is checked against *every* subnet its own interface table shows an address in
     (see `_router_subnets`), not just the one its single stored `ip` field happens to fall into --
     and routers are chained by inferred upstream/downstream relationship (`_infer_router_hierarchy`)
-    rather than all lumped together as roots, so a household with FritzBox -> Mikrotik -> its own
+    rather than all lumped together as roots, so a household with FritzBox -> UCG -> its own
     LANs actually renders as that chain instead of two disconnected boxes.
 
     Routers are recognised by `kind == "router"` plus a stored IP or ownership of an active
@@ -819,9 +629,7 @@ def render_layer3(settings: dict | None = None) -> str:
             controller_vlans_by_owner.setdefault(owner_id, {})[str(network)] = vlan_id
 
     raw_subnets = _router_subnet_sets(routers, controller_networks)
-    router_vlans = {r["id"]: _router_vlan_ids(r) for r in routers}
-    for router_id, vlans in controller_vlans_by_owner.items():
-        router_vlans.setdefault(router_id, {}).update(vlans)
+    router_vlans = controller_vlans_by_owner
     parent_by_id = _infer_router_hierarchy(routers, raw_subnets)
 
     own_subnets = {

@@ -65,8 +65,8 @@ Der Uplink eines Routers ist ein manuell gesetzter Uplink auf einen anderen Rout
 Beide Ansichten zeigen eine Router-Kaskade damit gleich. **[Muss]**
 
 #### Szenario: Zweitrouter hinter FritzBox
-- **WENN** „Mikrotik“ (Router) als Uplink „FritzBox“ (Router) hat
-- **DANN** steht Mikrotik eine Zeile unter FritzBox mit Linie zu FritzBox, FritzBox hängt am Internet
+- **WENN** „UCG“ (Router) als Uplink „FritzBox“ (Router) hat
+- **DANN** steht die UCG eine Zeile unter FritzBox mit Linie zu FritzBox, FritzBox hängt am Internet
 
 #### Szenario: UniFi-Gateway hinter FritzBox
 - **WENN** die UCG (Router, UniFi-Zugang zugeordnet) eine WAN-Adresse 192.168.178.2 meldet und die
@@ -111,130 +111,20 @@ Quelle: `backend/app/topology.py:408`, `backend/app/topology.py:412`, Tests:
 
 ### Requirement: Anbindung wichtiger Geräte
 Das System MUSS ein wichtiges Gerät mit dem im Plan bereits gezeichneten Gerät verbinden, an dem es
-tatsächlich hängt, in dieser Priorität: (1) sein eigenes Elterngerät (Host einer VM/eines
-Containers, Controller-Uplink), (2) ein per Nachbarschaftsprotokoll erkannter Nachbar, (3) sonst die
+tatsächlich hängt, in dieser Priorität: (1) sein eigenes Elterngerät (`parentId`: Host einer VM/eines
+Containers, Controller-Uplink), (2) sonst die
 unterste Backbone-Ebene (Mitte der letzten Verteilungs- bzw. Router-Zeile, sonst Internet). Eine
-unsichere Zuordnung DARF NICHT geraten werden; dann gilt (3). **[Muss]**
+unsichere Zuordnung DARF NICHT geraten werden; dann gilt (2). **[Muss]**
 
-#### Szenario: LLDP-Nachbar ist ein Switch
-- **WENN** die ausgelesenen Nachbardaten eines Switches die MAC eines kritischen NAS enthalten
+#### Szenario: Elterngerät ist ein Switch
+- **WENN** ein kritisches NAS als `parentId` einen im Plan gezeichneten Switch hat
 - **DANN** ist das NAS mit genau diesem Switch verbunden, nicht mit dem allgemeinen Strang
 
-Quelle: `backend/app/topology.py:425`, `backend/app/topology.py:440`, `backend/app/topology.py:446`
+#### Szenario: Unbekanntes Elterngerät
+- **WENN** das `parentId` eines kritischen Geräts auf kein gezeichnetes Gerät zeigt
+- **DANN** hängt es am allgemeinen Strang und der Plan rendert normal
 
-### Requirement: Nachbarschaftsdaten auswerten
-Das System MUSS aus den beim Auslesen gesammelten Nachbardaten (MikroTik-Neighbor-Liste, ArubaOS
-LLDP-Remote-Tabelle, Cisco CDP-Detail) Kanten zwischen zwei bekannten
-Inventargeräten bilden: Abgleich zuerst über MAC (format- und schreibweisenunabhängig), dann über
-den Namen (ohne Groß/Klein, getrimmt). Kanten entstehen nur, wenn beide Enden bekannt sind, sind
-ungerichtet, und Selbstbezüge werden verworfen. Ein nicht lesbares Format MUSS ohne Fehler zu
-„keine Kante“ führen. **[Muss]**
-
-Parserdetails (Regex statt fester Spalten; Aruba-Chassis-ID als sechs Hex-Oktette mit Leerzeichen;
-CDP liefert nur Namen) **[Impl]**.
-
-#### Szenario: Unbekannter Nachbar
-- **WENN** ein Switch einen Nachbarn „printer-xyz“ meldet, den das Inventar nicht kennt
-- **DANN** wird keine Kante gezeichnet und der Plan rendert normal
-
-Quelle: `backend/app/topology.py:69`, `backend/app/topology.py:171`, `backend/app/topology.py:193`
-
-### Requirement: Host-Zusammenfassung für Container/VMs
-Das System MUSS bei einem wichtigen Host jeder Art (z. B. auch `pc`), dem nicht-kritische Container/VMs zugeordnet
-sind, im Kasten „<IP> · <N> Container/VM, <M> aktiv ▸“ zeigen (M = Anzahl online). Ein Klick auf
-diesen Kasten MUSS die Geräteliste gefiltert auf diesen Host öffnen (`/geraete?parentId=<id>`),
-statt der Geräteseite. **[Muss]**
-
-#### Szenario: Host mit zwei Containern
-- **WENN** ein kritischer Server 10.0.0.5 zwei Container hat, einer online
-- **DANN** lautet der Untertitel „10.0.0.5 · 2 Container/VM, 1 aktiv ▸“ und der Klick führt zur
-  gefilterten Liste
-
-Quelle: `backend/app/topology.py:430`, `backend/app/topology.py:240`,
-`frontend/src/pages/geraete/PlanPage.tsx`, Test:
-`backend/tests/test_topology_critical_vm.py::test_non_critical_vm_still_folds_into_host_summary`
-
-### Requirement: Klickbare Kästen, statisches Bild
-Das System MUSS jeden Kasten, der ein Inventargerät darstellt, mit dessen Geräteseite
-(`/geraete/<id>`) verknüpfen. Internet- und Layer-3-Subnetzkästen stellen kein Gerät dar und sind
-nicht klickbar (kein `data-system-id`). Der Plan MUSS ohne Zoomen, Ziehen oder Neu-Anordnen auskommen. **[Muss]**
-
-#### Szenario: Klick auf Router
-- **WENN** ein Nutzer im physischen Plan auf „FritzBox“ klickt
-- **DANN** öffnet sich die Geräteseite der FritzBox
-
-Quelle: `backend/app/topology.py:233`, `frontend/src/pages/geraete/PlanPage.tsx`,
-`docs/adr/0008-topologie-als-server-svg.md`
-
-### Requirement: Status sichtbar und erklärt
-Das System MUSS bei jedem Gerätekasten (Router, Verteiler, wichtige Geräte, Router im Layer-3-Plan)
-den Erreichbarkeitsstatus kennzeichnen: erreichbar (grün), nicht erreichbar (rot), unbekannt
-(neutral), jeweils zusätzlich als Wort „● erreichbar“ / „● nicht erreichbar“ / „● unbekannt“
-(jeder andere Statuswert gilt als unbekannt). Beide Pläne MÜSSEN die Legende „erreichbar“ /
-„nicht erreichbar“ enthalten. Internet- und Subnetzkästen tragen kein Statuswort. **[Muss]**
-
-#### Szenario: Ausgefallener Switch
-- **WENN** ein Switch den Status `offline` hat
-- **DANN** hat sein Kasten einen roten Rahmen und die Zeile „● nicht erreichbar“
-
-Quelle: `backend/app/topology.py:_box`, `backend/app/topology.py:_legend`, Tests:
-`backend/tests/test_topology_layout.py::test_box_shows_status_word`,
-`backend/tests/test_topology_layout.py::test_layer3_has_legend_and_status`
-
-### Requirement: Restliche Geräte unter dem Plan
-Das System MUSS alle Geräte, die der physische Plan nicht zeichnet (Maßstab: die `data-system-id`
-im SVG, in beiden Ansichten gleich), unter dem Plan in aufklappbaren Gruppen auflisten, in dieser
-Reihenfolge: „Router & Verteilung“ (router, network), „Server & Speicher“ (server, nas),
-„Container & VMs“ (container, vm), „Computer & Mobilgeräte“ (pc, mobile), „Smart Home“ (smarthome,
-iot), „Wärme, Klima & Energie“ (heating, climate, energy), „Drucker, Medien & Kameras“ (printer,
-media, camera), „Weitere Geräte“ (other). Gruppenkopf: Anzahl, Bezeichnung, „<n> erreichbar“ bzw.
-„keins erreichbar“; Zeilen: Symbol, Name (Link), IP oder „—“, Status-Badge in Worten. Leere Gruppen
-entfallen. Ist der Plan noch nicht geladen, bleibt die Liste ausgeblendet. **[Muss]**
-
-#### Szenario: Sechs Smart-Home-Geräte
-- **WENN** sechs normale Geräte der Art `iot` existieren, zwei online
-- **DANN** steht unter dem Plan zugeklappt „6 Smart Home — 2 erreichbar“
-
-Quelle: `frontend/src/pages/geraete/PlanPage.tsx`, `frontend/src/pages/geraete/PlanPage.tsx`
-
-### Requirement: Netzplan-Seite
-Die Route `/plan` MUSS die Seite `PlanPage` zeigen; das SVG selbst ist ein
-statisches Bild (ADR-0008/0009). **[Muss]**
-- Die Ansicht steht in der URL (`?view=layer3`; ohne Parameter physisch), Zurück und Neuladen behalten sie.
-- Kein Seitentitel; der Erklärtext zur Ansicht steht hinter „ⓘ Wie lese ich den Plan?“.
-- Genau eine Statuszeile statt Ausfall-Meldung plus Liste: Grundmenge sind die überwachten Geräte
-  aus `/api/monitor` (dieselbe wie der Status-Hero der Startseite). Nur bei eingeschalteter
-  Überwachung meldet sie „<n> von <m> überwachten Geräten nicht erreichbar“ mit Namen; sonst
-  „Überwachung ist aus“, „Noch kein Gerät unter Beobachtung“, „Wird geprüft …“ oder „Alle <m>
-  überwachten Geräte erreichbar“. Bei ausgeschalteter Überwachung zeigt die Liste den letzten Stand
-  („zuletzt …“) ohne Alarmfarbe.
-- Darunter „Überwachte Geräte“ als Liste mit Status-Chip (Adresse · Port bzw. Ping); auf dem Handy
-  (unter 760 px) steht diese Liste vor dem Bild, das Bild dort in doppelter Bildschirmbreite in einem
-  seitlich verschiebbaren Rahmen (die Seite selbst scrollt nicht seitlich). Kein Zoom- oder Ziehen-
-  Bedienelement: bewusst keine Zoom-/Ziehen-Bedienelemente (ADR-0008, Constitution D5); auf dem Handy
-  seitlich verschiebbar, Pinch-Zoom des Browsers. Eine Änderung bräuchte eine neue ADR.
-- „Nicht im Plan gezeichnet“ (die Gruppen von oben) und „Letzte Zustandswechsel“ sind einklappbar.
-- „Diagnose“: „Jetzt prüfen“ (ADMIN), „DNS testen“, „Speedtest“; Ergebnisse mit Uhrzeit.
-
-#### Szenario: Ansicht in der URL
-- **WENN** ein Benutzer auf „Layer 3“ wechselt, ein Gerät im Plan öffnet und Zurück drückt
-- **DANN** zeigt `/plan?view=layer3` wieder den Layer-3-Plan
-
-#### Szenario: Überwachung aus
-- **WENN** die Überwachung abgeschaltet ist und ein überwachtes Gerät zuletzt `offline` war
-- **DANN** sagt die Statuszeile „Überwachung ist aus“ statt einen Ausfall zu melden
-
-Quelle: `frontend/src/pages/geraete/PlanPage.tsx`, `frontend/src/lib/time.ts`
-
-### Requirement: Leerer physischer Plan
-Das System MUSS bei leerem Inventar nur den Internet-Kasten und den Hinweis „Noch keine Geräte
-erfasst — ein Netzwerk-Scan füllt diesen Plan.“ zeigen. **[Muss]**
-
-#### Szenario: Frische Installation
-- **WENN** noch kein Gerät existiert
-- **DANN** zeigt der Plan Internet und den Hinweistext
-
-Quelle: `backend/app/topology.py:451`
+Quelle: `backend/app/topology.py` (`render`), Test: `backend/tests/test_topology_layout.py::test_important_device_edge_from_parent_id_and_unknown_parent_falls_back`
 
 ### Requirement: Layer-3 – Subnetzzuordnung
 Das System MUSS im Layer-3-Plan jedes Nicht-Router-Gerät mit IP dem engsten aktiven Controller-Netz
@@ -293,10 +183,10 @@ Teilmenge der eigenen ist. Ein Subnetz, das ein Router mit seinem Upstream teilt
 erscheinen. Bei gleichwertigen Ansprüchen gewinnt der alphabetisch erste Router. **[Muss]**
 (Inferenzverfahren **[Impl]**)
 
-#### Szenario: Mikrotik hinter FritzBox
-- **WENN** FritzBox die Netze {192.168.178.0/24} und Mikrotik {192.168.178.0/24, 10.1.1.0/24} hat
-- **DANN** hängt Mikrotik unter FritzBox, 192.168.178.0/24 unter FritzBox und 10.1.1.0/24 unter
-  Mikrotik (jeweils sofern das Subnetz mindestens 3 Geräte zählt)
+#### Szenario: Zweitrouter hinter FritzBox
+- **WENN** FritzBox die Netze {192.168.178.0/24} und die UCG {192.168.178.0/24, 10.1.1.0/24} hat
+- **DANN** hängt die UCG unter FritzBox, 192.168.178.0/24 unter FritzBox und 10.1.1.0/24 unter
+  der UCG (jeweils sofern das Subnetz mindestens 3 Geräte zählt)
 
 #### Szenario: Weitere Adresse im FritzBox-Netz
 - **WENN** die UCG 192.168.42.2 hat, als weitere Adresse 192.168.178.20 bekannt ist und die
@@ -400,8 +290,7 @@ Quelle: `backend/app/topology.py:_canvas_width`, `backend/app/topology.py:_row`,
 ## Daten
 
 Aus [data-model](../../contracts/data-model.md) gelesen: `systems` (`id`, `kind`, `name`,
-`hostname`, `ip`, `mac`, `status`, `importance`, `parentId`, `extra.probe` (Nachbar-, Schnittstellen-,
-VLAN-Fakten), `extra.unifi.deviceId`/`uplinkDeviceId`,
+`hostname`, `ip`, `mac`, `status`, `importance`, `parentId`, `extra.probe` (Fakt `ip`), `extra.unifi.deviceId`/`uplinkDeviceId`,
 `extra.proxmox.node`, `discoverySource`); `networkResources` (aktiv, Art `network`: `facts.cidr`,
 `facts.vlanId`, `ownerSystemId`); `settings.homeName`.
 
@@ -425,8 +314,7 @@ UI-Seite(n): `frontend/src/pages/geraete/PlanPage.tsx` (Route `/plan`, Navigatio
 - Kein interaktiver Graph (Zoom, Ziehen, Umordnen); neue Interaktion braucht ein neues ADR.
 - Kein manuelles Zeichnen oder Verschieben von Kästen; Uplinks werden nicht in der UI gepflegt.
 - Nur IPv4; Layer-3 nutzt außerhalb von Controller-Netzen nur /24-Näherung.
-- Nachbarschafts-Parser sind nicht gegen echte Hardware verifiziert (Modul-Docstring).
-- VLAN-IDs aus Router-Fakten nur für MikroTik; Aruba/Cisco bekommen keine VLAN-Beschriftung.
+- Verkabelung kommt nur aus `parentId` (UniFi-Uplink, Proxmox/Docker-Host), VLAN-IDs nur aus Controller-Netzen; es gibt keine Nachbarschaftsprotokoll-Auswertung (LLDP/CDP) mehr.
 
 ## Ist-Implementierung (nur Referenz, [Impl])
 
@@ -435,9 +323,8 @@ UI-Seite(n): `frontend/src/pages/geraete/PlanPage.tsx` (Route `/plan`, Navigatio
   (`frontend/src/pages/geraete/PlanPage.tsx`).
 - Klickziele als `data-system-id`/`data-expand="1"` auf `<g>`-Elementen
   (`backend/app/topology.py:240`).
-- Router-Schnittstellen aus Probe-Fakten `ip_addresses`/`ip` per Regex über alle Formate; VLAN-IDs
-  per Join von MikroTik `vlan` (Interface → VLAN-ID) und `ip_addresses` (Subnetz → Interface)
-  (`backend/app/topology.py:507`, `backend/app/topology.py:567`).
+- Router-Schnittstellen aus dem Linux-Probe-Fakt `ip` per Regex, sonst aus der eigenen IP
+  (`backend/app/topology.py`, `_router_subnets`); gespeicherte Altfakten anderer Art werden ignoriert.
 - Route deklariert `response_class=PlainTextResponse`, liefert aber `image/svg+xml`
   (`backend/app/main.py:1583`).
 

@@ -320,7 +320,7 @@ CREATE TABLE IF NOT EXISTS docPageVersions (
 );
 CREATE INDEX IF NOT EXISTS idx_docversions_slug ON docPageVersions(slug, createdAt DESC);
 
--- Backups of a device's own textual configuration (Mikrotik `/export`, Aruba `show
+-- Backups of a device's own textual configuration (a router/switch `show
 -- running-config`, ...), view-only history modeled on docPageVersions. `content` is encrypted at
 -- rest (see probe_auth.persist_config_backups) -- unlike documentation text, a device export can
 -- contain secrets (RADIUS shared secrets, WiFi keys). Never written back

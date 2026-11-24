@@ -45,7 +45,6 @@ CURATED: tuple[tuple[tuple[str, ...], str, str], ...] = (
     (("canon",), "Canon Support", "https://www.canon.de/support/"),
     (("epson",), "Epson Support", "https://www.epson.de/support"),
     (("netgear",), "Netgear Support", "https://www.netgear.com/support/"),
-    (("tp-link", "tplink"), "TP-Link Support", "https://www.tp-link.com/de/support/"),
     (("zyxel",), "Zyxel Support", "https://support.zyxel.eu/"),
     (("devolo",), "devolo Support", "https://www.devolo.de/support"),
     (("apple", "airplay", "apple tv"), "Apple Support", "https://support.apple.com/de-de"),
