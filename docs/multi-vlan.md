@@ -22,7 +22,7 @@ nicht an einer echten UCG Ultra geprüft.
 | mDNS (Name, Modell) | ja | **nein**, außer das Gateway leitet mDNS weiter |
 | SSDP/UPnP | ja | **nein** (nicht verifiziert: UniFi leitet SSDP nach bisherigem Kenntnisstand nicht weiter) |
 | `discoveryKey` | `mac:<mac>` | nur IP; schwächere Wiedererkennung |
-| UniFi-/Omada-Daten (Clients, Netze) | ja | **ja** – kommen vom Controller, unabhängig vom VLAN (Clients nur aus den gescannten Netzen) |
+| UniFi-Daten (Clients, Netze) | ja | **ja** – kommen vom Controller, unabhängig vom VLAN (Clients nur aus den gescannten Netzen) |
 
 Weitere Grenzen: höchstens 1024 Adressen pro Netz; Firewall-Regeln zwischen den VLANs können Ports
 blockieren, dann erscheint ein Gerät fälschlich als „nicht erreichbar".
@@ -36,7 +36,7 @@ Geräte großenteils nicht mehr.
 
 **Zusammenführen:** Der Netzwerkscan sieht ein geroutetes Gerät nur per IP, der Controller kennt
 es mit MAC. Ist die IP in HomeAtlas genau einem Eintrag zugeordnet und stammt einer der beiden
-Funde vom Controller (UniFi/Omada), werden sie automatisch zusammengeführt, auch ohne gemeinsamen
+Funde vom Controller (UniFi), werden sie automatisch zusammengeführt, auch ohne gemeinsamen
 Hostnamen. Bei mehreren Einträgen mit gleicher IP oder bei verschiedenen MACs passiert das nicht.
 Bereits vorhandene Duplikate werden nicht rückwirkend bereinigt (dafür gibt es das manuelle
 „Zusammenführen").

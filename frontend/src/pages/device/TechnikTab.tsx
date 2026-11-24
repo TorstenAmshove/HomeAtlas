@@ -30,10 +30,6 @@ export default function TechnikTab({ system, monitorPorts, aliases, canProbe, pr
   const probeResults = Object.entries((system.extra?.probe ?? {}) as Record<string, ProbeResult>);
   // Populated by pipeline.py after a scan with a Home Assistant credential.
   const printerSupplies = (system.extra?.printerSupplies ?? []) as { name: string; percent: number }[];
-  // Populated by pipeline.py after a scan with an AdGuard Home credential attached to this system.
-  const adguard = system.extra?.adguard as {
-    protectionEnabled?: boolean; queries?: number; blocked?: number; blockedPercent?: number;
-  } | undefined;
   const extraIps = Array.from(new Set((aliases ?? []).map((a) => a.ip).filter((ip) => ip && ip !== system.ip)));
   const extraMacs = Array.from(new Set((aliases ?? []).map((a) => a.mac).filter((m) => m && m !== system.mac)));
 
@@ -135,21 +131,6 @@ export default function TechnikTab({ system, monitorPorts, aliases, canProbe, pr
               </div>
             </div>
           ))}
-        </Section>
-      )}
-
-      {adguard && (
-        <Section title="AdGuard Home" id="dv-adguard">
-          <p className="dv-hint">DNS-Filterung — Stand vom letzten Netzwerk-Scan.</p>
-          <Facts rows={[
-            ["Schutz", <StateChip key="p" tone={adguard.protectionEnabled ? "ok" : "bad"}>
-              {adguard.protectionEnabled ? "aktiv" : "deaktiviert"}
-            </StateChip>],
-            ["DNS-Anfragen", adguard.queries !== undefined ? adguard.queries.toLocaleString("de-DE") : ""],
-            ["Blockiert", adguard.blocked !== undefined
-              ? `${adguard.blocked.toLocaleString("de-DE")}${adguard.blockedPercent !== undefined ? ` (${adguard.blockedPercent}%)` : ""}`
-              : ""],
-          ]} />
         </Section>
       )}
 

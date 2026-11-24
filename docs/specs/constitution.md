@@ -75,7 +75,7 @@
   ([ADR-0023](../adr/0023-keine-fernwartung.md))
 - **L3 [Muss]** Ein Zugang wird nur benutzt, wenn er **ausdrücklich zum Auslesen freigegeben**
   ist (Opt-in je Zugang, Default aus). Das Auslesen pro Gerät lässt sich global abschalten
-  (`scanUseCredentials`); Controller-Abfragen (UniFi, Omada, Proxmox, AdGuard) haben eigene Schalter.
+  (`scanUseCredentials`); Controller-Abfragen (UniFi, Proxmox) haben eigene Schalter.
   Das gilt auch für die Werkzeuge des Assistenten (`list_switches`, `set_switch` für Home Assistant,
   `get_ha_*`, `get_unifi_*`, `get_proxmox_*`).
 - **L3a [Muss]** Manche Plattformen brauchen zum Lesen einen Befehl, der formal in einen

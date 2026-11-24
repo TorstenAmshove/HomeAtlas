@@ -48,7 +48,7 @@ verlinkten Fähigkeiten. Quelle Defaults: `backend/app/db.py:408`.
 | `scanControllerNetworksSeen` | `[]` | Beim letzten Speichern angezeigte Netz-IDs (Markierung „neu“) | nur UI |
 | `scanTimeoutMs` | 700 | Timeout je Probe (min. 100 ms wirksam) | discovery |
 | `scanConcurrency` | 128 | Parallelität, wirksam 8–512 | discovery |
-| `scanEnableMdns`, `scanEnableSsdp`, `scanEnableDocker`, `scanEnableUnifi`, `scanEnableOmada`, `scanEnableProxmox`, `scanEnableAdguard`, `scanEnableTraefik`, `scanEnableUnifiClassic`, `scanEnableExposureFiles`, `scanEnableHttpBanner` | true | Quellen einzeln abschaltbar | discovery, pipeline |
+| `scanEnableMdns`, `scanEnableSsdp`, `scanEnableDocker`, `scanEnableUnifi`, `scanEnableProxmox`, `scanEnableTraefik`, `scanEnableUnifiClassic`, `scanEnableExposureFiles`, `scanEnableHttpBanner` | true | Quellen einzeln abschaltbar | discovery, pipeline |
 | `scanEnableFirewallUnifi` | false | UniFi-Firewall-Zonen und -Regeln lesen (Opt-in, ADR-0017, [firewall](../firewall/spec.md)) | pipeline |
 | `scanEnableFirewallNft` | false | nftables-Regelsätze freigegebener Hosts per SSH-Forced-Command lesen (Opt-in, ADR-0017, [firewall](../firewall/spec.md)) | pipeline |
 | `scanUseLlm` | true | KI-Einordnung und KI-Doku-Einleitungen | pipeline, docs, main |

@@ -69,8 +69,7 @@ def test_successful_docker_with_zero_containers_sets_offline(temp_db, monkeypatc
 
 
 @pytest.mark.parametrize("source,category,module", [
-    ("unifi", "unifi", "unifi_probe"), ("omada", "omada", "omada_probe"),
-    ("proxmox", "proxmox", "proxmox_probe"), ("adguard", "adguard", "adguard_probe"),
+    ("unifi", "unifi", "unifi_probe"), ("proxmox", "proxmox", "proxmox_probe"),
 ])
 def test_failing_account_skips_source(temp_db, monkeypatch, source, category, module):
     sid = _device(temp_db, f"{source}:a", source)
@@ -92,8 +91,7 @@ def test_disabled_source_without_accounts_keeps_status(temp_db, monkeypatch):
 
 
 @pytest.mark.parametrize("source,category,module", [
-    ("unifi", "unifi", "unifi_probe"), ("omada", "omada", "omada_probe"),
-    ("proxmox", "proxmox", "proxmox_probe"), ("adguard", "adguard", "adguard_probe"),
+    ("unifi", "unifi", "unifi_probe"), ("proxmox", "proxmox", "proxmox_probe"),
 ])
 def test_unreadable_secret_skips_account_and_keeps_status(temp_db, monkeypatch, source, category, module):
     """#118 + #139: a secret the key cannot open is never sent as an empty password, the scan

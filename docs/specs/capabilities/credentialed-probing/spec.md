@@ -117,7 +117,7 @@ Adresse läuft nichts, Grund „Keine Adresse hinterlegt.“): **[Muss]**
 #### Szenario: Nicht-FRITZ-Router bekommt keine TR-064-Anmeldung
 - **WENN** ein Gerät `kind = router` ohne „fritz“ einen `login`-Zugang hat
 - **DANN** läuft TR-064 ohne Zugang (nur unauthentifizierter Teil); das Passwort wird nicht gesendet
-- `unifi`/`omada`/`proxmox`/`adguard`: eigene Controller-Probes (siehe unten).
+- `unifi`/`proxmox`: eigene Controller-Probes (siehe unten).
 
 #### Szenario: Login-Zugang auf Drucker ohne Plattform
 - **WENN** ein `login`-Zugang (Port 0) an einem Gerät `kind = printer` ohne erkannte Plattform hängt
@@ -389,19 +389,6 @@ Netzliste = kein Filter. **[Muss]**
 
 Quelle: `backend/app/unifi_probe.py:169`, Test: `backend/tests/test_unifi_probe.py::test_probe_filters_clients_by_subnets`, `backend/tests/test_unifi_probe.py::test_probe_without_client_subnets_keeps_all_clients`, `backend/tests/test_unifi_probe.py::test_probe_ignores_invalid_subnet_entries`, `backend/tests/test_main_unifi_probe.py::test_manual_probe_passes_scan_subnets`, `backend/tests/test_main_unifi_probe.py::test_manual_probe_falls_back_to_host_subnets`, `backend/tests/test_main_unifi_probe.py::test_filtered_client_does_not_delete_existing_system`; `backend/tests/test_unifi_probe.py::test_probe_reports_authentication_failure_without_echoing_api_key`, `backend/tests/test_unifi_probe.py::test_probe_normalizes_all_unifi_sites_without_persisting_api_key`
 
-### Requirement: Omada Controller lesen
-Das System MUSS `GET /api/info` (→ `omadacId`), den Client-Credentials-Token-Tausch
-`POST /openapi/authorize/token` (einzige Nicht-GET-Anfrage) und danach nur GETs mit Header
-`Authorization: AccessToken=<token>` ausführen: Sites (100/Seite), Geräte je Site (100/Seite),
-Clients je Site (500/Seite), jeweils nur Seite 1. Gerätetypen ap/switch → network, gateway →
-router; Status 1 = online; Uplink-MAC aus mehreren möglichen Feldern; Clients ohne `kind`. **[Muss]**
-
-#### Szenario: Uplink fehlt
-- **WENN** ein Gerät kein bekanntes Uplink-Feld trägt
-- **DANN** ist `uplinkMac` leer und der Scan läuft weiter
-
-Quelle: `backend/app/omada_probe.py:63`, Test: `backend/tests/test_omada_probe.py::test_extract_uplink_missing_returns_empty`, `backend/tests/test_omada_probe.py::test_extract_uplink_prefers_nested_over_flat`
-
 ### Requirement: Proxmox VE lesen
 Das System MUSS mit API-Token (`Authorization: PVEAPIToken=<id>=<secret>`) nur GETs ausführen:
 `/api2/json/nodes`, je Node `qemu` und `lxc`, je Gast `/config`. MAC/IP aus `net0`; Notizen: erste
@@ -420,19 +407,6 @@ Token-Berechtigung (PVEAuditor). **[Muss]**
 - **DANN** erscheint er nicht in den Funden
 
 Quelle: `backend/app/proxmox_probe.py:115`, Test: `backend/tests/test_proxmox_probe.py::test_probe_sets_critical_importance_docs_and_purpose_from_notes`, `backend/tests/test_proxmox_probe.py::test_probe_skips_templates`, `backend/tests/test_db_systems_templates.py::test_missing_discovered_proxmox_row_is_kept_and_set_offline`, `backend/tests/test_proxmox_probe.py::test_parse_notes_does_not_match_url_mentioned_mid_sentence`
-
-### Requirement: AdGuard Home lesen
-Das System MUSS per Basic Auth nur GETs ausführen: `/control/dns_info` (Pflicht; 401/403 →
-„Zugangsdaten abgelehnt“), `/control/stats`, `/control/dhcp/status`, `/control/clients` (optional,
-Fehler ignoriert). Statistik (Schutz an/aus, Anzahl Upstreams, Anfragen, blockiert, Blockquote
-auf 0,1 %) wird am Gerät des Zugangs (`extra.adguard`) gespeichert; DHCP-Leases und Clients mit
-Hostname und MAC werden als Funde geliefert, je MAC nur einmal (Lease vor Client). Timeout 10 s/5 s. **[Muss]**
-
-#### Szenario: Lease ohne Hostname
-- **WENN** eine DHCP-Lease keinen Hostnamen hat
-- **DANN** entsteht kein Fund
-
-Quelle: `backend/app/adguard_probe.py:100`, `backend/app/pipeline.py:458`, Test: `backend/tests/test_adguard_probe.py::test_probe_skips_dhcp_leases_without_a_hostname`, `backend/tests/test_adguard_probe.py::test_probe_survives_missing_stats_endpoint`, `backend/tests/test_adguard_probe.py::test_probe_deduplicates_a_mac_seen_in_both_dhcp_and_clients`
 
 ### Requirement: Docker-Host lesen
 Das System MUSS Docker über den Endpunkt aus `DOCKER_HOST` (`unix://…` oder `tcp://` nur auf Loopback), sonst
@@ -459,11 +433,11 @@ nur veröffentlichte Ports; Standort = Docker-Hostname. Fehlender Endpunkt („D
 Quelle: `backend/app/docker_probe.py:54`, Test: `backend/tests/test_docker_probe.py::test_container_names`
 
 ### Requirement: Controller-Probes im Vollscan
-Das System MUSS im Vollscan alle Zugänge der Kategorien `unifi`, `omada`, `proxmox`, `adguard` mit
+Das System MUSS im Vollscan alle Zugänge der Kategorien `unifi`, `proxmox` mit
 Freigabe abfragen – unabhängig von Gerätezuordnung – und ihre Funde ins Inventar übernehmen;
 Proxmox-Gäste unter den Host des Zugangs hängen; Fehler als Scan-Warnung und Fehlerereignis am
 Gerät des Zugangs. Jede Quelle ist nur per eigener Einstellung abschaltbar (`scanEnableUnifi`/
-`Omada`/`Proxmox`/`Adguard`/`Docker`, Default an); `scanUseCredentials` (Default an) schaltet
+`Proxmox`/`Docker`, Default an); `scanUseCredentials` (Default an) schaltet
 ausschließlich das Auslesen je Gerät (`_probe_with_credentials`, inkl. ARP-Lernen und
 Druckerfüllstände) ab, nicht die Controller-Probes. **[Muss]**
 
@@ -471,7 +445,7 @@ Druckerfüllstände) ab, nicht die Controller-Probes. **[Muss]**
 - **WENN** `scanUseCredentials = false` und ein freigegebener `unifi`-Zugang existiert
 - **DANN** protokolliert der Scan „Auslesen per Zugangsdaten ist in den Einstellungen abgeschaltet“
   und liest kein Gerät einzeln aus (SSH/HTTP/SNMP/TR-064/HA), meldet sich aber weiterhin mit dem Zugang am
-  UniFi-Controller an (ebenso Omada, Proxmox, AdGuard, sofern deren `scanEnable*` an ist)
+  UniFi-Controller an (ebenso Proxmox, sofern deren `scanEnable*` an ist)
 
 Quelle: `backend/app/pipeline.py:376`, `backend/app/pipeline.py:387`–`:455`, `backend/app/pipeline.py:521`
 
@@ -487,7 +461,7 @@ Konfigurationssicherung, ARP-Lernen (nur Router) und Druckerzuordnung. Controlle
 `scanEnableUnifi`/`scanEnableProxmox` und gelten, wie im Vollscan, nicht für `scanUseCredentials`.
 Es werden die dem Gerät direkt oder per Zuordnung zugeordneten Controller-Zugänge gelesen
 (Vollscan: alle freigegebenen der Kategorie; je Zugang identischer Code und identisches Ergebnis).
-`omada`/`adguard` werden manuell nicht gelesen. Antwort `{outcome: {ran, results, purpose, reason},
+Antwort `{outcome: {ran, results, purpose, reason},
 system}`; `ran = true`, wenn mindestens ein Zugang lief (Fehler anderer stehen in `results`). Läuft
 nichts, nennt `reason` den Grund (Schalter aus, Secret nicht lesbar, Controller-Fehler,
 „noch nicht unterstützt“), „ · “-getrennt. **[Muss]**
@@ -524,11 +498,11 @@ Siehe [data-model](../../contracts/data-model.md).
 - Liest `accounts` (alle Felder, `secretEnc`/`passphraseEnc` entschlüsselt nur im Speicher),
   `accountAssignments`, `systems` (ip, hostname, kind, vendor, model, name, os, openPorts, url, purpose).
 - Schreibt `systems.extra.probe` (Ergebnisse), `systems.purpose/os/model` (nur leer),
-  `systems.extra.printerSupplies`, `systems.extra.adguard`, neue/aktualisierte `systems` aus
+  `systems.extra.printerSupplies`, neue/aktualisierte `systems` aus
   Controller-/Docker-/ARP-Funden, `networkResources` (UniFi), `deviceConfigVersions`
   (`content` verschlüsselt), `deviceErrorEvents` (Level `error`/`warning`).
-- Settings: `scanUseCredentials`, `scanEnableDocker`, `scanEnableUnifi`, `scanEnableOmada`,
-  `scanEnableProxmox`, `scanEnableAdguard`, `scanEnableTraefik`, `scanEnableUnifiClassic`, `scanEnableExposureFiles`, `configVersionKeep`, `defaultCredentialEnabled`,
+- Settings: `scanUseCredentials`, `scanEnableDocker`, `scanEnableUnifi`,
+  `scanEnableProxmox`, `scanEnableTraefik`, `scanEnableUnifiClassic`, `scanEnableExposureFiles`, `configVersionKeep`, `defaultCredentialEnabled`,
   `defaultCredentialUsername`, `defaultCredentialIsKey`, `defaultCredentialSecretEnc`,
   `defaultCredentialPassphraseEnc`, `defaultCredentialPort` (alle nur gelesen).
 
@@ -554,7 +528,6 @@ auslesen“, nur Admin und nur wenn ein Zugang `allowProbe` hat).
 - SNMP nur v2c; keine strukturierte Auswertung von VLAN-/LLDP-Walks (Rohtext).
 - Klassisches Aruba (das Zugangsformular der Kategorie `login` weist am Benutzernamen darauf hin): kein Beantworten einer `enable`-Passwortabfrage – nur Konten mit
   Manager-Rechten liefern `show running-config`.
-- Omada: nur erste Seite (100 Geräte, 500 Clients je Site).
 
 ## Ist-Implementierung (nur Referenz, [Impl])
 
@@ -562,16 +535,12 @@ auslesen“, nur Admin und nur wenn ein Zugang `allowProbe` hat).
 - Pro SSH-Befehl ein eigener Exec-Kanal (außer klassisches Aruba: eine interaktive Sitzung).
 - `persist_config_backups` ist der einzige Speicherzugriff in `probe_auth.py`.
 - Ergebnis-Dict je Probe: `{ok, error, facts, warnings?}`; Faktwerte sind Text, mehrzeilig möglich.
-- Fortschritt im Scan: Docker 86 %, UniFi/Omada 87 %, Proxmox/AdGuard 88 %, Zugänge 93 %.
+- Fortschritt im Scan: Docker 86 %, UniFi 87 %, Proxmox 88 %, Zugänge 93 %.
 
 ## OFFEN
 
 - > OFFEN: TP-Link-Pager-Abschaltung nutzt `configure` / `no clipaging` – ein
   Konfigurationsmodus-Befehl, entgegen „kein Config-Mode“. Ob die Einstellung persistent in der
   Running-Config landet, ist ungeprüft.
-- > OFFEN: Manuelles Auslesen liest `omada`/`adguard`-Zugänge nicht (`reason` nennt das); deren
-  Besonderheiten werden separat behandelt.
 - > OFFEN: `omada_backup` läuft auf jedem Linux-Host und wird Base64-kodiert als Fakt gespeichert;
   ein Restore ist bewusst nicht vorgesehen, Nutzen der Speicherung ist unklar.
-- > OFFEN: Omada liest nur Seite 1 (Geräte 100, Clients 500); größere Sites werden still abgeschnitten.
-  Ein `errorCode` bei Geräten überspringt auch die Clients der Site.

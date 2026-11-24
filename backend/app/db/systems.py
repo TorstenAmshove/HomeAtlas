@@ -107,7 +107,7 @@ def update_system(system_id: str, patch: dict) -> dict | None:
 
 
 def set_parent_from_source(system_id: str, parent_id: str, source: str) -> dict | None:
-    """Sets a controller-derived parent (omada/unifi/proxmox) and records it in
+    """Sets a controller-derived parent (unifi/proxmox) and records it in
     `extra.parentSource`. A parent a human set (`parentSource == "manual"`) is never touched."""
     current = get_system(system_id)
     if current is None:
@@ -204,7 +204,7 @@ def _merge_extra(keep_extra: object, remove_extra: object) -> dict:
 def _record_interface(existing: dict, seen_ip: str, previous_ip: str, via_alias: bool,
                       found: dict, now: str) -> dict:
     """Updates the entry for `seen_ip` in `existing`'s interfaces with what this finding saw. A
-    finding without `openPorts` (UniFi, Omada, Proxmox -- sources that don't port-scan) leaves the
+    finding without `openPorts` (UniFi, Proxmox -- sources that don't port-scan) leaves the
     entry's ports alone. `previous_ip` is the address this same interface had before (the alias's
     recorded IP before this scan, or the row's own IP); if it moved, its stale entry is dropped --
     unless another interface still has that address. Call after `_touch_alias_ip`."""
@@ -446,7 +446,7 @@ def find_system_by_key(discovery_key: str) -> dict | None:
 
 def find_system_by_mac(mac: str) -> dict | None:
     """The strongest fallback identity there is: a MAC address is stable regardless of which
-    source found the device (network sweep, Omada, Proxmox, ...) and regardless of what
+    source found the device (network sweep, Proxmox, ...) and regardless of what
     discoveryKey scheme that source happens to use. Needed because a device's *own* discoveryKey
     can legitimately change between scans for reasons that have nothing to do with the device
     changing -- see find_system_by_proxmox below for the concrete case this exists for."""
@@ -461,7 +461,7 @@ def find_system_by_mac(mac: str) -> dict | None:
 
 def find_system_by_proxmox(node: str, vmid: object) -> dict | None:
     """A guest's (node, vmid) pair, read from `extra.proxmox` -- Python-side, like pipeline.py's
-    own `_assign_proxmox_parents`/`_link_omada_topology`, since `extra` is opaque JSON to SQLite.
+    own `_assign_proxmox_parents`/`_link_unifi_topology`, since `extra` is opaque JSON to SQLite.
 
     This exists because proxmox_probe.probe's own discoveryKey is `mac:<mac>` when net0 parses a
     MAC and `proxmox:<node>:<kind>:<vmid>` when it doesn't (see its docstring) -- the *same* guest
@@ -509,14 +509,14 @@ def find_system_by_ip(ip: str) -> dict | None:
 
 
 def _has_controller_origin(system: dict) -> bool:
-    # `extra.unifi` / `extra.omada`, not `discoverySource`: that one gets suffixes ("unifi+ki").
+    # `extra.unifi`, not `discoverySource`: that one gets suffixes ("unifi+ki").
     extra = system.get("extra") or {}
-    return "unifi" in extra or "omada" in extra
+    return "unifi" in extra
 
 
 def find_system_by_unique_controller_ip(found: dict) -> dict | None:
     """Last-resort identity for routed devices: the network scan sees them by IP only (no ARP-
-    resolved MAC off the local segment), the controller (UniFi/Omada) knows the same device by
+    resolved MAC off the local segment), the controller (UniFi) knows the same device by
     MAC -- and often no hostname matches. Pipeline order is scan first, controller second, so the
     rule works in both directions: at least one side must carry controller data.
 
@@ -630,7 +630,7 @@ def upsert_discovered_system(found: dict) -> tuple[dict, bool]:
 
     Beyond the exact-key (and legacy-key) lookups below, `find_system_for_merge` tries the same
     device under a different identity scheme entirely -- MAC, then Proxmox (node, vmid), then
-    IP+hostname, then a unique IP shared with a controller (UniFi/Omada) row, in that priority
+    IP+hostname, then a unique IP shared with a controller (UniFi) row, in that priority
     order -- so a device found this scan via one source (say, an ARP
     sweep, with no resolved MAC) merges into the row an earlier scan already created via another
     (say, Proxmox, keyed by MAC) instead of duplicating it. See its own docstring for why each
@@ -669,7 +669,7 @@ def upsert_discovered_system(found: dict) -> tuple[dict, bool]:
         "lastSeen": now,
         "discoveryKey": found.get("discoveryKey") or existing["discoveryKey"],
     }
-    # Sources that don't port-scan (UniFi, Omada, Proxmox) send no openPorts at all -- that is
+    # Sources that don't port-scan (UniFi, Proxmox) send no openPorts at all -- that is
     # "unknown", not "none open", so it must not wipe what the network scan found.
     if found.get("openPorts") is not None:
         volatile["openPorts"] = found.get("openPorts")
@@ -691,7 +691,7 @@ def upsert_discovered_system(found: dict) -> tuple[dict, bool]:
         if existing_extra.get("aiConfidence"):
             ai_protected = {"vendor", "model", "purpose", "descriptionMd", "docUrl", "importance"}
             tokens = set((found.get("discoverySource") or "").split("+"))
-            names = {"docker", "proxmox", "unifi", "omada"}
+            names = {"docker", "proxmox", "unifi"}
             if not (tokens & names or any(key in found_extra for key in names)):
                 ai_protected.add("kind")
                 if found_extra.get("nameSource") not in ("upnp", "mdns", "shelly"):

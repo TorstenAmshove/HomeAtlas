@@ -41,30 +41,6 @@ def test_match_printer_supplies_no_printers_or_no_supplies_returns_empty():
     assert pipeline._match_printer_supplies([{"name": "x", "percent": 1.0}], []) == {}
 
 
-def test_link_omada_topology_resolves_uplink_mac_to_parent_id(temp_db):
-    switch = temp_db.create_system({
-        "kind": "network", "name": "Switch", "mac": "aa:aa:aa:aa:aa:01",
-        "discoveryKey": "mac:aa:aa:aa:aa:aa:01",
-    })
-    ap = temp_db.create_system({
-        "kind": "network", "name": "AP", "mac": "aa:aa:aa:aa:aa:02",
-        "discoveryKey": "mac:aa:aa:aa:aa:aa:02",
-        "extra": {"omada": {"uplinkMac": "aa:aa:aa:aa:aa:01"}},
-    })
-    unrelated = temp_db.create_system({
-        "kind": "server", "name": "NAS", "mac": "aa:aa:aa:aa:aa:03",
-        "discoveryKey": "mac:aa:aa:aa:aa:aa:03",
-    })
-
-    linked = pipeline._link_omada_topology()
-
-    assert linked == 1
-    assert temp_db.get_system(ap["id"])["parentId"] == switch["id"]
-    assert temp_db.get_system(unrelated["id"])["parentId"] is None
-    # Idempotent: running it again on an already-linked device must not count it a second time.
-    assert pipeline._link_omada_topology() == 0
-
-
 def test_assign_proxmox_parents_matches_guest_to_its_own_node(temp_db):
     pve1 = temp_db.create_system({"kind": "server", "name": "pve1", "hostname": "pve1"})
     pve2 = temp_db.create_system({"kind": "server", "name": "pve2", "hostname": "pve2"})
@@ -87,16 +63,6 @@ def test_assign_proxmox_parents_falls_back_when_node_has_no_own_row(temp_db):
     pipeline._assign_proxmox_parents(guests, fallback_host_id="host-1")
 
     assert guests[0]["parentId"] == "host-1"
-
-
-def test_link_omada_topology_ignores_unresolvable_uplink(temp_db):
-    orphan = temp_db.create_system({
-        "kind": "network", "name": "Orphan AP", "mac": "bb:bb:bb:bb:bb:01",
-        "discoveryKey": "mac:bb:bb:bb:bb:bb:01",
-        "extra": {"omada": {"uplinkMac": "cc:cc:cc:cc:cc:99"}},  # no such device in the inventory
-    })
-    assert pipeline._link_omada_topology() == 0
-    assert temp_db.get_system(orphan["id"])["parentId"] is None
 
 
 def test_link_unifi_topology_resolves_controller_device_ids_instead_of_mac_addresses(temp_db):
@@ -141,16 +107,6 @@ def test_manual_parent_survives_unifi_link(temp_db):
     assert pipeline._link_unifi_topology() == 0
     assert temp_db.get_system(sw["id"])["parentId"] == other["id"]
 
-
-def test_manual_parent_survives_omada_link(temp_db):
-    switch = temp_db.create_system({"kind": "network", "name": "Switch", "mac": "aa:aa:aa:aa:aa:01"})
-    other = temp_db.create_system({"kind": "server", "name": "Other", "mac": "aa:aa:aa:aa:aa:09"})
-    ap = temp_db.create_system({"kind": "network", "name": "AP", "mac": "aa:aa:aa:aa:aa:02",
-                                "parentId": other["id"],
-                                "extra": {"omada": {"uplinkMac": "aa:aa:aa:aa:aa:01"}, "parentSource": "manual"}})
-    assert pipeline._link_omada_topology() == 0
-    assert temp_db.get_system(ap["id"])["parentId"] == other["id"]
-    assert switch["id"] != other["id"]
 
 
 def test_controller_parent_is_updated_on_next_scan(temp_db):

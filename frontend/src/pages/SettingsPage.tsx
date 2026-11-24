@@ -490,7 +490,7 @@ export default function SettingsPage() {
                      onChange={(e) => set("scanAutoIntervalHours", Number(e.target.value))} />
               <div className="field-hint">
                 Mindestabstand zwischen zwei automatischen Scans -- ein manueller Scan zählt
-                mit. Betrifft auch, wie oft Konfigsicherungen (Switches, Router, Omada) erneuert
+                mit. Betrifft auch, wie oft Konfigsicherungen (Switches, Router) erneuert
                 werden.
               </div>
             </div>
@@ -512,9 +512,7 @@ export default function SettingsPage() {
             ["scanEnableHttpBanner", "Weboberflächen auslesen, um Geräte zu erkennen"],
             ["scanEnableDocker", "Docker-Container auf dem Server erfassen"],
             ["scanEnableUnifi", "Geräte, VLANs und WLANs über UniFi Network erfassen"],
-            ["scanEnableOmada", "Access Points und Switches über den Omada Controller erfassen"],
             ["scanEnableProxmox", "VMs und LXC-Container über Proxmox erfassen"],
-            ["scanEnableAdguard", "DNS-Status und Clients über AdGuard Home erfassen"],
             ["scanEnableUnifiClassic", "Portweiterleitungen und WAN-Adresse über den UniFi-API-Key lesen"],
             ["scanEnableTraefik", "Intern erreichbare Dienste über die Traefik-API erfassen"],
             ["scanEnableExposureFiles", "cloudflared-, Caddy- und ddclient-Konfiguration per SSH-Forced-Command lesen"],

@@ -11,7 +11,7 @@ Deliberately additive, never destructive:
 * A low-confidence answer is discarded rather than written -- the rule-based guess is a better
   default than a shrug.
 * It never renames or re-kinds a device whose name comes from a source (manual, UniFi, Docker,
-  Proxmox, Omada). A name the device reports itself (UPnP friendlyName, mDNS, Shelly app name,
+  Proxmox). A name the device reports itself (UPnP friendlyName, mDNS, Shelly app name,
   recorded by discovery as `extra.nameSource`) is protected too, but only the name: such names
   say little about the device type, so the model may still set `kind`. Docker containers are skipped entirely: they all share the host's IP, and the
   answers are mapped back per IP, so one answer would otherwise hit every container of that host.
@@ -36,7 +36,7 @@ _VALID_IMPORTANCE = {"critical", "normal", "low"}
 _ACCEPTED_CONFIDENCE = {"high", "medium"}
 
 
-_NAME_SOURCES = ("docker", "proxmox", "unifi", "omada")
+_NAME_SOURCES = ("docker", "proxmox", "unifi")
 # Values of `extra.nameSource` (set by discovery) for names the device reported itself.
 _SELF_REPORTED = ("upnp", "mdns", "shelly")
 

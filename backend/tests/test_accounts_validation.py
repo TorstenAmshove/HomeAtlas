@@ -12,7 +12,7 @@ def _account(**kw):
     return db.create_account({"label": "A", "category": "login", **kw})
 
 
-@pytest.mark.parametrize("category,status", [("bogus", 422), ("router", 422), ("snmp", 200)])
+@pytest.mark.parametrize("category,status", [("bogus", 422), ("router", 422), ("omada", 422), ("adguard", 422), ("snmp", 200)])
 def test_category_validated(admin, category, status):
     assert admin.post("/api/accounts", json={"category": category}).status_code == status
     account = _account()

@@ -322,16 +322,15 @@ Das System MUSS bei jedem Scan nach dem Inventar-Update Elterngeräte ableiten: 
 - Proxmox-Gast → Inventargerät (server/nas), dessen Hostname bzw. Name dem Proxmox-Knoten
   entspricht (ohne Groß/Klein), sonst das Gerät, dem der Proxmox-Zugang zugeordnet ist.
 - Proxmox-Gäste werden bei jedem Scan neu zugeordnet (eine migrierte VM wandert mit).
-- Omada-Gerät/-Client → Gerät mit der gemeldeten Uplink-MAC.
 - UniFi-Gerät/-Client → Gerät mit der gemeldeten Controller-Geräte-ID des Uplinks.
 
-Ein per PATCH gesetztes Elterngerät (`extra.parentSource = "manual"`) wird von Proxmox-, Omada- und
+Ein per PATCH gesetztes Elterngerät (`extra.parentSource = "manual"`) wird von Proxmox- und
 UniFi-Verknüpfung nie überschrieben; Controller-Verknüpfungen markieren `parentSource` mit
-`proxmox`/`omada`/`unifi`. `parentId: null` im PATCH entfernt Elterngerät und Marker. Bestand ohne
+`proxmox`/`unifi`. `parentId: null` im PATCH entfernt Elterngerät und Marker. Bestand ohne
 Marker gilt als überschreibbar. **[Muss]**
 
 Nicht auflösbare Uplinks und Selbstbezüge ändern nichts; ein erneuter Lauf ohne Änderung meldet
-0 Verknüpfungen. Reihenfolge: Docker, Omada, UniFi; Log „<n> Omada-/UniFi-Gerät(e)/Client(s) im
+0 Verknüpfungen. Reihenfolge: Docker, UniFi; Log „<n> UniFi-Gerät(e)/Client(s) im
 Netzplan mit ihrem Uplink verknüpft“. **[Impl]**
 
 #### Szenario: UniFi-Kette
@@ -342,15 +341,10 @@ Netzplan mit ihrem Uplink verknüpft“. **[Impl]**
 - **WENN** ein Gerät per PATCH ein Elterngerät erhalten hat und der Controller einen anderen Uplink meldet
 - **DANN** bleibt das manuelle Elterngerät
 
-#### Szenario: Unbekannte Uplink-MAC
-- **WENN** ein Omada-AP eine Uplink-MAC meldet, die kein Inventargerät hat
-- **DANN** bleibt sein Elterngerät leer
 
 Quelle: `backend/app/pipeline.py:242`, `backend/app/pipeline.py:263`, `backend/app/pipeline.py:288`,
 `backend/app/pipeline.py:492`, `backend/app/db.py:1110`, Tests:
 `backend/tests/test_pipeline_topology.py::test_link_unifi_topology_resolves_controller_device_ids_instead_of_mac_addresses`,
-`backend/tests/test_pipeline_topology.py::test_link_omada_topology_resolves_uplink_mac_to_parent_id`,
-`backend/tests/test_pipeline_topology.py::test_link_omada_topology_ignores_unresolvable_uplink`,
 `backend/tests/test_pipeline_topology.py::test_assign_proxmox_parents_matches_guest_to_its_own_node`,
 `backend/tests/test_pipeline_topology.py::test_assign_proxmox_parents_falls_back_when_node_has_no_own_row`
 
@@ -382,7 +376,7 @@ Quelle: `backend/app/topology.py:_canvas_width`, `backend/app/topology.py:_row`,
 
 Aus [data-model](../../contracts/data-model.md) gelesen: `systems` (`id`, `kind`, `name`,
 `hostname`, `ip`, `mac`, `status`, `importance`, `parentId`, `extra.probe` (Nachbar-, Schnittstellen-,
-VLAN-Fakten), `extra.omada.uplinkMac`, `extra.unifi.deviceId`/`uplinkDeviceId`,
+VLAN-Fakten), `extra.unifi.deviceId`/`uplinkDeviceId`,
 `extra.proxmox.node`, `discoverySource`); `networkResources` (aktiv, Art `network`: `facts.cidr`,
 `facts.vlanId`, `ownerSystemId`); `settings.homeName`.
 

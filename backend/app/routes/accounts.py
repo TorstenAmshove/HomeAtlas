@@ -22,7 +22,7 @@ router = APIRouter()
 # Mirrors CATEGORIES in frontend/src/pages/zugaenge/categories.ts: a category the UI does not offer
 # has no form and no meaning (a stray `router` once reached the TR-064 and reboot paths, #134).
 ACCOUNT_CATEGORIES = frozenset({
-    "contract", "login", "sshkey", "snmp", "omada", "unifi", "homeassistant", "proxmox", "adguard",
+    "contract", "login", "sshkey", "snmp", "unifi", "homeassistant", "proxmox",
     "traefik", "cloudflare", "exposure_cloudflared", "exposure_caddy", "exposure_ddclient",
     "firewall_nftables", "wifi", "apikey", "other",
 })

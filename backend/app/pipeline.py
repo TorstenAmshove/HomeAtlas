@@ -18,8 +18,8 @@ from datetime import datetime, timedelta, timezone
 
 from . import (
     fritz_wan,
-    adguard_probe, classify, cloudflare_probe, crypto, db, diagnostics, discovery, docker_probe, docs,
-    exposure_files, firewall_nft, firewall_unifi, omada_probe, oui, probe_auth, proxmox_probe, public_dns, traefik_probe,
+    classify, cloudflare_probe, crypto, db, diagnostics, discovery, docker_probe, docs,
+    exposure_files, firewall_nft, firewall_unifi, oui, probe_auth, proxmox_probe, public_dns, traefik_probe,
     unifi_classic_probe, unifi_probe,
 )
 
@@ -59,7 +59,7 @@ def _extra_targets(settings: dict, subnets_hint: list[str]) -> list[str]:
 
 
 #: Controller categories whose per-account read is shared between the full scan and the manual
-#: "Auslesen" (#135). Omada and AdGuard keep their own blocks in `run_full_scan`.
+#: "Auslesen" (#135).
 CONTROLLER_CATEGORIES = ("unifi", "proxmox")
 _CONTROLLER_SWITCH = {"unifi": "scanEnableUnifi", "proxmox": "scanEnableProxmox"}
 
@@ -319,33 +319,6 @@ def _assign_proxmox_parents(guests: list[dict], fallback_host_id: str | None) ->
         guest["parentId"] = node_hosts.get(node.strip().lower()) or fallback_host_id
 
 
-def _link_omada_topology() -> int:
-    """Resolves each Omada finding's `extra.omada.uplinkMac` (set by omada_probe.py, on APs,
-    switches and clients alike) to the inventory id of the device it points at, and records that
-    as `parentId`. Can only happen after the whole batch is upserted -- the target device's own
-    row might not have existed a moment earlier in the very same scan -- which is why this is a
-    separate pass rather than something omada_probe.py could set directly. topology.py's network
-    section then chains by `parentId` the same way the router chain already does, so an AP or
-    client shows up under the switch/AP it is actually plugged/associated into instead of a flat,
-    unordered row.
-    """
-    systems = db.list_systems()
-    by_mac = {s["mac"]: s["id"] for s in systems if s.get("mac")}
-    linked = 0
-    for system in systems:
-        uplink_mac = ((system.get("extra") or {}).get("omada") or {}).get("uplinkMac")
-        if not uplink_mac:
-            continue
-        target_id = by_mac.get(uplink_mac)
-        if not target_id or target_id == system["id"] or system.get("parentId") == target_id:
-            continue
-        if (system.get("extra") or {}).get("parentSource") == "manual":
-            continue  # counted nowhere: a human-set parent is never replaced
-        db.set_parent_from_source(system["id"], target_id, "omada")
-        linked += 1
-    return linked
-
-
 def _link_unifi_topology() -> int:
     """Resolve controller-local UniFi IDs to inventory parent IDs after all findings are upserted."""
     systems = db.list_systems()
@@ -536,33 +509,6 @@ async def run_full_scan(scan_id: str) -> None:
                     if account.get("systemId"):
                         db.add_device_error_event(account["systemId"], "error", unifi_result["error"])
 
-        if not settings.get("scanEnableOmada", True):
-            skipped_sources.add("omada")
-        if settings.get("scanEnableOmada", True):
-            omada_accounts = [a for a in db.list_accounts()
-                              if a.get("category") == "omada" and a.get("allowProbe")]
-            if not omada_accounts:
-                skipped_sources.add("omada")
-            if omada_accounts:
-                progress("Omada-Geräte erfassen", 87, "Frage Omada Controller ab")
-            for account in omada_accounts:
-                client_id = account.get("username") or ""
-                try:
-                    client_secret = crypto.decrypt_strict(account.get("secretEnc") or "")
-                except crypto.SecretUnreadable:
-                    warnings.append(f"Zugang {account['label']}: Secret nicht lesbar – übersprungen")
-                    skipped_sources.add("omada")  # not read -> its devices keep their status
-                    continue
-                omada_result = await omada_probe.probe(account.get("url") or "", client_id, client_secret)
-                if omada_result["ok"]:
-                    findings += omada_result["systems"]
-                    log(f"Omada ({account['label']}): {len(omada_result['systems'])} Geräte/Clients gefunden")
-                else:
-                    skipped_sources.add("omada")
-                    warnings.append(f"Omada Controller ({account['label']}): {omada_result['error']}")
-                    if account.get("systemId"):
-                        db.add_device_error_event(account["systemId"], "error", omada_result["error"])
-
         if not settings.get("scanEnableProxmox", True):
             skipped_sources.add("proxmox")
         if settings.get("scanEnableProxmox", True):
@@ -587,40 +533,6 @@ async def run_full_scan(scan_id: str) -> None:
                     warnings.append(f"Proxmox-Host ({account['label']}): {proxmox_result['error']}")
                     if account.get("systemId"):
                         db.add_device_error_event(account["systemId"], "error", proxmox_result["error"])
-
-        if not settings.get("scanEnableAdguard", True):
-            skipped_sources.add("adguard")
-        if settings.get("scanEnableAdguard", True):
-            adguard_accounts = [a for a in db.list_accounts()
-                                if a.get("category") == "adguard" and a.get("allowProbe")]
-            if not adguard_accounts:
-                skipped_sources.add("adguard")
-            if adguard_accounts:
-                progress("AdGuard Home erfassen", 88, "Frage AdGuard Home ab")
-            for account in adguard_accounts:
-                username = account.get("username") or ""
-                try:
-                    password = crypto.decrypt_strict(account.get("secretEnc") or "")
-                except crypto.SecretUnreadable:
-                    warnings.append(f"Zugang {account['label']}: Secret nicht lesbar – übersprungen")
-                    skipped_sources.add("adguard")  # not read -> its devices keep their status
-                    continue
-                adguard_result = await adguard_probe.probe(account.get("url") or "", username, password)
-                if adguard_result["ok"]:
-                    findings += adguard_result["systems"]
-                    log(f"AdGuard Home ({account['label']}): {len(adguard_result['systems'])} "
-                        "Client(s)/Lease(s) übernommen")
-                    if account.get("systemId") and adguard_result.get("stats"):
-                        host = db.get_system(account["systemId"])
-                        if host is not None:
-                            db.update_system(account["systemId"], {
-                                "extra": {**(host.get("extra") or {}), "adguard": adguard_result["stats"]},
-                            })
-                else:
-                    skipped_sources.add("adguard")
-                    warnings.append(f"AdGuard Home ({account['label']}): {adguard_result['error']}")
-                    if account.get("systemId"):
-                        db.add_device_error_event(account["systemId"], "error", adguard_result["error"])
 
         classic_wans: list[tuple[str, list[dict]]] = []
         if settings.get("scanEnableUnifiClassic", True):
@@ -857,10 +769,6 @@ async def run_full_scan(scan_id: str) -> None:
             linked = db.link_containers_to_host(host_ip)
             if linked:
                 log(f"{linked} Container dem Host {host_ip} zugeordnet")
-
-        linked_omada = _link_omada_topology()
-        if linked_omada:
-            log(f"{linked_omada} Omada-Gerät(e)/Client(s) im Netzplan mit ihrem Uplink verknüpft")
 
         linked_unifi = _link_unifi_topology()
         if linked_unifi:
