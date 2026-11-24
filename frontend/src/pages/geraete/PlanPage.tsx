@@ -238,14 +238,16 @@ export default function PlanPage() {
         <div className="plan-help" id="plan-help">
         {layer3 ? (
           <p>
-            Alle Geräte mit bekannter Adresse, gruppiert nach IP-Subnetz (/24) — nützlich, sobald mehr
-            als ein Netz/VLAN im Einsatz ist (z. B. Gäste- oder IoT-Netz). Netze mit weniger als 3
-            Geräten werden zur Übersichtlichkeit ausgeblendet, ebenso Router, deren Adresse nicht auf .1
-            oder .254 endet (die üblichen Gateway-Adressen). Ein Router hinter einem anderen (z. B. ein
-            per Zugangsdaten ausgelesener zweiter Router an der FritzBox) erscheint verkettet an seiner
-            tatsächlichen Stelle — Internet → erster Router → zweiter Router → seine eigenen Netze —
-            statt als eigenständiger Kasten direkt am Internet; ist die VLAN-ID einer Schnittstelle
-            bekannt, steht sie mit in der Netz-Beschriftung.
+            Alle Geräte mit bekannter Adresse, gruppiert nach Netz — nützlich, sobald mehr als ein
+            Netz/VLAN im Einsatz ist (z. B. Gäste- oder IoT-Netz). Netzgrenzen und VLAN-IDs kommen vom
+            Controller (z. B. UniFi); ohne Controller-Daten wird nach /24 gruppiert. Als Router erscheint
+            jedes Gerät vom Typ „Router“ mit bekannter Adresse. Die Netze eines Controllers hängen unter
+            dem Gerät, dem sein Zugang zugeordnet ist („Gehört zu welchem Gerät?“), und tragen dort die
+            VLAN-ID in der Beschriftung. Netze mit weniger als 3 Geräten werden zur Übersichtlichkeit
+            ausgeblendet; Docker-Container und gefundene Geräte, die seit über 30 Tagen offline sind,
+            zählen nicht mit. Ein Router hinter einem anderen (z. B. ein zweiter Router an der FritzBox)
+            erscheint verkettet an seiner tatsächlichen Stelle — Internet → erster Router → zweiter
+            Router → seine eigenen Netze — statt als eigenständiger Kasten direkt am Internet.
           </p>
         ) : (
           <p>
