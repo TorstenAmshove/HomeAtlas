@@ -19,10 +19,9 @@ import os
 
 DB_PATH = os.environ.get("HOMEATLAS_DB_PATH", "/data/homeatlas.db")
 
-# Per-device cap, same reasoning and same shape as deviceConfigVersions' "keep" trim: a device with
-# a persistently broken credential would otherwise grow one row every single scan forever. Not
-# user-configurable like the config-backup limit is -- these are diagnostic breadcrumbs, not
-# something anyone restores from, so there is no equivalent tradeoff to expose a setting for.
+# Per-device cap: a device with a persistently broken credential would otherwise grow one row every
+# single scan forever. Not user-configurable -- these are diagnostic breadcrumbs, not something
+# anyone restores from, so there is no tradeoff to expose a setting for.
 _ERROR_EVENT_KEEP = 100
 # Per-device cap on monitorEvents: a flapping device would otherwise grow the table forever.
 _MONITOR_EVENT_KEEP = 200
@@ -162,12 +161,6 @@ from .docs import (  # noqa: E402
     snapshot_doc_page,
     upsert_doc_page,
 )
-from .config_versions import (  # noqa: E402
-    _CONFIG_VERSION_KEEP_DEFAULT,
-    get_device_config_version,
-    list_device_config_versions,
-    save_device_config_version,
-)
 from .error_events import (  # noqa: E402
     acknowledge_device_error_events,
     add_device_error_event,
@@ -217,7 +210,6 @@ __all__ = [
     "_ACCESS_LOG_KEEP",
     "_ADDED_COLUMNS",
     "_ASSIGNMENT_TARGET_TYPES",
-    "_CONFIG_VERSION_KEEP_DEFAULT",
     "_DOC_VERSION_KEEP",
     "_DUPLICATE_KEY_MAX_GROUP",
     "_INTERFACES_KEY",
@@ -287,7 +279,6 @@ __all__ = [
     "get_account",
     "get_chat",
     "get_db_session",
-    "get_device_config_version",
     "get_doc_page",
     "get_doc_version",
     "get_network_resource",
@@ -313,7 +304,6 @@ __all__ = [
     "last_chat_message_rowid",
     "list_chat_messages",
     "list_chats",
-    "list_device_config_versions",
     "list_device_error_events",
     "list_doc_pages",
     "list_doc_versions",
@@ -343,7 +333,6 @@ __all__ = [
     "restore_doc_version",
     "rewrite_doc_bodies",
     "running_scan",
-    "save_device_config_version",
     "set_account_assignments",
     "set_doc_page_body",
     "set_doc_page_manual",

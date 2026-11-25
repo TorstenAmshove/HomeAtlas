@@ -156,11 +156,10 @@ def test_delete_system_removes_history_rows(temp_db):
     a = _mk(temp_db, "k:a", "10.0.0.1")
     other = _mk(temp_db, "k:o", "10.0.0.2")
     for s in (a, other):
-        temp_db.save_device_config_version(s["id"], "cfg", "dummy-enc", "ssh")
         temp_db.add_device_error_event(s["id"], "error", "boom")
         temp_db.record_monitor_state(s["id"], "offline", "d")
     temp_db.delete_system(a["id"])
-    for table in ("deviceConfigVersions", "deviceErrorEvents", "monitorEvents"):
+    for table in ("deviceErrorEvents", "monitorEvents"):
         assert _count(temp_db, table, a["id"]) == 0
         assert _count(temp_db, table, other["id"]) == 1
 

@@ -18,10 +18,8 @@ things enforce it:
 4. **Opt-in per credential.** Nothing here runs unless a human ticked `allowProbe` on that
    specific stored credential (see `db.list_probe_accounts`).
 
-`persist_config_backups` is the one exception to "this module never touches storage": it saves a
-device's own config export as history (`db.deviceConfigVersions`), encrypted, since that text can
-carry secrets. There is deliberately no restore path back to the device -- that would mean writing
-configuration to hardware, which is exactly what this module exists to never do.
+This module never touches storage: it reads devices and returns plain data; the caller decides
+what to persist. There is no restore path back to a device either.
 
 Host keys are deliberately not verified: HomeAtlas has no trust store, and the alternative --
 refusing to connect to every device on first contact -- would make the feature useless on the very
@@ -39,7 +37,7 @@ from datetime import datetime, timedelta, timezone
 import httpx
 import websockets
 
-from . import crypto, db
+from . import crypto
 
 _SSH_TIMEOUT = 15.0
 _HTTP_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
@@ -81,17 +79,11 @@ _ROLE_HINTS: tuple[tuple[str, str, str], ...] = (
     ("virt", "lxc|docker", "Container"),
 )
 
-# Facts holding a full device config export -- picked up by `extract_config_backups` below and
-# fed into deviceConfigVersions. Kept separate from the general truncation limit (see probe_ssh)
-# because a whole router/switch config is the point of collecting it, not a side note.
-_CONFIG_BACKUP_KEYS = {"config_export"}
-# Public name for the same set: these facts may carry secrets (RADIUS shared
-# secrets, WiFi keys) and therefore live *only* encrypted in deviceConfigVersions -- never in
-# systems.extra.probe, which MEMBER, the generated docs and the LLM can all read.
-CONFIG_BACKUP_KEYS = frozenset(_CONFIG_BACKUP_KEYS)
-# The labels those facts are rendered under -- only needed to scrub docs and chat history written
-# by versions that still stored exports in extra.probe (see routes.settings._migrate_plaintext_secrets).
-# The Omada label is legacy: no command produces it any more, but old rows/docs may still carry it.
+# Legacy only (config exports were a source until issue #229, the history was removed in #230):
+# these fact keys/labels are kept solely so old rows/docs/chat history written by earlier versions
+# can be scrubbed (see routes.settings._migrate_plaintext_secrets and docs.scrub_config_exports).
+# Such facts may carry secrets (RADIUS shared secrets, WiFi keys). No command produces them any more.
+CONFIG_BACKUP_KEYS = frozenset({"config_export"})
 CONFIG_BACKUP_LABELS = ("Vollständige Konfiguration", "Omada-Controller-Sicherung (neueste Datei, Base64)")
 
 
@@ -99,20 +91,7 @@ def _bounded_fact(key_name: str, output: str) -> str | None:
     """Truncates one command's output before it's stored as a fact."""
     if not output:
         return None
-    if key_name in _CONFIG_BACKUP_KEYS:
-        # A full device config export is the point of collecting it, not a side note -- give it a
-        # much wider bound than the other, single-fact commands.
-        return output[:60000]
     return output[:1200]
-
-
-def _normalize_config_text(text: str) -> str:
-    """Strips comment lines before comparing two config exports for equality. A device export
-    may start with a comment line carrying the export's own timestamp, which would otherwise make
-    every scan look like a change and defeat the point of only keeping history when something
-    actually moved. The stored version keeps the original text -- only the comparison is blind to
-    these lines."""
-    return "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))
 
 
 def _decode_secret(account: dict) -> tuple[str, str]:
@@ -1243,8 +1222,8 @@ def parse_arp_pairs(text: str) -> dict[str, str]:
 
 
 def extract_arp_entries(outcome: dict) -> dict[str, str]:
-    """IP -> MAC pairs from any ARP/host-list fact a probe outcome collected. Pure function, same
-    shape and same reason as `extract_config_backups` -- the caller (pipeline.py) decides what a
+    """IP -> MAC pairs from any ARP/host-list fact a probe outcome collected. Pure function, the
+    caller (pipeline.py) decides what a
     newly-learned device becomes; this module only ever reads."""
     pairs: dict[str, str] = {}
     for result in outcome.get("results", {}).values():
@@ -1254,52 +1233,3 @@ def extract_arp_entries(outcome: dict) -> dict[str, str]:
             if key in _ARP_FACT_KEYS:
                 pairs.update(parse_arp_pairs(fact["value"]))
     return pairs
-
-
-def without_config_backups(results: dict) -> dict:
-    """A copy of a probe outcome's `results` with every full-config-export fact removed -- the
-    form that may be stored in `systems.extra.probe`. The exports themselves are persisted
-    separately and encrypted by `persist_config_backups`. Pure function."""
-    cleaned: dict = {}
-    for source, result in results.items():
-        facts = result.get("facts")
-        if isinstance(facts, dict) and any(key in _CONFIG_BACKUP_KEYS for key in facts):
-            result = {**result, "facts": {k: v for k, v in facts.items() if k not in _CONFIG_BACKUP_KEYS}}
-        cleaned[source] = result
-    return cleaned
-
-
-def extract_config_backups(system: dict, outcome: dict) -> list[tuple[str, str, str]]:
-    """(label, content, source) triples for any full-config-export fact in a probe outcome. Pure
-    function -- no db import, so this module stays exactly what its docstring claims: it reads
-    devices, it does not touch storage. The caller (routes/systems.py, pipeline.py) decides what to persist."""
-    backups: list[tuple[str, str, str]] = []
-    for source, result in outcome.get("results", {}).items():
-        if not result.get("ok"):
-            continue
-        for key, fact in result.get("facts", {}).items():
-            if key in _CONFIG_BACKUP_KEYS:
-                backups.append((f"{system.get('name', 'Gerät')} – {fact['label']}", fact["value"], source))
-    return backups
-
-
-def persist_config_backups(system: dict, outcome: dict) -> int:
-    """Stores any full-config-export facts from a probe outcome as a new deviceConfigVersions row
-    -- but only when the content actually changed (comparing normalized text, see
-    `_normalize_config_text`), so a scan that finds nothing different doesn't grow the history.
-    Called from both probe call sites (routes/systems.py's manual probe endpoint, pipeline.py's scheduled
-    scan) so the logic lives once. Content is encrypted before it ever reaches the database -- a
-    device export can carry secrets (RADIUS shared secrets, WiFi keys),
-    the same threat model as `accounts.secretEnc`. Returns how many new versions were written."""
-    saved = 0
-    for label, content, source in extract_config_backups(system, outcome):
-        existing = next((v for v in db.list_device_config_versions(system["id"]) if v["label"] == label), None)
-        changed = True
-        if existing is not None:
-            previous = db.get_device_config_version(existing["id"])
-            if previous is not None:
-                changed = _normalize_config_text(crypto.decrypt(previous["content"])) != _normalize_config_text(content)
-        if changed:
-            db.save_device_config_version(system["id"], label, crypto.encrypt(content), source)
-            saved += 1
-    return saved

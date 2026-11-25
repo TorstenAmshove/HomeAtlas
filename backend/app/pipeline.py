@@ -105,8 +105,7 @@ async def probe_one_system(system: dict, settings: dict) -> dict:
     `read_controller_account`.
     """
     outcome: dict = {"ran": False, "results": {}, "purpose": "", "reason": "", "warnings": [],
-                     "learnedArp": {}, "usedFallback": False,
-                     "configSaved": 0}
+                     "learnedArp": {}, "usedFallback": False}
     accounts = db.list_probe_accounts(system["id"])
     if not accounts:
         # Only where nothing device-specific is stored, and only where probe_auth's guardrails
@@ -147,10 +146,7 @@ async def probe_one_system(system: dict, settings: dict) -> dict:
     if not probed["ran"]:
         return outcome
 
-    # Config exports go only into encrypted deviceConfigVersions (persist_config_backups below),
-    # never into extra.probe, which members, the docs and the LLM can read.
-    patch: dict = {"extra": {**(system.get("extra") or {}),
-                             "probe": probe_auth.without_config_backups(probed["results"])}}
+    patch: dict = {"extra": {**(system.get("extra") or {}), "probe": probed["results"]}}
     if probed.get("purpose") and not system.get("purpose"):
         patch["purpose"] = probed["purpose"]
     facts = {key: value["value"] for result in probed["results"].values() if result.get("ok")
@@ -162,7 +158,6 @@ async def probe_one_system(system: dict, settings: dict) -> dict:
     if facts.get("modelName") and not system.get("model"):
         patch["model"] = facts["modelName"].strip()[:100]
     db.update_system(system["id"], patch)
-    outcome["configSaved"] = probe_auth.persist_config_backups(system, probed)
     if system.get("kind") == "router":
         outcome["learnedArp"] = probe_auth.extract_arp_entries(probed)
     return outcome
@@ -185,8 +180,6 @@ async def _probe_with_credentials(log) -> tuple[int, list[str], dict[str, str]]:
             continue
         probed += 1
         log(f"Abgefragt: {system['name']} ({', '.join(outcome['results'])})")
-        if outcome["configSaved"]:
-            log(f"Konfiguration von {system['name']} gesichert")
         learned_arp.update(outcome["learnedArp"])
 
     if used_fallback:
@@ -773,8 +766,7 @@ async def run_full_scan(scan_id: str) -> None:
 
 
 # ---------------------------------------------------------------------------------------------
-# Scheduler -- an optional, opt-in timer around run_full_scan (which is also how config backups
-# happen, see probe_auth.persist_config_backups above). Same start/stop/loop shape as monitor.py's
+# Scheduler -- an optional, opt-in timer around run_full_scan . Same start/stop/loop shape as monitor.py's
 # Monitor: settings are re-read every tick, so flipping "scanAutoEnabled" or changing the interval
 # in SettingsPage takes effect within one poll, not only after a restart or the previous
 # (possibly day-long) interval elapses.

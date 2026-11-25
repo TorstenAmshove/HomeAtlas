@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
-  api, ApiError, DUPLICATE_REASON_LABEL, type Account, type ConfigVersion, type DeviceErrorEvent, type DuplicateCandidate,
+  api, ApiError, DUPLICATE_REASON_LABEL, type Account, type DeviceErrorEvent, type DuplicateCandidate,
   type MonitorState, type ProbeResult, type System, type SystemAlias,
 } from "../../lib/api";
 import { useAuth } from "../../App";
@@ -9,7 +9,6 @@ import ConfirmDialog from "../../components/ConfirmDialog";
 import DeviceEditForm from "../../components/DeviceEditForm";
 import OverflowMenu, { type OverflowItem } from "../../components/OverflowMenu";
 import { Skeleton, SkeletonText } from "../../components/Skeleton";
-import { hasConfigHistory } from "../../lib/device";
 import { changedFields, clearDeviceDraft, readDeviceDraft, sameForm, storeDeviceDraft } from "../../lib/deviceDraft";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import { useUndoToast } from "../../lib/useUndoToast";
@@ -84,7 +83,6 @@ export default function DevicePage() {
   const [adminLinks, setAdminLinks] = useState<{ label: string; url: string }[]>([]);
   const [monitor, setMonitor] = useState<MonitorState | null>(null);
   const [errorEvents, setErrorEvents] = useState<DeviceErrorEvent[] | null>(null);
-  const [configVersions, setConfigVersions] = useState<ConfigVersion[] | null>(null);
   const [aliases, setAliases] = useState<SystemAlias[] | null>(null);
   const [candidates, setCandidates] = useState<DuplicateCandidate[]>([]);
 
@@ -122,15 +120,11 @@ export default function DevicePage() {
   const loadAll = useCallback(async () => {
     setError("");
     try {
-      const loaded = await loadSystem();
+      await loadSystem();
       api.monitor().then(setMonitor).catch(() => setMonitor(null));
       // Fetched for every device: any device can collect a probe failure or a monitoring event.
       api.listSystemErrors(id).then((r) => setErrorEvents(r.events)).catch(() => setErrorEvents([]));
       if (isAdmin) {
-        // Config backups only exist for routers/switches; admin-only (an export can carry secrets).
-        if (hasConfigHistory(loaded)) {
-          api.listConfigVersions(id).then((r) => setConfigVersions(r.versions)).catch(() => setConfigVersions([]));
-        }
         api.systemAdminLinks(id).then((r) => setAdminLinks(r.links)).catch(() => setAdminLinks([]));
         api.getSystemAliases(id).then((r) => setAliases(r.aliases)).catch(() => setAliases([]));
         api.getDuplicateCandidates()
@@ -149,7 +143,6 @@ export default function DevicePage() {
     setDraft(null);
     setMonitor(null);
     setErrorEvents(null);
-    setConfigVersions(null);
     setAliases(null);
     setCandidates([]);
     setProbeNotice(null);
@@ -258,9 +251,6 @@ export default function DevicePage() {
     try {
       const { outcome, system: updated } = await api.probeSystem(id);
       setData((current) => (current ? { ...current, system: updated } : current));
-      if (isAdmin && hasConfigHistory(updated)) {
-        void api.listConfigVersions(id).then((cv) => setConfigVersions(cv.versions));
-      }
       if (outcome.ran) {
         setProbeNotice({ kind: "ok", text: `Gerät ausgelesen über: ${Object.keys(outcome.results).join(", ")}` });
       } else {
@@ -646,8 +636,7 @@ export default function DevicePage() {
             <VerlaufTab systemId={id} errorEvents={errorEvents} monitorEvents={monitorEvents}
                         isAdmin={isAdmin}
                         onAcknowledged={() => api.listSystemErrors(id).then((r) => setErrorEvents(r.events)).catch(() => undefined)}
-                        monitorEnabled={Boolean(monitor?.enabled)} configVersions={configVersions}
-                        showConfig={isAdmin && hasConfigHistory(system)} />
+                        monitorEnabled={Boolean(monitor?.enabled)} />
           )}
           {tab === "zugaenge" && isAdmin && (
             <ZugaengeTab accounts={accounts} />

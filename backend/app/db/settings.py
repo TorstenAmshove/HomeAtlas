@@ -55,7 +55,6 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "scanUseCredentials": True,
     "scanAutoEnabled": False,
     "scanAutoIntervalHours": 24,
-    "configVersionKeep": 50,
     # Live monitoring
     "monitorEnabled": True,
     "monitorIntervalSeconds": 10,

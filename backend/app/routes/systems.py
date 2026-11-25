@@ -11,7 +11,7 @@ from typing import Any
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, StrictInt, field_validator
 
-from .. import admin_links, classify, crypto, db, discovery, docs, exposure, llm_providers, pipeline, probe_auth
+from .. import admin_links, classify, db, discovery, docs, exposure, llm_providers, pipeline, probe_auth
 from .. import monitor as monitor_module
 from ..deps import _public_account, current_user, require_admin
 
@@ -330,23 +330,6 @@ async def probe_system(system_id: str, _: dict = Depends(require_admin)) -> dict
     outcome = {"ran": ran, "results": results, "purpose": purpose,
                "reason": "" if ran else " · ".join(reasons)}
     return {"outcome": outcome, "system": db.get_system(system_id)}
-
-
-@router.get("/api/systems/{system_id}/config-versions")
-async def list_config_versions(system_id: str, _: dict = Depends(require_admin)) -> dict:
-    """Admin-only, like the content below: an export can carry RADIUS secrets and
-    WiFi keys, the same class of data as accounts.secretEnc."""
-    if db.get_system(system_id) is None:
-        raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
-    return {"versions": db.list_device_config_versions(system_id)}
-
-
-@router.get("/api/systems/{system_id}/config-versions/{version_id}")
-async def get_config_version(system_id: str, version_id: str, _: dict = Depends(require_admin)) -> dict:
-    version = db.get_device_config_version(version_id)
-    if version is None or version["systemId"] != system_id:
-        raise HTTPException(status_code=404, detail="Version nicht gefunden.")
-    return {"version": {**version, "content": crypto.decrypt(version["content"])}}
 
 
 @router.get("/api/systems/{system_id}/errors")

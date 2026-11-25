@@ -57,7 +57,6 @@ verlinkten Fähigkeiten. Quelle Defaults: `backend/app/db.py:408`.
 | `scanUseCredentials` | true | Auslesen mit Zugangsdaten | pipeline |
 | `scanAutoEnabled` | false | Automatischer Scan | pipeline |
 | `scanAutoIntervalHours` | 24 | Intervall, wirksam 1–720 h | pipeline |
-| `configVersionKeep` | 50 | Aufbewahrte Konfig-Backups je Gerät, wirksam 1–1000 | db |
 | `monitorEnabled` | true | Überwachung wichtiger Geräte | monitor, main |
 | `monitorIntervalSeconds` | 10 | Intervall, wirksam 5–600 s | monitor, main |
 | `monitorTimeoutMs` | 1500 | Timeout je TCP-Portprüfung, wirksam ≥ 200 ms; gilt nicht für den Ping (fest `-W 2`, 1 Paket; `monitor.py:141`, `diagnostics.py:75`) | monitor |
