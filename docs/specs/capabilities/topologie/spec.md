@@ -237,9 +237,11 @@ Das System MUSS bei jedem Scan nach dem Inventar-Update Elterngeräte ableiten: 
 - Proxmox-Gast → Inventargerät (server/nas), dessen Hostname bzw. Name dem Proxmox-Knoten
   entspricht (ohne Groß/Klein), sonst das Gerät, dem der Proxmox-Zugang zugeordnet ist.
 - Proxmox-Gäste werden bei jedem Scan neu zugeordnet (eine migrierte VM wandert mit).
-- UniFi-Gerät/-Client → Gerät mit der gemeldeten Controller-Geräte-ID des Uplinks.
+- UniFi-Gerät/-Client → Gerät mit der gemeldeten Controller-Geräte-ID des Uplinks, außer Gäste mit
+  `parentSource = proxmox` (die bleiben an ihrem Knoten; der Switchport bleibt über
+  `extra.unifi.connection` sichtbar).
 
-Ein per PATCH gesetztes Elterngerät (`extra.parentSource = "manual"`) wird von Proxmox- und
+Rangfolge: manuell > Proxmox > UniFi. Ein per PATCH gesetztes Elterngerät (`extra.parentSource = "manual"`) wird von Proxmox- und
 UniFi-Verknüpfung nie überschrieben; Controller-Verknüpfungen markieren `parentSource` mit
 `proxmox`/`unifi`. `parentId: null` im PATCH entfernt Elterngerät und Marker. Bestand ohne
 Marker gilt als überschreibbar. **[Muss]**
@@ -251,6 +253,10 @@ Netzplan mit ihrem Uplink verknüpft“. **[Impl]**
 #### Szenario: UniFi-Kette
 - **WENN** Switch → Gateway, AP → Switch, Drucker → AP als UniFi-Uplinks gemeldet sind
 - **DANN** sind 3 Elterngeräte gesetzt, ein zweiter Lauf meldet 0
+
+#### Szenario: Proxmox-Gast mit UniFi-Uplink
+- **WENN** ein Gast eine Proxmox-Zuordnung hat und UniFi ihn zusätzlich als Client mit Uplink meldet
+- **DANN** bleibt der Proxmox-Knoten Elterngerät, und ein Folgelauf meldet 0 Verknüpfungen
 
 #### Szenario: Manuelles Elterngerät
 - **WENN** ein Gerät per PATCH ein Elterngerät erhalten hat und der Controller einen anderen Uplink meldet
