@@ -1,11 +1,12 @@
-"""Reads port forwards and the WAN address from the classic UniFi Network API (ADR-0016).
+"""Reads port forwards, the WAN address and client attachment from the classic UniFi Network API (ADR-0016).
 
 The official integration API (`unifi_probe.py`) lists WANs with id and name only and has no port
 forwards, so this module reads them from the classic API under ``/proxy/network/api``. The same
 integration API key (header ``X-API-Key``) is accepted there (spike on UniFi Network 11.0.103), so
 there is no login, no cookie, no CSRF token and no local user: every request is a GET against one of
-four fixed paths (sites, ``rest/portforward``, ``stat/device``, ``rest/networkconf``), redirects are not
-followed. Note the trade-off recorded in ADR-0016: the key has the rights of whoever created it.
+five fixed paths (sites, ``rest/portforward``, ``stat/device``, ``rest/networkconf``, ``stat/sta``),
+redirects are not followed. Note the trade-off recorded in ADR-0016: the key has the rights of whoever
+created it.
 
 Opt-in like every source: only accounts of category ``unifi`` with ``allowProbe`` are used
 (pipeline.py, the same accounts as `unifi_probe.py`), and only while ``scanEnableUnifiClassic`` is
@@ -18,6 +19,10 @@ WAN status (ADR-0018): `wans` has one entry per WAN connection, matched by name 
 authoritative; behind an upstream router the interface is private and only the gateway's `geo_info` is
 left, which can lag behind a reconnect (`origin: geo`, see exposure.py). From `networkconf` only name,
 purpose, group and type are kept, never the credentials of a PPPoE connection.
+
+Client attachment (ADR-0025): `stat/sta` yields per client only the MAC, wired or not, the switch MAC
+and port or the AP MAC and SSID. Name, IP, hostname and every ``x_*`` field are never copied. Failing
+to read it only costs a warning; forwards and WAN status stay.
 """
 from __future__ import annotations
 
@@ -30,6 +35,19 @@ _TIMEOUT = httpx.Timeout(15.0, connect=5.0)
 _SITE_NAME = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 _MAX_FORWARDS = 500
 _PORT = re.compile(r"^\d{1,5}(-\d{1,5})?(,\d{1,5}(-\d{1,5})?)*$")
+
+
+_MAX_CLIENTS = 2000
+_MAC = re.compile(r"^[0-9a-f]{2}(:[0-9a-f]{2}){5}$")
+
+
+def normalize_mac(value: object) -> str:
+    """Lower-case, colon separated; empty when the value is no MAC."""
+    text = re.sub(r"[-.:\s]", "", str(value or "")).lower()
+    if not re.fullmatch(r"[0-9a-f]{12}", text):
+        return ""
+    mac = ":".join(text[i:i + 2] for i in range(0, 12, 2))
+    return mac if _MAC.match(mac) else ""
 
 
 _KEY = re.compile(r"^[\x21-\x7e]{8,512}$")
@@ -116,10 +134,30 @@ def _forward(entry: dict) -> dict | None:
             "enabled": bool(entry.get("enabled", True))}
 
 
+def _client(entry: dict, site: str) -> dict | None:
+    """Only the allowlisted attachment fields (ADR-0025); None without a usable MAC."""
+    mac = normalize_mac(entry.get("mac"))
+    if not mac:
+        return None
+    ap_mac = normalize_mac(entry.get("ap_mac"))
+    wired = entry.get("is_wired")
+    if not isinstance(wired, bool):
+        wired = False if ap_mac else None
+    if wired is None:
+        return None
+    port = entry.get("sw_port")
+    port = port if isinstance(port, int) and not isinstance(port, bool) and 1 <= port <= 999 else None
+    essid = entry.get("essid")
+    essid = essid.strip()[:64] if isinstance(essid, str) and essid.strip() else ""
+    return {"site": site, "mac": mac, "wired": wired,
+            "swMac": normalize_mac(entry.get("sw_mac")) if wired else "", "swPort": port if wired else None,
+            "apMac": ap_mac if not wired else "", "essid": essid if not wired else ""}
+
+
 async def probe(base_url: str, api_key: str, account_id: str,
                 controller_system_id: str | None) -> dict:
-    """`{ok, error, forwards, wans, wanFacts, warnings}`; read-only, API key only."""
-    fail = {"ok": False, "forwards": [], "wans": [], "wanFacts": [], "warnings": []}
+    """`{ok, error, forwards, wans, wanFacts, clients, warnings}`; read-only, API key only."""
+    fail = {"ok": False, "forwards": [], "wans": [], "wanFacts": [], "clients": [], "warnings": []}
     base = (base_url or "").strip().rstrip("/")
     if not base:
         return {**fail, "error": "Keine Adresse für die klassische UniFi-API hinterlegt."}
@@ -130,7 +168,9 @@ async def probe(base_url: str, api_key: str, account_id: str,
     forwards: list[dict] = []
     wans: list[dict] = []
     wan_facts: list[dict] = []
+    clients: list[dict] = []
     warnings: list[str] = []
+    capped = False
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT, verify=False, follow_redirects=False,
                                      headers={"X-API-Key": api_key}) as client:
@@ -143,6 +183,16 @@ async def probe(base_url: str, api_key: str, account_id: str,
                     if (fwd := _forward(entry)) is not None and len(forwards) < _MAX_FORWARDS:
                         key = f"{name}:{fwd['proto']}:{fwd['wanPort']}>{fwd['destIp']}:{fwd['destPort']}"
                         forwards.append({"kind": "portforward", "key": key, "data": fwd})
+                try:  # client attachment is optional: forwards and WAN status stay when it fails
+                    for entry in await _get_data(client, api, f"/s/{name}/stat/sta"):
+                        if (found := _client(entry, name)) is None:
+                            continue
+                        if len(clients) < _MAX_CLIENTS:
+                            clients.append(found)
+                        else:
+                            capped = True
+                except (PermissionError, ValueError, httpx.HTTPError) as exc:
+                    warnings.append(f"Client-Zuordnung nicht lesbar ({type(exc).__name__}).")
                 try:  # the forwards above stay useful when the WAN status cannot be read
                     site_wans = _wan_status(await _get_data(client, api, f"/s/{name}/rest/networkconf"),
                                             await _get_data(client, api, f"/s/{name}/stat/device"))
@@ -159,6 +209,8 @@ async def probe(base_url: str, api_key: str, account_id: str,
         return {**fail, "error": str(exc)}
     except httpx.HTTPError as exc:
         return {**fail, "error": f"Klassische UniFi-API nicht lesbar: {type(exc).__name__}"}
+    if capped:
+        warnings.append(f"Mehr als {_MAX_CLIENTS} Clients, der Rest wird nicht zugeordnet.")
     forwards.append({"kind": "portforward_scan", "key": "scan", "data": {"count": len(forwards)}})
     return {"ok": True, "error": "", "forwards": forwards, "wans": wans, "wanFacts": wan_facts,
-            "warnings": warnings}
+            "clients": clients, "warnings": warnings}

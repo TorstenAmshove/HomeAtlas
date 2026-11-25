@@ -282,6 +282,58 @@ def _link_unifi_topology() -> int:
     return linked
 
 
+def _link_unifi_connections(account_id: str, clients: list[dict]) -> int:
+    """Stores `extra.unifi.connection` (switch + port or AP + SSID) on known devices (ADR-0025).
+
+    Clients are matched to *existing* devices by MAC only, nothing is ever created, and `parentId`
+    is not touched. Called only after an account was read successfully: a device whose connection
+    came from this account and is no longer reported loses it. Ambiguous MACs (several devices) are
+    never matched. Returns the number of connections now set for this account."""
+    systems = db.list_systems()
+    by_mac: dict[str, str | None] = {}
+    for system in systems:
+        mac = unifi_classic_probe.normalize_mac(system.get("mac"))
+        if mac:
+            by_mac[mac] = None if mac in by_mac else system["id"]
+    wanted: dict[str, dict] = {}
+    for client in clients:
+        system_id = by_mac.get(unifi_classic_probe.normalize_mac(client.get("mac")))
+        if not system_id or system_id in wanted:
+            continue
+        device_mac = unifi_classic_probe.normalize_mac(client.get("swMac" if client.get("wired") else "apMac"))
+        device_id = by_mac.get(device_mac)
+        if device_id == system_id:
+            continue
+        if client.get("wired"):
+            port = client.get("swPort")
+            if not device_id or not isinstance(port, int):
+                continue
+            conn = {"type": "wired", "systemId": device_id, "deviceMac": device_mac, "port": port}
+        else:
+            ssid = client.get("essid") or ""
+            if not device_id and not ssid:
+                continue
+            conn = {"type": "wifi", "deviceMac": device_mac, "ssid": ssid}
+            if device_id:
+                conn["systemId"] = device_id
+        wanted[system_id] = {**conn, "site": client.get("site") or "", "accountId": account_id}
+    for system in systems:
+        extra = system.get("extra") or {}
+        unifi = extra.get("unifi") or {}
+        current = unifi.get("connection")
+        new = wanted.get(system["id"])
+        if new is None:
+            if not (isinstance(current, dict) and current.get("accountId") == account_id):
+                continue
+            unifi = {k: v for k, v in unifi.items() if k != "connection"}
+        elif current == new:
+            continue
+        else:
+            unifi = {**unifi, "connection": new}
+        db.update_system(system["id"], {"extra": {**extra, "unifi": unifi}})
+    return len(wanted)
+
+
 def _make_names_unique(findings: list[dict]) -> None:
     """Disambiguates names shared by several distinct devices in this scan.
 
@@ -477,6 +529,7 @@ async def run_full_scan(scan_id: str) -> None:
                         db.add_device_error_event(account["systemId"], "error", proxmox_result["error"])
 
         classic_wans: list[tuple[str, list[dict]]] = []
+        classic_clients: list[tuple[str, list[dict]]] = []
         if settings.get("scanEnableUnifiClassic", True):
             # Same accounts as the integration-API scan above: one UniFi API key serves both (ADR-0016).
             classic_accounts = [a for a in db.list_accounts()
@@ -494,6 +547,8 @@ async def run_full_scan(scan_id: str) -> None:
                     db.replace_exposure_facts("unifi_classic", account["id"],
                                               classic["forwards"] + (classic.get("wanFacts") or []))
                     classic_wans.append((account["id"], classic.get("wans") or []))
+                    if not any("Client-Zuordnung nicht lesbar" in w for w in classic.get("warnings") or []):
+                        classic_clients.append((account["id"], classic.get("clients") or []))
                     warnings += [f"UniFi klassisch ({account['label']}): {w}" for w in classic.get("warnings") or []]
                     log(f"UniFi klassisch ({account['label']}): {len(classic['forwards']) - 1} Portweiterleitung(en) gelesen")
                 else:
@@ -715,6 +770,11 @@ async def run_full_scan(scan_id: str) -> None:
         linked_unifi = _link_unifi_topology()
         if linked_unifi:
             log(f"{linked_unifi} UniFi-Gerät(e)/Client(s) im Netzplan mit ihrem Uplink verknüpft")
+
+        for account_id, clients in classic_clients:
+            connected = _link_unifi_connections(account_id, clients)
+            if connected:
+                log(f"{connected} UniFi-Client(s) mit Switch-Port bzw. Access Point verknüpft")
 
         for account, unifi_result in unifi_results:
             synced = db.sync_network_resources(

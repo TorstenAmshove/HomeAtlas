@@ -112,7 +112,9 @@ Quelle: `backend/app/docs.py:208`, `backend/app/docs.py:550`
 ### Requirement: Gerätedetails
 Das System MUSS je Gerät einen Abschnitt mit Name als Überschrift, „Wozu“-Beschreibung und den
 vorhandenen Fakten ausgeben: IP, MAC, Hersteller, Modell, Standort, Bedeutung (nur wenn ≠ normal),
-„Läuft auf“ (Elterngerät), Weboberfläche, Hersteller-Dokumentation, eigene Dokumentation, zuletzt
+„Läuft auf“ (Elterngerät), „Angeschlossen an: <Name>, Port N“ bzw. „Verbunden mit: <Name> (WLAN <SSID>)“
+(aus `extra.unifi.connection`, nur Namen, nie IDs oder MACs; Switch/AP zusätzlich „Angeschlossene Geräte“
+mit „Port N: <Name>“ aufsteigend und „WLAN <SSID>: <Name>“), Weboberfläche, Hersteller-Dokumentation, eigene Dokumentation, zuletzt
 gesehen (Format `TT.MM.JJJJ HH:MM`); ferner falls vorhanden: direkt vom Gerät ausgelesene Werte
 (höchstens 14, mehrzeilige als Codeblock), Docker-Fakten (Image, Compose-Projekt, Port-Zuordnungen (Docker),
 höchstens 6 Volumes), Proxmox-Fakten (Node, VM-ID, CPU-Kerne, RAM in MB), Tabelle der Kindgeräte

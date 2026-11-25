@@ -314,7 +314,9 @@ mit `X-API-Key`, ohne Cookie und ohne Weiterleitungen. Minimal nötige Rechte: D
 seines Erstellers (mehr als „View Only“); lege ihn deshalb mit einem möglichst eingeschränkten lokalen
 Konto an. Der Zugang braucht „Zum Auslesen verwenden“; die Quelle ist in den Einstellungen
 abschaltbar (`scanEnableUnifiClassic`). Gespeichert werden nur Protokoll, Ports, Ziel-IP und die
-WAN-Adresse, nie Name, Quellfilter oder Key. Ein früherer Zugang „UniFi klassische API“ wird beim
+WAN-Adresse, nie Name, Quellfilter oder Key. Über `stat/sta` (ebenfalls nur GET, gleicher Key, gleicher
+Schalter) merkt sich HomeAtlas je bekanntem Gerät, an welchem Switch-Port bzw. Access Point (und
+WLAN) es hängt, und zeigt das im Gerätedetail und in der Doku; neue Geräte entstehen daraus nie. Ein früherer Zugang „UniFi klassische API“ wird beim
 Start gelöscht; nötig ist stattdessen ein `unifi`-Zugang mit „Zum Auslesen verwenden“ (ADR-0016).
 
 **Firewall-Regeln (UniFi).** Optional liest HomeAtlas die Firewall-Zonen, -Policies und Adress-/Port-Gruppen

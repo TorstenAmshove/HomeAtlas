@@ -85,6 +85,7 @@ export default function DevicePage() {
   const [errorEvents, setErrorEvents] = useState<DeviceErrorEvent[] | null>(null);
   const [aliases, setAliases] = useState<SystemAlias[] | null>(null);
   const [candidates, setCandidates] = useState<DuplicateCandidate[]>([]);
+  const [attachedTo, setAttachedTo] = useState<{ id: string; name: string } | null>(null);
 
   const [probing, setProbing] = useState(false);
   const [probeNotice, setProbeNotice] = useState<Notice>(null);
@@ -150,6 +151,22 @@ export default function DevicePage() {
     setNotice(null);
     void loadAll();
   }, [loadAll]);
+
+  // Name of the switch/AP this device hangs on (extra.unifi.connection): taken from the device list,
+  // never from a per-device request (a deleted device would be a 404 and a console error).
+  const connectionDeviceId: string = (system?.extra as any)?.unifi?.connection?.systemId ?? "";
+  useEffect(() => {
+    setAttachedTo(null);
+    if (!connectionDeviceId) return;
+    let cancelled = false;
+    api.listSystems()
+      .then((r) => {
+        const found = r.systems.find((s) => s.id === connectionDeviceId);
+        if (!cancelled && found) setAttachedTo({ id: found.id, name: found.name });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [connectionDeviceId]);
 
   // Live status: re-read /api/monitor at the monitor's own pace (never under 5 s), only while the
   // tab is visible -- the same rule as the Start page.
@@ -626,7 +643,7 @@ export default function DevicePage() {
           </nav>
 
           {tab === "ueberblick" && (
-            <UeberblickTab system={system} derived={derived} accounts={accounts} isAdmin={isAdmin} history={history} />
+            <UeberblickTab system={system} derived={derived} accounts={accounts} isAdmin={isAdmin} history={history} attachedTo={attachedTo} />
           )}
           {tab === "technik" && (
             <TechnikTab system={system} monitorPorts={monitorPorts} aliases={aliases}

@@ -72,6 +72,20 @@ Ports (`monitorPortsEffective`). Unbekannte ID → 404 „Gerät nicht gefunden.
 Quelle: `backend/app/main.py:546`, `backend/app/main.py:619`, `backend/app/db.py:1464`,
 `backend/app/monitor.py:40`
 
+### Requirement: Anschluss am Switch / Access Point
+Das System MUSS an einem Gerät, das der UniFi-Scan zuordnen konnte, `extra.unifi.connection`
+(`type` `wired`|`wifi`, `systemId` und `deviceMac` von Switch/AP, `port` bzw. `ssid`, `site`,
+`accountId`) speichern und im Gerätedetail (Überblick, Steckbrief) als „Angeschlossen an: <Name>,
+Port N“ bzw. „Verbunden mit: <Name> (WLAN <SSID>)“ mit Link auf das Gerät zeigen; die Oberfläche
+zeigt nur Namen, Port und SSID, nie IDs oder MACs. Ein kabelgebundener Client, dessen Switch nicht im
+Inventar steht, bekommt keine Verbindung; ein WLAN-Client dann nur die SSID. Wird ein Zugang
+vollständig gelesen, verliert jedes Gerät mit `accountId` dieses Zugangs, das nicht mehr gemeldet wird,
+die Verbindung; bei Fehler oder abgeschalteter Quelle bleibt alles. `parentId` ändert sich dadurch
+nie. **[Muss]**
+
+Quelle: `backend/app/pipeline.py`, `frontend/src/pages/device/UeberblickTab.tsx`,
+Test: `backend/tests/test_pipeline_unifi_classic.py::test_connection_removed_when_client_gone_only_after_successful_read`
+
 ### Requirement: Absprung-Links zur Verwaltung
 Das System MUSS Admins über `GET /api/systems/{id}/admin-links` Deep-Links liefern (`{"links": [{label, url}]}`,
 bei keinem Link eine leere Liste, unbekannte ID 404, Member 403): für ein lokales Docker-Gerät
