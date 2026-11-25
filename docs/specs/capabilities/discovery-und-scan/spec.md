@@ -521,7 +521,9 @@ Das System MUSS bei aktivem klassischen UniFi-Scan je Site zusätzlich per GET `
 `stat/device` (`type == "usw"`) je Port nur Nummer, Name, Profilname, natives Netz und Tagged-Modus
 lesen ([ADR-0026](../../../adr/0026-unifi-port-vlans-netzaufloesung.md)). Je Feld gilt: Override
 (`port_overrides`) vor Profil vor Direktfeld des Ports. Netz-IDs werden je Site über `rest/networkconf`
-(`_id`, `vlan`; Standardnetz ohne `vlan` zählt als VLAN 1) zu VLAN-ID und Name aufgelöst, eine unbekannte ID
+(`_id`, `vlan`; Standardnetz ohne `vlan` zählt als VLAN 1) zu VLAN-ID und Name aufgelöst; das erste
+`corporate`-Netz ohne `vlan`-Schlüssel trägt als Standardnetz `default: true`, und jeder Port trägt
+`defaultVlan` (dessen VLAN-ID oder `null`), ein explizit mit VLAN-ID 1 angelegtes Netz nicht (#260); eine unbekannte ID
 bleibt als „unbekannt“ markiert; `auto` ist „alle“ (mit `excluded_networkconf_ids`), `block_all` „keine“,
 alles andere „custom“ ohne Liste. Höchstens 128 Ports je Gerät und 200 Profile je Site (je eine Warnung).
 Scheitert eine der Quellen, entsteht die Warnung „Port-VLANs nicht lesbar“, `portsOk` ist falsch und
@@ -533,7 +535,8 @@ Portweiterleitungen, WAN-Status und Clients bleiben. **[Muss]**
 
 Quelle: `backend/app/unifi_classic_probe.py`,
 Test: `backend/tests/test_unifi_classic_probe.py::test_probe_switch_ports_override_profile_default`,
-`::test_port_tagged_modes`, `::test_unknown_network_id`, `::test_portconf_errors_keep_other_sources`
+`::test_port_tagged_modes`, `::test_unknown_network_id`, `::test_portconf_errors_keep_other_sources`,
+`::test_default_network_flag`, `::test_switch_ports_default_vlan`
 
 Quelle: `backend/app/unifi_classic_probe.py`, `backend/app/pipeline.py`,
 Test: `backend/tests/test_unifi_classic_probe.py`, `backend/tests/test_pipeline_unifi_classic.py::test_connection_wired_and_wifi`,

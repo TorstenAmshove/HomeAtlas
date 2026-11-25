@@ -221,7 +221,7 @@ def test_probe_switch_ports_override_profile_default(monkeypatch):
     result, ports = _ports([switch, {"type": "uap", "mac": "aa:bb:cc:00:00:02", "port_table": [{"port_idx": 1}]}],
                            monkeypatch)
     assert [(s["site"], s["mac"]) for s in result["switches"]] == [("default", "aa:bb:cc:00:00:01")]
-    assert ports[1]["native"] == {"vlan": 1, "name": "Default", "known": True}  # default network = VLAN 1
+    assert ports[1]["native"] == {"vlan": 1, "name": "Default", "known": True, "default": True}  # = VLAN 1
     assert ports[1]["tagged"]["mode"] == "none" and ports[1]["profile"] == "All"
     assert ports[2]["name"] == "Büro | PC" and ports[2]["profile"] == "IoT-Port"
     assert ports[2]["native"]["vlan"] == 20 and ports[2]["tagged"]["mode"] == "none"
@@ -255,7 +255,7 @@ def test_probe_ports_keep_only_allowlisted_fields(monkeypatch):
     text = str(result["switches"])
     for secret in ("SECRETNAME", "10.9.9.9", "AUTHSECRET", "XSECRET", "de:ad", "WLANSECRET", "p-all", "n10"):
         assert secret not in text
-    assert set(result["switches"][0]["ports"][0]) == {"port", "name", "profile", "native", "tagged"}
+    assert set(result["switches"][0]["ports"][0]) == {"port", "name", "profile", "native", "defaultVlan", "tagged"}
 
 
 @pytest.mark.parametrize("response", [
@@ -308,3 +308,37 @@ def test_only_usw_devices_and_bad_port_idx_ignored(monkeypatch):
     result, ports = _ports([switch, nomac, {"type": "udm", "mac": "aa:bb:cc:00:00:09", "port_table": [{"port_idx": 1}]}],
                            monkeypatch)
     assert list(ports) == [1] and len(result["switches"]) == 1
+
+
+def test_default_network_flag():
+    from app.unifi_classic_probe import _networks
+    nets = _networks([
+        {"_id": "wan", "name": "WAN", "purpose": "wan"},
+        {"_id": "d", "name": "Default", "purpose": "corporate"},
+        {"_id": "d2", "name": "Zweites ohne VLAN", "purpose": "corporate"},
+        {"_id": "v1", "name": "Explizit 1", "purpose": "corporate", "vlan": 1},
+        {"_id": "g", "name": "Gast ohne VLAN", "purpose": "guest"},
+        {"_id": "v20", "name": "IoT", "purpose": "corporate", "vlan": 20},
+    ])
+    assert "wan" not in nets
+    assert nets["d"] == {"vlan": 1, "name": "Default", "default": True}
+    assert [k for k, n in nets.items() if n.get("default")] == ["d"]  # only the first candidate
+    assert nets["v1"] == {"vlan": 1, "name": "Explizit 1"}
+    assert "default" not in nets["g"] and "default" not in nets["v20"]
+
+
+def test_switch_ports_default_vlan(monkeypatch):
+    switch = {"type": "usw", "mac": "aa:bb:cc:00:00:01", "port_table": [
+        {"port_idx": 1, "portconf_id": "p-all"},
+        {"port_idx": 2, "native_networkconf_id": "n20", "tagged_vlan_mgmt": "auto",
+         "excluded_networkconf_ids": ["n10", "n30"]}]}
+    _, ports = _ports([switch], monkeypatch)
+    assert ports[1]["defaultVlan"] == 1 and ports[2]["defaultVlan"] == 1
+    assert ports[1]["native"]["default"] is True
+    assert "default" not in ports[2]["native"]
+    assert ports[2]["tagged"]["excluded"] == [{"vlan": 1, "name": "Default", "default": True},
+                                              {"vlan": 30, "name": "Gäste"}]
+
+    nets_without_default = [n for n in NETS if n["_id"] != "n10"]
+    _, ports = _ports([switch], monkeypatch, networks=nets_without_default)
+    assert ports[1]["defaultVlan"] is None

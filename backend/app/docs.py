@@ -366,8 +366,16 @@ def _port_table(device_id: str, ports: list[dict], by_id: dict[str, dict]) -> st
     return "\n".join(lines)
 
 
+def _is_default_vlan(port: dict, vlan: int) -> bool:
+    default = port.get("defaultVlan")
+    return isinstance(default, int) and not isinstance(default, bool) and default == vlan
+
+
 def _vlan_ports(systems: list[dict], vlan: int) -> str:
-    """Switch ports carrying a VLAN: native ports, plus tagged ones where the mode is `all`."""
+    """Switch ports carrying a VLAN: native ports, plus tagged ones where the mode is `all`.
+
+    Mode `all` never includes the site's default network (`defaultVlan`, set by the classic probe):
+    UniFi carries it untagged only (#260). Ports stored before that field existed count as before."""
     native: list[str] = []
     tagged: list[str] = []
     for system in sorted(systems, key=lambda s: s["name"].lower()):
@@ -375,7 +383,7 @@ def _vlan_ports(systems: list[dict], vlan: int) -> str:
             label = f"{system['name']} {port['port']}"
             if (port.get("native") or {}).get("vlan") == vlan:
                 native.append(label)
-            elif (port.get("tagged") or {}).get("mode") == "all" and vlan not in {
+            elif (port.get("tagged") or {}).get("mode") == "all" and not _is_default_vlan(port, vlan) and vlan not in {
                     n.get("vlan") for n in (port["tagged"].get("excluded") or []) if isinstance(n, dict)}:
                 tagged.append(label)
     parts = [f"nativ: {', '.join(native)}"] if native else []

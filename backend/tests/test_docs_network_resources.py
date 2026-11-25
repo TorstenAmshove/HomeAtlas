@@ -1,5 +1,7 @@
 import asyncio
 
+import pytest
+
 from app import db, docs
 
 
@@ -70,3 +72,47 @@ def test_docs_vlan_table_unchanged_without_port_data(temp_db):
     db.sync_network_resources(account["id"], [_vlan("a", "Default", 10)], [("default", "network")])
     asyncio.run(docs.generate(db.get_settings(), use_llm=False))
     assert "Switchports" not in db.get_doc_page("netzwerk")["bodyMd"]
+
+
+def _port(n, vlan, mode, default_vlan="absent"):
+    port = {"port": n, "name": "", "profile": "", "native": {"vlan": vlan, "name": "x", "known": True},
+            "tagged": {"mode": mode, "vlans": [], "excluded": []}}
+    if default_vlan != "absent":
+        port["defaultVlan"] = default_vlan
+    return port
+
+
+def _vlan_rows(temp_db, ports, vlans=((1, "Native"), (20, "IoT"), (30, "Gäste"))):
+    account = db.create_account({"label": "UCG", "category": "unifi"})
+    db.sync_network_resources(account["id"], [_vlan(f"n{v}", name, v) for v, name in vlans],
+                              [("default", "network")])
+    db.create_system({"name": "Switch", "kind": "switch", "ip": "192.0.2.2", "extra": {"unifi": {"ports": {
+        "accountId": account["id"], "site": "default", "ports": ports}}}})
+    asyncio.run(docs.generate(db.get_settings(), use_llm=False))
+    body = db.get_doc_page("netzwerk")["bodyMd"]
+    return {line.split(" | ")[0].lstrip("| "): line for line in body.splitlines() if " | Haus | " in line}
+
+
+def test_docs_default_network_never_tagged(temp_db):
+    rows = _vlan_rows(temp_db, [_port(1, 1, "none", 1), _port(8, 20, "all", 1)])
+    assert rows["Native"].endswith("| nativ: Switch 1 | - |")  # port 8 not tagged in the default network
+    assert "nativ: Switch 8" in rows["IoT"]
+    assert "tagged: Switch 8" in rows["Gäste"]
+
+
+def test_docs_explicit_vlan1_still_tagged(temp_db):
+    # No default network on the site (or ports stored before #260): VLAN 1 counts like any VLAN.
+    rows = _vlan_rows(temp_db, [_port(8, 20, "all", None), _port(9, 20, "all")])
+    assert "tagged: Switch 8, Switch 9" in rows["Native"]
+
+
+@pytest.mark.parametrize("bad", ["1", True])
+def test_docs_default_vlan_with_wrong_type_is_ignored(temp_db, bad):
+    rows = _vlan_rows(temp_db, [_port(8, 20, "all", bad)])
+    assert "tagged: Switch 8" in rows["Native"]
+
+
+def test_docs_port_table_still_shows_all_for_default_network(temp_db):
+    _vlan_rows(temp_db, [_port(8, 20, "all", 1)])
+    switch = next(s for s in db.list_systems() if s["name"] == "Switch")
+    assert "alle" in (docs._port_table(switch["id"], docs._switch_ports(switch), {switch["id"]: switch}))

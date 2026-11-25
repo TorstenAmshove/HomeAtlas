@@ -159,10 +159,12 @@ Quelle: `backend/app/unifi_probe.py:128`, `backend/app/unifi_probe.py:149`,
 ### Requirement: Switchports je VLAN in der Doku
 Das System MUSS im Doku-Kapitel „VLANs und Netze“ je VLAN die Switchports nennen, an denen es anliegt
 (Spalte „Switchports“, Quelle `extra.unifi.ports`, siehe `dokumentation`). Die Zuordnung läuft über die
-VLAN-ID der aktiven Netz-Ressourcen. **[Muss]**
+VLAN-ID der aktiven Netz-Ressourcen. Das Standardnetz (`defaultVlan` am Port) erscheint nur „nativ“,
+nie „tagged“, auch bei Modus „alle“ (#260). **[Muss]**
 
 Quelle: `backend/app/docs.py`,
-Test: `backend/tests/test_docs_network_resources.py::test_docs_vlan_lists_ports`
+Test: `backend/tests/test_docs_network_resources.py::test_docs_vlan_lists_ports`,
+`::test_docs_default_network_never_tagged`
 
 ### Requirement: Liste lesen
 Das System MUSS jeder angemeldeten Rolle die Ressourcen liefern, optional gefiltert nach Art und
