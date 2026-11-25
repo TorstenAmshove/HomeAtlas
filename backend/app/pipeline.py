@@ -262,7 +262,9 @@ def _assign_proxmox_parents(guests: list[dict], fallback_host_id: str | None) ->
 
 
 def _link_unifi_topology() -> int:
-    """Resolve controller-local UniFi IDs to inventory parent IDs after all findings are upserted."""
+    """Resolve controller-local UniFi IDs to inventory parent IDs after all findings are upserted.
+
+    Precedence manual > Proxmox > UniFi: parents with parentSource manual or proxmox are kept."""
     systems = db.list_systems()
     by_device_id = {
         unifi.get("deviceId"): system["id"]
@@ -275,8 +277,10 @@ def _link_unifi_topology() -> int:
         target_id = by_device_id.get(unifi.get("uplinkDeviceId"))
         if not target_id or target_id == system["id"] or system.get("parentId") == target_id:
             continue
-        if (system.get("extra") or {}).get("parentSource") == "manual":
-            continue  # counted nowhere: a human-set parent is never replaced
+        if (system.get("extra") or {}).get("parentSource") in ("manual", "proxmox"):
+            # Precedence manual > Proxmox > UniFi: the Proxmox step resets the parent every scan,
+            # so a guest stays on its node. The switch port stays visible via extra.unifi.connection.
+            continue  # counted nowhere
         db.set_parent_from_source(system["id"], target_id, "unifi")
         linked += 1
     return linked

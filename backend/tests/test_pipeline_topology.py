@@ -72,6 +72,42 @@ def test_manual_parent_survives_unifi_link(temp_db):
     assert temp_db.get_system(sw["id"])["parentId"] == other["id"]
 
 
+def _proxmox_guest_setup(db):
+    pve = db.create_system({"kind": "server", "name": "pve", "mac": "aa:aa:aa:aa:aa:10"})
+    sw = db.create_system({"kind": "network", "name": "SW", "mac": "aa:aa:aa:aa:aa:11",
+                           "extra": {"unifi": {"deviceId": "sw"}}})
+    guest = db.create_system({"kind": "vm", "name": "docker", "mac": "aa:aa:aa:aa:aa:12",
+                              "extra": {"unifi": {"uplinkDeviceId": "sw"}, "proxmox": {"node": "pve"}}})
+    return pve, sw, guest
+
+
+def test_proxmox_parent_wins_over_unifi_uplink(temp_db):
+    pve, _sw, guest = _proxmox_guest_setup(temp_db)
+    temp_db.set_parent_from_source(guest["id"], pve["id"], "proxmox")
+    assert pipeline._link_unifi_topology() == 0
+    got = temp_db.get_system(guest["id"])
+    assert got["parentId"] == pve["id"]
+    assert got["extra"]["parentSource"] == "proxmox"
+    assert pipeline._link_unifi_topology() == 0
+
+
+def test_legacy_unifi_parent_of_proxmox_guest_heals_on_scan(temp_db):
+    pve, sw, guest = _proxmox_guest_setup(temp_db)
+    temp_db.set_parent_from_source(guest["id"], sw["id"], "unifi")
+    temp_db.set_parent_from_source(guest["id"], pve["id"], "proxmox")  # Proxmox step of the scan
+    assert pipeline._link_unifi_topology() == 0
+    assert temp_db.get_system(guest["id"])["parentId"] == pve["id"]
+
+
+def test_manual_parent_of_proxmox_guest_is_kept(temp_db):
+    pve, _sw, guest = _proxmox_guest_setup(temp_db)
+    other = temp_db.create_system({"kind": "server", "name": "Other", "mac": "aa:aa:aa:aa:aa:13"})
+    temp_db.update_system(guest["id"], {"parentId": other["id"],
+                                        "extra": {**guest["extra"], "parentSource": "manual"}})
+    temp_db.set_parent_from_source(guest["id"], pve["id"], "proxmox")
+    assert pipeline._link_unifi_topology() == 0
+    assert temp_db.get_system(guest["id"])["parentId"] == other["id"]
+
 
 def test_controller_parent_is_updated_on_next_scan(temp_db):
     gw, sw = _unifi_pair(temp_db)
