@@ -169,3 +169,9 @@ def test_probe_skips_templates(monkeypatch):
         "proxmox:pve1:vm:101", "proxmox:pve1:vm:102", "proxmox:pve2:container:201",
     ]
     assert calls == []  # no /config request for any template
+
+
+def test_probe_sets_guest_type(monkeypatch):
+    _dispatching(monkeypatch, _template_routes(), [])
+    result = asyncio.run(proxmox_probe.probe("https://pve.local:8006", "root@pam!t", "s"))
+    assert [s["extra"]["proxmox"]["type"] for s in result["systems"]] == ["qemu", "qemu", "lxc"]

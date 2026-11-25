@@ -75,3 +75,32 @@ def test_route(client):
     assert client.get("/api/systems/missing/admin-links").status_code == 404
     client.role["v"] = auth.ROLE_MEMBER
     assert client.get(f"/api/systems/{sysm['id']}/admin-links").status_code == 403
+
+
+PVE = {"proxmoxWebUrl": "https://pve:8006"}
+
+
+def _guest(kind, **proxmox):
+    return {"kind": kind, "extra": {"proxmox": {"node": "n1", "vmid": 101, **proxmox}}}
+
+
+def test_proxmox_type_overrides_kind():
+    assert _build(_guest("smarthome", type="qemu"), PVE)[0]["url"] == "https://pve:8006/#v1:0:=qemu%2F101"
+    assert _build(_guest("smarthome", type="lxc"), PVE)[0]["url"] == "https://pve:8006/#v1:0:=lxc%2F101"
+    assert _build(_guest("container", type="qemu"), PVE)[0]["url"].endswith("=qemu%2F101")
+
+
+@pytest.mark.parametrize("bad", ["../x", "QEMU", " qemu", ["qemu"], 5, None, {"a": 1}])
+def test_proxmox_invalid_type_falls_back(bad):
+    assert _build(_guest("server", type=bad), PVE) == []
+    links = _build(_guest("vm", type=bad), PVE)
+    assert links[0]["url"] == "https://pve:8006/#v1:0:=qemu%2F101"
+
+
+def test_proxmox_type_still_needs_node_vmid_base_and_no_docker():
+    assert _build({"kind": "smarthome", "extra": {"proxmox": {"vmid": 1, "type": "qemu"}}}, PVE) == []
+    assert _build(_guest("smarthome", type="qemu", vmid="x1"), PVE) == []
+    assert _build(_guest("smarthome", type="qemu"), {}) == []
+    g = _guest("smarthome", type="qemu")
+    g["extra"]["docker"] = {"containerId": "abc"}
+    assert _build(g, PVE) == []

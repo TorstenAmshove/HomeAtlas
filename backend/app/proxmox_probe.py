@@ -191,7 +191,7 @@ async def probe(base_url: str, token_id: str, token_secret: str) -> dict:
                             "discovered": 1,
                             "discoverySource": "proxmox",
                             "extra": {"proxmox": {
-                                "node": node, "vmid": vmid,
+                                "node": node, "vmid": vmid, "type": path,
                                 "cpuCores": guest.get("cpus"), "memoryMb": memory_mb,
                             }},
                         }

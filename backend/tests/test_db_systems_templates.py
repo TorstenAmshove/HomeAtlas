@@ -51,3 +51,26 @@ def test_empty_skip_sources_is_default_behaviour(temp_db):
     system = _discovered("docker:b", "docker")
     db.mark_systems_offline(set(), set())
     assert db.get_system(system["id"])["status"] == "offline"
+
+
+def test_upsert_adds_proxmox_type_to_confirmed_system(temp_db):
+    system, _ = db.upsert_discovered_system({
+        "discoveryKey": "proxmox:pve:vm:101", "kind": "smarthome", "name": "ha",
+        "status": "online", "discovered": 1, "discoverySource": "proxmox",
+        "extra": {"proxmox": {"node": "pve", "vmid": 101}},
+    })
+    with db._conn() as conn:
+        conn.execute("UPDATE systems SET confirmed=1 WHERE id=?", (system["id"],))
+    found = {
+        "discoveryKey": "proxmox:pve:vm:101", "kind": "vm", "name": "ha", "status": "online",
+        "discovered": 1, "discoverySource": "proxmox",
+        "extra": {"proxmox": {"node": "pve", "vmid": 101, "type": "qemu"}},
+    }
+    db.upsert_discovered_system(found)
+    after = db.get_system(system["id"])
+    assert after["extra"]["proxmox"]["type"] == "qemu"
+    assert after["kind"] == "smarthome"
+    assert after["confirmed"]
+    found["extra"]["proxmox"]["type"] = "lxc"
+    db.upsert_discovered_system(found)
+    assert db.get_system(system["id"])["extra"]["proxmox"]["type"] == "lxc"
