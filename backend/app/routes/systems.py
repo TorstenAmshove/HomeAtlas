@@ -312,7 +312,8 @@ async def probe_system(system_id: str, _: dict = Depends(require_admin)) -> dict
         for finding in result["systems"]:
             db.upsert_discovered_system(finding)
         if category == "unifi":
-            db.sync_network_resources(account["id"], result["resources"], result["completeScopes"])
+            db.sync_network_resources(account["id"], result["resources"], result["completeScopes"],
+                                      count_empty=False)
             unifi_synced = True
             summary = (f"{len(result['systems'])} Geräte/Clients, "
                        f"{len(result['resources'])} Netzwerkressourcen")

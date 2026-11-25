@@ -48,7 +48,8 @@ _EMPTY_SCANS_BEFORE_INACTIVE = 2
 
 
 def sync_network_resources(source_account_id: str, resources: list[dict],
-                           complete_scopes: list[tuple[str, str]]) -> list[dict]:
+                           complete_scopes: list[tuple[str, str]], *,
+                           count_empty: bool = True) -> list[dict]:
     """Refreshes resources successfully read from a controller.
 
     `complete_scopes` is deliberately separate from `resources`: a failed endpoint must never make
@@ -58,6 +59,11 @@ def sync_network_resources(source_account_id: str, resources: list[dict],
     with zero entries may be a transient empty controller answer, so its resources are only
     deactivated on the `_EMPTY_SCANS_BEFORE_INACTIVE`-th consecutive empty read (`emptyScans`);
     any later appearance of the resource resets the counter.
+
+    The threshold counts *scans*. A manual read (`POST /api/systems/{id}/probe`) passes
+    `count_empty=False`: an empty scope then leaves `emptyScans` and `active` untouched, so clicking
+    "Auslesen" twice can never deactivate a whole scope. Upserts, the counter reset and the immediate
+    deactivation of entries missing from a non-empty listing apply to both callers alike.
     """
     now = _now()
     refreshed_ids: list[str] = []
@@ -99,7 +105,7 @@ def sync_network_resources(source_account_id: str, resources: list[dict],
                     f"AND siteExternalId = ? AND kind = ? AND sourceKey NOT IN ({placeholders})",
                     (now, source_account_id, site_id, kind, *present),
                 )
-            else:
+            elif count_empty:
                 conn.execute(
                     "UPDATE networkResources SET emptyScans = emptyScans + 1, "
                     "active = CASE WHEN emptyScans + 1 >= ? THEN 0 ELSE active END, "

@@ -125,3 +125,46 @@ def test_existing_db_gets_empty_scans_column(temp_db):
     with sqlite3.connect(temp_db.DB_PATH) as conn:
         cols = {row[1] for row in conn.execute("PRAGMA table_info(networkResources)")}
     assert "emptyScans" in cols
+
+
+_SCOPE = [("site-1", "network")]
+
+
+def test_manual_empty_reads_never_deactivate(temp_db):
+    temp_db.sync_network_resources("account-1", [_network("LAN")], _SCOPE)
+    for _ in range(3):
+        temp_db.sync_network_resources("account-1", [], _SCOPE, count_empty=False)
+    assert _active(temp_db) == {"LAN": 1}
+
+
+def test_manual_empty_read_does_not_advance_scan_counter(temp_db):
+    temp_db.sync_network_resources("account-1", [_network("LAN")], _SCOPE)
+    temp_db.sync_network_resources("account-1", [], _SCOPE)
+    temp_db.sync_network_resources("account-1", [], _SCOPE, count_empty=False)
+    assert _active(temp_db) == {"LAN": 1}
+    temp_db.sync_network_resources("account-1", [], _SCOPE)
+    assert _active(temp_db) == {"LAN": 0}
+
+
+def test_manual_read_still_deactivates_missing_in_non_empty_scope(temp_db):
+    temp_db.sync_network_resources("account-1", [_network("LAN"), _network("IoT", "network-2")], _SCOPE)
+    temp_db.sync_network_resources("account-1", [_network("LAN")], _SCOPE, count_empty=False)
+    assert _active(temp_db) == {"LAN": 1, "IoT": 0}
+
+
+def test_manual_read_with_resources_resets_counter(temp_db):
+    temp_db.sync_network_resources("account-1", [_network("LAN")], _SCOPE)
+    temp_db.sync_network_resources("account-1", [], _SCOPE)
+    temp_db.sync_network_resources("account-1", [_network("LAN")], _SCOPE, count_empty=False)
+    temp_db.sync_network_resources("account-1", [], _SCOPE)
+    assert _active(temp_db) == {"LAN": 1}
+
+
+def test_manual_read_with_one_empty_and_one_filled_scope(temp_db):
+    wlan = {**_network("WLAN", "wlan-1"), "kind": "wifi"}
+    lan2 = _network("IoT", "network-2")
+    scopes = [("site-1", "network"), ("site-1", "wifi")]
+    temp_db.sync_network_resources("account-1", [_network("LAN"), lan2, wlan], scopes)
+    for _ in range(2):
+        temp_db.sync_network_resources("account-1", [_network("LAN")], scopes, count_empty=False)
+    assert _active(temp_db) == {"LAN": 1, "IoT": 0, "WLAN": 1}

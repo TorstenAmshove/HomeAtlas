@@ -125,3 +125,28 @@ def test_filtered_client_does_not_delete_existing_system(client, monkeypatch):
     _capture(monkeypatch)
     assert client.post(f"/api/systems/{controller['id']}/probe").status_code == 200
     assert db.get_system(guest["id"])["name"] == "Gast"
+
+
+def test_manual_probe_twice_with_empty_scope_keeps_resources_active(client, monkeypatch):
+    controller = db.create_system({"kind": "router", "name": "UCG", "ip": "192.168.42.2"})
+    db.create_account({
+        "systemId": controller["id"], "label": "UCG API", "category": "unifi", "allowProbe": 1,
+        "url": "https://192.168.42.2", "secretEnc": crypto.encrypt("api-token"),
+    })
+    resource = {
+        "source": "unifi", "siteExternalId": "default", "siteName": "Zuhause", "kind": "network",
+        "externalId": "vlan-20", "name": "IoT", "ownerSystemId": controller["id"],
+        "facts": {"vlanId": 20, "cidr": "192.168.20.0/24"},
+    }
+    answers = [[resource], [], []]
+
+    async def fake_probe(*_args, **_kwargs):
+        return {"ok": True, "error": "", "warnings": [], "systems": [],
+                "resources": answers.pop(0), "completeScopes": [("default", "network")]}
+
+    monkeypatch.setattr(unifi_probe, "probe", fake_probe)
+
+    for _ in range(3):
+        assert client.post(f"/api/systems/{controller['id']}/probe").status_code == 200
+
+    assert [r["name"] for r in db.list_network_resources(active_only=True)] == ["IoT"]
