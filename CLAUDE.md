@@ -128,7 +128,7 @@ failures (`_FAILURES_BEFORE_DOWN`) before it's recorded, to avoid flagging norma
 loss as an outage.
 
 **`db/`** (package, one module per entity group, ADR-0010) is the only place that touches SQLite — flat functions over a single
-connection helper in `db/_core.py`, no ORM; `db/__init__.py` re-exports everything so callers write `db.get_system(...)`. `DB_PATH` and `_ERROR_EVENT_KEEP` live in `db/__init__.py` and are read at call time, so `monkeypatch.setattr(db, ...)` keeps working; submodules import only from `_core` (plus `accounts`→`systems`, `config_versions`→`settings`), never cyclically. **`crypto.py`** (Fernet, key stored alongside the DB in the same
+connection helper in `db/_core.py`, no ORM; `db/__init__.py` re-exports everything so callers write `db.get_system(...)`. `DB_PATH` and `_ERROR_EVENT_KEEP` live in `db/__init__.py` and are read at call time, so `monkeypatch.setattr(db, ...)` keeps working; submodules import only from `_core` (plus `accounts`→`systems`), never cyclically. **`crypto.py`** (Fernet, key stored alongside the DB in the same
 volume — protects against a leaked DB copy, not a host-root attacker) encrypts credentials in
 `accounts.secretEnc`; the API only ever returns a stored secret one-at-a-time from
 `GET /api/accounts/{id}/secret`, admin-only, never in bulk.

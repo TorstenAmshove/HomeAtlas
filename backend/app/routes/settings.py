@@ -45,9 +45,9 @@ _MASK = "********"
 def _migrate_plaintext_secrets() -> None:
     """One-time, idempotent clean-up at startup for data older versions stored readably:
     - LLM API keys in the settings blob are encrypted (ADR-0007),
-    - config exports are removed from systems.extra.probe (they stay, encrypted, in
-      deviceConfigVersions), and from already generated doc pages, page versions and stored
-      assistant tool results that copied them from there."""
+    - config exports (a source removed in issues #229/#230) are removed from systems.extra.probe,
+      and from already generated doc pages, page versions and stored assistant tool results that
+      copied them from there."""
     settings = db.get_settings()
     plaintext = {f: crypto.encrypt(settings[f]) for f in _SECRET_SETTING_FIELDS
                  if settings.get(f) and not crypto.is_encrypted(settings[f])}

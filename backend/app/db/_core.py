@@ -320,24 +320,10 @@ CREATE TABLE IF NOT EXISTS docPageVersions (
 );
 CREATE INDEX IF NOT EXISTS idx_docversions_slug ON docPageVersions(slug, createdAt DESC);
 
--- Backups of a device's own textual configuration (a router/switch `show
--- running-config`, ...), view-only history modeled on docPageVersions. `content` is encrypted at
--- rest (see probe_auth.persist_config_backups) -- unlike documentation text, a device export can
--- contain secrets (RADIUS shared secrets, WiFi keys). Never written back
--- to the device: see the read-only invariant in probe_auth.py's module docstring.
-CREATE TABLE IF NOT EXISTS deviceConfigVersions (
-    id TEXT PRIMARY KEY,
-    systemId TEXT NOT NULL,
-    label TEXT NOT NULL,
-    content TEXT NOT NULL,
-    source TEXT NOT NULL DEFAULT '',
-    createdAt TEXT NOT NULL
-);
-
 -- One row per scan-time failure a device was the subject of -- an SSH timeout, a Proxmox auth
 -- error, a monitored device going down, and so on (see pipeline.py/monitor.py's
 -- db.add_device_error_event calls). Kept as its own history table, not a field on `systems`,
--- for the same reason deviceConfigVersions is: it is something that accumulates over many scans,
+-- because it is something that accumulates over many scans,
 -- not a single current value an upsert would just overwrite. Never contains a secret -- callers
 -- pass through whatever error message probe_auth/proxmox_probe/monitor.py already produced for a
 -- human to read, none of which include credentials (see those modules' own invariants).
@@ -351,7 +337,6 @@ CREATE TABLE IF NOT EXISTS deviceErrorEvents (
     acknowledgedAt TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_errorevents_system ON deviceErrorEvents(systemId, createdAt DESC);
-CREATE INDEX IF NOT EXISTS idx_configversions_system ON deviceConfigVersions(systemId, createdAt DESC);
 
 CREATE TABLE IF NOT EXISTS docPages (
     id TEXT PRIMARY KEY,
@@ -468,9 +453,10 @@ def init_db() -> None:
                 blob = json.loads(row["value"])
             except json.JSONDecodeError:
                 blob = None
-            if isinstance(blob, dict) and ("scanEnableOmada" in blob or "scanEnableAdguard" in blob):
-                blob.pop("scanEnableOmada", None)
-                blob.pop("scanEnableAdguard", None)
+            removed = ("scanEnableOmada", "scanEnableAdguard", "configVersionKeep")
+            if isinstance(blob, dict) and any(k in blob for k in removed):
+                for k in removed:
+                    blob.pop(k, None)
                 conn.execute("UPDATE settings SET value = ? WHERE key = 'app'", (json.dumps(blob),))
         for row in conn.execute("SELECT id, extra FROM systems WHERE extra IS NOT NULL").fetchall():
             try:
@@ -506,6 +492,11 @@ def init_db() -> None:
                 for k in stale:
                     probe.pop(k, None)
                 conn.execute("UPDATE systems SET extra = ? WHERE id = ?", (json.dumps(extra), row["id"]))
+
+        # The device config history lost its last sources (issue #229) and was removed (issue #230):
+        # the table (encrypted exports, no backup) and its index are dropped; idempotent.
+        conn.execute("DROP INDEX IF EXISTS idx_configversions_system")
+        conn.execute("DROP TABLE IF EXISTS deviceConfigVersions")
 
         # The `router` category was evaluated by the backend but never offered in the UI; its
         # accounts are plain logins (issue #134).

@@ -259,17 +259,6 @@ export interface ApiToken {
   token?: string;
 }
 
-export interface ConfigVersion {
-  id: string;
-  systemId: string;
-  label: string;
-  source: string;
-  createdAt: string;
-  size: number;
-  /** Only present when fetched via getConfigVersion — the list endpoint omits it. */
-  content?: string;
-}
-
 export interface ProbeFact {
   label: string;
   value: string;
@@ -473,10 +462,6 @@ export const api = {
   probeSystem: (id: string) => post<{ outcome: ProbeOutcome; system: System }>(`/systems/${id}/probe`),
   systemAdminLinks: (systemId: string) =>
     get<{ links: { label: string; url: string }[] }>(`/systems/${systemId}/admin-links`),
-  listConfigVersions: (systemId: string) =>
-    get<{ versions: ConfigVersion[] }>(`/systems/${systemId}/config-versions`),
-  getConfigVersion: (systemId: string, id: string) =>
-    get<{ version: ConfigVersion }>(`/systems/${systemId}/config-versions/${id}`),
   listSystemErrors: (systemId: string) =>
     get<{ events: DeviceErrorEvent[] }>(`/systems/${systemId}/errors`),
   acknowledgeSystemError: (systemId: string, eventId: string) =>

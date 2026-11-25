@@ -7,7 +7,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from app import auth, crypto, db, docs, llm_providers, main, probe_auth
+from app import auth, crypto, db, docs, llm_providers, main
 
 EXPORT = "username admin secret S3cr3tCommunity\nradius-server key R4diusKey"
 
@@ -48,21 +48,6 @@ def _probe_results() -> dict:
     }}}
 
 
-# --- write path -------------------------------------------------------------------------------
-
-def test_without_config_backups_strips_only_export_facts():
-    cleaned = probe_auth.without_config_backups(_probe_results())
-    assert set(cleaned["ssh:Switch"]["facts"]) == {"hostname"}
-
-
-def test_config_backup_labels_cover_every_export_command():
-    """CONFIG_BACKUP_LABELS drives the doc/chat scrub; a new export command with another label
-    would silently slip through it."""
-    for key, label, _command in probe_auth._SSH_COMMANDS:
-        if key in probe_auth.CONFIG_BACKUP_KEYS:
-            assert label in probe_auth.CONFIG_BACKUP_LABELS
-
-
 # --- read paths -------------------------------------------------------------------------------
 
 def test_docs_never_render_config_export_even_from_old_rows(keyed):
@@ -71,23 +56,6 @@ def test_docs_never_render_config_export_even_from_old_rows(keyed):
     rendered = docs._device_details([db.get_system(system["id"])], {}, {})
     assert "core-sw" in rendered
     assert "S3cr3tCommunity" not in rendered
-
-
-def test_config_versions_are_admin_only(member):
-    system = db.create_system({"name": "Core Switch", "kind": "network"})
-    version = db.save_device_config_version(system["id"], "Core Switch – Vollständige Konfiguration",
-                                            crypto.encrypt(EXPORT), "ssh:Switch")
-    assert member.get(f"/api/systems/{system['id']}/config-versions").status_code == 403
-    assert member.get(f"/api/systems/{system['id']}/config-versions/{version['id']}").status_code == 403
-
-
-def test_admin_still_reads_config_version(admin):
-    system = db.create_system({"name": "Core Switch", "kind": "network"})
-    version = db.save_device_config_version(system["id"], "Core Switch – Vollständige Konfiguration",
-                                            crypto.encrypt(EXPORT), "ssh:Switch")
-    response = admin.get(f"/api/systems/{system['id']}/config-versions/{version['id']}")
-    assert response.status_code == 200
-    assert response.json()["version"]["content"] == EXPORT
 
 
 # --- API keys ---------------------------------------------------------------------------------

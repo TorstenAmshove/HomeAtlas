@@ -22,7 +22,6 @@ systems ─┬─ systems (parentId: Container/VM → Host)
          ├─ systemAliases        (frühere IP/MAC-Identitäten nach Merge)
          ├─ duplicateDismissals  (Paar idA/idB: "kein Duplikat")
          ├─ accounts (systemId, optional) ── accountAssignments (system | kind | subnet)
-         ├─ deviceConfigVersions
          ├─ deviceErrorEvents
          ├─ monitorEvents
          └─ networkResources (ownerSystemId, optional; sourceAccountId → accounts)
@@ -113,9 +112,6 @@ Paar `(idA, idB)`, das ein Mensch als „kein Duplikat“ markiert hat.
 `kind` (`network`, `wifi`, `wan`), `source` (Controller-Typ), `sourceKey` (eindeutig),
 `sourceAccountId`, `ownerSystemId`, `siteExternalId`, `siteName`, `externalId`, `name`, `enabled`,
 `active`, `emptyScans` (aufeinanderfolgende leere Abgleiche, #139), `facts` (JSON), `manualMd` (Notizen des Haushalts), `firstSeen`, `lastSeen`.
-
-### deviceConfigVersions — Versionierte Gerätekonfiguration
-`systemId`, `label`, `content`, `source`, `createdAt`.
 
 ### deviceErrorEvents — Fehlermeldungen je Gerät
 `systemId`, `level` (Default `error`), `message`, `createdAt`, `acknowledgedAt` (`NULL` = offen; nur offene zählen im Fehler-Badge).

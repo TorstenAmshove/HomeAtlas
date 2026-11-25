@@ -151,8 +151,7 @@ aggressiveren Zweitversuch. **[Muss]**
 Quelle: `backend/app/probe_auth.py` (`probe_ssh`)
 
 ### Requirement: Größenbegrenzung gespeicherter Fakten
-Das System MUSS die Ausgabe je Fakt begrenzen: allgemein 1.200 Zeichen, Konfigurationsexport
-(`config_export`) 60.000 Zeichen. Leere Ausgabe ergibt keinen Fakt. **[Impl]**
+Das System MUSS die Ausgabe je Fakt begrenzen: 1.200 Zeichen. Leere Ausgabe ergibt keinen Fakt. **[Impl]**
 
 Quelle: `backend/app/probe_auth.py` (`_bounded_fact`)
 
@@ -223,19 +222,15 @@ Virtualisierung → VM/Container), im Vollscan zusätzlich `os` (erste Zeile, �
 
 Quelle: `backend/app/pipeline.py:115`, `backend/app/probe_auth.py:1315`
 
-### Requirement: Konfigurationsversionen sichern
-Das System MUSS Fakten `config_export` (Altbestand: auch `omada_backup`) erfolgreicher Ergebnisse als
-Konfigurationsversion des Geräts (Label „<Gerätename> – <Faktlabel>“, Quelle = Ergebnisschlüssel)
-verschlüsselt speichern, aber nur, wenn sich der Inhalt gegenüber der neuesten Version gleichen
-Labels geändert hat (Vergleich ohne Zeilen, die mit `#` beginnen). Je Gerät und Label bleiben die
-neuesten `configVersionKeep` Versionen (Default 50, begrenzt auf 1–1000). Es gibt keinen Weg,
-eine Version zurück aufs Gerät zu schreiben. Diese Fakten DÜRFEN nicht in `systems.extra.probe`
-gespeichert werden (dort lesen MEMBER, Doku und LLM); dort landet nur das Ergebnis ohne sie
-(`probe_auth.without_config_backups`). Beim Start entfernt das System Klartext-Kopien, die ältere
-Versionen gespeichert haben, auch aus Doku-Ständen und gespeicherten Werkzeugergebnissen des
-Assistenten. **[Muss]** Test: `backend/tests/test_secrets_at_rest.py`
+### Requirement: Keine Konfigurationsexporte mehr
+Das System MUSS keine vollständigen Konfigurationsexporte mehr auslesen oder speichern (Quellen
+`config_export`/`omada_backup` entfielen mit #229, die Konfigurations-Historie mit #230). Beim Start
+entfernt das System die Tabelle `deviceConfigVersions` (idempotent) und Klartext-Kopien, die ältere
+Versionen gespeichert haben, aus `systems.extra.probe`, Doku-Ständen und gespeicherten
+Werkzeugergebnissen des Assistenten. **[Muss]** Test: `backend/tests/test_config_history_removed.py`,
+`backend/tests/test_secrets_at_rest.py`
 
-#### Szenario: Nur Zeitstempel geändert
+### Szenario: Nur Zeitstempel geändert
 - **WENN** ein Konfigurationsexport sich nur in der Kommentarzeile mit Zeitstempel unterscheidet
 - **DANN** wird keine neue Version angelegt
 
@@ -396,10 +391,9 @@ Siehe [data-model](../../contracts/data-model.md).
   `accountAssignments`, `systems` (ip, hostname, kind, vendor, model, name, os, openPorts, url, purpose).
 - Schreibt `systems.extra.probe` (Ergebnisse), `systems.purpose/os/model` (nur leer),
   neue/aktualisierte `systems` aus
-  Controller-/Docker-/ARP-Funden, `networkResources` (UniFi), `deviceConfigVersions`
-  (`content` verschlüsselt), `deviceErrorEvents` (Level `error`/`warning`).
+  Controller-/Docker-/ARP-Funden, `networkResources` (UniFi), `deviceErrorEvents` (Level `error`/`warning`).
 - Settings: `scanUseCredentials`, `scanEnableDocker`, `scanEnableUnifi`,
-  `scanEnableProxmox`, `scanEnableTraefik`, `scanEnableUnifiClassic`, `scanEnableExposureFiles`, `configVersionKeep`, `defaultCredentialEnabled`,
+  `scanEnableProxmox`, `scanEnableTraefik`, `scanEnableUnifiClassic`, `scanEnableExposureFiles`, `defaultCredentialEnabled`,
   `defaultCredentialUsername`, `defaultCredentialIsKey`, `defaultCredentialSecretEnc`,
   `defaultCredentialPassphraseEnc`, `defaultCredentialPort` (alle nur gelesen).
 
@@ -409,8 +403,7 @@ Siehe [data-model](../../contracts/data-model.md).
 |---|---|---|---|
 | POST | /api/systems/{system_id}/probe | ADMIN | Gerät sofort mit allen freigegebenen Zugängen auslesen (inkl. UniFi-Sync) |
 
-Berührte fremde Routen: Konfigurationsversionen `GET /api/systems/{id}/config-versions[/{vid}]` und
-Fehlerereignisse `GET /api/systems/{id}/errors` ([inventar](../inventar/spec.md)); Vollscan
+Berührte fremde Routen: Fehlerereignisse `GET /api/systems/{id}/errors` ([inventar](../inventar/spec.md)); Vollscan
 ([discovery-und-scan](../discovery-und-scan/spec.md)); Freigabe/Zuordnung
 ([zugangsdaten](../zugangsdaten/spec.md)); Standard-Zugang ([einstellungen-und-llm-provider](../einstellungen-und-llm-provider/spec.md)).
 
@@ -429,6 +422,6 @@ auslesen“, nur Admin und nur wenn ein Zugang `allowProbe` hat).
 
 - Python/asyncssh, httpx.
 - Pro SSH-Befehl ein eigener Exec-Kanal.
-- `persist_config_backups` ist der einzige Speicherzugriff in `probe_auth.py`.
+- `probe_auth.py` greift nie auf den Speicher zu (reine Funktionen und Netzwerk-Lesezugriffe).
 - Ergebnis-Dict je Probe: `{ok, error, facts, warnings?}`; Faktwerte sind Text, mehrzeilig möglich.
 - Fortschritt im Scan: Docker 86 %, UniFi 87 %, Proxmox 88 %, Zugänge 93 %.

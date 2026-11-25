@@ -344,25 +344,6 @@ Container (teilen die Host-IP) nur bei exakt gleichem Namen einen Zähler ab dem
 
 Quelle: `backend/app/pipeline.py:307`, `backend/app/pipeline.py:478`
 
-### Requirement: Konfigurationsversionen
-Das System MUSS die gesicherten Textkonfigurationen eines Geräts als Liste liefern (neueste zuerst,
-ohne Inhalt, mit `id, systemId, label, source, createdAt, size`) und eine einzelne Version mit
-entschlüsseltem Inhalt. Eine Version eines anderen Geräts → 404 „Version nicht gefunden.".
-Je Gerät und Bezeichnung werden höchstens `configVersionKeep` Versionen behalten (Default 50,
-begrenzt auf 1–1000, älteste fallen weg). Inhalte sind verschlüsselt gespeichert und werden nie auf
-das Gerät zurückgeschrieben. **[Muss]**
-
-Liste und Inhalt der Konfigurationsversionen sind nur für ADMIN abrufbar (MEMBER: 403); die
-Oberfläche zeigt den Bereich nur Administratoren. **[Muss]** (`backend/app/main.py`, `list_config_versions`/`get_config_version`;
-Test: `backend/tests/test_secrets_at_rest.py::test_config_versions_are_admin_only`)
-
-#### Szenario: Fremde Version
-- **WENN** `GET /api/systems/A/config-versions/<Version von B>` aufgerufen wird
-- **DANN** 404
-
-Quelle: `backend/app/main.py:1405`, `backend/app/main.py:1412`, `backend/app/db.py:1694`, `backend/app/db.py:1699`,
-`backend/app/db.py:1717`; Erzeugung: [credentialed-probing](../credentialed-probing/spec.md)
-
 ### Requirement: Fehlerereignisse je Gerät
 Das System MUSS je Gerät die letzten 50 Fehlerereignisse (neueste zuerst; `id, systemId, level,
 message, createdAt, acknowledgedAt`) liefern; unbekanntes Gerät → 404. Gespeichert werden höchstens 100 pro Gerät
@@ -483,8 +464,7 @@ Die Detailseite MUSS zeigen: Kopf (Name, Zweck, Zustand, kritisch, Fehleranzahl 
 Fehlerprotokoll, PoE, überwacht mit Port/Ping, „automatisch gefunden", Links Weboberfläche /
 Hersteller-Doku / eigene Doku), Beschreibung (eigene oder abgeleitet mit Hinweis) und Notiz,
 technische Daten (IP, Hostname, MAC, Hersteller, Modell, Standort, zuletzt/erstmals gesehen,
-Quelle; nur befüllte), je nach Daten: Container-Details, „Direkt vom Gerät ausgelesen", Konfigurationsverlauf (nur Art `router`/`network`,
-Ansehen/Herunterladen; Base64-Inhalt als `.cfg`, sonst `.txt`), erreichbare Dienste (mit
+Quelle; nur befüllte), je nach Daten: Container-Details, „Direkt vom Gerät ausgelesen", erreichbare Dienste (mit
 Adressspalte bei mehreren Interfaces). ADMIN zusätzlich: Bearbeiten, Löschen, Auslesen,
 Zusammenführen-Bereich („Weitere IPs/MACs", Duplikat-Hinweise, „Zusammenführen…") und
 Zugänge. Es gibt keine Fernwartung (Neustart, Schalten, Konsolen, Container-Steuerung; ADR-0023). **[Impl]** (Inhalte fachlich **[Muss]**: Mitglieder sehen keine
@@ -552,8 +532,7 @@ Aus [data-model](../../contracts/data-model.md):
 - `systems`: gelesen und geschrieben (alle Felder; `confirmed`, `monitored` gezielt).
 - `systemAliases`, `duplicateDismissals`: geschrieben bei Merge/Markierung, gelöscht bei Delete.
 - `accounts`, `accountAssignments`: gelesen (Detail, Zähler), umgehängt (Merge), gelöscht (Delete).
-- `deviceConfigVersions`, `deviceErrorEvents`, `monitorEvents`: gelesen, bei Merge umgehängt, bei Delete gelöscht.
-- `settings`: `configVersionKeep` (gelesen beim Speichern einer Version).
+- `deviceErrorEvents`, `monitorEvents`: gelesen, bei Merge umgehängt, bei Delete gelöscht.
 
 ## Schnittstellen
 
@@ -568,8 +547,6 @@ Aus [data-model](../../contracts/data-model.md):
 | GET | /api/systems/{system_id}/aliases | ADMIN | Aliase → `{aliases}` |
 | POST | /api/systems/{system_id}/merge | ADMIN | Body `{removeId}` → `{system}` |
 | POST | /api/systems/{system_id}/not-duplicate | ADMIN | Body `{otherId}` → `{ok}` |
-| GET | /api/systems/{system_id}/config-versions | ADMIN | Versionsliste → `{versions}` |
-| GET | /api/systems/{system_id}/config-versions/{version_id} | ADMIN | Version mit Klartext → `{version}` |
 | GET | /api/systems/{system_id}/errors | MEMBER | Fehlerereignisse → `{events}` |
 | POST | /api/systems/{system_id}/errors/acknowledge | ADMIN | alle offenen quittieren → `{acknowledged}` |
 | POST | /api/systems/{system_id}/errors/{event_id}/acknowledge | ADMIN | ein Ereignis quittieren → `{ok}` |
@@ -600,7 +577,6 @@ UI-Seite(n): `frontend/src/pages/geraete/InventoryPage.tsx` (Route `/geraete`),
 - Eindeutigkeit über generierte Spalte `identityKey` (`discoveryKey` oder `id:<id>`), Unique-Index.
 - Kein Fremdschlüssel in SQLite; Kaskaden bei Delete/Merge sind handgeschrieben.
 - UI speichert beim Bearbeiten das gesamte Gerät als Patch (`setDraft(system)`), nicht nur Änderungen.
-- Konfigurationsverlauf wird in der UI nur für `router`/`network` abgefragt; die API liefert für alle.
 - Merge in der UI navigiert danach auf das behaltene Gerät und lädt dessen Daten neu (kein
   `window.location.reload()` mehr).
 

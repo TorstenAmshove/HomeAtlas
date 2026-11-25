@@ -5,7 +5,7 @@
 
 Lücken: **0**
 
-## Routen (77)
+## Routen (75)
 
 | Eintrag | Spec |
 |---|---|
@@ -69,8 +69,6 @@ Lücken: **0**
 | `GET /api/systems/{system_id}/admin-links` | [inventar](capabilities/inventar/spec.md) |
 | `GET /api/systems/{system_id}/aliases` | [inventar](capabilities/inventar/spec.md) |
 | `POST /api/systems/{system_id}/classify` | [inventar](capabilities/inventar/spec.md), [klassifikation-llm](capabilities/klassifikation-llm/spec.md) |
-| `GET /api/systems/{system_id}/config-versions` | [inventar](capabilities/inventar/spec.md) |
-| `GET /api/systems/{system_id}/config-versions/{version_id}` | [inventar](capabilities/inventar/spec.md) |
 | `GET /api/systems/{system_id}/errors` | [inventar](capabilities/inventar/spec.md) |
 | `POST /api/systems/{system_id}/errors/acknowledge` | [inventar](capabilities/inventar/spec.md) |
 | `POST /api/systems/{system_id}/errors/{event_id}/acknowledge` | [inventar](capabilities/inventar/spec.md) |
@@ -87,7 +85,7 @@ Lücken: **0**
 | `POST /api/users/{user_id}/mfa/reset` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
 | `GET /api/version` | [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md) |
 
-## Tabellen (21)
+## Tabellen (20)
 
 | Eintrag | Spec |
 |---|---|
@@ -97,7 +95,6 @@ Lücken: **0**
 | `apiTokens` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
 | `chatMessages` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `chats` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
-| `deviceConfigVersions` | [credentialed-probing](capabilities/credentialed-probing/spec.md), [inventar](capabilities/inventar/spec.md) |
 | `deviceErrorEvents` | [credentialed-probing](capabilities/credentialed-probing/spec.md), [inventar](capabilities/inventar/spec.md), [monitoring](capabilities/monitoring/spec.md) |
 | `docPageVersions` | [dokumentation](capabilities/dokumentation/spec.md) |
 | `docPages` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [dokumentation](capabilities/dokumentation/spec.md) |
@@ -108,7 +105,7 @@ Lücken: **0**
 | `networkResources` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [credentialed-probing](capabilities/credentialed-probing/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [dokumentation](capabilities/dokumentation/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md), [topologie](capabilities/topologie/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `scans` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [dashboard](capabilities/dashboard/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [dokumentation](capabilities/dokumentation/spec.md), [klassifikation-llm](capabilities/klassifikation-llm/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md), [topologie](capabilities/topologie/spec.md) |
 | `sessions` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
-| `settings` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [dashboard](capabilities/dashboard/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [dokumentation](capabilities/dokumentation/spec.md), [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md), [inventar](capabilities/inventar/spec.md), [klassifikation-llm](capabilities/klassifikation-llm/spec.md), [monitoring](capabilities/monitoring/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md), [topologie](capabilities/topologie/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
+| `settings` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [dashboard](capabilities/dashboard/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [dokumentation](capabilities/dokumentation/spec.md), [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md), [klassifikation-llm](capabilities/klassifikation-llm/spec.md), [monitoring](capabilities/monitoring/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md), [topologie](capabilities/topologie/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `systemAliases` | [inventar](capabilities/inventar/spec.md), [topologie](capabilities/topologie/spec.md) |
 | `systems` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [credentialed-probing](capabilities/credentialed-probing/spec.md), [dashboard](capabilities/dashboard/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [dokumentation](capabilities/dokumentation/spec.md), [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md), [erreichbarkeit](capabilities/erreichbarkeit/spec.md), [inventar](capabilities/inventar/spec.md), [klassifikation-llm](capabilities/klassifikation-llm/spec.md), [monitoring](capabilities/monitoring/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md), [topologie](capabilities/topologie/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `users` | [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |

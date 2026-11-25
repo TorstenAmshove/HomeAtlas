@@ -1,54 +1,29 @@
 import { useState } from "react";
-import { api, type ConfigVersion, type DeviceErrorEvent, type MonitorEvent } from "../../lib/api";
-import { downloadConfigVersion } from "../../lib/device";
+import { api, type DeviceErrorEvent, type MonitorEvent } from "../../lib/api";
 import { Skeleton } from "../../components/Skeleton";
-import { LogBox, NoticeLine, Section, StateChip, fullDate, when, type Notice } from "./common";
+import { NoticeLine, Section, StateChip, fullDate, when, type Notice } from "./common";
 
 export const MONITOR_WORD: Record<string, string> = { online: "wieder erreichbar", offline: "nicht erreichbar" };
 export const LEVEL_WORD: Record<string, string> = { error: "Fehler", warning: "Warnung", info: "Hinweis" };
 
-/** Tab "Verlauf": monitor transitions, the error log and (routers/switches, admin) the config
- *  history. Only reads; a stored config is never written back to the device. */
-export default function VerlaufTab({ systemId, errorEvents, monitorEvents, monitorEnabled, configVersions, showConfig, isAdmin, onAcknowledged }: {
+/** Tab "Verlauf": monitor transitions, and the error log. Only reads. */
+export default function VerlaufTab({ systemId, errorEvents, monitorEvents, monitorEnabled, isAdmin, onAcknowledged }: {
   systemId: string;
   errorEvents: DeviceErrorEvent[] | null;
   /** This device's entries of /api/monitor's event log (the newest 50 across all devices). */
   monitorEvents: MonitorEvent[];
   monitorEnabled: boolean;
-  configVersions: ConfigVersion[] | null;
-  showConfig: boolean;
   isAdmin: boolean;
   /** Called after an acknowledge so the page reloads the error list. */
   onAcknowledged: () => void;
 }) {
-  const [preview, setPreview] = useState<ConfigVersion | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
-
-  async function toggleVersion(version: ConfigVersion) {
-    if (preview?.id === version.id) {
-      setPreview(null);
-      return;
-    }
-    try {
-      setPreview((await api.getConfigVersion(systemId, version.id)).version);
-    } catch (e) {
-      setNotice({ kind: "error", text: e instanceof Error ? e.message : String(e) });
-    }
-  }
 
   async function acknowledge(eventId: string | null) {
     try {
       if (eventId) await api.acknowledgeSystemError(systemId, eventId);
       else await api.acknowledgeAllSystemErrors(systemId);
       onAcknowledged();
-    } catch (e) {
-      setNotice({ kind: "error", text: e instanceof Error ? e.message : String(e) });
-    }
-  }
-
-  async function download(version: ConfigVersion) {
-    try {
-      await downloadConfigVersion(systemId, version);
     } catch (e) {
       setNotice({ kind: "error", text: e instanceof Error ? e.message : String(e) });
     }
@@ -124,41 +99,6 @@ export default function VerlaufTab({ systemId, errorEvents, monitorEvents, monit
           </>
         )}
       </Section>
-
-      {showConfig && (
-        <Section title="Konfigurationsverlauf" id="dv-config">
-          <p className="dv-hint">
-            Textkonfigurationen, die beim Auslesen des Geräts gesichert wurden — nur zum Nachsehen,
-            wird nie automatisch auf das Gerät zurückgeschrieben. Kann Zugangsdaten wie
-            Community-Strings enthalten, deshalb verschlüsselt gespeichert.
-          </p>
-          {configVersions === null ? (
-            <Skeleton width="50%" />
-          ) : configVersions.length === 0 ? (
-            <p className="dv-empty">Noch keine Sicherung vorhanden.</p>
-          ) : (
-            <ul className="dv-rows">
-              {configVersions.map((v) => (
-                <li key={v.id} className="dv-row dv-row-stack">
-                  <span className="dv-row-main">
-                    <span>{v.label}</span>
-                    <time className="dv-row-time" dateTime={v.createdAt} title={fullDate(v.createdAt)}>{when(v.createdAt)}</time>
-                  </span>
-                  <span className="dv-row-sub">{v.source} · {Math.round(v.size / 100) / 10} kB</span>
-                  <span className="dv-row-actions">
-                    <button type="button" className="secondary dv-btn-small" aria-expanded={preview?.id === v.id}
-                            onClick={() => void toggleVersion(v)}>
-                      {preview?.id === v.id ? "Einklappen" : "Ansehen"}
-                    </button>
-                    <button type="button" className="secondary dv-btn-small" onClick={() => void download(v)}>Herunterladen</button>
-                  </span>
-                  {preview?.id === v.id && <LogBox label={`Konfiguration ${v.label}`}>{preview.content}</LogBox>}
-                </li>
-              ))}
-            </ul>
-          )}
-        </Section>
-      )}
     </div>
   );
 }

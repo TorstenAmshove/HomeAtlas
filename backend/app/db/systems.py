@@ -136,7 +136,7 @@ def delete_system(system_id: str) -> None:
         conn.execute("DELETE FROM systemAliases WHERE systemId = ?", (system_id,))
         conn.execute("DELETE FROM duplicateDismissals WHERE idA = ? OR idB = ?", (system_id, system_id))
         # History rows belong to the device; merge_systems repoints them, a delete drops them.
-        for table in ("deviceConfigVersions", "deviceErrorEvents", "monitorEvents"):
+        for table in ("deviceErrorEvents", "monitorEvents"):
             conn.execute(f"DELETE FROM {table} WHERE systemId = ?", (system_id,))
         conn.execute("DELETE FROM systems WHERE id = ?", (system_id,))
 
@@ -327,7 +327,6 @@ def merge_systems(keep_id: str, remove_id: str) -> dict | None:
             (keep_id, remove_id),
         )
         conn.execute("UPDATE monitorEvents SET systemId = ? WHERE systemId = ?", (keep_id, remove_id))
-        conn.execute("UPDATE deviceConfigVersions SET systemId = ? WHERE systemId = ?", (keep_id, remove_id))
         conn.execute("UPDATE deviceErrorEvents SET systemId = ? WHERE systemId = ?", (keep_id, remove_id))
         conn.execute("DELETE FROM systems WHERE id = ?", (remove_id,))
     return get_system(keep_id)

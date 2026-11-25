@@ -496,19 +496,8 @@ export default function SettingsPage() {
                      onChange={(e) => set("scanAutoIntervalHours", Number(e.target.value))} />
               <div className="field-hint">
                 Mindestabstand zwischen zwei automatischen Scans -- ein manueller Scan zählt
-                mit. Betrifft auch, wie oft Konfigsicherungen (Switches, Router) erneuert
-                werden.
+                mit.
               </div>
-            </div>
-          </div>
-
-          <div className="field">
-            <label>Aufbewahrte Konfigsicherungen je Gerät</label>
-            <input type="number" min={1} max={1000} value={form.configVersionKeep ?? 50}
-                   onChange={(e) => set("configVersionKeep", Number(e.target.value))} />
-            <div className="field-hint">
-              Ältere Versionen werden über dieser Anzahl automatisch gelöscht (je Gerät und
-              Sicherungsart).
             </div>
           </div>
 
