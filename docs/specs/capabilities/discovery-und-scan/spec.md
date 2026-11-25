@@ -319,9 +319,10 @@ Das System MUSS ohne LLM eine Ersteinordnung (Art, Modell, Zweck, „sicher“-F
    Home Assistant, Synology, QNAP, Proxmox, UniFi, Drucker-mDNS, Cast, AirPlay, Sonos, HomeKit,
    ESPHome, Shelly, Tasmota, Hue, Kameras, OpenWrt, Plex, Jellyfin/Emby, Pi-hole, Nextcloud,
    Workstation/Windows, SMB, Heizung, PV-Wechselrichter, Wallbox, Klima) → sicher;
-2. sonst Port-Hinweise in Katalogreihenfolge (`515, 631, 9100` Drucker, `554` Kamera, `1400` Sonos,
-   `8008/8009` Chromecast, `32400` Plex, `8096` Jellyfin, `8123` Home Assistant, `8006` Proxmox,
-   `5001` Synology, `2049` NAS, `502` Modbus/climate, `11434` Ollama, `1883` MQTT) → sicher;
+2. sonst Port-Hinweise in Katalogreihenfolge (`515, 631, 9100` Drucker, `554` Kamera,
+   `32400` Plex, `8096` Jellyfin, `8123` Home Assistant, `8006` Proxmox, `11434` Ollama, `1400` Sonos,
+   `8008/8009` Chromecast, `5001` Synology, `2049` NAS, `502` Modbus/climate, `1883` MQTT; Ports, die
+   ein Produkt eindeutig benennen, stehen vor `1400`, weil Home Assistant 1400 selbst öffnet) → sicher;
 3. sonst Platzhalter (nicht sicher): `server` bei 22/3306/5432/2049, `other` bei sonstigen Ports,
    `other` ohne Ports.
 UPnP `manufacturer + modelName` hat als Modell Vorrang. **[Muss]** Die konkreten Signaturen sind
@@ -330,6 +331,10 @@ UPnP `manufacturer + modelName` hat als Modell Vorrang. **[Muss]** Die konkreten
 #### Szenario: Drucker mit Weboberfläche
 - **WENN** Ports 80 und 9100 offen, keine Signatur passt
 - **DANN** Art `printer`, Zweck „Netzwerkdrucker“, sicher
+
+#### Szenario: Home Assistant mit offenem Port 1400
+- **WENN** Ports 8123 und 1400 offen, keine Signatur passt
+- **DANN** Art `smarthome`, Modell „Home Assistant“, sicher (nicht Sonos)
 
 Quelle: `backend/app/discovery.py:653`, `backend/app/discovery.py:675`, `backend/app/ports.py:79`, `backend/app/ports.py:111`
 
