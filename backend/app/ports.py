@@ -77,22 +77,25 @@ ALL_PORTS = tuple(sorted(SERVICES))
 
 # Ports that on their own are strong evidence for a specific kind of device.
 # port -> (kind, model/product guess, plain-German purpose)
+# Order matters (see hint_from_ports): ports that name a product unambiguously (32400, 8096, 8123,
+# 8006, 11434) come before 1400, because Home Assistant itself opens 1400 for its Sonos
+# integration's event callbacks -- a box with 8123 and 1400 is Home Assistant, not a Sonos.
 DEVICE_HINTS: dict[int, tuple[str, str, str]] = {
     515: ("printer", "", "Netzwerkdrucker"),
     631: ("printer", "", "Netzwerkdrucker"),
     9100: ("printer", "", "Netzwerkdrucker"),
     554: ("camera", "", "Überwachungs- oder Türkamera"),
-    1400: ("media", "Sonos", "Sonos-Lautsprecher"),
-    8008: ("media", "Chromecast", "Google-Chromecast-fähiges Gerät (Fernseher oder Streaming-Stick)"),
-    8009: ("media", "Chromecast", "Google-Chromecast-fähiges Gerät (Fernseher oder Streaming-Stick)"),
     32400: ("server", "Plex", "Medien-Server (Plex)"),
     8096: ("server", "Jellyfin", "Medien-Server (Jellyfin)"),
     8123: ("smarthome", "Home Assistant", "Smart-Home-Zentrale (Home Assistant)"),
     8006: ("server", "Proxmox VE", "Virtualisierungs-Server (Proxmox)"),
+    11434: ("server", "Ollama", "Server mit lokalem KI-Sprachmodell"),
+    1400: ("media", "Sonos", "Sonos-Lautsprecher"),
+    8008: ("media", "Chromecast", "Google-Chromecast-fähiges Gerät (Fernseher oder Streaming-Stick)"),
+    8009: ("media", "Chromecast", "Google-Chromecast-fähiges Gerät (Fernseher oder Streaming-Stick)"),
     5001: ("nas", "Synology", "Netzwerkspeicher (NAS)"),
     2049: ("nas", "", "Netzwerkspeicher mit Linux-Dateifreigabe"),
     502: ("climate", "", "Technikgerät mit Modbus -- z. B. Wechselrichter, Wärmepumpe oder Stromzähler"),
-    11434: ("server", "Ollama", "Server mit lokalem KI-Sprachmodell"),
     1883: ("smarthome", "", "Smart-Home-Nachrichten-Bus (MQTT-Broker)"),
 }
 
@@ -111,7 +114,8 @@ def describe_ports(open_ports: list[int]) -> list[dict]:
 
 def hint_from_ports(open_ports: list[int]) -> tuple[str, str, str] | None:
     """First matching hint wins, in catalog order rather than port order -- a box with both 9100
-    and 80 open is a printer with a web UI, not a web server that happens to print."""
+    and 80 open is a printer with a web UI, not a web server that happens to print. Product-naming
+    ports (e.g. 8123) rank above the Sonos port 1400, which Home Assistant opens itself."""
     for port in DEVICE_HINTS:
         if port in open_ports:
             return DEVICE_HINTS[port]
