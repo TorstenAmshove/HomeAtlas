@@ -2,6 +2,30 @@ import { useEffect, useState } from "react";
 import { api, type ExposureEntry, type ProbeResult, System, SystemAlias } from "../../lib/api";
 import { Facts, NoticeLine, Section, StateChip, fullDate, type Notice } from "./common";
 
+type PortNet = { vlan: number | null; name: string; known?: boolean };
+type SwitchPort = {
+  port: number; name: string; profile: string; native: PortNet;
+  tagged: { mode: string; excluded?: PortNet[] };
+};
+
+/** `VLAN 10 Default`; an ID the scan could not resolve reads "unbekanntes Netz" (ADR-0026). */
+function netLabel(net: PortNet | undefined): string {
+  if (!net) return "–";
+  if (net.known === false) return "unbekanntes Netz";
+  const text = [net.vlan != null ? `VLAN ${net.vlan}` : "", net.name].filter(Boolean).join(" ");
+  return text || "–";
+}
+
+function taggedLabel(tagged: SwitchPort["tagged"] | undefined): string {
+  if (tagged?.mode === "all") {
+    const excluded = (tagged.excluded ?? []).map((n) => netLabel({ ...n, known: n.vlan != null || !!n.name }));
+    return excluded.length ? `alle außer ${excluded.join(", ")}` : "alle";
+  }
+  if (tagged?.mode === "none") return "keine";
+  if (tagged?.mode === "custom") return "benutzerdefiniert (Liste nicht gelesen)";
+  return "–";
+}
+
 /** Tab "Technik": everything the scan and the read-only probe found (forensics "Gerät" 5). The
  *  HomeAtlas has no container controls; use Portainer or the Docker host itself. */
 export default function TechnikTab({ system, monitorPorts, aliases, canProbe, probing, probeNotice, onProbe }: {
@@ -27,6 +51,30 @@ export default function TechnikTab({ system, monitorPorts, aliases, canProbe, pr
     (system.extra?.interfaces ?? {}) as Record<string, { openPorts?: number[] }>,
   );
   const multiHomed = interfaceEntries.length > 1;
+  // Switch ports with their VLANs (extra.unifi.ports, ADR-0026); the attached device per port comes
+  // from the other devices' extra.unifi.connection, read from the device list like DevicePage does.
+  const storedPorts = (system.extra as any)?.unifi?.ports?.ports;
+  const ports: SwitchPort[] = Array.isArray(storedPorts)
+    ? storedPorts.filter((p: any) => p && Number.isInteger(p.port))
+    : [];
+  const [attached, setAttached] = useState<Record<number, string[]>>({});
+  useEffect(() => {
+    setAttached({});
+    if (ports.length === 0) return;
+    let live = true;
+    api.listSystems().then((r) => {
+      const byPort: Record<number, string[]> = {};
+      for (const other of r.systems) {
+        const conn = (other.extra as any)?.unifi?.connection;
+        if (other.id !== system.id && conn?.type === "wired" && conn.systemId === system.id && Number.isInteger(conn.port)) {
+          (byPort[conn.port] ??= []).push(other.name);
+        }
+      }
+      if (live) setAttached(byPort);
+    }).catch(() => {});
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [system.id, ports.length]);
   const probeResults = Object.entries((system.extra?.probe ?? {}) as Record<string, ProbeResult>);
   const extraIps = Array.from(new Set((aliases ?? []).map((a) => a.ip).filter((ip) => ip && ip !== system.ip)));
   const extraMacs = Array.from(new Set((aliases ?? []).map((a) => a.mac).filter((m) => m && m !== system.mac)));
@@ -51,6 +99,27 @@ export default function TechnikTab({ system, monitorPorts, aliases, canProbe, pr
             : ""],
         ]} />
       </Section>
+
+      {ports.length > 0 && (
+        <Section title="Ports und VLANs" id="dv-ports">
+          <table>
+            <thead>
+              <tr><th>Port</th><th>Name</th><th>Nativ</th><th>Tagged</th><th>Angeschlossenes Gerät</th></tr>
+            </thead>
+            <tbody>
+              {ports.map((p) => (
+                <tr key={p.port}>
+                  <td>{p.port}</td>
+                  <td>{p.name || "–"}</td>
+                  <td>{netLabel(p.native)}</td>
+                  <td>{taggedLabel(p.tagged)}</td>
+                  <td>{(attached[p.port] ?? []).join(", ") || "–"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Section>
+      )}
 
       {multiHomed && (
         <Section title="Schnittstellen" id="dv-ifaces">

@@ -48,3 +48,37 @@ def test_docs_show_names_not_ids():
     text = _render(sw, tv)
     assert "switch-id-123" not in text.replace("`aa:bb:cc:00:00:10`", "") and "tv-id-456" not in text
     assert "deviceMac" not in text
+
+
+def _ports(*ports):
+    return {"accountId": "acc", "site": "default", "ports": list(ports)}
+
+
+def _port(n, name="", native=None, mode="", excluded=()):
+    return {"port": n, "name": name, "profile": "",
+            "native": native or {"vlan": None, "name": "", "known": True},
+            "tagged": {"mode": mode, "vlans": [], "excluded": list(excluded)}}
+
+
+def test_docs_switch_port_table():
+    sw = _sys("sw", "Switch Flur", "switch")
+    sw["extra"] = {"unifi": {"ports": _ports(
+        _port(1, "Büro | PC", {"vlan": 10, "name": "Default", "known": True}, "all"),
+        _port(2, "", {"vlan": 20, "name": "IoT", "known": True}, "none"),
+        _port(3, "", {"vlan": None, "name": "", "known": False}, "all",
+              [{"vlan": 30, "name": "Gäste"}, {"vlan": None, "name": ""}]),
+        _port(4, "Trunk", mode="custom"))}}
+    tv = _sys("tv", "Fernseher", conn=_wired("sw", 1))
+    text = _render(sw, tv)
+    assert "| Port | Name | Nativ | Tagged | Angeschlossenes Gerät |" in text
+    assert "| 1 | Büro \\| PC | VLAN 10 *Default* | alle | Fernseher |" in text
+    assert "| 2 | – | VLAN 20 *IoT* | keine | – |" in text
+    assert "| 3 | – | unbekanntes Netz | alle außer VLAN 30 *Gäste*, unbekanntes Netz | – |" in text
+    assert "| 4 | Trunk | – | benutzerdefiniert (Liste nicht gelesen) | – |" in text
+
+
+def test_docs_switch_without_ports_renders_no_table():
+    assert "Ports und VLANs" not in _render(_sys("sw", "Switch", "switch"))
+    legacy = _sys("sw", "Switch", "switch")
+    legacy["extra"] = {"unifi": {"ports": "kaputt"}}
+    assert "Ports und VLANs" not in _render(legacy)

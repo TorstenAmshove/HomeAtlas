@@ -15,7 +15,7 @@ def _run(handler, monkeypatch, key=KEY, url="https://gw"):
     return asyncio.run(probe_mod.probe(url, key, "acc", "sys"))
 
 
-def _handler(requests, forwards, health, sites=None, stations=None):
+def _handler(requests, forwards, health, sites=None, stations=None, profiles=None, networks=None):
     def handler(request):
         requests.append(request)
         path = request.url.path
@@ -28,7 +28,9 @@ def _handler(requests, forwards, health, sites=None, stations=None):
                 {"name": "DSL", "purpose": "wan", "wan_networkgroup": "WAN", "wan_type": "dhcp",
                  "x_password": "PPPOESECRET"},
                 {"name": "Reserve", "purpose": "wan", "wan_networkgroup": "WAN2", "wan_type": "dhcp"},
-                {"name": "LAN", "purpose": "corporate"}]})
+                {"name": "LAN", "purpose": "corporate"}] + (networks or [])})
+        if path.endswith("/rest/portconf"):
+            return httpx.Response(200, json={"data": profiles or []})
         if path.endswith("/stat/sta"):
             return httpx.Response(200, json={"data": stations or []})
         if path.endswith("/stat/device"):
@@ -190,3 +192,119 @@ def test_clients_capped_with_single_warning(monkeypatch):
 def test_same_mac_in_two_sites_stays_separate(monkeypatch):
     result = _run(_handler([], [], [], sites=[{"name": "default"}, {"name": "b2"}], stations=[WIRED]), monkeypatch)
     assert [c["site"] for c in result["clients"]] == ["default", "b2"]
+
+
+NETS = [{"_id": "n10", "name": "Default", "purpose": "corporate", "x_passphrase": "WLANSECRET"},
+        {"_id": "n20", "name": "IoT", "purpose": "corporate", "vlan": 20},
+        {"_id": "n30", "name": "Gäste", "purpose": "corporate", "vlan": 30}]
+PROFILES = [{"_id": "p-all", "name": "All", "native_networkconf_id": "n10", "tagged_vlan_mgmt": "auto"},
+            {"_id": "p-iot", "name": "IoT-Port", "native_networkconf_id": "n20", "tagged_vlan_mgmt": "block_all"},
+            {"_id": "p-cust", "name": "Trunk", "native_networkconf_id": "n10", "tagged_vlan_mgmt": "custom",
+             "tagged_networkconf_ids": ["n20"]}]
+
+
+def _ports(devices, monkeypatch, profiles=PROFILES, networks=NETS):
+    result = _run(_handler([], [], devices, profiles=profiles, networks=networks), monkeypatch)
+    assert result["ok"] and result["portsOk"]
+    return result, {p["port"]: p for sw in result["switches"] for p in sw["ports"]}
+
+
+def test_probe_switch_ports_override_profile_default(monkeypatch):
+    switch = {"type": "usw", "mac": "AA:BB:CC:00:00:01", "port_table": [
+        {"port_idx": 1, "name": "Port 1", "portconf_id": "p-all"},
+        {"port_idx": 2, "name": "Büro | PC", "portconf_id": "p-all"},
+        {"port_idx": 3, "name": "Direkt", "native_networkconf_id": "n30", "tagged_vlan_mgmt": "auto",
+         "excluded_networkconf_ids": ["n20", "gone"]},
+        {"port_idx": 4, "name": "Ohne"}],
+        "port_overrides": [{"port_idx": 2, "portconf_id": "p-iot"},
+                           {"port_idx": 1, "tagged_vlan_mgmt": "block_all"}]}
+    result, ports = _ports([switch, {"type": "uap", "mac": "aa:bb:cc:00:00:02", "port_table": [{"port_idx": 1}]}],
+                           monkeypatch)
+    assert [(s["site"], s["mac"]) for s in result["switches"]] == [("default", "aa:bb:cc:00:00:01")]
+    assert ports[1]["native"] == {"vlan": 1, "name": "Default", "known": True}  # default network = VLAN 1
+    assert ports[1]["tagged"]["mode"] == "none" and ports[1]["profile"] == "All"
+    assert ports[2]["name"] == "Büro | PC" and ports[2]["profile"] == "IoT-Port"
+    assert ports[2]["native"]["vlan"] == 20 and ports[2]["tagged"]["mode"] == "none"
+    assert ports[3]["tagged"] == {"mode": "all", "vlans": [], "excluded": [
+        {"vlan": 20, "name": "IoT"}, {"vlan": None, "name": ""}]}
+    assert ports[4]["native"] == {"vlan": None, "name": "", "known": True} and ports[4]["tagged"]["mode"] == ""
+
+
+def test_port_tagged_modes(monkeypatch):
+    switch = {"type": "usw", "mac": "aa:bb:cc:00:00:01", "port_table": [
+        {"port_idx": 1, "portconf_id": "p-cust"}, {"port_idx": 2, "tagged_vlan_mgmt": "weird"},
+        {"port_idx": 3, "portconf_id": "p-all"}, {"port_idx": 4, "portconf_id": "p-iot"}]}
+    _, ports = _ports([switch], monkeypatch)
+    assert [ports[i]["tagged"]["mode"] for i in (1, 2, 3, 4)] == ["custom", "custom", "all", "none"]
+    assert all(p["tagged"]["vlans"] == [] for p in ports.values())
+
+
+def test_unknown_network_id(monkeypatch):
+    switch = {"type": "usw", "mac": "aa:bb:cc:00:00:01", "port_table": [
+        {"port_idx": 1, "native_networkconf_id": "nope"}]}
+    _, ports = _ports([switch], monkeypatch)
+    assert ports[1]["native"] == {"vlan": None, "name": "", "known": False}
+
+
+def test_probe_ports_keep_only_allowlisted_fields(monkeypatch):
+    switch = {"type": "usw", "mac": "aa:bb:cc:00:00:01", "name": "SECRETNAME", "ip": "10.9.9.9",
+              "x_authkey": "AUTHSECRET", "port_table": [
+                  {"port_idx": 1, "name": "P", "portconf_id": "p-all", "rx_bytes": 99, "x_foo": "XSECRET",
+                   "mac": "de:ad:be:ef:00:01", "ip": "10.1.1.1"}]}
+    result, _ = _ports([switch], monkeypatch)
+    text = str(result["switches"])
+    for secret in ("SECRETNAME", "10.9.9.9", "AUTHSECRET", "XSECRET", "de:ad", "WLANSECRET", "p-all", "n10"):
+        assert secret not in text
+    assert set(result["switches"][0]["ports"][0]) == {"port", "name", "profile", "native", "tagged"}
+
+
+@pytest.mark.parametrize("response", [
+    httpx.Response(404, text=KEY), httpx.Response(403, text=KEY), httpx.Response(429, text=KEY),
+    httpx.Response(500, text=KEY), httpx.Response(400, text=KEY), httpx.Response(401, text=KEY),
+    httpx.Response(200, text="no json"), httpx.Response(200, json={"data": {"a": 1}})])
+def test_portconf_errors_keep_other_sources(monkeypatch, response):
+    fw = [{"proto": "tcp", "dst_port": "1", "fwd": "192.0.2.1", "fwd_port": "1"}]
+
+    def handler(request):
+        if request.url.path.endswith("/rest/portconf"):
+            return response
+        return _handler([], fw, [{"type": "usw", "mac": "aa:bb:cc:00:00:01", "port_table": []}],
+                        stations=[WIRED])(request)
+
+    result = _run(handler, monkeypatch)
+    assert result["ok"] and not result["portsOk"] and result["switches"] == []
+    assert len(result["forwards"]) == 2 and len(result["wans"]) == 2 and len(result["clients"]) == 1
+    assert any("Port-VLANs" in w for w in result["warnings"]) and KEY not in str(result)
+
+
+def test_ports_cap_128_and_profiles_cap_200_single_warning(monkeypatch):
+    profiles = [{"_id": f"p{i}", "name": f"P{i}"} for i in range(probe_mod._MAX_PROFILES + 5)]
+    switch = {"type": "usw", "mac": "aa:bb:cc:00:00:01",
+              "port_table": [{"port_idx": i} for i in range(1, probe_mod._MAX_PORTS + 6)]}
+    result, ports = _ports([switch], monkeypatch, profiles=profiles)
+    assert len(ports) == probe_mod._MAX_PORTS
+    assert sum("Port-Profile" in w for w in result["warnings"]) == 1
+    assert sum("Ports an einem Switch" in w for w in result["warnings"]) == 1
+
+
+def test_profile_not_resolved_across_sites(monkeypatch):
+    def handler(request):
+        if request.url.path == "/proxy/network/api/s/b2/rest/portconf":
+            return httpx.Response(200, json={"data": []})
+        return _handler([], [], [{"type": "usw", "mac": "aa:bb:cc:00:00:01",
+                                  "port_table": [{"port_idx": 1, "portconf_id": "p-iot"}]}],
+                        sites=[{"name": "default"}, {"name": "b2"}], profiles=PROFILES, networks=NETS)(request)
+
+    result = _run(handler, monkeypatch)
+    by_site = {sw["site"]: sw["ports"][0] for sw in result["switches"]}
+    assert by_site["default"]["profile"] == "IoT-Port" and by_site["b2"]["profile"] == ""
+    assert by_site["b2"]["tagged"]["mode"] == ""
+
+
+def test_only_usw_devices_and_bad_port_idx_ignored(monkeypatch):
+    switch = {"type": "usw", "mac": "aa:bb:cc:00:00:01", "port_table": [
+        {"port_idx": 0}, {"port_idx": "1"}, {"port_idx": True}, {"port_idx": 1}, {"port_idx": 1, "name": "dup"}, "x"]}
+    nomac = {"type": "usw", "port_table": [{"port_idx": 1}]}
+    result, ports = _ports([switch, nomac, {"type": "udm", "mac": "aa:bb:cc:00:00:09", "port_table": [{"port_idx": 1}]}],
+                           monkeypatch)
+    assert list(ports) == [1] and len(result["switches"]) == 1

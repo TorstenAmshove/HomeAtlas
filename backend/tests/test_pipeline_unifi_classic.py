@@ -216,3 +216,70 @@ def test_duplicate_mac_is_not_matched(temp_db):
     _, _, tv, _ = _devices(temp_db)
     temp_db.create_system({"name": "Doppelt", "ip": "192.0.2.9", "kind": "tv", "mac": TV})
     assert pipeline._link_unifi_connections("a", [WIRED_C]) == 0
+
+
+def _sw_ports(mac=SW, vlan=10, site="default"):
+    port = {"port": 1, "name": "P1", "profile": "All", "native": {"vlan": vlan, "name": "Default", "known": True},
+            "tagged": {"mode": "all", "vlans": [], "excluded": []}}
+    return {"site": site, "mac": mac, "ports": [port]}
+
+
+def _ports(db, system):
+    return ((db.get_system(system["id"]).get("extra") or {}).get("unifi") or {}).get("ports")
+
+
+def _scan_ports(db, monkeypatch, switches, ports_ok=True):
+    async def probe(url, key, account_id, system_id):
+        result = await _ok([])(url, key, account_id, system_id)
+        return {**result, "clients": [], "warnings": [], "switches": switches, "portsOk": ports_ok}
+
+    monkeypatch.setattr(pipeline.unifi_classic_probe, "probe", probe)
+    monkeypatch.setattr(pipeline.unifi_probe, "probe", lambda *a, **k: asyncio.sleep(0, {
+        "ok": True, "error": "", "warnings": [], "systems": [], "resources": [], "completeScopes": []}))
+    _scan(db, monkeypatch)
+
+
+def test_switch_ports_stored(temp_db, monkeypatch):
+    account, _ = _account(temp_db)
+    sw, _, tv, _ = _devices(temp_db)
+    _scan_ports(temp_db, monkeypatch, [_sw_ports(SW.upper())])
+    stored = _ports(temp_db, sw)
+    assert stored["accountId"] == account["id"] and stored["site"] == "default"
+    assert stored["ports"][0]["native"]["vlan"] == 10 and _ports(temp_db, tv) is None
+
+
+def test_switch_ports_replaced_each_scan(temp_db, monkeypatch):
+    _account(temp_db)
+    sw, _, _, _ = _devices(temp_db)
+    _scan_ports(temp_db, monkeypatch, [_sw_ports(vlan=10)])
+    _scan_ports(temp_db, monkeypatch, [_sw_ports(vlan=20)])
+    assert _ports(temp_db, sw)["ports"][0]["native"]["vlan"] == 20
+
+
+def test_switch_ports_kept_on_partial_failure(temp_db, monkeypatch):
+    _account(temp_db)
+    sw, _, _, _ = _devices(temp_db)
+    _scan_ports(temp_db, monkeypatch, [_sw_ports()])
+    _scan_ports(temp_db, monkeypatch, [], ports_ok=False)
+    assert _ports(temp_db, sw) is not None
+
+
+def test_switch_ports_removed_when_switch_gone_after_full_read(temp_db, monkeypatch):
+    _account(temp_db)
+    sw, _, _, _ = _devices(temp_db)
+    _scan_ports(temp_db, monkeypatch, [_sw_ports()])
+    _scan_ports(temp_db, monkeypatch, [])
+    assert _ports(temp_db, sw) is None
+
+
+def test_switch_ports_other_account_untouched(temp_db):
+    sw, _, _, _ = _devices(temp_db)
+    pipeline._store_switch_ports("a", [_sw_ports()])
+    pipeline._store_switch_ports("b", [])
+    assert _ports(temp_db, sw)["accountId"] == "a"
+
+
+def test_switch_without_inventory_device_creates_nothing(temp_db):
+    before = len(temp_db.list_systems())
+    assert pipeline._store_switch_ports("a", [_sw_ports("aa:bb:cc:99:99:99")]) == 0
+    assert len(temp_db.list_systems()) == before

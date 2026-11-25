@@ -4,7 +4,8 @@ The official integration API (`unifi_probe.py`) lists WANs with id and name only
 forwards, so this module reads them from the classic API under ``/proxy/network/api``. The same
 integration API key (header ``X-API-Key``) is accepted there (spike on UniFi Network 11.0.103), so
 there is no login, no cookie, no CSRF token and no local user: every request is a GET against one of
-five fixed paths (sites, ``rest/portforward``, ``stat/device``, ``rest/networkconf``, ``stat/sta``),
+seven fixed paths (sites, ``rest/portforward``, ``stat/device``, ``rest/networkconf``, ``stat/sta``,
+``rest/portconf``; ADR-0025, ADR-0026),
 redirects are not followed. Note the trade-off recorded in ADR-0016: the key has the rights of whoever
 created it.
 
@@ -23,6 +24,11 @@ purpose, group and type are kept, never the credentials of a PPPoE connection.
 Client attachment (ADR-0025): `stat/sta` yields per client only the MAC, wired or not, the switch MAC
 and port or the AP MAC and SSID. Name, IP, hostname and every ``x_*`` field are never copied. Failing
 to read it only costs a warning; forwards and WAN status stay.
+
+Port VLANs (ADR-0025, ADR-0026): per switch (`type == "usw"`) and port only number, name, profile name,
+native network and tagged mode are kept. Network IDs come from `networkconf` (`_id`, `vlan`) and are
+resolved *here* to VLAN ID and name per site; no ID is ever returned. Precedence per field: port override,
+then the port profile, then the direct field of the port. The tagged list of mode `custom` is not read.
 """
 from __future__ import annotations
 
@@ -38,6 +44,8 @@ _PORT = re.compile(r"^\d{1,5}(-\d{1,5})?(,\d{1,5}(-\d{1,5})?)*$")
 
 
 _MAX_CLIENTS = 2000
+_MAX_PORTS = 128
+_MAX_PROFILES = 200
 _MAC = re.compile(r"^[0-9a-f]{2}(:[0-9a-f]{2}){5}$")
 
 
@@ -154,10 +162,107 @@ def _client(entry: dict, site: str) -> dict | None:
             "apMac": ap_mac if not wired else "", "essid": essid if not wired else ""}
 
 
+def _vlan_id(value: object) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) and 1 <= value <= 4094 else None
+
+
+def _networks(raw: list[dict]) -> dict[str, dict]:
+    """`_id` -> `{vlan, name}`; the default network has no `vlan` and counts as VLAN 1."""
+    result: dict[str, dict] = {}
+    for entry in raw:
+        net_id = entry.get("_id")
+        if not isinstance(net_id, str) or not net_id or entry.get("purpose") == "wan":
+            continue
+        vlan = _vlan_id(entry.get("vlan"))
+        if vlan is None and "vlan" not in entry and entry.get("purpose") == "corporate":
+            vlan = 1
+        result[net_id] = {"vlan": vlan, "name": str(entry.get("name") or "")[:100]}
+    return result
+
+
+def _profiles(raw: list[dict]) -> tuple[dict[str, dict], bool]:
+    """`_id` -> allowlisted profile fields; second value tells whether the cap cut the list."""
+    result: dict[str, dict] = {}
+    for entry in raw:
+        profile_id = entry.get("_id")
+        if not isinstance(profile_id, str) or not profile_id:
+            continue
+        if len(result) >= _MAX_PROFILES:
+            return result, True
+        result[profile_id] = {k: entry.get(k) for k in _PORT_FIELDS}
+        result[profile_id]["name"] = entry.get("name")
+    return result, False
+
+
+_PORT_FIELDS = ("native_networkconf_id", "tagged_vlan_mgmt", "excluded_networkconf_ids")
+
+
+def _port_index(entry: dict) -> int | None:
+    idx = entry.get("port_idx")
+    return idx if isinstance(idx, int) and not isinstance(idx, bool) and 1 <= idx <= 999 else None
+
+
+def _resolve_network(net_id: object, networks: dict[str, dict]) -> dict:
+    if not net_id:  # nothing configured: not an unknown network
+        return {"vlan": None, "name": "", "known": True}
+    found = networks.get(net_id) if isinstance(net_id, str) else None
+    if found is None:
+        return {"vlan": None, "name": "", "known": False}
+    return {"vlan": found["vlan"], "name": found["name"], "known": True}
+
+
+def _switch_ports(device: dict, profiles: dict[str, dict], networks: dict[str, dict]) -> list[dict]:
+    """Effective VLAN setup per port: override > profile > direct port field (ADR-0026)."""
+    overrides = {i: e for e in device.get("port_overrides") or [] if isinstance(e, dict)
+                 and (i := _port_index(e)) is not None}
+    ports = []
+    seen: set[int] = set()
+    for entry in device.get("port_table") or []:
+        idx = _port_index(entry) if isinstance(entry, dict) else None
+        if idx is None or idx in seen:
+            continue
+        seen.add(idx)
+        if len(ports) >= _MAX_PORTS:
+            break
+        override = overrides.get(idx, {})
+        profile_id = override.get("portconf_id") or entry.get("portconf_id")
+        profile = profiles.get(profile_id) if isinstance(profile_id, str) else None
+
+        def field(key: str):
+            for source in (override, profile or {}, entry):
+                if source.get(key) is not None:
+                    return source[key]
+            return None
+
+        mgmt = field("tagged_vlan_mgmt")
+        mode = "" if not isinstance(mgmt, str) or not mgmt else {"auto": "all", "block_all": "none"}.get(mgmt, "custom")
+        excluded = field("excluded_networkconf_ids")
+        excluded = excluded if isinstance(excluded, list) else []
+        name = override.get("name") or entry.get("name")
+        ports.append({
+            "port": idx, "name": str(name or "")[:64],
+            "profile": str((profile or {}).get("name") or "")[:100],
+            "native": _resolve_network(field("native_networkconf_id"), networks),
+            "tagged": {"mode": mode, "vlans": [],
+                       "excluded": [{k: v for k, v in _resolve_network(i, networks).items() if k != "known"}
+                                    for i in excluded[:_MAX_PORTS] if mode == "all"]}})
+    return sorted(ports, key=lambda p: p["port"])
+
+
+def _switches(site: str, devices: list[dict], profiles: dict[str, dict], networks: dict[str, dict]) -> list[dict]:
+    result = []
+    for device in devices:
+        mac = normalize_mac(device.get("mac"))
+        if device.get("type") == "usw" and mac:
+            result.append({"site": site, "mac": mac, "ports": _switch_ports(device, profiles, networks)})
+    return result
+
+
 async def probe(base_url: str, api_key: str, account_id: str,
                 controller_system_id: str | None) -> dict:
-    """`{ok, error, forwards, wans, wanFacts, clients, warnings}`; read-only, API key only."""
-    fail = {"ok": False, "forwards": [], "wans": [], "wanFacts": [], "clients": [], "warnings": []}
+    """`{ok, error, forwards, wans, wanFacts, clients, switches, portsOk, warnings}`; read-only, API key only."""
+    fail = {"ok": False, "forwards": [], "wans": [], "wanFacts": [], "clients": [],
+            "switches": [], "portsOk": False, "warnings": []}
     base = (base_url or "").strip().rstrip("/")
     if not base:
         return {**fail, "error": "Keine Adresse für die klassische UniFi-API hinterlegt."}
@@ -170,7 +275,10 @@ async def probe(base_url: str, api_key: str, account_id: str,
     wan_facts: list[dict] = []
     clients: list[dict] = []
     warnings: list[str] = []
+    switches: list[dict] = []
+    ports_ok = True
     capped = False
+    capped_profiles = False
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT, verify=False, follow_redirects=False,
                                      headers={"X-API-Key": api_key}) as client:
@@ -193,16 +301,31 @@ async def probe(base_url: str, api_key: str, account_id: str,
                             capped = True
                 except (PermissionError, ValueError, httpx.HTTPError) as exc:
                     warnings.append(f"Client-Zuordnung nicht lesbar ({type(exc).__name__}).")
-                try:  # the forwards above stay useful when the WAN status cannot be read
-                    site_wans = _wan_status(await _get_data(client, api, f"/s/{name}/rest/networkconf"),
-                                            await _get_data(client, api, f"/s/{name}/stat/device"))
-                except (PermissionError, ValueError, httpx.HTTPError) as exc:
+                errors: dict[str, Exception] = {}
+                raw: dict[str, list[dict]] = {}
+                for key, path in (("networks", "rest/networkconf"), ("devices", "stat/device"),
+                                  ("profiles", "rest/portconf")):
+                    try:  # each source is optional: forwards stay when one cannot be read
+                        raw[key] = await _get_data(client, api, f"/s/{name}/{path}")
+                    except (PermissionError, ValueError, httpx.HTTPError) as exc:
+                        errors[key] = exc
+                if "networks" in errors or "devices" in errors:
+                    exc = errors.get("networks") or errors["devices"]
                     warnings.append(f"WAN-Status nicht lesbar ({type(exc).__name__}).")
-                    continue
-                wans += site_wans
-                wan_facts += [{"kind": "wan_address", "key": f"unifi:{name}:{w['group']}",
-                               "data": {"ip": w["publicIp"], "source": "UniFi", "origin": w["publicOrigin"]}}
-                              for w in site_wans if w["publicIp"]]
+                else:
+                    site_wans = _wan_status(raw["networks"], raw["devices"])
+                    wans += site_wans
+                    wan_facts += [{"kind": "wan_address", "key": f"unifi:{name}:{w['group']}",
+                                   "data": {"ip": w["publicIp"], "source": "UniFi", "origin": w["publicOrigin"]}}
+                                  for w in site_wans if w["publicIp"]]
+                if errors:
+                    ports_ok = False
+                    exc = next(iter(errors.values()))
+                    warnings.append(f"Port-VLANs nicht lesbar ({type(exc).__name__}).")
+                else:
+                    profiles, profiles_capped = _profiles(raw["profiles"])
+                    capped_profiles = capped_profiles or profiles_capped
+                    switches += _switches(name, raw["devices"], profiles, _networks(raw["networks"]))
     except PermissionError as exc:
         return {**fail, "error": str(exc)}
     except ValueError as exc:  # fixed German texts from _get_data only
@@ -211,6 +334,10 @@ async def probe(base_url: str, api_key: str, account_id: str,
         return {**fail, "error": f"Klassische UniFi-API nicht lesbar: {type(exc).__name__}"}
     if capped:
         warnings.append(f"Mehr als {_MAX_CLIENTS} Clients, der Rest wird nicht zugeordnet.")
+    if capped_profiles:
+        warnings.append(f"Mehr als {_MAX_PROFILES} Port-Profile, der Rest wird nicht aufgelöst.")
+    if any(len(sw["ports"]) >= _MAX_PORTS for sw in switches):
+        warnings.append(f"Mehr als {_MAX_PORTS} Ports an einem Switch, der Rest wird nicht gelesen.")
     forwards.append({"kind": "portforward_scan", "key": "scan", "data": {"count": len(forwards)}})
     return {"ok": True, "error": "", "forwards": forwards, "wans": wans, "wanFacts": wan_facts,
-            "clients": clients, "warnings": warnings}
+            "clients": clients, "switches": switches, "portsOk": ports_ok, "warnings": warnings}

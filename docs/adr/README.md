@@ -45,3 +45,4 @@ Menschen und für KI-Agenten, die sonst bewusste Entscheidungen „wegrefaktorie
 | [0023](0023-keine-fernwartung.md) | Keine Fernwartung, einzige Steuerung ist Home-Assistant-Schalten | Ersetzt durch ADR-0025 |
 | [0024](0024-docker-socket-proxy.md) | Docker nur lesend über einen mitgelieferten Socket-Proxy, kein Inspect | Akzeptiert |
 | [0025](0025-unifi-scan-client-port-und-port-vlans.md) | UniFi-Scan liest Client-Zuordnung und Port-VLANs aus der klassischen API | Akzeptiert |
+| [0026](0026-unifi-port-vlans-netzaufloesung.md) | Port-VLANs im UniFi-Scan über Netz-IDs aus `networkconf` auflösen | Akzeptiert, ergänzt ADR-0025 |
