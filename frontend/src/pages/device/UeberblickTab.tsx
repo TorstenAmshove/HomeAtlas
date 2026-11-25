@@ -23,13 +23,24 @@ export function recentHistory(monitorEvents: MonitorEvent[], errorEvents: Device
 }
 
 /** Tab "Überblick": what the device is for, a short Steckbrief and the latest history. */
-export default function UeberblickTab({ system, derived, accounts, isAdmin, history }: {
+export default function UeberblickTab({ system, derived, accounts, isAdmin, history, attachedTo }: {
   system: System;
   derived: string;
   accounts: Account[];
   isAdmin: boolean;
   history: HistoryItem[] | null;
+  /** The switch/AP from `extra.unifi.connection`, resolved to its current name (null: unknown or gone). */
+  attachedTo: { id: string; name: string } | null;
 }) {
+  const connection = (system.extra as any)?.unifi?.connection;
+  const ssid: string = typeof connection?.ssid === "string" ? connection.ssid : "";
+  const deviceLink = attachedTo ? <Link className="dv-link" to={`/geraete/${attachedTo.id}`}>{attachedTo.name}</Link> : null;
+  let connectionRow: [string, React.ReactNode] = ["", ""];
+  if (connection?.type === "wired" && deviceLink && Number.isInteger(connection.port)) {
+    connectionRow = ["Angeschlossen an", <>{deviceLink}, Port {connection.port}</>];
+  } else if (connection?.type === "wifi" && (deviceLink || ssid)) {
+    connectionRow = ["Verbunden mit", <>{deviceLink ?? `WLAN ${ssid}`}{deviceLink && ssid ? ` (WLAN ${ssid})` : ""}</>];
+  }
   const needsPoe = (system.tags ?? []).some((t) => t.toLowerCase().includes("poe"));
   const latest = history?.slice(0, 3) ?? [];
   // The derived text often is just the purpose sentence again; print it once.
@@ -86,6 +97,7 @@ export default function UeberblickTab({ system, derived, accounts, isAdmin, hist
             ["Standort", system.location],
             ["Strom", needsPoe ? "braucht PoE (PoE-Switch oder Injector)" : ""],
             ["Schlagworte", (system.tags ?? []).join(", ")],
+            connectionRow,
             ["Zugänge", isAdmin && accounts.length > 0
               ? <Link className="dv-link" replace to="?tab=zugaenge">{accounts.length === 1 ? "1 Zugang hinterlegt" : `${accounts.length} Zugänge hinterlegt`}</Link>
               : ""],

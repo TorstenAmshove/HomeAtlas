@@ -495,6 +495,26 @@ Fehler) darf den Scan scheitern lassen; alle anderen Phasen degradieren zu Warnu
 Quelle: `backend/app/pipeline.py:341`, `backend/app/pipeline.py:533`, `backend/app/pipeline.py:554`,
 Test: `backend/tests/test_pipeline_probe_warnings.py::test_pipeline_logs_discovery_warnings`
 
+### Requirement: UniFi-Client-Zuordnung (Switchport / Access Point)
+Das System MUSS bei aktivem klassischen UniFi-Scan (`scanEnableUnifiClassic`, Zugang mit `allowProbe`)
+je Site per GET `stat/sta` lesen, woran ein Client hängt
+([ADR-0025](../../../adr/0025-unifi-scan-client-port-und-port-vlans.md)), und davon nur MAC,
+kabelgebunden ja/nein, Switch-MAC und Port (Ganzzahl 1–999) bzw. AP-MAC und SSID behalten; Name, IP,
+Hostname und alle `x_*`-Felder werden verworfen. Ein Client ohne MAC wird verworfen, höchstens 2000
+je Scan (darüber eine Warnung). Scheitert nur `stat/sta` (404, 403, 429, 5xx, kein JSON, keine Liste),
+entsteht die Warnung „Client-Zuordnung nicht lesbar“; Portweiterleitungen und WAN-Status bleiben,
+bestehende Zuordnungen werden nicht gelöscht. Die Pipeline ordnet nur **bestehende** Geräte per MAC zu
+(nie ein neues Gerät; mehrdeutige MACs werden nicht zugeordnet), lässt `parentId` unberührt und
+speichert `extra.unifi.connection` (siehe `inventar`). **[Muss]**
+
+#### Szenario: Unbekannter Client
+- **WENN** ein Client keinem Inventar-Gerät entspricht
+- **DANN** entsteht kein Gerät
+
+Quelle: `backend/app/unifi_classic_probe.py`, `backend/app/pipeline.py`,
+Test: `backend/tests/test_unifi_classic_probe.py`, `backend/tests/test_pipeline_unifi_classic.py::test_connection_wired_and_wifi`,
+`::test_unknown_client_creates_no_system`, `::test_manual_parent_untouched_by_connections`
+
 ### Requirement: Offline-Markierung
 Jedes zuvor entdeckte Gerät (`discovered=1`), das in keinem Fund dieses Scans auftaucht, MUSS auf
 `offline` gesetzt werden; manuell angelegte Geräte bleiben unberührt. Ausgenommen sind Geräte,

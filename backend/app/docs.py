@@ -288,6 +288,37 @@ def _grouped_device_details(systems: list[dict], by_id: dict[str, dict],
     return "\n".join(parts)
 
 
+def _connection_line(conn: dict, by_id: dict[str, dict]) -> str:
+    """`extra.unifi.connection` as a sentence with names only; empty when nothing nameable is left."""
+    device = by_id.get(conn.get("systemId") or "")
+    name = _escape(device["name"]) if device else ""
+    ssid = _escape(str(conn.get("ssid") or ""))
+    if conn.get("type") == "wired":
+        port = conn.get("port")
+        return f"- **Angeschlossen an:** {name}, Port {port}" if name and isinstance(port, int) else ""
+    if name and ssid:
+        return f"- **Verbunden mit:** {name} (WLAN {ssid})"
+    if name or ssid:
+        return f"- **Verbunden mit:** {name or 'WLAN ' + ssid}"
+    return ""
+
+
+def _attached_clients(device_id: str, by_id: dict[str, dict]) -> list[str]:
+    """Lines for the switch/AP: `Port N: <name>` ascending, then `WLAN <ssid>: <name>`."""
+    wired, wifi = [], []
+    for client in by_id.values():
+        conn = ((client.get("extra") or {}).get("unifi") or {}).get("connection")
+        if not isinstance(conn, dict) or conn.get("systemId") != device_id or client["id"] == device_id:
+            continue
+        if conn.get("type") == "wired" and isinstance(conn.get("port"), int):
+            wired.append((conn["port"], client["name"].lower(), f"Port {conn['port']}: {_escape(client['name'])}"))
+        elif conn.get("type") == "wifi":
+            ssid = str(conn.get("ssid") or "")
+            label = f"WLAN {_escape(ssid)}: " if ssid else "WLAN: "
+            wifi.append((ssid.lower(), client["name"].lower(), label + _escape(client["name"])))
+    return [f"  - {t[2]}" for t in sorted(wired)] + [f"  - {t[2]}" for t in sorted(wifi)]
+
+
 def _device_details(systems: list[dict], by_id: dict[str, dict], children_by_parent: dict[str, list[dict]],
                     level: int = 3) -> str:
     parts: list[str] = []
@@ -313,6 +344,11 @@ def _device_details(systems: list[dict], by_id: dict[str, dict], children_by_par
         parent = by_id.get(s.get("parentId") or "")
         if parent:
             facts.append(f"- **Läuft auf:** {_escape(parent['name'])}")
+        conn = ((s.get("extra") or {}).get("unifi") or {}).get("connection")
+        if isinstance(conn, dict) and (line := _connection_line(conn, by_id)):
+            facts.append(line)
+        if attached := _attached_clients(s["id"], by_id):
+            facts.append("- **Angeschlossene Geräte:**\n" + "\n".join(attached))
         if s["url"]:
             facts.append(f"- **Weboberfläche:** [{s['url']}]({s['url']})")
         if s.get("docUrl"):
