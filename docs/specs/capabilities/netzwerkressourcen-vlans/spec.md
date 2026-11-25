@@ -144,6 +144,14 @@ sich aus Adresse/Präfix nicht bilden lässt, wird als leerer String gespeichert
 Quelle: `backend/app/unifi_probe.py:128`, `backend/app/unifi_probe.py:149`,
 `backend/app/unifi_probe.py:161`, `backend/app/unifi_probe.py:216`
 
+### Requirement: Switchports je VLAN in der Doku
+Das System MUSS im Doku-Kapitel „VLANs und Netze“ je VLAN die Switchports nennen, an denen es anliegt
+(Spalte „Switchports“, Quelle `extra.unifi.ports`, siehe `dokumentation`). Die Zuordnung läuft über die
+VLAN-ID der aktiven Netz-Ressourcen. **[Muss]**
+
+Quelle: `backend/app/docs.py`,
+Test: `backend/tests/test_docs_network_resources.py::test_docs_vlan_lists_ports`
+
 ### Requirement: Liste lesen
 Das System MUSS jeder angemeldeten Rolle die Ressourcen liefern, optional gefiltert nach Art und
 nach „nur aktive“. Ohne Filter werden auch inaktive Ressourcen geliefert. **[Muss]**

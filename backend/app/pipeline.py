@@ -334,6 +334,42 @@ def _link_unifi_connections(account_id: str, clients: list[dict]) -> int:
     return len(wanted)
 
 
+def _store_switch_ports(account_id: str, switches: list[dict]) -> int:
+    """Stores `extra.unifi.ports` (resolved VLANs per port, no IDs) on known switches (ADR-0026).
+
+    Same rules as `_link_unifi_connections`: existing devices are matched by MAC only (ambiguous MACs
+    never), nothing is created, and the value is replaced each scan. Called only after the whole account
+    was read; a switch of this account that is no longer reported loses its ports, other accounts are
+    never touched. Returns the number of switches now carrying ports for this account."""
+    systems = db.list_systems()
+    by_mac: dict[str, str | None] = {}
+    for system in systems:
+        mac = unifi_classic_probe.normalize_mac(system.get("mac"))
+        if mac:
+            by_mac[mac] = None if mac in by_mac else system["id"]
+    wanted: dict[str, dict] = {}
+    for switch in switches:
+        system_id = by_mac.get(unifi_classic_probe.normalize_mac(switch.get("mac")))
+        if system_id and system_id not in wanted:
+            wanted[system_id] = {"accountId": account_id, "site": switch.get("site") or "",
+                                 "ports": switch.get("ports") or []}
+    for system in systems:
+        extra = system.get("extra") or {}
+        unifi = extra.get("unifi") or {}
+        current = unifi.get("ports")
+        new = wanted.get(system["id"])
+        if new is None:
+            if not (isinstance(current, dict) and current.get("accountId") == account_id):
+                continue
+            unifi = {k: v for k, v in unifi.items() if k != "ports"}
+        elif current == new:
+            continue
+        else:
+            unifi = {**unifi, "ports": new}
+        db.update_system(system["id"], {"extra": {**extra, "unifi": unifi}})
+    return len(wanted)
+
+
 def _make_names_unique(findings: list[dict]) -> None:
     """Disambiguates names shared by several distinct devices in this scan.
 
@@ -530,6 +566,7 @@ async def run_full_scan(scan_id: str) -> None:
 
         classic_wans: list[tuple[str, list[dict]]] = []
         classic_clients: list[tuple[str, list[dict]]] = []
+        classic_ports: list[tuple[str, list[dict]]] = []
         if settings.get("scanEnableUnifiClassic", True):
             # Same accounts as the integration-API scan above: one UniFi API key serves both (ADR-0016).
             classic_accounts = [a for a in db.list_accounts()
@@ -549,6 +586,8 @@ async def run_full_scan(scan_id: str) -> None:
                     classic_wans.append((account["id"], classic.get("wans") or []))
                     if not any("Client-Zuordnung nicht lesbar" in w for w in classic.get("warnings") or []):
                         classic_clients.append((account["id"], classic.get("clients") or []))
+                    if classic.get("portsOk"):
+                        classic_ports.append((account["id"], classic.get("switches") or []))
                     warnings += [f"UniFi klassisch ({account['label']}): {w}" for w in classic.get("warnings") or []]
                     log(f"UniFi klassisch ({account['label']}): {len(classic['forwards']) - 1} Portweiterleitung(en) gelesen")
                 else:
@@ -775,6 +814,11 @@ async def run_full_scan(scan_id: str) -> None:
             connected = _link_unifi_connections(account_id, clients)
             if connected:
                 log(f"{connected} UniFi-Client(s) mit Switch-Port bzw. Access Point verknüpft")
+
+        for account_id, switches in classic_ports:
+            stored = _store_switch_ports(account_id, switches)
+            if stored:
+                log(f"{stored} UniFi-Switch(es) mit Port-VLANs versehen")
 
         for account, unifi_result in unifi_results:
             synced = db.sync_network_resources(

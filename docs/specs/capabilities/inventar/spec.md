@@ -86,6 +86,24 @@ nie. **[Muss]**
 Quelle: `backend/app/pipeline.py`, `frontend/src/pages/device/UeberblickTab.tsx`,
 Test: `backend/tests/test_pipeline_unifi_classic.py::test_connection_removed_when_client_gone_only_after_successful_read`
 
+### Requirement: Port-VLANs am Switch
+Das System MUSS an einem UniFi-Switch, den der Scan per MAC zuordnen konnte, `extra.unifi.ports`
+(`accountId`, `site`, `ports[]` mit `port`, `name`, `profile`, `native` {`vlan`, `name`, `known`},
+`tagged` {`mode` `all`|`none`|`custom`|``, `vlans`, `excluded`}) speichern
+([ADR-0026](../../../adr/0026-unifi-port-vlans-netzaufloesung.md)); es enthält nur aufgelöste VLAN-IDs
+und Netznamen, nie Netz-IDs, MACs oder Zähler. Der Wert wird bei jedem Scan ersetzt, aber nur, wenn
+`stat/device`, `rest/portconf` und `rest/networkconf` aller Sites gelesen wurden; bei Fehler bleibt der
+alte Stand. Ein Switch dieses Zugangs, der nicht mehr gemeldet wird, verliert die Ports, ein anderer
+Zugang wird nie angefasst. Es entsteht nie ein Gerät, mehrdeutige MACs werden nicht zugeordnet. Das
+Gerätedetail (Tab „Technik“) zeigt die Tabelle Port | Name | Nativ | Tagged | Angeschlossenes Gerät;
+`all` liest sich „alle“ (ggf. „alle außer …“), `none` „keine“, eine nicht auflösbare Netz-ID
+„unbekanntes Netz“. **[Muss]**
+
+Quelle: `backend/app/pipeline.py`, `frontend/src/pages/device/TechnikTab.tsx`,
+Test: `backend/tests/test_pipeline_unifi_classic.py::test_switch_ports_stored`,
+`::test_switch_ports_replaced_each_scan`, `::test_switch_ports_kept_on_partial_failure`,
+`::test_switch_ports_removed_when_switch_gone_after_full_read`
+
 ### Requirement: Absprung-Links zur Verwaltung
 Das System MUSS Admins über `GET /api/systems/{id}/admin-links` Deep-Links liefern (`{"links": [{label, url}]}`,
 bei keinem Link eine leere Liste, unbekannte ID 404, Member 403): für ein lokales Docker-Gerät

@@ -109,6 +109,16 @@ entfällt. **[Muss]**
 
 Quelle: `backend/app/docs.py:208`, `backend/app/docs.py:550`
 
+### Requirement: Switchports je VLAN
+Das System MUSS in der VLAN-Tabelle von „VLANs und Netze“ eine Spalte „Switchports“ ausgeben, sobald
+mindestens ein Switch `extra.unifi.ports` trägt: je VLAN-ID „nativ: <Switch> N, …“ und „tagged: <Switch> N, …“
+(Tagged nur bei Modus „alle“ und nicht ausgeschlossen), sonst „-“. Gleiche VLAN-ID in mehreren Netzen
+zeigt bei jedem dieselben Ports. Ohne Port-Daten bleibt die Tabelle unverändert. **[Muss]**
+
+Quelle: `backend/app/docs.py`,
+Test: `backend/tests/test_docs_network_resources.py::test_docs_vlan_lists_ports`,
+`backend/tests/test_docs_unifi_connections.py::test_docs_switch_port_table`
+
 ### Requirement: Gerätedetails
 Das System MUSS je Gerät einen Abschnitt mit Name als Überschrift, „Wozu“-Beschreibung und den
 vorhandenen Fakten ausgeben: IP, MAC, Hersteller, Modell, Standort, Bedeutung (nur wenn ≠ normal),
@@ -119,7 +129,9 @@ gesehen (Format `TT.MM.JJJJ HH:MM`); ferner falls vorhanden: direkt vom Gerät a
 (höchstens 14, mehrzeilige als Codeblock), Docker-Fakten (Image, Compose-Projekt, Port-Zuordnungen (Docker),
 höchstens 6 Volumes), Proxmox-Fakten (Node, VM-ID, CPU-Kerne, RAM in MB), Tabelle der Kindgeräte
 („Läuft auf diesem Gerät“, Funktion auf 140 Zeichen gekürzt), höchstens 15 erreichbare Dienste
-(Port | Dienst | Bedeutung), PoE-Hinweis bei einem Tag mit „poe“ und die Gerätenotiz. **[Muss]**
+(Port | Dienst | Bedeutung), bei einem UniFi-Switch mit `extra.unifi.ports` die Tabelle „Ports und VLANs“
+(Port | Name | Nativ | Tagged | Angeschlossenes Gerät; „alle“, „keine“, „unbekanntes Netz“; ohne Daten
+nichts; [ADR-0026](../../../adr/0026-unifi-port-vlans-netzaufloesung.md)), PoE-Hinweis bei einem Tag mit „poe“ und die Gerätenotiz. **[Muss]**
 Die genauen Obergrenzen sind **[Impl]**.
 
 #### Szenario: Container auf Host

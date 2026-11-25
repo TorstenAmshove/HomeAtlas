@@ -511,6 +511,25 @@ speichert `extra.unifi.connection` (siehe `inventar`). **[Muss]**
 - **WENN** ein Client keinem Inventar-Gerät entspricht
 - **DANN** entsteht kein Gerät
 
+### Requirement: UniFi-Port-VLANs je Switch
+Das System MUSS bei aktivem klassischen UniFi-Scan je Site zusätzlich per GET `rest/portconf` und
+`stat/device` (`type == "usw"`) je Port nur Nummer, Name, Profilname, natives Netz und Tagged-Modus
+lesen ([ADR-0026](../../../adr/0026-unifi-port-vlans-netzaufloesung.md)). Je Feld gilt: Override
+(`port_overrides`) vor Profil vor Direktfeld des Ports. Netz-IDs werden je Site über `rest/networkconf`
+(`_id`, `vlan`; Standardnetz ohne `vlan` zählt als VLAN 1) zu VLAN-ID und Name aufgelöst, eine unbekannte ID
+bleibt als „unbekannt“ markiert; `auto` ist „alle“ (mit `excluded_networkconf_ids`), `block_all` „keine“,
+alles andere „custom“ ohne Liste. Höchstens 128 Ports je Gerät und 200 Profile je Site (je eine Warnung).
+Scheitert eine der Quellen, entsteht die Warnung „Port-VLANs nicht lesbar“, `portsOk` ist falsch und
+Portweiterleitungen, WAN-Status und Clients bleiben. **[Muss]**
+
+#### Szenario: Port mit Profil und Override
+- **WENN** ein Port ein Profil trägt und ein Override nur den Tagged-Modus setzt
+- **DANN** gilt der native Wert des Profils und der Tagged-Modus des Overrides
+
+Quelle: `backend/app/unifi_classic_probe.py`,
+Test: `backend/tests/test_unifi_classic_probe.py::test_probe_switch_ports_override_profile_default`,
+`::test_port_tagged_modes`, `::test_unknown_network_id`, `::test_portconf_errors_keep_other_sources`
+
 Quelle: `backend/app/unifi_classic_probe.py`, `backend/app/pipeline.py`,
 Test: `backend/tests/test_unifi_classic_probe.py`, `backend/tests/test_pipeline_unifi_classic.py::test_connection_wired_and_wifi`,
 `::test_unknown_client_creates_no_system`, `::test_manual_parent_untouched_by_connections`

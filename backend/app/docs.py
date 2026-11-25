@@ -319,6 +319,70 @@ def _attached_clients(device_id: str, by_id: dict[str, dict]) -> list[str]:
     return [f"  - {t[2]}" for t in sorted(wired)] + [f"  - {t[2]}" for t in sorted(wifi)]
 
 
+def _net_label(net: dict) -> str:
+    """`VLAN 10 *Default*`; an ID that did not resolve reads `unbekanntes Netz` (never a raw value)."""
+    vlan, name = net.get("vlan"), _escape(str(net.get("name") or ""))
+    if net.get("known") is False:
+        return "unbekanntes Netz"
+    if vlan is None and not name:
+        return "–"
+    return " ".join(p for p in (f"VLAN {vlan}" if vlan is not None else "", f"*{name}*" if name else "") if p)
+
+
+def _tagged_label(tagged: dict) -> str:
+    mode = tagged.get("mode")
+    if mode == "all":
+        excluded = [_net_label({**n, "known": n.get("vlan") is not None or bool(n.get("name"))})
+                    for n in tagged.get("excluded") or [] if isinstance(n, dict)]
+        return f"alle außer {', '.join(excluded)}" if excluded else "alle"
+    if mode == "none":
+        return "keine"
+    if mode == "custom":
+        return "benutzerdefiniert (Liste nicht gelesen)"
+    return "–"
+
+
+def _switch_ports(system: dict) -> list[dict]:
+    """Stored `extra.unifi.ports` of a switch; empty for older inventories (ADR-0026)."""
+    stored = ((system.get("extra") or {}).get("unifi") or {}).get("ports")
+    ports = stored.get("ports") if isinstance(stored, dict) else None
+    return [p for p in ports or [] if isinstance(p, dict) and isinstance(p.get("port"), int)]
+
+
+def _port_table(device_id: str, ports: list[dict], by_id: dict[str, dict]) -> str:
+    """Port | Name | Nativ | Tagged | Angeschlossenes Gerät for a UniFi switch."""
+    attached: dict[int, list[str]] = {}
+    for client in by_id.values():
+        conn = ((client.get("extra") or {}).get("unifi") or {}).get("connection")
+        if (isinstance(conn, dict) and conn.get("type") == "wired" and conn.get("systemId") == device_id
+                and isinstance(conn.get("port"), int) and client["id"] != device_id):
+            attached.setdefault(conn["port"], []).append(_escape(client["name"]))
+    lines = ["| Port | Name | Nativ | Tagged | Angeschlossenes Gerät |", "| --- | --- | --- | --- | --- |"]
+    for port in ports:
+        lines.append("| " + " | ".join((
+            str(port["port"]), _escape(str(port.get("name") or "")) or "–",
+            _net_label(port.get("native") or {}), _tagged_label(port.get("tagged") or {}),
+            ", ".join(sorted(attached.get(port["port"], []), key=str.lower)) or "–")) + " |")
+    return "\n".join(lines)
+
+
+def _vlan_ports(systems: list[dict], vlan: int) -> str:
+    """Switch ports carrying a VLAN: native ports, plus tagged ones where the mode is `all`."""
+    native: list[str] = []
+    tagged: list[str] = []
+    for system in sorted(systems, key=lambda s: s["name"].lower()):
+        for port in _switch_ports(system):
+            label = f"{system['name']} {port['port']}"
+            if (port.get("native") or {}).get("vlan") == vlan:
+                native.append(label)
+            elif (port.get("tagged") or {}).get("mode") == "all" and vlan not in {
+                    n.get("vlan") for n in (port["tagged"].get("excluded") or []) if isinstance(n, dict)}:
+                tagged.append(label)
+    parts = [f"nativ: {', '.join(native)}"] if native else []
+    parts += [f"tagged: {', '.join(tagged)}"] if tagged else []
+    return "; ".join(parts) or "-"
+
+
 def _device_details(systems: list[dict], by_id: dict[str, dict], children_by_parent: dict[str, list[dict]],
                     level: int = 3) -> str:
     parts: list[str] = []
@@ -357,6 +421,9 @@ def _device_details(systems: list[dict], by_id: dict[str, dict], children_by_par
             facts.append(f"- **Eigene Dokumentation:** [{s['docLink']}]({s['docLink']})")
         facts.append(f"- **Zuletzt gesehen:** {_fmt_date(s['lastSeen'])}")
         parts.append("\n".join(facts) + "\n")
+        if ports := _switch_ports(s):
+            parts.append("**Ports und VLANs**\n")
+            parts.append(_port_table(s["id"], ports, by_id) + "\n")
 
         probe = (s.get("extra") or {}).get("probe") or {}
         # Config exports never belong in the docs (members and the LLM read them); they are already
@@ -466,6 +533,7 @@ def _network_resources_section() -> str:
     if not resources:
         return "_Noch keine VLAN-, WLAN- oder WAN-Daten vom Controller erfasst._\n"
     sections: list[str] = []
+    switches = db.list_systems()
     tables = (
         ("network", "### VLANs und Netze", ("VLAN", "Netzwerk"),
          lambda facts: (str(facts.get("vlanId", "-")), facts.get("cidr", "-"))),
@@ -481,11 +549,16 @@ def _network_resources_section() -> str:
             items = [r for r in items if (r.get("facts") or {}).get("ip")]
         if not items:
             continue
-        headers = ("Name", "Standort", *columns, "Notiz")
+        with_ports = kind == "network" and any(_switch_ports(s) for s in switches)
+        headers = ("Name", "Standort", *columns, *(("Switchports",) if with_ports else ()), "Notiz")
         lines = [title, "| " + " | ".join(headers) + " |", "| " + " | ".join("---" for _ in headers) + " |"]
         for resource in items:
             facts = resource.get("facts") or {}
-            row = (resource["name"], resource["siteName"], *values(facts), resource.get("manualMd") or "-")
+            vlan = facts.get("vlanId")
+            vlan = int(vlan) if isinstance(vlan, (int, str)) and str(vlan).isdigit() else None
+            extra_cell = ((_vlan_ports(switches, vlan) if vlan is not None else "-"),) if with_ports else ()
+            row = (resource["name"], resource["siteName"], *values(facts), *extra_cell,
+                   resource.get("manualMd") or "-")
             lines.append("| " + " | ".join(_escape(str(value)) for value in row) + " |")
         sections.append("\n".join(lines))
     return "\n\n".join(sections) + "\n"
