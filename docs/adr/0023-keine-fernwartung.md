@@ -1,6 +1,6 @@
 # ADR-0023: Keine Fernwartung, einzige Steuerung ist Home-Assistant-Schalten
 
-- **Status:** Akzeptiert, ersetzt ADR-0022
+- **Status:** Ersetzt durch ADR-0025; ersetzte ADR-0022
 - **Datum:** 2026-11-23
 
 ## Kontext

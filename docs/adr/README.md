@@ -42,5 +42,6 @@ Menschen und für KI-Agenten, die sonst bewusste Entscheidungen „wegrefaktorie
 | [0020](0020-llm-client-ohne-schwesterprojekt.md) | Providerneutraler LLM-Client ohne Vendor-SDK, ohne Schwesterprojekt | Akzeptiert |
 | [0021](0021-proxmox-live-lesepfade.md) | Lesender Live-Zugriff auf die Proxmox-API für den Assistenten | Ersetzt durch ADR-0022 |
 | [0022](0022-container-live-status.md) | Live-Status lokaler Docker-Container für den Assistenten, ohne Inspect | Ersetzt durch ADR-0023 |
-| [0023](0023-keine-fernwartung.md) | Keine Fernwartung, einzige Steuerung ist Home-Assistant-Schalten | Akzeptiert |
+| [0023](0023-keine-fernwartung.md) | Keine Fernwartung, einzige Steuerung ist Home-Assistant-Schalten | Ersetzt durch ADR-0025 |
 | [0024](0024-docker-socket-proxy.md) | Docker nur lesend über einen mitgelieferten Socket-Proxy, kein Inspect | Akzeptiert |
+| [0025](0025-unifi-scan-client-port-und-port-vlans.md) | UniFi-Scan liest Client-Zuordnung und Port-VLANs aus der klassischen API | Akzeptiert |

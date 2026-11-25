@@ -24,7 +24,7 @@
 - **P1 [Muss]** Selbst gehostet, eine Instanz pro Haushalt, Betrieb im eigenen LAN. Kein Cloud-Zwang;
   optionale Außenkontakte sind der gewählte LLM-Anbieter (mit Ollama: keiner) sowie, je einzeln
   abschaltbar und standardmäßig aus, die Cloudflare-API und die öffentliche DNS-Auflösung für die
-  Erreichbarkeits-Ketten (nur lesend). ([ADR-0023](../adr/0023-keine-fernwartung.md))
+  Erreichbarkeits-Ketten (nur lesend). ([ADR-0025](../adr/0025-unifi-scan-client-port-und-port-vlans.md))
 - **P2 [Muss]** Zielgruppe der Ausgaben (Doku, Netzplan, Assistent) sind **technische Laien** im
   Haushalt. Sprache der Oberfläche und der Doku: Deutsch, verständlich, ohne Fachjargon wo vermeidbar.
 - **P3 [Muss]** Die App dokumentiert das Netz; sie ist **kein Passwort-Manager** für persönliche
@@ -64,15 +64,15 @@
 
 - **L1 [Muss]** Lesender und schreibender Gerätezugriff sind getrennte Pfade. Kein lesender Pfad
   kann über eine Einstellung, einen Parameter oder ein KI-Werkzeug schreibend werden.
-  ([ADR-0023](../adr/0023-keine-fernwartung.md))
+  ([ADR-0025](../adr/0025-unifi-scan-client-port-und-port-vlans.md))
 - **L2 [Muss]** Credentialed Probing ist **streng lesend**: SSH nur aus einer festen, im Code
   stehenden Befehlsliste (nicht erweiterbar, nicht interaktiv, kein `sudo` (einzige Ausnahme: der feste Befehl `nft -j list ruleset` der Firewall-Quelle, per `authorized_keys` und sudoers nur dafür freigegeben), kein Paketmanager, keine
   Dienststeuerung, keine schreibende Umleitung in Dateien; Pipes zu Lesewerkzeugen wie `base64` und
   `2>/dev/null` sind erlaubt);
   Ausnahme: Dateilesen per SSH-Forced-Command aus festen Befehlskonstanten je Quelltyp (kein Pfad,
-  kein Parameter; Erreichbarkeits- und Firewall-Quellen); HTTP nur GET (Ausnahme: im Live-Zugriff `unifi_live.py` höchstens ein lesender POST für Events, L8; Proxmox-Live, L9, nur GET); TR-064/IGD nur `Get*`-Aktionen (die öffentliche Adresse der FRITZ!Box ohne Zugangsdaten); Docker-API nur GET; Home-Assistant-WebSocket nur
+  kein Parameter; Erreichbarkeits- und Firewall-Quellen); HTTP nur GET (der UniFi-Scan liest per ADR-0025 zusätzlich `stat/sta` und `rest/portconf`, Umsetzung in Folge-Issues; Ausnahme: im Live-Zugriff `unifi_live.py` höchstens ein lesender POST für Events, L8; Proxmox-Live, L9, nur GET); TR-064/IGD nur `Get*`-Aktionen (die öffentliche Adresse der FRITZ!Box ohne Zugangsdaten); Docker-API nur GET; Home-Assistant-WebSocket nur
   `trace/list`, `trace/get` und `system_log/list`.
-  ([ADR-0023](../adr/0023-keine-fernwartung.md))
+  ([ADR-0025](../adr/0025-unifi-scan-client-port-und-port-vlans.md))
 - **L3 [Muss]** Ein Zugang wird nur benutzt, wenn er **ausdrücklich zum Auslesen freigegeben**
   ist (Opt-in je Zugang, Default aus). Das Auslesen pro Gerät lässt sich global abschalten
   (`scanUseCredentials`); Controller-Abfragen (UniFi, Proxmox) haben eigene Schalter.
@@ -80,24 +80,24 @@
   `get_ha_*`, `get_unifi_*`, `get_proxmox_*`).
 - **L4 [Muss]** HomeAtlas hat keine Fernwartung: kein Befehl auf Geräten, keine Konsole, keine
   Container-/Proxmox-Steuerung, kein Neustart, kein Erzeugen oder Verteilen von SSH-Schlüsseln.
-  Verwaltung erfolgt über externe Werkzeuge. ([ADR-0023](../adr/0023-keine-fernwartung.md))
+  Verwaltung erfolgt über externe Werkzeuge. ([ADR-0025](../adr/0025-unifi-scan-client-port-und-port-vlans.md))
 - **L5 [Muss]** Einzige Schreibfähigkeit: Ein/Aus-Schalten von Home-Assistant `switch`/`light` sowie
   Auf/Zu/Stopp (keine Position) von Home-Assistant-Rollos (`cover` mit `device_class`
   blind/shade/shutter/curtain/awning; Garagen-/Hoftore, Türen, Fenster und Entities ohne
   `device_class` gesperrt) per KI-Werkzeug `set_switch`, für alle Rollen und MCP-Clients, ohne
   Rückfrage (bestätigt in #43, #99). Kein direktes Schalten von Shelly-Geräten; jeder Vorgang wird mit
   Auslöser protokolliert. Weitere Aktionen nur nativ in `switch_admin.py`, nur über `tools.py`, je Aktion
-  mit eigenem ADR und fester Allowlist. ([ADR-0023](../adr/0023-keine-fernwartung.md))
+  mit eigenem ADR und fester Allowlist. ([ADR-0025](../adr/0025-unifi-scan-client-port-und-port-vlans.md))
 - **L6 [Impl]** Lese- und Schreibseite (`switch_admin.py`) sind getrennte Module, die einander nicht importieren;
-  gemeinsamer Code wird eher dupliziert als geteilt. ([ADR-0023](../adr/0023-keine-fernwartung.md))
+  gemeinsamer Code wird eher dupliziert als geteilt. ([ADR-0025](../adr/0025-unifi-scan-client-port-und-port-vlans.md))
 - **L8 [Muss]** Live-Zugriff auf die klassische UniFi-API (`unifi_live.py`) ist nur lesend: Auth
   allein per `X-API-Key`, feste Endpunkt-Allowlist (GET plus genau ein lesender POST für Events, `get_unifi_events`), Feld-Positivliste,
   höchstens 7 Tage, begrenzte Menge, nichts wird gespeichert. Importiert kein `*_admin`-Modul und
-  wird nicht von Scan-Modulen importiert. ([ADR-0023](../adr/0023-keine-fernwartung.md))
+  wird nicht von Scan-Modulen importiert. ([ADR-0025](../adr/0025-unifi-scan-client-port-und-port-vlans.md))
 - **L9 [Muss]** Live-Zugriff auf die Proxmox-API (`proxmox_live.py`) ist nur lesend: nur GET auf eine feste
   Pfad-Allowlist, Auth allein mit dem API-Token des Zugangs der Kategorie `proxmox` (mit Opt-in), Feld-Positivliste,
   kein Freitext des Gasts, kein Aufgaben-Log-Text, begrenzte Menge, nichts wird gespeichert. Importiert kein
-  `*_admin`- und kein Scan-Modul; höchstens `tools.py` importiert es. ([ADR-0023](../adr/0023-keine-fernwartung.md))
+  `*_admin`- und kein Scan-Modul; höchstens `tools.py` importiert es. ([ADR-0025](../adr/0025-unifi-scan-client-port-und-port-vlans.md))
 - **L7 [Muss, bewusste Abwägung]** SSH-Hostschlüssel werden nicht geprüft (kein Vertrauensspeicher;
   sonst wäre die Funktion im Zielnetz unbrauchbar). Eine Alternative darf das verbessern
   (z. B. Trust-on-first-use), muss es aber nicht.
@@ -105,12 +105,12 @@
 ## 4. KI-Assistent
 
 - **K1 [Muss]** Die Werkzeugliste ist die **vollständige** Fähigkeitsgrenze des Modells: lesend
-  plus begrenzte Live-Diagnosen plus die eine Ausnahme `set_switch` (L5) die lesenden UniFi-Live-Abfragen (L8) und die lesenden Proxmox-Live-Abfragen (L9) und den lesenden Live-Status lokaler Container (`get_container_status`, nur `GET /containers/json`, kein Inspect). ([ADR-0023](../adr/0023-keine-fernwartung.md),
+  plus begrenzte Live-Diagnosen plus die eine Ausnahme `set_switch` (L5) die lesenden UniFi-Live-Abfragen (L8) und die lesenden Proxmox-Live-Abfragen (L9) und den lesenden Live-Status lokaler Container (`get_container_status`, nur `GET /containers/json`, kein Inspect). ([ADR-0025](../adr/0025-unifi-scan-client-port-und-port-vlans.md),
   [llm-tools](contracts/llm-tools.md))
 - **K2 [Muss]** Gespeicherte Secrets erreichen **nie** ein Modell, einen Prompt, Anbieter-Logs oder
-  den Chatverlauf. Werkzeuge, die ein Secret brauchen, nutzen es serverseitig. ([ADR-0023](../adr/0023-keine-fernwartung.md))
+  den Chatverlauf. Werkzeuge, die ein Secret brauchen, nutzen es serverseitig. ([ADR-0025](../adr/0025-unifi-scan-client-port-und-port-vlans.md))
 - **K3 [Muss]** Live-Diagnosen laufen ohne Shell (Argumentliste), mit Timeout und mit strikt
-  validierten Zielen (Hostname/IP/URL nach Muster). ([ADR-0023](../adr/0023-keine-fernwartung.md))
+  validierten Zielen (Hostname/IP/URL nach Muster). ([ADR-0025](../adr/0025-unifi-scan-client-port-und-port-vlans.md))
 - **K4 [Muss]** Werkzeugergebnisse sind in der Größe begrenzt; eine Kürzung wird dem Modell
   mitgeteilt. Die Zahl der LLM-Aufrufe pro Antwort ist begrenzt.
 - **K5 [Muss]** Anbieter frei wählbar: Anthropic Claude, OpenAI, Google Gemini, DeepSeek, lokales
