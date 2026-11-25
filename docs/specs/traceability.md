@@ -158,7 +158,7 @@ Lücken: **0**
 | `DocsPage` | [dokumentation](capabilities/dokumentation/spec.md) |
 | `SettingsPage` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [diagnose](capabilities/diagnose/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md), [firewall](capabilities/firewall/spec.md), [monitoring](capabilities/monitoring/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) |
 
-## ADRs in der Constitution (24)
+## ADRs in der Constitution (25)
 
 Quelle links sind die Dateien in `docs/adr/`, rechts die Regeln in [constitution.md](constitution.md),
 die auf das ADR verlinken.
@@ -187,5 +187,6 @@ die auf das ADR verlinken.
 | [ADR-0020](../adr/0020-llm-client-ohne-schwesterprojekt.md) | Akzeptiert | K5, K6, K7 |  |
 | [ADR-0021](../adr/0021-proxmox-live-lesepfade.md) | Ersetzt durch ADR-0022 (ersetzte ADR-0019) | – |  |
 | [ADR-0022](../adr/0022-container-live-status.md) | Ersetzt durch ADR-0023 (ersetzte ADR-0021) | – |  |
-| [ADR-0023](../adr/0023-keine-fernwartung.md) | Akzeptiert, ersetzt ADR-0022 | P1, L1, L2, L4, L5, L6, L8, L9, K1, K2, K3 |  |
+| [ADR-0023](../adr/0023-keine-fernwartung.md) | Ersetzt durch ADR-0025; ersetzte ADR-0022 | – |  |
 | [ADR-0024](../adr/0024-docker-socket-proxy.md) | Akzeptiert, ergänzt ADR-0023 | B5 |  |
+| [ADR-0025](../adr/0025-unifi-scan-client-port-und-port-vlans.md) | Akzeptiert, ersetzt ADR-0023 | P1, L1, L2, L4, L5, L6, L8, L9, K1, K2, K3 |  |
