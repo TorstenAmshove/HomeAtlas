@@ -73,9 +73,12 @@ Das System MUSS eine Ressource nur dann als inaktiv markieren, wenn der Abgleich
 Bereich (Zugang + Standort + Art) vollständig gelesen hat und die Ressource darin fehlt. Ein
 fehlgeschlagener oder nicht gelesener Bereich DARF bestehende Einträge NICHT deaktivieren.
 Ressourcen werden nie physisch gelöscht. Ein vollständig gelesener, leerer Bereich deaktiviert seine
-Ressourcen erst beim zweiten leeren Abgleich in Folge (`emptyScans`, schützt vor kurzzeitig leeren
+Ressourcen erst beim zweiten leeren Scan in Folge (`emptyScans`, schützt vor kurzzeitig leeren
 Controller-Antworten); ein nicht gelesener Bereich lässt den Zähler unverändert, jede Aktualisierung
-der Ressource setzt ihn auf 0. **[Muss]**
+der Ressource setzt ihn auf 0. Nur Scans zählen `emptyScans`: Das manuelle Auslesen eines Geräts
+(`POST /api/systems/{id}/probe`) lässt bei einem leer gemeldeten Bereich Zähler und `active`
+unverändert, setzt den Zähler bei einer Aktualisierung aber ebenfalls auf 0 und deaktiviert in einem
+nicht leeren Bereich fehlende Ressourcen wie der Scan sofort (#247). **[Muss]**
 
 #### Szenario: Teilausfall löscht nichts
 - **WENN** „LAN“ und „IoT“ bekannt sind und ein Abgleich nur „LAN“ liefert, ohne den Bereich
@@ -83,8 +86,13 @@ der Ressource setzt ihn auf 0. **[Muss]**
 - **DANN** bleiben beide aktiv
 
 #### Szenario: Leerer Bereich erst beim zweiten Mal
-- **WENN** ein vollständig gelesener Bereich zum ersten Mal leer ist
-- **DANN** bleiben seine Ressourcen aktiv; beim zweiten leeren Abgleich in Folge werden sie inaktiv
+- **WENN** ein vollständig gelesener Bereich bei einem Scan zum ersten Mal leer ist
+- **DANN** bleiben seine Ressourcen aktiv; beim zweiten leeren Scan in Folge werden sie inaktiv
+
+#### Szenario: Manuelles Auslesen zählt nicht
+- **WENN** ein Admin ein Gerät mit UniFi-Zugang zweimal hintereinander ausliest und der Controller
+  den Bereich jeweils vollständig, aber leer meldet
+- **DANN** bleiben dessen Ressourcen aktiv, und der Zähler des nächsten Scans steht unverändert
 
 #### Szenario: Vollständiger Bereich ohne Eintrag
 - **WENN** derselbe Abgleich den Bereich (site-1, network) als vollständig meldet
@@ -92,7 +100,10 @@ der Ressource setzt ihn auf 0. **[Muss]**
 
 Quelle: `backend/app/db.py:1293`, `backend/app/db.py:1329`, `backend/app/unifi_probe.py:222`,
 `backend/app/unifi_probe.py:229`, `backend/app/unifi_probe.py:236`, Test:
-`backend/tests/test_db_network_resources.py::test_sync_network_resources_only_marks_missing_resource_inactive_for_completed_scope`
+`backend/tests/test_db_network_resources.py::test_sync_network_resources_only_marks_missing_resource_inactive_for_completed_scope`,
+`backend/tests/test_db_network_resources.py::test_manual_empty_reads_never_deactivate`,
+`backend/tests/test_db_network_resources.py::test_manual_empty_read_does_not_advance_scan_counter`,
+`backend/tests/test_main_unifi_probe.py::test_manual_probe_twice_with_empty_scope_keeps_resources_active`
 
 ### Requirement: Löschen des Controller-Zugangs
 Das System MUSS beim Löschen eines Zugangs alle von ihm stammenden Ressourcen behalten, aber als
@@ -109,7 +120,8 @@ Quelle: `backend/app/db.py:1548`, Test:
 Das System MUSS Ressourcen abgleichen (a) bei jedem vollständigen Scan für jeden UniFi-Zugang mit
 „Zum Auslesen verwenden“, sofern die Quelle UniFi in den Einstellungen aktiv ist (`scanEnableUnifi`,
 Default `true`), und (b) beim manuellen Auslesen eines Geräts, dem ein solcher UniFi-Zugang
-freigegeben ist. Ein fehlgeschlagener Controller-Abruf DARF keine Ressource verändern. **[Muss]**
+freigegeben ist. Ein fehlgeschlagener Controller-Abruf DARF keine Ressource verändern. Nur (a) zählt
+leere Bereiche für die Deaktivierungsschwelle (`emptyScans`), (b) nicht (`count_empty=False`). **[Muss]**
 
 Im Scan erfolgt der Abgleich nach dem Inventar-Update und der Uplink-Verknüpfung (Fortschritt ab
 87 %), Log-Zeile „UniFi (<Label>): <n> Netze, WLANs und WANs aktualisiert“. **[Impl]**
@@ -147,10 +159,12 @@ Quelle: `backend/app/unifi_probe.py:128`, `backend/app/unifi_probe.py:149`,
 ### Requirement: Switchports je VLAN in der Doku
 Das System MUSS im Doku-Kapitel „VLANs und Netze“ je VLAN die Switchports nennen, an denen es anliegt
 (Spalte „Switchports“, Quelle `extra.unifi.ports`, siehe `dokumentation`). Die Zuordnung läuft über die
-VLAN-ID der aktiven Netz-Ressourcen. **[Muss]**
+VLAN-ID der aktiven Netz-Ressourcen. Das Standardnetz (`defaultVlan` am Port) erscheint nur „nativ“,
+nie „tagged“, auch bei Modus „alle“ (#260). **[Muss]**
 
 Quelle: `backend/app/docs.py`,
-Test: `backend/tests/test_docs_network_resources.py::test_docs_vlan_lists_ports`
+Test: `backend/tests/test_docs_network_resources.py::test_docs_vlan_lists_ports`,
+`::test_docs_default_network_never_tagged`
 
 ### Requirement: Liste lesen
 Das System MUSS jeder angemeldeten Rolle die Ressourcen liefern, optional gefiltert nach Art und
@@ -321,6 +335,3 @@ Rollen). Scan-Netzauswahl in `frontend/src/pages/SettingsPage.tsx` (Route `/eins
 - Frontend-Default `activeOnly = true` in `api.listNetworkResources`; die API selbst liefert ohne
   Parameter auch inaktive Einträge (`frontend/src/lib/api.ts:488`).
 
-## OFFEN
-
-- > OFFEN: Der manuelle Abgleich beim Verbindungstest (`backend/app/routes/systems.py:262`) nutzt dieselbe `sync_network_resources` und zählt `emptyScans` mit; zwei Klicks bei leer gemeldetem Bereich deaktivieren dessen Ressourcen also ebenso wie zwei Scans. Gewollt?

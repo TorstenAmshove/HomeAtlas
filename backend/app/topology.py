@@ -30,6 +30,11 @@ _BOX_H = 64
 _GAP_X = 16
 _LAYER_GAP = 90
 _MIN_BOX_W = 90
+# Parent groups whose horizontals would overlap are drawn at these offsets from the default height,
+# alternating up and down so every level stays inside the 26 px between two rows
+# (`_LAYER_GAP - _BOX_H`; the default height sits in its middle).
+_EDGE_LEVEL_OFFSETS = (0, -5, 5, -10)
+_MAX_EDGE_LEVELS = len(_EDGE_LEVEL_OFFSETS)
 # Caps per row. Devices beyond them are not drawn; PlanPage.tsx lists everything the SVG does not
 # contain ("Nicht im Plan gezeichnet"), so nothing disappears.
 _MAX_ROUTERS = 6
@@ -168,23 +173,68 @@ def _edges_by_parent(anchor_by_id: dict[str, tuple[float, float]], layer: list[d
     for item, anchor in zip(layer, anchors):
         key = item.get("parentId") if item.get("parentId") in anchor_by_id else "__root__"
         groups.setdefault(key, []).append(anchor)
+    tops = {key: anchor_by_id.get(key, fallback_top) for key in groups}
+    levels = _edge_levels({key: (tops[key], bottoms) for key, bottoms in groups.items()})
     svg = []
     for key, bottoms in groups.items():
-        top = anchor_by_id.get(key, fallback_top)
-        svg.append(_edges(top, bottoms))
+        top = tops[key]
+        svg.append(_edges(top, bottoms, _mid_y(top) + _EDGE_LEVEL_OFFSETS[levels[key]]))
     return "".join(svg)
 
 
-def _edges(top: tuple[float, float], bottoms: list[tuple[float, float]]) -> str:
-    """Orthogonal connectors from one box's bottom edge to the top edge of each box below."""
+def _edge_levels(groups: dict[str, tuple[tuple[float, float], list[tuple[float, float]]]]) -> dict[str, int]:
+    """Height level per parent group so that horizontals of different parents never lie on top of
+    each other (#257) -- two overlapping lines on one height would again suggest a wrong uplink.
+
+    Only groups whose horizontals share a base height can collide. Their x-intervals
+    `[min(xs + [top_x]), max(xs + [top_x])]` are taken left to right and put greedily on the first
+    level where they touch no other interval (touching counts, `<=`). Level 0 is the old height, so
+    a plan without overlaps renders exactly as before; levels past `_MAX_EDGE_LEVELS` are clamped."""
+    spans = {key: (min([x for x, _ in bottoms] + [top[0]]), max([x for x, _ in bottoms] + [top[0]]), _mid_y(top))
+             for key, (top, bottoms) in groups.items()}
+    placed: dict[tuple[float, int], list[tuple[float, float]]] = {}
+    levels: dict[str, int] = {}
+    for key in sorted(spans, key=lambda k: spans[k][0]):
+        left, right, base = spans[key]
+        level = 0
+        while any(left <= other_right and other_left <= right for other_left, other_right in placed.get((base, level), [])):
+            level += 1
+        placed.setdefault((base, level), []).append((left, right))
+        levels[key] = min(level, _MAX_EDGE_LEVELS - 1)
+    return levels
+
+
+def _mid_y(top: tuple[float, float]) -> float:
+    """Default height of the horizontal below a box whose top edge is at `top[1]`."""
+    return top[1] + _BOX_H + (_LAYER_GAP - _BOX_H) / 2
+
+
+def _order_by_parent(items: list[dict], anchor_by_id: dict[str, tuple[float, float]]) -> list[dict]:
+    """Orders one row so children stand grouped in the left-to-right order of their parents (#257).
+
+    The key is the x of the parent's anchor (always a row above). Items without a drawn parent go
+    last; the sort is stable, so the order within a group and among parentless items is kept."""
+    def key(item: dict) -> tuple[int, float]:
+        anchor = anchor_by_id.get(item.get("parentId") or "")
+        return (0, anchor[0]) if anchor else (1, 0.0)
+    return sorted(items, key=key)
+
+
+def _edges(top: tuple[float, float], bottoms: list[tuple[float, float]], mid_y: float | None = None) -> str:
+    """Orthogonal connectors from one box's bottom edge to the top edge of each box below.
+
+    The horizontal always spans the parent's x as well as every child's (#257): with a single child
+    off to the side it used to be skipped, leaving a stub under the parent and a line above the child
+    with nothing in between. `mid_y` (absolute) overrides the default height, see `_edge_levels`."""
     if not bottoms:
         return ""
     top_x, top_y = top
-    mid_y = top_y + _BOX_H + (_LAYER_GAP - _BOX_H) / 2
+    if mid_y is None:
+        mid_y = _mid_y(top)
     paths = [f'<path d="M {top_x:.0f} {top_y + _BOX_H:.0f} V {mid_y:.0f}" '
              f'stroke="{_COLORS["line"]}" stroke-width="1.5" fill="none"/>']
-    xs = [x for x, _ in bottoms]
-    if len(xs) > 1:
+    xs = [x for x, _ in bottoms] + [top_x]
+    if round(min(xs)) != round(max(xs)):
         paths.append(f'<path d="M {min(xs):.0f} {mid_y:.0f} H {max(xs):.0f}" '
                      f'stroke="{_COLORS["line"]}" stroke-width="1.5" fill="none"/>')
     for x, y in bottoms:
@@ -331,10 +381,11 @@ def render(settings: dict | None = None) -> str:
             resolved_parent = s.get("parentId") if s.get("parentId") in anchor_by_id else None
             items.append({"id": s["id"], "parentId": resolved_parent, "title": s["name"],
                          "subtitle": subtitle, "status": s["status"], "expand": expand})
+        items = _order_by_parent(items, anchor_by_id)
         row_svg, anchors = _row(items, y, width=width)
         svg.append(_edges_by_parent(anchor_by_id, items, anchors, previous))
         svg.append(row_svg)
-        anchor_by_id.update(zip((s["id"] for s in critical), anchors))
+        anchor_by_id.update(zip((item["id"] for item in items), anchors))
         y += _LAYER_GAP
 
     if len(systems) == 0:

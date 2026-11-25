@@ -29,6 +29,9 @@ Port VLANs (ADR-0025, ADR-0026): per switch (`type == "usw"`) and port only numb
 native network and tagged mode are kept. Network IDs come from `networkconf` (`_id`, `vlan`) and are
 resolved *here* to VLAN ID and name per site; no ID is ever returned. Precedence per field: port override,
 then the port profile, then the direct field of the port. The tagged list of mode `custom` is not read.
+The site's default network (no `vlan` key) is flagged `default: true` where it appears, and every port
+carries `defaultVlan` (its VLAN ID or `None`): UniFi never tags the default network, so mode `all` does
+not include it (#260).
 """
 from __future__ import annotations
 
@@ -167,17 +170,32 @@ def _vlan_id(value: object) -> int | None:
 
 
 def _networks(raw: list[dict]) -> dict[str, dict]:
-    """`_id` -> `{vlan, name}`; the default network has no `vlan` and counts as VLAN 1."""
+    """`_id` -> `{vlan, name[, default]}`; the default network has no `vlan` and counts as VLAN 1.
+
+    The default network (first `corporate` entry without a `vlan` key) is flagged `default: True`:
+    UniFi carries it untagged only, "allow all" on a port means the VLAN networks (#260). A network
+    explicitly configured with VLAN ID 1 is not flagged."""
     result: dict[str, dict] = {}
+    has_default = False
     for entry in raw:
         net_id = entry.get("_id")
         if not isinstance(net_id, str) or not net_id or entry.get("purpose") == "wan":
             continue
         vlan = _vlan_id(entry.get("vlan"))
+        is_default = False
         if vlan is None and "vlan" not in entry and entry.get("purpose") == "corporate":
             vlan = 1
+            is_default = not has_default
+            has_default = True
         result[net_id] = {"vlan": vlan, "name": str(entry.get("name") or "")[:100]}
+        if is_default:
+            result[net_id]["default"] = True
     return result
+
+
+def _default_vlan(networks: dict[str, dict]) -> int | None:
+    """VLAN ID of the site's default network, `None` when the site has none."""
+    return next((n["vlan"] for n in networks.values() if n.get("default")), None)
 
 
 def _profiles(raw: list[dict]) -> tuple[dict[str, dict], bool]:
@@ -208,7 +226,10 @@ def _resolve_network(net_id: object, networks: dict[str, dict]) -> dict:
     found = networks.get(net_id) if isinstance(net_id, str) else None
     if found is None:
         return {"vlan": None, "name": "", "known": False}
-    return {"vlan": found["vlan"], "name": found["name"], "known": True}
+    resolved = {"vlan": found["vlan"], "name": found["name"], "known": True}
+    if found.get("default"):
+        resolved["default"] = True
+    return resolved
 
 
 def _switch_ports(device: dict, profiles: dict[str, dict], networks: dict[str, dict]) -> list[dict]:
@@ -217,6 +238,7 @@ def _switch_ports(device: dict, profiles: dict[str, dict], networks: dict[str, d
                  and (i := _port_index(e)) is not None}
     ports = []
     seen: set[int] = set()
+    default_vlan = _default_vlan(networks)
     for entry in device.get("port_table") or []:
         idx = _port_index(entry) if isinstance(entry, dict) else None
         if idx is None or idx in seen:
@@ -243,6 +265,7 @@ def _switch_ports(device: dict, profiles: dict[str, dict], networks: dict[str, d
             "port": idx, "name": str(name or "")[:64],
             "profile": str((profile or {}).get("name") or "")[:100],
             "native": _resolve_network(field("native_networkconf_id"), networks),
+            "defaultVlan": default_vlan,
             "tagged": {"mode": mode, "vlans": [],
                        "excluded": [{k: v for k, v in _resolve_network(i, networks).items() if k != "known"}
                                     for i in excluded[:_MAX_PORTS] if mode == "all"]}})

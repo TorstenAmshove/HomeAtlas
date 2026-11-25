@@ -15,6 +15,9 @@ export const ACTION_LABEL: Record<string, string> = {
   "account.delete": "Zugang gelöscht",
   "networkresource.update": "Netzwerk-Notiz geändert",
   "scan.start": "Netzwerk-Scan gestartet",
+  "switch.assistant": "Über den Assistenten geschaltet",
+  // Altdaten: wird seit der Entfernung der Fernwartung (ADR-0023) nicht mehr geschrieben.
+  "sshkey.generate": "SSH-Schlüssel erzeugt (alt)",
 };
 
-export const CRITICAL_ACTIONS = new Set(["secret.reveal", "account.create", "account.update", "account.delete", "mfa.reset", "user.create", "user.update", "user.delete"]);
+export const CRITICAL_ACTIONS = new Set(["secret.reveal", "account.create", "account.update", "account.delete", "mfa.reset", "user.create", "user.update", "user.delete", "switch.assistant"]);

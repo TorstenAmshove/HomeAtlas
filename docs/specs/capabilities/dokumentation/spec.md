@@ -112,11 +112,20 @@ Quelle: `backend/app/docs.py:208`, `backend/app/docs.py:550`
 ### Requirement: Switchports je VLAN
 Das System MUSS in der VLAN-Tabelle von „VLANs und Netze“ eine Spalte „Switchports“ ausgeben, sobald
 mindestens ein Switch `extra.unifi.ports` trägt: je VLAN-ID „nativ: <Switch> N, …“ und „tagged: <Switch> N, …“
-(Tagged nur bei Modus „alle“ und nicht ausgeschlossen), sonst „-“. Gleiche VLAN-ID in mehreren Netzen
+(Tagged nur bei Modus „alle“ und nicht ausgeschlossen), sonst „-“. Das Standardnetz (VLAN-ID gleich
+`defaultVlan` des Ports) erscheint nie unter „tagged“, weil UniFi es an einem Port nur nativ führt (#260);
+Ports ohne `defaultVlan` (vor dem nächsten Scan gespeichert, oder Site ohne Standardnetz) zählen wie bisher.
+Die Spalte „Tagged“ der Port-Tabelle im Gerätedetail bleibt „alle“. Gleiche VLAN-ID in mehreren Netzen
 zeigt bei jedem dieselben Ports. Ohne Port-Daten bleibt die Tabelle unverändert. **[Muss]**
+
+#### Szenario: Standardnetz nicht tagged
+- **WENN** ein Port nativ VLAN 20 führt, Modus „alle“ ohne Ausschlüsse und `defaultVlan` 1 trägt
+- **DANN** steht er in der Zeile von VLAN 30 unter „tagged“, in der Zeile des Standardnetzes nicht
 
 Quelle: `backend/app/docs.py`,
 Test: `backend/tests/test_docs_network_resources.py::test_docs_vlan_lists_ports`,
+`::test_docs_default_network_never_tagged`, `::test_docs_explicit_vlan1_still_tagged`,
+`::test_docs_default_vlan_with_wrong_type_is_ignored`, `::test_docs_port_table_still_shows_all_for_default_network`,
 `backend/tests/test_docs_unifi_connections.py::test_docs_switch_port_table`
 
 ### Requirement: Gerätedetails

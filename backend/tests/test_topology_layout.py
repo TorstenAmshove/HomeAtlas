@@ -229,3 +229,128 @@ def test_important_device_edge_from_parent_id_and_unknown_parent_falls_back(temp
     orphan = _mk(temp_db, "server", "Orphan", "10.0.0.4", 4, parentId="does-not-exist", importance="critical")
     svg = topology.render()
     assert known["name"] in svg and orphan["name"] in svg
+
+
+# --- #257: continuous edges, grouping by parent, separate heights for overlapping groups ---------
+
+_PATH_RE = re.compile(r'<path d="M (\d+) (\d+) ([VH]) (\d+)"')
+
+
+def _paths(svg):
+    return [(int(x), int(y), kind, int(to)) for x, y, kind, to in _PATH_RE.findall(svg)]
+
+
+def _box_x(svg, name):
+    """Centre x of the box titled `name` (its title text is centred)."""
+    return int(re.search(rf'<text x="(\d+)" y="\d+" text-anchor="middle" fill="[^"]+" font-size="13" '
+                         rf'font-weight="600">{name}</text>', svg).group(1))
+
+
+def _connected(paths, parent_x, child_x):
+    """A V-H-V route from the parent's x down to the child's x exists."""
+    for x, y, kind, to in paths:
+        if kind == "V" and x == parent_x:
+            mid = to
+            span = (min(parent_x, child_x), max(parent_x, child_x))
+            has_h = parent_x == child_x or any(
+                k == "H" and hy == mid and min(hx, hto) <= span[0] and max(hx, hto) >= span[1]
+                for hx, hy, k, hto in paths)
+            if has_h and any(k == "V" and vx == child_x and vy == mid for vx, vy, k, _ in paths):
+                return True
+    return False
+
+
+def test_edges_single_offset_child_has_horizontal():
+    for parent_x, child_x in ((284, 500), (700, 300)):
+        paths = _paths(topology._edges((parent_x, 400), [(child_x, 490)]))
+        mid = 400 + topology._BOX_H + (topology._LAYER_GAP - topology._BOX_H) / 2
+        assert (parent_x, 464, "V", round(mid)) in paths
+        assert (min(parent_x, child_x), round(mid), "H", max(parent_x, child_x)) in paths
+        assert (child_x, round(mid), "V", 490) in paths
+
+
+def test_edges_child_directly_below_has_no_horizontal():
+    paths = _paths(topology._edges((500, 400), [(500, 490)]))
+    assert [p for p in paths if p[2] == "H"] == []
+
+
+def test_single_offset_child_edge_is_continuous(temp_db):
+    router = _mk(temp_db, "router", "GW", "10.0.0.1", 1)
+    sw_a = _mk(temp_db, "network", "SWA", "10.0.0.2", 2, parentId=router["id"])
+    _mk(temp_db, "network", "SWB", "10.0.0.3", 3, parentId=router["id"])
+    _mk(temp_db, "server", "Kind", "10.0.0.4", 4, parentId=sw_a["id"], importance="critical")
+    svg = topology.render()
+    parent_x, child_x = _box_x(svg, "SWA"), _box_x(svg, "Kind")
+    assert parent_x != child_x
+    assert _connected(_paths(svg), parent_x, child_x)
+
+
+def test_layer3_single_child_edge_is_continuous(temp_db):
+    paths = _paths(topology._edges((200, 100), [(500, 190)]))
+    assert (200, 177, "H", 500) in paths  # render_layer3 uses the same `_edges`
+
+
+def test_important_devices_grouped_in_parent_order(temp_db):
+    router = _mk(temp_db, "router", "GW", "10.0.0.1", 1)
+    sw_a = _mk(temp_db, "network", "SWA", "10.0.0.2", 2, parentId=router["id"])
+    sw_b = _mk(temp_db, "network", "SWB", "10.0.0.3", 3, parentId=router["id"])
+    _mk(temp_db, "server", "Bx1", "10.0.0.4", 4, parentId=sw_b["id"], importance="critical")
+    _mk(temp_db, "server", "Ax1", "10.0.0.5", 5, parentId=sw_a["id"], importance="critical")
+    _mk(temp_db, "server", "Ohne", "10.0.0.6", 6, importance="critical")
+    _mk(temp_db, "server", "Bx2", "10.0.0.7", 7, parentId=sw_b["id"], importance="critical")
+    svg = topology.render()
+    order = sorted(["Bx1", "Ax1", "Ohne", "Bx2"], key=lambda n: _box_x(svg, n))
+    assert order == ["Ax1", "Bx1", "Bx2", "Ohne"]
+    paths = _paths(svg)
+    for parent, child in (("SWA", "Ax1"), ("SWB", "Bx1"), ("SWB", "Bx2")):
+        assert _connected(paths, _box_x(svg, parent), _box_x(svg, child))
+
+
+def test_order_by_parent_is_stable_and_puts_parentless_last():
+    anchors = {"a": (300, 0), "b": (700, 0)}
+    items = [{"id": "1", "parentId": "b"}, {"id": "2", "parentId": None}, {"id": "3", "parentId": "a"},
+             {"id": "4", "parentId": "b"}, {"id": "5", "parentId": "gone"}]
+    assert [i["id"] for i in topology._order_by_parent(items, anchors)] == ["3", "1", "4", "2", "5"]
+
+
+def _h_heights(svg):
+    return [y for _x, y, kind, _to in _paths(svg) if kind == "H"]
+
+
+def test_overlapping_parent_groups_use_different_heights():
+    anchors = {"a": (300, 100), "b": (500, 100)}
+    layer = [{"id": "1", "parentId": "a"}, {"id": "2", "parentId": "b"}]
+    svg = topology._edges_by_parent(anchors, layer, [(600, 190), (400, 190)], (500, 0))
+    heights = _h_heights(svg)
+    assert len(heights) == 2 and heights[0] != heights[1]
+    paths = _paths(svg)
+    assert _connected(paths, 300, 600) and _connected(paths, 500, 400)
+    # Stems start at the parent's bottom edge and every drop ends at the child's top: no gap.
+    assert {(x, y) for x, y, k, _ in paths if k == "V" and x in (300, 500) and y == 164} == {(300, 164), (500, 164)}
+    assert sorted(to for x, _y, k, to in paths if k == "V" and x in (400, 600)) == [190, 190]
+
+
+def test_non_overlapping_parent_groups_keep_mid_y():
+    anchors = {"a": (200, 100), "b": (700, 100)}
+    layer = [{"id": "1", "parentId": "a"}, {"id": "2", "parentId": "b"}]
+    svg = topology._edges_by_parent(anchors, layer, [(300, 190), (800, 190)], (500, 0))
+    assert _h_heights(svg) == [177, 177]
+
+
+def test_more_than_four_overlapping_groups_clamp():
+    anchors = {str(i): (100 + 10 * i, 100) for i in range(5)}
+    layer = [{"id": f"c{i}", "parentId": str(i)} for i in range(5)]
+    svg = topology._edges_by_parent(anchors, layer, [(900, 190)] * 5, (500, 0))
+    heights = _h_heights(svg)
+    assert len(set(heights)) == topology._MAX_EDGE_LEVELS
+    assert all(164 < h < 190 for h in heights)  # between parent bottom and child top
+
+
+def test_layout_without_offset_children_unchanged(temp_db):
+    # Internet -> router -> switch -> one critical child, all centred: the exact pre-#257 paths.
+    router = _mk(temp_db, "router", "GW", "10.0.0.1", 1)
+    switch = _mk(temp_db, "network", "SW", "10.0.0.2", 2, parentId=router["id"])
+    _mk(temp_db, "server", "Srv", "10.0.0.3", 3, parentId=switch["id"], importance="critical")
+    assert _paths(topology.render()) == [
+        (500, 104, "V", 117), (500, 117, "V", 130), (500, 194, "V", 207), (500, 207, "V", 220),
+        (500, 284, "V", 297), (500, 297, "V", 310)]
