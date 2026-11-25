@@ -116,6 +116,28 @@ Containers, Controller-Uplink), (2) sonst die
 unterste Backbone-Ebene (Mitte der letzten Verteilungs- bzw. Router-Zeile, sonst Internet). Eine
 unsichere Zuordnung DARF NICHT geraten werden; dann gilt (2). **[Muss]**
 
+Jede Verbindung MUSS durchgehend vom Elterngerät zum Kind gezeichnet sein: Die Waagerechte einer
+Eltern-Gruppe reicht vom x des Elterngeräts bis zu allen Kindern, auch bei genau einem seitlich
+versetzten Kind. Die Zeile „Wichtige Geräte“ MUSS nach Elterngeräten gruppiert sein, in der Reihenfolge
+ihrer Elterngeräte von links nach rechts; Geräte ohne gezeichnetes Elterngerät stehen am Ende, innerhalb
+einer Gruppe bleibt die Reihenfolge erhalten. Waagerechte verschiedener Eltern-Gruppen DÜRFEN sich NICHT
+überlagern (#257). **[Muss]**
+
+Überlappen (oder berühren) sich die x-Bereiche zweier Gruppen mit derselben Grundhöhe, wird die spätere
+(nach linkem Rand) auf die nächste freie Ebene gelegt: Versatz 0, −5, +5, −10 px zur Grundhöhe, mehr
+Ebenen werden auf die letzte geklemmt. Ohne Überlappung bleibt die Grundhöhe, das Bild ist dann
+unverändert. Die Kinder werden nicht x-genau unter ihr Elterngerät gesetzt (`_row()` zentriert jede
+Zeile). **[Impl]**
+
+#### Szenario: Seitlich versetztes Kind
+- **WENN** ein Access Point als einziges Kind an „U6+-OG“ hängt, aber seitlich davon gezeichnet wird
+- **DANN** führt eine durchgehende Linie (senkrecht, waagerecht, senkrecht) von „U6+-OG“ zum Access
+  Point, ohne Stummel ins Leere
+
+#### Szenario: Zwei Eltern mit überlappender Linie
+- **WENN** die Waagerechten zweier Elterngeräte sich auf derselben Höhe überlagern würden
+- **DANN** liegen sie auf unterschiedlichen Höhen
+
 #### Szenario: Elterngerät ist ein Switch
 - **WENN** ein kritisches NAS als `parentId` einen im Plan gezeichneten Switch hat
 - **DANN** ist das NAS mit genau diesem Switch verbunden, nicht mit dem allgemeinen Strang
@@ -124,7 +146,10 @@ unsichere Zuordnung DARF NICHT geraten werden; dann gilt (2). **[Muss]**
 - **WENN** das `parentId` eines kritischen Geräts auf kein gezeichnetes Gerät zeigt
 - **DANN** hängt es am allgemeinen Strang und der Plan rendert normal
 
-Quelle: `backend/app/topology.py` (`render`), Test: `backend/tests/test_topology_layout.py::test_important_device_edge_from_parent_id_and_unknown_parent_falls_back`
+Quelle: `backend/app/topology.py` (`render`, `_edges`, `_edge_levels`, `_order_by_parent`), Test: `backend/tests/test_topology_layout.py::test_important_device_edge_from_parent_id_and_unknown_parent_falls_back`,
+`::test_single_offset_child_edge_is_continuous`, `::test_important_devices_grouped_in_parent_order`,
+`::test_overlapping_parent_groups_use_different_heights`, `::test_non_overlapping_parent_groups_keep_mid_y`,
+`::test_more_than_four_overlapping_groups_clamp`, `::test_layout_without_offset_children_unchanged`
 
 ### Requirement: Layer-3 – Subnetzzuordnung
 Das System MUSS im Layer-3-Plan jedes Nicht-Router-Gerät mit IP dem engsten aktiven Controller-Netz
@@ -320,6 +345,8 @@ UI-Seite(n): `frontend/src/pages/geraete/PlanPage.tsx` (Route `/plan`, Navigatio
 - Kein interaktiver Graph (Zoom, Ziehen, Umordnen); neue Interaktion braucht ein neues ADR.
 - Kein manuelles Zeichnen oder Verschieben von Kästen; Uplinks werden nicht in der UI gepflegt.
 - Nur IPv4; Layer-3 nutzt außerhalb von Controller-Netzen nur /24-Näherung.
+- Senkrechte einer Eltern-Gruppe können die Waagerechte einer anderen kreuzen; die Ebenen verhindern
+  nur das Überlagern von Waagerechten.
 - Verkabelung kommt nur aus `parentId` (UniFi-Uplink, Proxmox/Docker-Host), VLAN-IDs nur aus Controller-Netzen; es gibt keine Nachbarschaftsprotokoll-Auswertung (LLDP/CDP) mehr.
 
 ## Ist-Implementierung (nur Referenz, [Impl])
