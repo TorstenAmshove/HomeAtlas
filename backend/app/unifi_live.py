@@ -14,6 +14,10 @@ Rules enforced here:
   ...; a blocklist would leak the next field a UniFi update adds). Key-name redaction and removal of
   the plaintext key from strings is only the second layer.
 * Errors are `UnifiLiveError` with fixed German texts -- never a response body, URL or key.
+* `events(client=True)` reads `stat/sta` once (already allowlisted, no new path) to complete the
+  client's identifiers with its *current* MAC and IP (#248): the inventory IP may be stale after a
+  DHCP change and then belong to another device. Only an unambiguous match counts; otherwise the
+  inventory values are used and a fixed hint says so. Nothing from `stat/sta` reaches the result.
 """
 from __future__ import annotations
 
@@ -401,13 +405,44 @@ def _event_matches(params: object, macs: set[str], ips: set[str], names: set[str
     return False
 
 
+LIVE_CLIENT_FALLBACK = ("Die aktuellen Werte des Clients konnten nicht live aus UniFi ergänzt werden; es wurden "
+                        "die Angaben aus dem Inventar und der Anfrage verwendet.")
+
+
+async def _live_client_identifiers(base_url: str, api_key: str, site: str, macs: set[str], ips: set[str],
+                                   names: set[str]) -> tuple[set[str], set[str], str | None]:
+    """Event filter identifiers completed from one `stat/sta` read (#248).
+
+    The connected client is looked up by MAC or name (an inventory IP may already belong to another
+    device); only when neither is known, by IP. Exactly one match: its MAC is added (MACs are stable,
+    a random MAC only adds one) and its current IP *replaces* the known IPs. Error, no match or several
+    matches: identifiers unchanged plus the fixed LIVE_CLIENT_FALLBACK hint, never the controller text."""
+    try:
+        entries = _data_list(await _request("clients", base_url, api_key, site))
+    except UnifiLiveError:
+        return macs, ips, LIVE_CLIENT_FALLBACK
+    if macs or names:
+        found = [e for e in entries if _matches(e, macs, set(), names)]
+    else:
+        found = [e for e in entries if _matches(e, set(), ips, set())]
+    if len(found) != 1:
+        return macs, ips, LIVE_CLIENT_FALLBACK
+    entry = found[0]
+    live_mac = normalize_mac(entry.get("mac"))
+    live_ip = entry.get("ip")
+    new_macs = macs | {live_mac} if live_mac else set(macs)
+    new_ips = {live_ip.strip()} if isinstance(live_ip, str) and live_ip.strip() else set()
+    return new_macs, new_ips, None
+
+
 async def events(base_url: str, api_key: str, *, hours: object = None, client: bool = False,
                  macs: set[str] | None = None, ips: set[str] | None = None, names: set[str] | None = None,
                  severity: object = None, limit: object = None, site: object = "default") -> dict:
     """Controller events of the last `hours` (<= 168), newest first, optionally for one client.
 
     Pages are fetched newest to oldest, at most MAX_EVENT_PAGES; the client/severity filters run
-    locally, so the result states how many events were actually searched."""
+    locally, so the result states how many events were actually searched. With `client`, the
+    identifiers are first completed from one live `stat/sta` read (`_live_client_identifiers`)."""
     site = valid_site(site)
     sev = None
     if severity not in (None, ""):
@@ -416,6 +451,10 @@ async def events(base_url: str, api_key: str, *, hours: object = None, client: b
             raise UnifiLiveError("Ungültige severity (erlaubt: " + ", ".join(SEVERITIES) + ").")
     window = clamp_hours(hours)
     cap = _clamp_limit(limit)
+    macs, ips, names = set(macs or ()), set(ips or ()), set(names or ())
+    live_note = None
+    if client:
+        macs, ips, live_note = await _live_client_identifiers(base_url, api_key, site, macs, ips, names)
     now = int(time.time() * 1000)
     start = now - window * 3600 * 1000
     found: list[dict] = []
@@ -448,7 +487,7 @@ async def events(base_url: str, api_key: str, *, hours: object = None, client: b
             seen.add(ident)
             if sev and str(ev.get("severity") or "").upper() != sev:
                 continue
-            if client and not _event_matches(ev.get("parameters"), macs or set(), ips or set(), names or set()):
+            if client and not _event_matches(ev.get("parameters"), macs, ips, names):
                 continue
             row = _pick(ev, EVENT_FIELDS, api_key)
             if isinstance(ev.get("key"), str):
@@ -462,6 +501,8 @@ async def events(base_url: str, api_key: str, *, hours: object = None, client: b
     result: dict = {"fenster_stunden": window, "durchsucht": searched, "gesamt_im_fenster": total,
                     "treffer": len(found[:cap]), "ereignisse": found[:cap]}
     hints = [note] if note else []
+    if live_note:
+        hints.append(live_note)
     if client or sev:
         hints.append("Kein Treffer heißt nicht „keine Probleme“: es wurden nur die neuesten "
                      f"{searched} von {total} Ereignissen im Fenster durchsucht.")

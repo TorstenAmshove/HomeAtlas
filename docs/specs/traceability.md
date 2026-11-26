@@ -92,7 +92,7 @@ Lücken: **0**
 | `accessLog` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `accountAssignments` | [credentialed-probing](capabilities/credentialed-probing/spec.md), [inventar](capabilities/inventar/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
 | `accounts` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [credentialed-probing](capabilities/credentialed-probing/spec.md), [dashboard](capabilities/dashboard/spec.md), [dokumentation](capabilities/dokumentation/spec.md), [inventar](capabilities/inventar/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md), [setup-wizard](capabilities/setup-wizard/spec.md), [zugangsdaten](capabilities/zugangsdaten/spec.md) |
-| `apiTokens` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md) |
+| `apiTokens` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `chatMessages` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `chats` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) |
 | `deviceErrorEvents` | [credentialed-probing](capabilities/credentialed-probing/spec.md), [inventar](capabilities/inventar/spec.md), [monitoring](capabilities/monitoring/spec.md) |

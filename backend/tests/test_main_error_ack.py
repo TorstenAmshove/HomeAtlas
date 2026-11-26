@@ -28,7 +28,7 @@ def test_acknowledge_requires_admin(temp_db):
         assert c.post(f"/api/systems/{s['id']}/errors/{evs[0]['id']}/acknowledge").status_code == 403
     finally:
         main.app.dependency_overrides.clear()
-    assert db.count_error_events_by_system()[s["id"]] == 2
+    assert db.count_error_events_by_system()[s["id"]]["error"] == 2
 
 
 def test_acknowledge_one_unknown_system_or_event_is_404(client):
@@ -42,7 +42,7 @@ def test_event_of_other_system_is_404_and_untouched(client):
     s, _ = _system_with_events()
     other, oevs = _system_with_events(1)
     assert client.post(f"/api/systems/{s['id']}/errors/{oevs[0]['id']}/acknowledge").status_code == 404
-    assert db.count_error_events_by_system()[other["id"]] == 1
+    assert db.count_error_events_by_system()[other["id"]]["error"] == 1
 
 
 def test_acknowledge_all_returns_count_and_zero_is_200(client):
@@ -67,3 +67,19 @@ def test_systems_list_error_count_only_unacknowledged(client):
     client.post(f"/api/systems/{s['id']}/errors/{evs[0]['id']}/acknowledge")
     row = next(x for x in client.get("/api/systems").json()["systems"] if x["id"] == s["id"])
     assert row["errorCount"] == 1
+
+
+def test_systems_list_splits_errors_and_warnings(client):
+    s, _ = _system_with_events(1)
+    db.add_device_error_event(s["id"], "warning", "w1")
+    only_warn = db.create_system({"name": "B", "ip": "10.0.0.2"})
+    for i in range(3):
+        db.add_device_error_event(only_warn["id"], "warning", f"w{i}")
+    clean = db.create_system({"name": "C", "ip": "10.0.0.3"})
+    rows = {x["id"]: x for x in client.get("/api/systems").json()["systems"]}
+    assert (rows[s["id"]]["errorCount"], rows[s["id"]]["warningCount"]) == (1, 1)
+    assert (rows[only_warn["id"]]["errorCount"], rows[only_warn["id"]]["warningCount"]) == (0, 3)
+    assert (rows[clean["id"]]["errorCount"], rows[clean["id"]]["warningCount"]) == (0, 0)
+    client.post(f"/api/systems/{only_warn['id']}/errors/acknowledge")
+    row = next(x for x in client.get("/api/systems").json()["systems"] if x["id"] == only_warn["id"])
+    assert row["warningCount"] == 0

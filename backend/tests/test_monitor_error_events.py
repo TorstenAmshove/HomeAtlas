@@ -105,3 +105,56 @@ def test_recovery_logs_no_error_event(temp_db, monkeypatch):
 
     assert len(db.list_monitor_events(system["id"])) == 2
     assert len(db.list_device_error_events(system["id"])) == 1
+
+
+def _open(system_id):
+    return [e for e in db.list_device_error_events(system_id) if not e["acknowledgedAt"]]
+
+
+def test_back_online_acknowledges_offline_warnings(temp_db, monkeypatch):
+    # #254: the outage warning resolves itself once the device answers again; other events stay open.
+    system = temp_db.create_system({
+        "kind": "server", "name": "NAS", "ip": "10.0.0.40", "monitored": 1, "status": "online",
+    })
+    db.add_device_error_event(system["id"], "error", "SSH-Login fehlgeschlagen")
+    db.add_device_error_event(system["id"], "warning", "SSH-Befehl Zeitüberschreitung")
+    _status_sequence(monkeypatch, ["offline", "offline", "online"])
+    mon = monitor_module.Monitor()
+    settings = {"monitorTimeoutMs": 1500}
+    asyncio.run(mon.run_once(settings))
+    asyncio.run(mon.run_once(settings))
+    assert db.count_error_events_by_system()[system["id"]] == {"error": 1, "warning": 2}
+    asyncio.run(mon.run_once(settings))
+    assert db.get_system(system["id"])["status"] == "online"
+    assert db.count_error_events_by_system()[system["id"]] == {"error": 1, "warning": 1}
+    assert {e["message"] for e in _open(system["id"])} == {"SSH-Login fehlgeschlagen", "SSH-Befehl Zeitüberschreitung"}
+
+
+def test_online_without_status_change_still_acknowledges(temp_db, monkeypatch):
+    system = temp_db.create_system({
+        "kind": "server", "name": "NAS", "ip": "10.0.0.41", "monitored": 1, "status": "online",
+    })
+    db.add_device_error_event(system["id"], "warning", f"{db.OFFLINE_MESSAGE_PREFIX}: alt")
+    _status_sequence(monkeypatch, ["online"])
+    asyncio.run(monitor_module.Monitor().run_once({"monitorTimeoutMs": 1500}))
+    assert _open(system["id"]) == []
+
+
+def test_unknown_does_not_acknowledge(temp_db, monkeypatch):
+    system = temp_db.create_system({
+        "kind": "server", "name": "NAS", "ip": "10.0.0.42", "monitored": 1, "status": "offline",
+    })
+    db.add_device_error_event(system["id"], "warning", f"{db.OFFLINE_MESSAGE_PREFIX}: alt")
+    _status_sequence(monkeypatch, ["unknown"])
+    asyncio.run(monitor_module.Monitor().run_once({"monitorTimeoutMs": 1500}))
+    assert len(_open(system["id"])) == 1
+
+
+def test_manual_round_online_acknowledges(temp_db, monkeypatch):
+    system = temp_db.create_system({
+        "kind": "server", "name": "NAS", "ip": "10.0.0.43", "monitored": 1, "status": "offline",
+    })
+    db.add_device_error_event(system["id"], "warning", f"{db.OFFLINE_MESSAGE_PREFIX}: alt")
+    _status_sequence(monkeypatch, ["online"])
+    asyncio.run(monitor_module.Monitor().run_once({"monitorTimeoutMs": 1500}, manual=True))
+    assert _open(system["id"]) == []

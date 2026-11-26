@@ -120,6 +120,19 @@ Das System MUSS beim bestätigten Übergang auf `offline` zusätzlich ein Fehler
 
 Quelle: `backend/app/monitor.py:168`–`backend/app/monitor.py:172`, `backend/app/db.py:1741`–`backend/app/db.py:1763`, Test: `backend/tests/test_monitor_error_events.py::test_confirmed_down_transition_logs_a_device_error_event`
 
+### Requirement: „Nicht mehr erreichbar“ erledigt sich bei Rückkehr
+Das System MUSS bei jedem `online`-Ergebnis eines überwachten Geräts (Hintergrundrunde wie manuelle Runde,
+mit oder ohne Statuswechsel) dessen offene Warnungen „Nicht mehr erreichbar: …“ automatisch quittieren
+(`acknowledgedAt` gesetzt wie beim manuellen Quittieren). Fehler und andere Warnungen desselben Geräts
+bleiben offen; `unknown` quittiert nichts. Erkannt wird die Warnung an Stufe `warning` und dem festen
+Textanfang (`db.OFFLINE_MESSAGE_PREFIX`), damit auch ältere Einträge erfasst werden. **[Muss]** (#254)
+
+#### Szenario: Gerät wieder erreichbar
+- **WENN** ein Gerät nach bestätigtem Ausfall wieder `online` meldet
+- **DANN** ist die Warnung „Nicht mehr erreichbar“ quittiert und `warningCount` sinkt; ein offener Fehler und eine andere Warnung bleiben offen
+
+Quelle: `backend/app/monitor.py` (`_run_round`), `backend/app/db/error_events.py` (`acknowledge_offline_warnings`), Tests: `backend/tests/test_monitor_error_events.py::test_back_online_acknowledges_offline_warnings`, `backend/tests/test_monitor_error_events.py::test_online_without_status_change_still_acknowledges`, `backend/tests/test_monitor_error_events.py::test_unknown_does_not_acknowledge`, `backend/tests/test_monitor_error_events.py::test_manual_round_online_acknowledges`, `backend/tests/test_db_error_events.py::test_acknowledge_offline_warnings_scopes_and_keeps_timestamp`
+
 ### Requirement: Überwachungsstatus abfragen
 Das System MUSS jedem angemeldeten Benutzer liefern: `enabled`, `intervalSeconds` (wirksam begrenztes Intervall, 5–600), Laufzustand des Monitors (`running`, `lastRun` als Unix-Zeit, `lastError`, `pendingFailures` = Geräte-ID → Anzahl unbestätigter Fehlschläge), alle überwachten Geräte (`id`, `name`, `ip`, `kind`, `status`, `importance`, `lastSeen`, `ports` = gewählte Prüfports, `portsExplicit`, `hostOnly` = Container ohne Prüfports, „prüft nur den Host“) und die letzten 50 Ereignisse (neueste zuerst, mit Gerätename). **[Muss]**
 

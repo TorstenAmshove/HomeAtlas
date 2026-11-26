@@ -306,6 +306,7 @@ UI-Seite(n): `frontend/src/pages/zugaenge/AccountsPage.tsx`, `frontend/src/pages
 - Kein Abruf der Passphrase, kein Export aller Zugänge.
 - Kein Erzeugen oder Verteilen von SSH-Schlüsseln (ADR-0023): Schlüssel legt der Admin außerhalb an (z. B. per Ansible) und trägt sie als Zugang der Kategorie `sshkey` ein; bestehende `sshkey`-Zugänge dienen weiter dem lesenden Auslesen.
 - Keine Fernwartung (Konsole, Neustart, Container-Steuerung); entfallen mit ADR-0023.
+- MEMBER sehen über Geräteansicht und Doku Benutzernamen, URLs und Notizen aller Zugänge, nie ein Secret. Entschieden in #48: in Ordnung, Notizen dürfen aber keine Secrets enthalten.
 
 ## Ist-Implementierung (nur Referenz, [Impl])
 
@@ -328,5 +329,3 @@ Ein leerer Patch, 404, 422 und 403 erzeugen keinen Eintrag. **[Muss]**
 
 ## OFFEN
 
-- > OFFEN: MEMBER sehen über Geräteansicht und Doku Benutzernamen, URLs und Notizen aller Zugänge;
-  ob Notizen sensibel sein dürfen, ist nicht geregelt. → entschieden in #48: in Ordnung, solange keine Secrets

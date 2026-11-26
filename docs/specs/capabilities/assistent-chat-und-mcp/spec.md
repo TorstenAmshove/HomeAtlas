@@ -281,6 +281,18 @@ werden, dazu `cover`-Entities mit `device_class` blind/shade/shutter/curtain/awn
 Bezeichnung>“) ins Zugriffsprotokoll. `list_switches` liefert höchstens 200
 HA-Entities der Domänen switch/light und erlaubte Rollos. Home-Assistant-Zugänge MÜSSEN das Opt-in „Zum Auslesen verwenden“ (`allowProbe`) haben, sonst werden sie bei `list_switches` übersprungen (nicht kontaktiert; ohne freigegebenen Zugang steht `haHinweis` in der Antwort) und `set_switch` MUSS vor Entschlüsselung, Senden und Protokollieren mit einem Fehler abweisen. **[Muss]** (Produktentscheidung, ADR-0013, ADR-0023, bestätigt in #43, #99; Opt-in #121.)
 
+`list_switches` MUSS bei jedem Aufruf je freigegebenem HA-Zugang den aktuellen Zustand live lesen (ein
+`GET /api/states`, kein Cache); die Antwort enthält den aktuellen `state`. `set_switch` löst Zugang und
+Opt-in je Aufruf frisch aus der Datenbank auf und verlässt sich nicht auf Daten aus `list_switches`.
+Begründung: Der Assistent soll nie einen veralteten Zustand melden („Licht ist an“, obwohl es gerade
+ausgeschaltet wurde), ein Cache brächte zusätzlichen Zustand samt Invalidierung (Opt-in entzogen, Token
+geändert) in die Fähigkeitsgrenze von `tools.py`, und ein `GET /api/states` ist im Heimnetz günstig.
+**[Muss]** (Entscheidung #246.)
+
+#### Szenario: Zustand immer live
+- **WENN** `list_switches` zweimal nacheinander aufgerufen wird und sich der Zustand einer Entity in Home Assistant dazwischen ändert
+- **DANN** kontaktiert der zweite Aufruf Home Assistant erneut und liefert den neuen `state`
+
 #### Szenario: Zugang ohne Opt-in
 - **WENN** `set_switch` mit `kind=ha` und der `accountId` eines Zugangs ohne „Zum Auslesen verwenden“ aufgerufen wird
 - **DANN** kommt `{"error": …}` mit Hinweis auf den Haken, nichts wird gesendet oder protokolliert
@@ -320,8 +332,6 @@ erreichbar, MUSS eine feste, verständliche Meldung statt eines Fehlers kommen.
 
 Nur Zugänge mit Opt-in „Zum Auslesen verwenden“ werden benutzt; ohne Haken kommt ein Fehler mit Hinweis.
 
-> OFFEN: Die Client-Filterung der Ereignisse nutzt MAC, IP und Name aus Anfrage und Inventar, nicht die Live-Werte aus `stat/sta`.
-
 Weitere UniFi-Live-Werkzeuge mit denselben Regeln (Positivliste, Key nur als `X-API-Key`, feste
 Meldungen, nichts gespeichert; nur `site` ist als validierter Pfadteil frei):
 `get_unifi_device` (GET `stat/device`; ein Gerät per MAC/IP/Name mit Status, Last, Uplink, reduzierter
@@ -335,7 +345,18 @@ Filter `client` und `severity`, Admin-Aktivität ausgeblendet; je Parameter nur 
 Ergebnis nennt, wie viele Ereignisse durchsucht wurden, und dass „kein Treffer“ nicht „keine Probleme“
 heißt; der Ereignisschlüssel erscheint als `kennung`).
 
-Quelle: `backend/app/tools.py` (`_dispatch_unifi_live`, `_pick_unifi_account`, `_client_identifiers`), `backend/app/unifi_live.py` (`_request`, `client_status`, `CLIENT_FIELDS`, `redact`, `_bounded`), Tests: `backend/tests/test_unifi_live.py`, `backend/tests/test_tools_unifi_live.py`
+Ist bei `get_unifi_events` ein `client` angegeben, MUSS das System vor den Ereignisseiten einmal den
+GET-Pfad `stat/sta` lesen (kein neuer Pfad, ADR-0017 unverändert) und die Kennungen aus Anfrage und
+Inventar mit den aktuellen Werten des Clients ergänzen: Gesucht wird über MAC oder Name (nur wenn keins
+von beiden bekannt ist, über die IP). Passt genau ein verbundener Client, kommt dessen aktuelle MAC zu den
+bekannten hinzu und dessen aktuelle IP ersetzt die bekannten IPs, weil eine veraltete Inventar-IP nach
+einem DHCP-Wechsel schon einem anderen Gerät gehören kann. Schlägt `stat/sta` fehl, ist der Client nicht
+verbunden oder passen mehrere, wird wie bisher mit den Inventarwerten gefiltert, und der `hinweis` nennt
+mit festem Text, dass die Live-Ergänzung nicht möglich war (nie ein harter Fehler, nie der Fehlertext des
+Controllers). Nichts aus `stat/sta` erscheint im Ergebnis, nichts wird gespeichert; ohne `client` gibt es
+keinen Zusatzaufruf. **[Muss]** (Entscheidung #248.)
+
+Quelle: `backend/app/tools.py` (`_dispatch_unifi_live`, `_pick_unifi_account`, `_client_identifiers`), `backend/app/unifi_live.py` (`_request`, `client_status`, `_live_client_identifiers`, `events`, `CLIENT_FIELDS`, `redact`, `_bounded`), Tests: `backend/tests/test_unifi_live.py`, `backend/tests/test_tools_unifi_live.py`
 
 #### Szenario: Verbundener WLAN-Client
 - **WENN** der Assistent `get_unifi_client` mit der MAC eines WLAN-Clients aufruft
@@ -352,6 +373,14 @@ Quelle: `backend/app/tools.py` (`_dispatch_unifi_live`, `_pick_unifi_account`, `
 #### Szenario: Ereignisse eines Clients
 - **WENN** der Assistent `get_unifi_events` mit `client` und `hours` 500 aufruft
 - **DANN** wird das Fenster auf 168 Stunden begrenzt und das Ergebnis nennt die Zahl der durchsuchten Ereignisse
+
+#### Szenario: Client mit neuer IP
+- **WENN** der Assistent `get_unifi_events` für einen Client aufruft, dessen IP im Inventar veraltet ist, und `stat/sta` ihn eindeutig mit neuer IP zeigt
+- **DANN** werden seine Ereignisse über die neue IP und MAC gefunden, Ereignisse des Geräts mit der alten IP nicht
+
+#### Szenario: Live-Ergänzung nicht möglich
+- **WENN** `stat/sta` fehlschlägt, den Client nicht zeigt oder mehrere Clients passen
+- **DANN** wird mit den Inventarwerten gefiltert und der `hinweis` nennt, dass die Live-Ergänzung nicht möglich war
 
 ### Requirement: Live-Lesen von Proxmox-Gästen und -Hosts
 Das System MUSS dem Assistenten (jede Rolle, jeder MCP-Client) mit `get_proxmox_guest` den Live-Zustand einer
@@ -381,7 +410,7 @@ Quelle: `backend/app/tools.py` (`_dispatch_proxmox_live`, `_pick_proxmox_account
 - **WENN** kein Proxmox-Zugang existiert oder „Zum Auslesen verwenden“ fehlt
 - **DANN** nennt die Antwort das, und es geht kein Netzwerkaufruf raus
 
-> OFFEN: Noch nicht gegen eine echte Proxmox-Instanz abgenommen (Version nach der Abnahme hier vermerken).
+> OFFEN: Noch nicht gegen eine echte Proxmox-Instanz abgenommen (Version nach der Abnahme hier vermerken). → #249
 
 ### Requirement: Live-Status lokaler Container
 Das System MUSS dem Assistenten (jede Rolle, jeder MCP-Client) mit `get_container_status` den Live-Zustand der
@@ -494,7 +523,7 @@ Quelle: `backend/app/main.py:450`, `backend/app/main.py:455`, `backend/app/main.
 Siehe [data-model](../../contracts/data-model.md).
 
 - Schreibt `chats` (`id`, `title`, `createdAt`, `updatedAt`) und `chatMessages` (`chatId`, `role` user|assistant|tool, `content`, `toolCalls`, `providerRaw`, `toolCallId`, `name`, `createdAt`, `durationMs`).
-- Schreibt `apiTokens` (`id`, `label`, `token` im Klartext, `createdAt`, `lastUsedAt`).
+- Schreibt `apiTokens` (`id`, `label`, `token` als SHA-256-Hash des Rohwerts, `createdAt`, `lastUsedAt`).
 - Schreibt `accessLog` (Aktion `switch.assistant`).
 - Liest `systems`, `accounts` (ohne Geheimnis; HA-Token nur serverseitig), `docPages`, `scans`, `networkResources`, `settings` (`llmProvider`, Schlüssel/Modelle/Base-URLs des Anbieters, `providerModelCache`, `homeName`, `systemPromptOverride`, `scanSubnets`, `scanControllerNetworkIds`).
 
@@ -532,10 +561,9 @@ UI-Seite(n): `frontend/src/pages/ChatPage.tsx` (Routen `/assistent`, `/assistent
 - Werkzeugdefinitionen sind ein internes Schema (`name`, `description`, `inputSchema`) und werden je Anbieter übersetzt (Anthropic `input_schema`, Gemini mit Schema-Allowlist, OpenAI `function`).
 - Gemini liefert keine Aufruf-IDs; als ID dient der Funktionsname.
 - MCP über das Python-SDK (`StreamableHTTPSessionManager`, `stateless=True`, `json_response=True`), eigene ASGI-Bearer-Prüfung statt SDK-OAuth.
-- Tokens liegen im Klartext in der DB (wie Sitzungstokens); Begründung im Schema-Kommentar.
+- Tokens liegen nur als SHA-256-Hash in der DB (wie Sitzungstokens, #251); die MCP-Authentifizierung hasht den Bearer-Wert vor dem Vergleich. Test: `backend/tests/test_token_hashing.py`.
 - Home-Assistant-Aufrufe ohne TLS-Prüfung (`verify=False`); Timeout 8 s (Verbindung 3 s).
 - UI zeigt unter der Antwort „Dafür geprüft: …“ (deduplizierte `toolsUsed`) und die Dauer.
 
 ## OFFEN
 
-- > OFFEN: `list_switches` fragt bei jedem Aufruf live alle freigegebenen HA-Instanzen ab (kein Cache). → #121

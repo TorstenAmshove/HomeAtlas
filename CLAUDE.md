@@ -153,8 +153,10 @@ picture a non-technical reader can actually parse.
 
 Plain React + react-router, no state library — `App.tsx` holds auth state (session user, MFA/setup
 gating) in context and is the source of truth for the login → MFA-enroll → setup-wizard → app
-gating sequence; the same order is enforced independently on the backend (see `current_user` in
-`deps.py`), so a UI-only change here doesn't change what the API actually allows.
+gating sequence; login and MFA enrollment are enforced independently on the backend (see `current_user`
+in `deps.py`), so a UI-only change here doesn't change what the API actually allows. The setup wizard is
+the one deliberate exception: it is UI-only by design (constitution R4, #250), a convenience rather than a
+security gate, and the server does not check `setupCompleted` (only `POST /api/setup` is admin-only).
 
 `lib/api.ts` is a single typed fetch wrapper — every backend call goes through `request()`, which
 is where session-cookie handling, FastAPI validation-error flattening, and the "MFA re-enrolled

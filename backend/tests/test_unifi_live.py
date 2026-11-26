@@ -282,9 +282,16 @@ def _event(i, client="aa:bb:cc:dd:ee:01", **kw):
             **kw}
 
 
-def _ev_transport(pages, calls):
+def _ev_transport(pages, calls, clients=None, gets=None):
+    """POST pages for system-log; GET stat/sta answers `clients` (default: no connected client)."""
     def handler(request):
         import json as j
+        if request.method == "GET":
+            if gets is not None:
+                gets.append(request.url.path)
+            if isinstance(clients, int):
+                return httpx.Response(clients)
+            return httpx.Response(200, json={"data": clients or []})
         body = j.loads(request.content)
         calls.append((request.method, request.url.path, body))
         n = body["pageNumber"]
@@ -407,3 +414,71 @@ def test_new_endpoints_use_api_key_only():
     unifi_live._transport = _transport(handler)
     _dev(overview=True)
     assert seen and all(k == KEY and not c for k, c, _ in seen)
+
+
+STALE_IP, NEW_IP = "10.0.0.5", "10.0.0.77"
+
+
+def _ip_event(i, client, ip):
+    ev = _event(i, client=client)
+    ev["parameters"]["CLIENT"] = {"id": client, "name": "", "ip": ip}
+    return ev
+
+
+def test_events_client_uses_live_ip_from_stat_sta():
+    # #248: inventory still knows the stale IP; the client now has NEW_IP and a new random MAC, another
+    # device got the stale IP. Matching via the live values finds the client's events, not the other's.
+    mine_new_mac = _ip_event(1, "aa:bb:cc:dd:ee:77", NEW_IP)
+    foreign_on_stale_ip = _ip_event(2, "aa:bb:cc:dd:ee:99", STALE_IP)
+    live = [{"mac": "AA:BB:CC:DD:EE:77", "ip": NEW_IP, "name": "Handy", "hostname": "x"},
+            {"mac": "aa:bb:cc:dd:ee:99", "ip": STALE_IP, "name": "Fremd"}]
+    unifi_live._transport = _ev_transport([[mine_new_mac, foreign_on_stale_ip]], [], clients=live)
+    result = _events(client=True, macs={"aa:bb:cc:dd:ee:01"}, ips={STALE_IP}, names={"handy"})
+    assert [e["kennung"] for e in result["ereignisse"]] == ["K1"]
+    assert unifi_live.LIVE_CLIENT_FALLBACK not in result["hinweis"]
+
+
+@pytest.mark.parametrize("clients", [500, [], [
+    {"mac": "aa:bb:cc:dd:ee:01", "ip": "10.0.0.8"}, {"mac": "aa:bb:cc:dd:ee:02", "name": "Handy"}]],
+    ids=["error", "no_match", "ambiguous"])
+def test_events_client_live_fallback(clients):
+    ev = _ip_event(1, "aa:bb:cc:dd:ee:55", STALE_IP)  # only the inventory IP matches
+    unifi_live._transport = _ev_transport([[ev]], [], clients=clients)
+    result = _events(client=True, macs={"aa:bb:cc:dd:ee:01"}, ips={STALE_IP}, names={"handy"})
+    assert [e["kennung"] for e in result["ereignisse"]] == ["K1"]
+    assert unifi_live.LIVE_CLIENT_FALLBACK in result["hinweis"]
+    assert "Fehler" not in result["hinweis"]  # never the controller's error text
+
+
+def test_live_identifiers_edge_cases():
+    def ids(entry, macs=frozenset({"aa:bb:cc:dd:ee:01"}), ips=frozenset({STALE_IP}), names=frozenset()):
+        unifi_live._transport = _ev_transport([], [], clients=[entry])
+        return run(unifi_live._live_client_identifiers(URL, KEY, "default", set(macs), set(ips), set(names)))
+    assert ids({"mac": "aa:bb:cc:dd:ee:01"}) == ({"aa:bb:cc:dd:ee:01"}, set(), None)  # no live IP -> no IP
+    assert ids({"name": "Handy", "mac": None, "ip": 7}, macs=set(), names={"handy"}) == (set(), set(), None)
+    # typed IP only: looked up by IP, the client's MAC is added
+    assert ids({"mac": "aa:bb:cc:dd:ee:03", "ip": STALE_IP}, macs=set()) == ({"aa:bb:cc:dd:ee:03"}, {STALE_IP}, None)
+    # with a MAC known, a stale IP alone is no match (it may belong to another device)
+    assert ids({"mac": "aa:bb:cc:dd:ee:09", "ip": STALE_IP})[2] == unifi_live.LIVE_CLIENT_FALLBACK
+
+
+def test_events_stat_sta_once_and_only_for_client():
+    gets, calls = [], []
+    pages = [[_event(p * 100 + i, client="aa:bb:cc:dd:ee:99") for i in range(50)] for p in range(3)]
+    unifi_live._transport = _ev_transport(pages, calls, clients=[], gets=gets)
+    _events(client=True, macs={"aa:bb:cc:dd:ee:01"})
+    assert gets == ["/proxy/network/api/s/default/stat/sta"] and len(calls) == 3
+    gets.clear()
+    _events()
+    assert gets == []
+    with pytest.raises(unifi_live.UnifiLiveError, match="severity"):
+        _events(client=True, macs={"aa:bb:cc:dd:ee:01"}, severity="EXTREM")
+    assert gets == []
+
+
+def test_events_result_has_no_stat_sta_fields():
+    live = [{"mac": "aa:bb:cc:dd:ee:01", "ip": "10.9.9.9", "hostname": "MARKER-HOST", "x_authkey": "GEHEIM9"}]
+    unifi_live._transport = _ev_transport([[_event(1)]], [], clients=live)
+    text = str(_events(client=True, macs={"aa:bb:cc:dd:ee:01"}))
+    for leaked in ("10.9.9.9", "MARKER-HOST", "GEHEIM9"):
+        assert leaked not in text

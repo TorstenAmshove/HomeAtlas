@@ -1,6 +1,7 @@
 """Persistence for users (see db/__init__ for the package rules)."""
 from __future__ import annotations
 
+import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 from ._core import _conn, _new_id, _now, _row, _rows
@@ -11,6 +12,14 @@ from ._core import _conn, _new_id, _now, _row, _rows
 # --------------------------------------------------------------------------------------------
 
 _PUBLIC_USER_COLUMNS = "id, username, role, displayName, totpEnabled, createdAt"
+
+
+def _hash_token(raw: str) -> str:
+    """What `sessions.token` / `apiTokens.token` store (#251): the SHA-256 hex of the raw value, so a
+    leaked database copy yields no usable session or MCP token. No salt/KDF: the tokens are
+    `secrets.token_urlsafe(32)` (256 bit), so neither brute force nor rainbow tables apply. Callers
+    always pass the raw value; it is hashed only here."""
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 def update_user(user_id: str, patch: dict) -> dict | None:
@@ -47,7 +56,7 @@ def invalidate_user_sessions(user_id: str, keep_token: str | None = None) -> int
             cursor = conn.execute("DELETE FROM sessions WHERE userId = ?", (user_id,))
         else:
             cursor = conn.execute("DELETE FROM sessions WHERE userId = ? AND token != ?",
-                                  (user_id, keep_token))
+                                  (user_id, _hash_token(keep_token)))
         return cursor.rowcount
 
 
@@ -130,31 +139,33 @@ def create_db_session(token: str, user_id: str, ttl_seconds: int) -> None:
     expires = (datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)).strftime("%Y-%m-%dT%H:%M:%SZ")
     with _conn() as conn:
         conn.execute("DELETE FROM sessions WHERE expiresAt < ?", (_now(),))
-        conn.execute("INSERT INTO sessions(token, userId, expiresAt) VALUES(?,?,?)", (token, user_id, expires))
+        conn.execute("INSERT INTO sessions(token, userId, expiresAt) VALUES(?,?,?)",
+                     (_hash_token(token), user_id, expires))
 
 
 def get_db_session(token: str) -> dict | None:
     with _conn() as conn:
         return _row(conn.execute(
-            "SELECT * FROM sessions WHERE token = ? AND expiresAt > ?", (token, _now())
+            "SELECT userId, expiresAt FROM sessions WHERE token = ? AND expiresAt > ?", (_hash_token(token), _now())
         ).fetchone())
 
 
 def delete_db_session(token: str) -> None:
     with _conn() as conn:
-        conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+        conn.execute("DELETE FROM sessions WHERE token = ?", (_hash_token(token),))
 
 
 def create_api_token(label: str) -> dict:
     """The raw token is returned here and only here -- the same one-time-reveal shape as the admin
-    bootstrap password in auth.py. `list_api_tokens` never selects the `token` column."""
+    bootstrap password in auth.py. Only its hash is stored (`_hash_token`), and `list_api_tokens`
+    never selects the `token` column."""
     token_id = _new_id()
     token = secrets.token_urlsafe(32)
     now = _now()
     with _conn() as conn:
         conn.execute(
             "INSERT INTO apiTokens(id, label, token, createdAt, lastUsedAt) VALUES(?,?,?,?,?)",
-            (token_id, label, token, now, None),
+            (token_id, label, _hash_token(token), now, None),
         )
     return {"id": token_id, "label": label, "token": token, "createdAt": now, "lastUsedAt": None}
 
@@ -188,7 +199,8 @@ def touch_api_token(token: str) -> dict | None:
     """Looked up on every MCP request (see mcp_server.py). Updates `lastUsedAt` on a hit so the
     settings UI can show which tokens are actually in use versus long-forgotten."""
     with _conn() as conn:
-        row = _row(conn.execute("SELECT * FROM apiTokens WHERE token = ?", (token,)).fetchone())
+        row = _row(conn.execute("SELECT id, label, createdAt, lastUsedAt FROM apiTokens WHERE token = ?",
+                                (_hash_token(token),)).fetchone())
         if row is None:
             return None
         now = _now()

@@ -32,20 +32,44 @@ def test_error_events_are_capped_per_device(temp_db, monkeypatch):
     assert events[0]["message"] == "Fehler 9"  # newest kept, oldest trimmed
 
 
-def test_count_error_events_by_system_is_one_query_for_all_devices(temp_db):
+def test_count_error_events_by_system_splits_levels(temp_db):
     a = temp_db.create_system({"kind": "server", "name": "A"})
     b = temp_db.create_system({"kind": "server", "name": "B"})
-    c = temp_db.create_system({"kind": "server", "name": "C"})  # no errors at all
+    c = temp_db.create_system({"kind": "server", "name": "C"})  # no events at all
 
     temp_db.add_device_error_event(a["id"], "error", "x")
-    temp_db.add_device_error_event(a["id"], "error", "y")
+    temp_db.add_device_error_event(a["id"], None, "y")  # normalised to error
+    temp_db.add_device_error_event(a["id"], "warning", "w")
     temp_db.add_device_error_event(b["id"], "warning", "z")
+    done = temp_db.add_device_error_event(b["id"], "warning", "erledigt")
+    temp_db.acknowledge_device_error_events(b["id"], done["id"])
 
     counts = temp_db.count_error_events_by_system()
 
-    assert counts[a["id"]] == 2
-    assert counts[b["id"]] == 1
-    assert c["id"] not in counts  # untouched dict.get(..., 0) on the caller side handles the absence
+    assert counts[a["id"]] == {"error": 2, "warning": 1}
+    assert counts[b["id"]] == {"error": 0, "warning": 1}  # acknowledged one counts nowhere
+    assert c["id"] not in counts  # the caller defaults to 0
+
+
+def test_acknowledge_offline_warnings_scopes_and_keeps_timestamp(temp_db):
+    s = temp_db.create_system({"kind": "server", "name": "S"})
+    other = temp_db.create_system({"kind": "server", "name": "O"})
+    prefix = temp_db.OFFLINE_MESSAGE_PREFIX
+    old = temp_db.add_device_error_event(s["id"], "warning", f"{prefix}: alt")
+    temp_db.acknowledge_device_error_events(s["id"], old["id"])
+    first = {e["id"]: e for e in temp_db.list_device_error_events(s["id"])}[old["id"]]["acknowledgedAt"]
+    temp_db.add_device_error_event(s["id"], "warning", f"{prefix}: Ping")
+    temp_db.add_device_error_event(s["id"], "warning", "SSH-Befehl Zeitüberschreitung")
+    temp_db.add_device_error_event(s["id"], "error", f"{prefix}: als Fehler")
+    temp_db.add_device_error_event(s["id"], "warning", "Nicht mehr erreichbar%")  # no LIKE widening
+    temp_db.add_device_error_event(other["id"], "warning", f"{prefix}: anderes Gerät")
+
+    assert temp_db.acknowledge_offline_warnings(s["id"]) == 2
+    assert temp_db.count_error_events_by_system()[s["id"]] == {"error": 1, "warning": 1}
+    assert temp_db.count_error_events_by_system()[other["id"]] == {"error": 0, "warning": 1}
+    again = {e["id"]: e for e in temp_db.list_device_error_events(s["id"])}[old["id"]]["acknowledgedAt"]
+    assert first == again
+    assert temp_db.acknowledge_offline_warnings("gibt-es-nicht") == 0
 
 
 def _two_events(temp_db):
@@ -77,24 +101,24 @@ def test_acknowledge_all_only_touches_that_device(temp_db):
     other = temp_db.create_system({"kind": "server", "name": "O"})
     temp_db.add_device_error_event(other["id"], "error", "x")
     assert temp_db.acknowledge_device_error_events(s["id"]) == 2
-    assert temp_db.count_error_events_by_system() == {other["id"]: 1}
+    assert temp_db.count_error_events_by_system() == {other["id"]: {"error": 1, "warning": 0}}
 
 
 def test_acknowledge_event_of_other_device_is_untouched(temp_db):
     s, a, _ = _two_events(temp_db)
     other = temp_db.create_system({"kind": "server", "name": "O"})
     assert temp_db.acknowledge_device_error_events(other["id"], a["id"]) == 0
-    assert temp_db.count_error_events_by_system()[s["id"]] == 2
+    assert temp_db.count_error_events_by_system()[s["id"]]["error"] == 2
 
 
 def test_count_ignores_acknowledged_and_new_event_counts_again(temp_db):
     s, a, _ = _two_events(temp_db)
     temp_db.acknowledge_device_error_events(s["id"], a["id"])
-    assert temp_db.count_error_events_by_system()[s["id"]] == 1
+    assert temp_db.count_error_events_by_system()[s["id"]]["error"] == 1
     temp_db.acknowledge_device_error_events(s["id"])
     assert s["id"] not in temp_db.count_error_events_by_system()
     temp_db.add_device_error_event(s["id"], "error", "again")
-    assert temp_db.count_error_events_by_system()[s["id"]] == 1
+    assert temp_db.count_error_events_by_system()[s["id"]]["error"] == 1
 
 
 def test_cap_trims_regardless_of_acknowledged(temp_db, monkeypatch):

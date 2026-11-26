@@ -48,9 +48,10 @@
   Der zweite Faktor wird erst aktiv, wenn ein gültiger Code bestätigt wurde. Selbst abschalten
   ist nicht möglich; ein ADMIN kann ihn für ein Konto zurücksetzen.
 - **R4 [Muss]** Reihenfolge nach dem Login: Anmeldung → MFA-Einrichtung → Einrichtungsassistent
-  (nur beim ersten Mal) → App. Der Server erzwingt Anmeldung und MFA; den Einrichtungsassistenten
-  sperrt heute nur die Oberfläche (`setupCompleted` wird serverseitig nicht geprüft).
-  > OFFEN: Soll eine Alternative auch den Setup-Schritt serverseitig erzwingen?
+  (nur beim ersten Mal) → App. Der Server erzwingt Anmeldung und MFA; der Einrichtungsassistent ist
+  bewusst eine reine UI-Komfortfunktion ohne Sicherheitswirkung (der Schutz liegt bei Login + MFA),
+  `setupCompleted` wird serverseitig nicht geprüft. Nur `POST /api/setup` ist ADMIN-only und liefert
+  nach Abschluss 409. R2 ist davon nicht berührt, weil der Assistent kein Rechte-Gate ist (#250).
 - **R5 [Muss]** Passwortrichtlinie: mindestens 10 Zeichen und entweder drei der vier Zeichenarten
   oder ab 20 Zeichen als Passphrase.
 - **R5a [Muss]** Anmeldeversuche werden gedrosselt (Sperre nach wiederholten Fehlversuchen je
@@ -132,7 +133,8 @@
   at rest verschlüsselt; das gilt auch für LLM-API-Schlüssel und ausgelesene Konfigurationsexporte
   (keine Klartext-Kopie beim Gerät). Schutzziel: eine abhandengekommene **Datenbankkopie**,
   ausdrücklich nicht root auf dem Host. ([ADR-0007](../adr/0007-credentials-fernet-schluessel-im-volume.md))
-  > OFFEN: MCP-Tokens und Session-Tokens liegen im Klartext in ihren Tabellen (Hashing erwägen).
+  Sitzungs- und MCP-Tokens liegen nur als SHA-256-Hash in der Datenbank (hohe Entropie, kein
+  Salt/KDF nötig); der Rohwert existiert nur im Cookie bzw. einmalig bei der Anlage (#251).
 - **Z2 [Muss]** Der Dienst startet nach einem Neustart **unbeaufsichtigt** (keine Passphrase beim Start).
   ([ADR-0007](../adr/0007-credentials-fernet-schluessel-im-volume.md))
 - **Z3 [Muss]** Ein Secret verlässt den Server nur **einzeln**, nur für ADMIN, und jedes Anzeigen

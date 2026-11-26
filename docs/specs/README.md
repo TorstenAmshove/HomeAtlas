@@ -25,7 +25,6 @@ Abschnitt 11.
 | [contracts/llm-tools.md](contracts/llm-tools.md) | Werkzeuge des KI-Assistenten und des MCP-Endpunkts, vollständig in [llm-tools.json](contracts/llm-tools.json) |
 | [contracts/catalogs.json](contracts/catalogs.json) | feste Kataloge: 55 Ports, Port-Hinweise, 41 Hersteller-Doku-Links, OUI-Fallback, verbotene Passwörter, Wortliste Erstpasswort |
 | [traceability.md](traceability.md) | Abdeckung: jede Route, Tabelle, jedes Werkzeug und jede Seite → Spec (erzeugt) |
-| [offene-punkte.md](offene-punkte.md) | alle `OFFEN`-Punkte gesammelt: vor einer Alternative entscheiden |
 
 ### Markierungen
 
@@ -42,7 +41,7 @@ Abschnitt 11.
 | [dashboard](capabilities/dashboard/spec.md) | Übersicht: Zustand von Netz und Geräten | alle | Übersicht (`/`) | `/api/dashboard` |
 | [discovery-und-scan](capabilities/discovery-und-scan/spec.md) | Netz scannen aus mehreren Quellen, Namensregeln, Zeitplan | ADMIN | Netzwerk-Scan (`/scan`) | `/api/scans*`, `/api/settings/oui/refresh` |
 | [klassifikation-llm](capabilities/klassifikation-llm/spec.md) | unsichere Geräte per LLM einordnen, Hersteller-Doku-Links | – (im Scan) | – | – |
-| [inventar](capabilities/inventar/spec.md) | Geräte ansehen, bearbeiten, Duplikate zusammenführen, Konfigurationsversionen | alle lesen / ADMIN ändern | Geräte (`/geraete`, `/geraete/:id`) | `/api/systems*` |
+| [inventar](capabilities/inventar/spec.md) | Geräte ansehen, bearbeiten, Duplikate zusammenführen | alle lesen / ADMIN ändern | Geräte (`/geraete`, `/geraete/:id`) | `/api/systems*` |
 | [credentialed-probing](capabilities/credentialed-probing/spec.md) | Geräte mit freigegebenen Zugängen streng lesend auslesen (SSH, HTTP, TR-064, UniFi, Proxmox, Docker) | ADMIN | Gerätedetail | `/api/systems/{id}/probe` |
 | [zugangsdaten](capabilities/zugangsdaten/spec.md) | Zugänge verschlüsselt speichern, einzeln anzeigen, zuordnen | ADMIN | Zugänge (`/zugaenge`) | `/api/accounts*` |
 | [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) | Netze/VLANs, WLANs, WANs aus Controllern | alle lesen / ADMIN ändern | Netze & WLAN (`/netze`) | `/api/network-resources*` |
@@ -90,12 +89,13 @@ Gemeinsame Abhängigkeiten (`current_user`, `require_admin`, WebSocket-Prüfung)
 
 ```bash
 python docs/specs/export_contracts.py   # openapi.json, llm-tools.json, catalogs.json (braucht backend/requirements.txt)
-python docs/specs/trace_specs.py        # traceability.md + Liste in offene-punkte.md, Exit 1 bei Lücken
+python docs/specs/trace_specs.py        # traceability.md, Exit 1 bei Lücken oder `> OFFEN:` ohne `→ #N`
 ```
 
 ## An einen Coding-Agenten übergeben (Alternative bauen)
 
-1. **Entscheiden**: [offene-punkte.md](offene-punkte.md) durchgehen. Für jede Fähigkeit festlegen:
+1. **Entscheiden**: die offenen Issues durchgehen (offene Punkte stehen nur als GitHub-Issues; jeder
+   `> OFFEN:`-Hinweis in den Specs verlinkt sein Issue mit `→ #N`). Für jede Fähigkeit festlegen:
    übernehmen, ändern oder weglassen. Änderungen direkt in die Spec schreiben, gern als
    OpenSpec-Delta (`## ADDED`, `## MODIFIED`, `## REMOVED Requirements`).
 2. **Technik festlegen**: Die [Impl]-Regeln in der Constitution ersetzen oder bestätigen.

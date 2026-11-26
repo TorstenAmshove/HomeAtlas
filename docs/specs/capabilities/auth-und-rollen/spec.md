@@ -155,7 +155,12 @@ URL-safe) entstehen, übertragen als Cookie `homeatlas_session` mit `HttpOnly`, 
 `Path=/`, `Max-Age` 30 Tage und `Secure`, wenn die Anfrage per HTTPS kam (`X-Forwarded-Proto: https`
 von nginx) oder `HOMEATLAS_COOKIE_SECURE=always` gesetzt ist (`never` unterdrückt es, Standard `auto`;
 wird bei jeder Anfrage gelesen). Logout löscht das Cookie mit denselben Flags. Die Gültigkeit ist absolut 30 Tage ab Login (keine Verlängerung bei
-Aktivität). Abgelaufene Sessions MÜSSEN abgewiesen werden. **[Muss]** (Cookie-Name, 30 Tage: **[Impl]**)
+Aktivität). Abgelaufene Sessions MÜSSEN abgewiesen werden. In der Datenbank (`sessions`) DARF nur der
+SHA-256-Hash des Tokens stehen, nie der Cookie-Wert selbst (#251). **[Muss]** (Cookie-Name, 30 Tage: **[Impl]**)
+
+#### Szenario: Kein Rohwert in der Datenbank
+- **WENN** sich ein Benutzer anmeldet
+- **DANN** steht in `sessions` nur der SHA-256-Hash des Cookie-Werts; Prüfung, Logout und „alle Sitzungen beenden“ arbeiten über diesen Hash (Test: `backend/tests/test_token_hashing.py`)
 
 #### Szenario: Abgelaufene Session
 - **WENN** ein Request ein Token mit `expiresAt` in der Vergangenheit trägt
@@ -550,7 +555,7 @@ UI-Seite(n): `frontend/src/gates/Login.tsx` (ohne Session, jede Route),
 
 - Abhängigkeitskette FastAPI: `session_user` (nur Session) → `current_user` (+ `totpEnabled`) →
   `require_admin` (+ Rolle). `backend/app/main.py:77`–`106`.
-- Session-Tokens liegen im Klartext in der DB (Begründung in `db.py`-Schemakommentar zu `apiTokens`).
+- Session-Tokens liegen nur als SHA-256-Hash in der DB (`db/users._hash_token`, #251); Alt-Zeilen im Klartextformat entfernt `init_db` beim Start, betroffene Nutzer melden sich einmal neu an. Test: `backend/tests/test_token_hashing.py`.
 - Login-Fehlerunterscheidung über Exception `MfaRequired(wrong_code)`; Frontend erkennt den Fall nur am
   Header `X-HomeAtlas-MFA: required` (`frontend/src/gates/Login.tsx`).
 - Die Richtlinie prüft den NFKC-normalisierten Text, gehasht wird der unnormalisierte.

@@ -477,6 +477,11 @@ export default function InventoryPage() {
                   ⚠ {s.errorCount}
                 </span>
               )}
+              {!!s.warningCount && (
+                <span className="inv-flag warn" title={`${s.warningCount} unquittierte Warnung(en) – siehe Geräteseite`}>
+                  ⚠ {s.warningCount}
+                </span>
+              )}
               {poe && <span className="inv-flag warn" title="Funktioniert ohne PoE-fähigen Switch oder Injector nicht">PoE</span>}
             </span>
             {s.purpose && <span className="inv-sub inv-purpose">{s.purpose}</span>}
