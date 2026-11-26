@@ -72,8 +72,8 @@ Integration-API weder Portweiterleitungen noch eine WAN-Adresse liefert. Das ges
 Zugang der Kategorie `unifi` (API-Key) mit `allowProbe` und solange `scanEnableUnifiClassic`
 (Default an) gesetzt ist ([ADR-0018](../../../adr/0018-wan-status-und-lesepfade.md)). Es gibt keinen
 Login: nur GET mit `X-API-Key` auf `/self/sites`, `rest/portforward`, `rest/networkconf`, `stat/device` und
-`stat/sta` (Client-Zuordnung, siehe `discovery-und-scan`; `rest/portconf` folgt per
-[ADR-0025](../../../adr/0025-unifi-scan-client-port-und-port-vlans.md) in einem Folge-Issue),
+`stat/sta` (Client-Zuordnung, siehe `discovery-und-scan`) sowie `rest/portconf`
+([ADR-0025](../../../adr/0025-unifi-scan-client-port-und-port-vlans.md)),
 ohne Cookie, CSRF-Token und ohne Weiterleitungen. Ein früherer Zugang `unifi_classic` wird bei der Migration gelöscht. Gespeichert werden je
 Weiterleitung nur Protokoll, Ports, Ziel-IP und „aktiv“ (nie Name, Quellfilter, Key). Die WAN-Zeilen werden
 über den Namen zugeordnet; nur der aktive Anschluss bekommt eine Adresse. Rangfolge der öffentlichen Adresse:

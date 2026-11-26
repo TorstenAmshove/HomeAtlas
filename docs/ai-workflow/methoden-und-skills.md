@@ -190,7 +190,8 @@ einem Agenten geben kann, auch für eine Alternative mit anderer Technik.
 - **Entstehung**: eine Fähigkeit pro frischem Agentenlauf, danach Goldfish-Prüfung: Ein Agent ohne
   Vorwissen beantwortet Stichfragen nur aus den Specs.
 - **Pflege**: Ein PR, der Verhalten ändert, sollte die betroffene Spec mit anpassen. Unklare
-  Stellen stehen als `OFFEN` in den Specs und gesammelt in `docs/specs/offene-punkte.md`.
+  Stellen stehen als GitHub-Issue (der einzige Backlog) und in der Spec als `> OFFEN:`-Hinweis mit
+  `→ #N`; `trace_specs.py` lehnt einen Hinweis ohne Issue-Verweis ab.
 
 Details und Übergabe an einen Agenten: [docs/specs/README.md](../specs/README.md).
 

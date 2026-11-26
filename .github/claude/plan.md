@@ -19,7 +19,7 @@ also für sich allein verständlich sein.
 2. Code gründlich lesen: betroffene Module, deren Docstrings, ähnliche vorhandene Lösungen, die
    wiederverwendet werden können, und die passenden Tests in `backend/tests/`. Dazu die Spec der
    betroffenen Fähigkeit (`docs/specs/capabilities/*/spec.md`, Übersicht in `docs/specs/README.md`)
-   und deren `OFFEN`-Punkte.
+   und deren `OFFEN`-Hinweise samt der verlinkten Issues.
 3. **Plan entwerfen** (Format unten). Prinzipien:
    - **Vertikale Slices:** jeder Task liefert etwas Prüfbares, nicht „erst alles Backend“.
    - **Test zuerst:** jeder Backend-Task nennt den Test, der vorher rot und danach grün ist.

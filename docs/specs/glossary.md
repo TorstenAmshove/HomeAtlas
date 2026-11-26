@@ -38,4 +38,4 @@
 | **Einrichtungsassistent (Setup)** | Einmalige Ersteinrichtung nach der ersten Anmeldung und MFA. |
 | **ADMIN / MEMBER** | Die zwei Rollen: Administrator / Mitglied (nur lesen, Assistent). |
 | **[Muss] / [Impl]** | Markierung in diesen Specs: verbindlich auch für eine Alternative / nur Eigenart der heutigen Umsetzung. |
-| **OFFEN** | In den Specs markierte Unklarheit oder Entscheidung, die vor dem Bau der Alternative zu klären ist. |
+| **OFFEN** | Hinweis `> OFFEN:` in einer Spec auf eine noch offene Unklarheit oder Entscheidung; er verweist immer auf ein Issue (`→ #N`), dort wird sie geklärt. |

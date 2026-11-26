@@ -410,7 +410,7 @@ Quelle: `backend/app/tools.py` (`_dispatch_proxmox_live`, `_pick_proxmox_account
 - **WENN** kein Proxmox-Zugang existiert oder „Zum Auslesen verwenden“ fehlt
 - **DANN** nennt die Antwort das, und es geht kein Netzwerkaufruf raus
 
-> OFFEN: Noch nicht gegen eine echte Proxmox-Instanz abgenommen (Version nach der Abnahme hier vermerken).
+> OFFEN: Noch nicht gegen eine echte Proxmox-Instanz abgenommen (Version nach der Abnahme hier vermerken). → #249
 
 ### Requirement: Live-Status lokaler Container
 Das System MUSS dem Assistenten (jede Rolle, jeder MCP-Client) mit `get_container_status` den Live-Zustand der

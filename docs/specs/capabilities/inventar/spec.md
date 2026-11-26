@@ -15,7 +15,6 @@ gefunden wird) führt der Admin bewusst von Hand zusammen.
 | Aktion | ADMIN | MEMBER |
 |---|---|---|
 | Geräteliste, Gerätedetail ansehen | ja | ja |
-| Konfigurationsversionen auflisten und Inhalt lesen | ja | ja (siehe OFFEN) |
 | Fehlerereignisse eines Geräts ansehen | ja | ja |
 | Fehlerereignisse quittieren (einzeln/alle) | ja | nein (403) |
 | Gerät anlegen, bearbeiten, löschen | ja | nein (403) |
@@ -249,7 +248,7 @@ Quelle: `backend/app/db/systems.py::_enables_monitoring_on_critical`, Test: `bac
 ### Requirement: Gerät löschen
 Das System MUSS ADMIN erlauben, ein Gerät zu löschen. Dabei MÜSSEN mitgelöscht werden: direkt
 zugeordnete Zugänge, deren Zuordnungsregeln, Zuordnungsregeln, die auf dieses Gerät zeigen, seine
-Aliase und „kein Duplikat"-Markierungen sowie die Konfigurationsversionen, Fehler- und
+Aliase und „kein Duplikat"-Markierungen sowie die Fehler- und
 Monitor-Ereignisse des Geräts. Kinder (Container/VMs) verlieren ihren Host-Verweis
 (`parentId=NULL`), bleiben aber bestehen. Eine unbekannte ID liefert 404. Hat das Gerät direkt
 zugeordnete Zugänge, liefert DELETE ohne `?withAccounts=true` 409 (mit der Anzahl, ohne etwas zu
@@ -263,7 +262,7 @@ Parameter. Antwort sonst `{"ok": true}`. **[Muss]**
   `backend/tests/test_db_account_assignments.py::test_delete_system_removes_assignments_targeting_it_and_owned_by_its_accounts`
 
 #### Szenario: Verlauf verschwindet
-- **WENN** ein Gerät mit Konfigurationsversion, Fehler- und Monitor-Ereignis gelöscht wird
+- **WENN** ein Gerät mit Fehler- und Monitor-Ereignis gelöscht wird
 - **DANN** bleiben davon keine Zeilen zurück; die eines anderen Geräts bleiben
 - Test: `backend/tests/test_db_merge_aliases.py::test_delete_system_removes_history_rows`
 
@@ -340,7 +339,7 @@ zusammenzuführen; nur auf ausdrückliche Anforderung, nicht umkehrbar. Regeln:
   `backend/tests/test_db_merge_aliases.py::test_merge_keep_child_of_removed_gets_null_without_grandparent`
 - `importance` des entfernten wird übernommen, solange das behaltene nicht bestätigt ist;
   `confirmed` und `monitored` (+ `monitorPorts`) werden übernommen, wenn das behaltene sie nicht hat.
-- Zugänge, Zuordnungsregeln, Überwachungsereignisse, Konfigurationsversionen, Fehlerereignisse,
+- Zugänge, Zuordnungsregeln, Überwachungsereignisse, Fehlerereignisse,
   Kinder und Aliase des entfernten wandern zum behaltenen; danach wird das entfernte gelöscht.
 - `removeId` fehlt → 400 „removeId fehlt."; gleich der Pfad-ID → 400; eines unbekannt → 404.
 **[Muss]**
@@ -615,9 +614,9 @@ UI-Seite(n): `frontend/src/pages/geraete/InventoryPage.tsx` (Route `/geraete`),
   „Wiedererkennung bestehender Geräte“ in [discovery-und-scan](../discovery-und-scan/spec.md).
 - Kein Rückgängigmachen eines Merges, kein Entfernen einzelner Aliase, kein Aufheben von
   „kein Duplikat".
-- Keine Löschung von Fehlerereignissen (nur Quittieren), kein Bearbeiten oder Zurückspielen von
-  Konfigurationsversionen.
+- Keine Löschung von Fehlerereignissen (nur Quittieren).
 - Keine serverseitige Suche/Paginierung; die Liste wird komplett geliefert und im Client gefiltert.
+- `GET /api/systems/{id}` liefert auch MEMBER die Zugangs-Metadaten (Bezeichnung, Benutzername, URL, Notizen) des Geräts, nie ein Secret; die UI blendet sie für MEMBER aus. Entschieden in #48: in Ordnung, solange keine Secrets darin stehen.
 
 ## Ist-Implementierung (nur Referenz, [Impl])
 
@@ -630,4 +629,3 @@ UI-Seite(n): `frontend/src/pages/geraete/InventoryPage.tsx` (Route `/geraete`),
 
 ## OFFEN
 
-- > OFFEN: `GET /api/systems/{id}` liefert MEMBER die Zugangs-Metadaten (Label, Benutzername, URL, Notizen) des Geräts; nur die UI blendet sie aus. Gewollt? → entschieden in #48: in Ordnung, solange keine Secrets

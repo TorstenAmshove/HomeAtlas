@@ -486,6 +486,7 @@ für den offenen Verlauf).
 - Keine freien Kapitel: Struktur ist fest; Bewohner ergänzen nur Notizen oder überschreiben Seiten.
 - Keine Bearbeitung durch MEMBER; kein Bearbeiten durch den Assistenten.
 - Keine Mehrsprachigkeit (Doku ist deutsch).
+- Benutzernamen und URLs von Zugängen, Gerätenotizen und ausgelesene Gerätewerte sind über die Doku für MEMBER sichtbar, obwohl die Zugangs-API admin-only ist; Secrets nie. Entschieden in #48: in Ordnung, solange dort keine Geheimnisse eingetragen werden.
 
 ## Ist-Implementierung (nur Referenz, [Impl])
 
@@ -497,4 +498,3 @@ für den offenen Verlauf).
 
 ## OFFEN
 
-- > OFFEN: Benutzernamen und URLs von Zugängen sind über die Doku für MEMBER sichtbar, obwohl die Zugangs-API admin-only ist. Ebenso Gerätenotizen und ausgelesene Gerätewerte — falls dort Geheimnisse stehen, landen sie in der Doku. → entschieden in #48: in Ordnung, solange keine Secrets

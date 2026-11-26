@@ -4,7 +4,7 @@ name: Specs
 # Keeps docs/specs/ in step with the code: the generated contracts (OpenAPI, LLM tools, catalogs)
 # must match what export_contracts.py produces from the current code, and trace_specs.py --check
 # must find every route, table, LLM tool and page in a spec, every constitution rule on a live ADR,
-# and traceability.md/offene-punkte.md up to date. Behaviour changes inside an already covered
+# traceability.md up to date, and every `> OFFEN:` note linking an issue (`→ #N`). Behaviour changes inside an already covered
 # route are not machine-checkable; the review (.github/claude/review.md) covers those.
 
 on:

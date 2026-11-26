@@ -1,6 +1,6 @@
 """Erzeugt docs/specs/traceability.md (welche Route, Tabelle, KI-Werkzeug und Seite in welcher Spec
-steht, welches ADR welche Constitution-Regel trägt) und den generierten Teil von
-docs/specs/offene-punkte.md (alle OFFEN-Punkte der Specs).
+steht, welches ADR welche Constitution-Regel trägt) und prüft, dass jeder `> OFFEN:`-Hinweis unter
+docs/specs/ ein Issue verlinkt (`→ #N`). Offene Punkte stehen nur noch als Issues (#253).
 
 Aufruf aus dem Repo-Wurzelverzeichnis:
 
@@ -11,7 +11,8 @@ Quellen sind der Code selbst, nicht die Specs: REST-Routen aus contracts/openapi
 erzeugen, siehe README.md), WebSocket-Routen und Mounts aus backend/app/main.py und routes/, Tabellen aus
 backend/app/db/*.py, Werkzeuge aus backend/app/tools.py, Seiten aus frontend/src/pages/, ADRs und ihr
 Status aus docs/adr/. Eine Lücke ist auch: eine Constitution-Regel verweist auf ein ersetztes oder
-fehlendes ADR, oder ein akzeptiertes ADR wird von keiner Regel verwiesen.
+fehlendes ADR, oder ein akzeptiertes ADR wird von keiner Regel verwiesen, oder ein `> OFFEN:`-Hinweis
+trägt keinen Issue-Verweis.
 Nur Standardbibliothek, damit es ohne Backend-Abhängigkeiten läuft.
 """
 from __future__ import annotations
@@ -25,8 +26,8 @@ ROOT = Path(__file__).resolve().parents[2]
 SPECS = ROOT / "docs" / "specs"
 CAPS = SPECS / "capabilities"
 OUT = SPECS / "traceability.md"
-OPEN = SPECS / "offene-punkte.md"
-OPEN_MARKER = "<!-- Ab hier erzeugt von trace_specs.py -->"
+OPEN_NOTE = re.compile(r"(?<!`)>\s*OFFEN:")  # nicht in Inline-Code (`> OFFEN:` in Prosa)
+ISSUE_LINK = re.compile(r"→\s*#\d+")
 ADRS = ROOT / "docs" / "adr"
 CONSTITUTION = SPECS / "constitution.md"
 # ADRs ohne eigene Regel in der Constitution: 0001 betrifft nur den Dokumentationsprozess.
@@ -88,22 +89,29 @@ def specs() -> dict[str, str]:
     return {p.parent.name: p.read_text(encoding="utf-8") for p in sorted(CAPS.glob("*/spec.md"))}
 
 
-def open_points(texts: dict[str, str]) -> list[tuple[str, list[str]]]:
-    """Die `> OFFEN:`-Punkte aus dem Abschnitt `## OFFEN` jeder Spec, mehrzeilige Punkte zusammengefügt."""
-    result = []
-    for name, text in texts.items():
-        section = re.split(r"^## OFFEN[^\n]*\n", text, maxsplit=1, flags=re.M)
-        if len(section) < 2:
+def unlinked_open_notes(specs_dir: Path = SPECS) -> list[str]:
+    """`Datei:Zeile` jedes `> OFFEN:`-Hinweises ohne Issue-Verweis `→ #N`.
+
+    Gesucht wird in allen *.md unter `specs_dir` außer `_template.md`, auch mitten in einer Zeile. Ein
+    Hinweis reicht bis zur nächsten Leerzeile oder Überschrift; der Verweis darf in jeder seiner Zeilen
+    stehen. Überschriften (`## OFFEN`), Prosa wie „**OFFEN**:“ und Inline-Code sind keine Hinweise."""
+    missing = []
+    for path in sorted(specs_dir.rglob("*.md")):
+        if path.name == "_template.md":
             continue
-        body = re.split(r"^## ", section[1], maxsplit=1, flags=re.M)[0]
-        items: list[str] = []
-        for line in body.splitlines():
-            if re.match(r"^\s*-\s", line):
-                items.append(re.sub(r"^\s*-\s*(>\s*)?(OFFEN:\s*)?", "", line).strip())
-            elif line.strip() and items:
-                items[-1] += " " + re.sub(r"^\s*>?\s*", "", line).strip()
-        result.append((name, [i for i in items if i]))
-    return result
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for i, line in enumerate(lines):
+            match = OPEN_NOTE.search(line)
+            if not match:
+                continue
+            note = [line[match.start():]]
+            for nxt in lines[i + 1:]:
+                if not nxt.strip() or nxt.lstrip().startswith("#") or OPEN_NOTE.search(nxt):
+                    break
+                note.append(nxt)
+            if not ISSUE_LINK.search(" ".join(note)):
+                missing.append(f"{path.relative_to(specs_dir).as_posix()}:{i + 1}")
+    return missing
 
 
 def find(texts: dict[str, str], pattern: re.Pattern[str]) -> list[str]:
@@ -127,6 +135,7 @@ def main() -> int:
     sections.append(("Seiten", [(f"`{p}`", find(texts, re.compile(rf"\b{p}\b"))) for p in pages()]))
 
     gaps = [(sec, item) for sec, rows in sections for item, where in rows if not where]
+    gaps += [("OFFEN ohne Issue", where) for where in unlinked_open_notes()]
 
     adr_index = adrs()
     adr_refs = constitution_adr_refs()
@@ -176,22 +185,13 @@ def main() -> int:
 
     content = "\n".join(lines)
 
-    points = open_points(texts)
-    generated = [OPEN_MARKER, "", f"## Alle Punkte je Fähigkeit ({sum(len(i) for _, i in points)})", ""]
-    for name, items in points:
-        generated += [f"### [{name}](capabilities/{name}/spec.md) ({len(items)})", ""]
-        generated += [f"{n}. {item}" for n, item in enumerate(items, 1)] + [""]
-    head = OPEN.read_text(encoding="utf-8").split(OPEN_MARKER, 1)[0] if OPEN.exists() else ""
-    open_content = head + "\n".join(generated)
     if "--check" in sys.argv:
         current = OUT.read_text(encoding="utf-8") if OUT.exists() else ""
-        current_open = OPEN.read_text(encoding="utf-8") if OPEN.exists() else ""
-        if current != content or current_open != open_content:
-            print("traceability.md/offene-punkte.md veraltet: python docs/specs/trace_specs.py", file=sys.stderr)
+        if current != content:
+            print("traceability.md veraltet: python docs/specs/trace_specs.py", file=sys.stderr)
             return 1
     else:
         OUT.write_text(content, encoding="utf-8")
-        OPEN.write_text(open_content, encoding="utf-8")
     for sec, item in gaps:
         print(f"FEHLT ({sec}): {item}", file=sys.stderr)
     return 1 if gaps else 0

@@ -348,6 +348,7 @@ UI-Seite(n): `frontend/src/pages/geraete/PlanPage.tsx` (Route `/plan`, Navigatio
 - Senkrechte einer Eltern-Gruppe können die Waagerechte einer anderen kreuzen; die Ebenen verhindern
   nur das Überlagern von Waagerechten.
 - Verkabelung kommt nur aus `parentId` (UniFi-Uplink, Proxmox/Docker-Host), VLAN-IDs nur aus Controller-Netzen; es gibt keine Nachbarschaftsprotokoll-Auswertung (LLDP/CDP) mehr.
+- Das Bild zeichnet die Ebenen bis „Wichtige Geräte“; Server und Endgeräte stehen als HTML-Listen darunter, Container nur als Zähler bei kritischen Hosts. So festgehalten in [ADR-0009](../../../adr/0009-netzplan-ebenen-ist-stand.md).
 
 ## Ist-Implementierung (nur Referenz, [Impl])
 
@@ -363,4 +364,3 @@ UI-Seite(n): `frontend/src/pages/geraete/PlanPage.tsx` (Route `/plan`, Navigatio
 
 ## OFFEN
 
-- > OFFEN: ADR-0008 und CLAUDE.md beschreiben die Ebenen „Server → Endgeräte“ und „Container innerhalb ihres Hosts“; das Bild zeichnet aber nur „Wichtige Geräte“, Server/Endgeräte stehen als HTML-Listen darunter, Container nur als Zähler bei kritischen Hosts. Spec folgt dem Code; ADR-0009 hält diesen Stand fest. → kein Issue, ADR-0009 hält den Stand fest
