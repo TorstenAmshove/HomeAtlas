@@ -40,7 +40,9 @@ Die Oberfläche MUSS nach dem Login in dieser Reihenfolge führen: MFA-Einrichtu
 [auth-und-rollen](../auth-und-rollen/spec.md)) → Setup-Wizard, solange `setupCompleted` false UND der
 Benutzer ADMIN ist → App. Ein MEMBER wird bei offenem Setup NICHT blockiert. Der Wizard ist
 ausschließlich vollflächig; es gibt keine eigene Route und keine Navigation, solange er aktiv ist.
-**[Muss]**
+Der Wizard ist eine UI-Komfortfunktion, kein Sicherheitsschritt: Der Server erzwingt nur Anmeldung und
+MFA und prüft `setupCompleted` nirgends außer bei `POST /api/setup` (ADMIN-only, nach Abschluss 409).
+**[Muss]** (Entscheidung #250, Constitution R4.)
 
 #### Szenario: Admin nach MFA-Einrichtung
 - **WENN** ADMIN mit aktivem Faktor, `setupCompleted` = false
@@ -54,7 +56,11 @@ ausschließlich vollflächig; es gibt keine eigene Route und keine Navigation, s
 - **WENN** das Setup erfolgreich gespeichert wurde
 - **DANN** lädt die UI Benutzer und Health neu und zeigt das Dashboard mit dem gewählten Namen als Überschrift
 
-Quelle: `frontend/src/App.tsx:56`, `frontend/src/App.tsx:104`, Test: `frontend/e2e/smoke.spec.ts::login, MFA enrollment, setup and main routes render without errors`
+#### Szenario: API vor Abschluss
+- **WENN** ein ADMIN oder MEMBER mit aktivem Faktor bei `setupCompleted` = false die API aufruft
+- **DANN** antwortet sie wie sonst nach seiner Rolle; nur `POST /api/setup` ist ADMIN-only und liefert nach erfolgreichem Abschluss 409
+
+Quelle: `frontend/src/App.tsx:56`, `frontend/src/App.tsx:104`, Test: `frontend/e2e/smoke.spec.ts::login, MFA enrollment, setup and main routes render without errors`, `backend/tests/test_setup_guard.py::test_setup_second_call_409_no_side_effects`, `backend/tests/test_main_settings_api.py::test_patch_setup_completed_unchanged`
 
 ### Requirement: Abgefragte Angaben
 Der Wizard MUSS in drei Schritten (Anzeige „Schritt n von 3“, Vor/Zurück ohne Datenverlust) erfassen:
@@ -227,9 +233,9 @@ Aus [data-model](../../contracts/data-model.md):
 | POST | /api/setup | ADMIN | Wizard-Ergebnis speichern, `setupCompleted` setzen |
 | GET | /api/health | öffentlich | Liveness + `setupCompleted` |
 
-Berührt: `PATCH /api/settings` kann `setupCompleted`/`homeName` ebenfalls ändern (siehe
-[einstellungen-und-llm-provider](../einstellungen-und-llm-provider/spec.md)); `GET /api/settings` gibt
-MEMBER nur `homeName` und `setupCompleted`.
+Berührt: `PATCH /api/settings` kann `homeName` ebenfalls ändern, `setupCompleted` wird dort verworfen
+(siehe [einstellungen-und-llm-provider](../einstellungen-und-llm-provider/spec.md)); `GET /api/settings`
+gibt MEMBER nur `homeName` und `setupCompleted`.
 
 UI-Seite(n): `frontend/src/gates/Setup.tsx` (keine eigene Route; ersetzt die App, solange ADMIN
 und `setupCompleted` false), Gating in `frontend/src/App.tsx`.
