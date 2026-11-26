@@ -110,6 +110,7 @@ CREATE TABLE IF NOT EXISTS monitorEvents (
 );
 CREATE INDEX IF NOT EXISTS idx_monitorevents_system ON monitorEvents(systemId, at DESC);
 
+-- `token` holds the SHA-256 hex of the cookie value, never the value itself (db/users._hash_token, #251).
 CREATE TABLE IF NOT EXISTS sessions (
     token TEXT PRIMARY KEY,
     userId TEXT NOT NULL,
@@ -117,10 +118,9 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 
 -- Long-lived credentials for the MCP server (see mcp_server.py) -- external LLM clients have no
--- browser session to present, so they authenticate with one of these instead. Stored raw, same as
--- session tokens above: server-generated, high-entropy, and a database compromise already means
--- every session and password is exposed too, so hashing here buys nothing sessions don't already
--- forgo.
+-- browser session to present, so they authenticate with one of these instead. Like session tokens,
+-- `token` is only the SHA-256 hex of the raw value (shown once at creation): a leaked database copy
+-- (constitution Z1) must not yield a working MCP login. High entropy (256 bit), so no salt/KDF.
 CREATE TABLE IF NOT EXISTS apiTokens (
     id TEXT PRIMARY KEY,
     label TEXT NOT NULL,
@@ -427,6 +427,12 @@ def init_db() -> None:
             existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
             if column not in existing:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
+
+        # #251: tokens are stored as SHA-256 hex (always 64 characters). Rows from before that hold
+        # the raw value (43 characters) and can never match a hashed lookup; drop them so they do not
+        # linger in the database. Idempotent, never touches a hashed row.
+        conn.execute("DELETE FROM sessions WHERE length(token) != 64")
+        conn.execute("DELETE FROM apiTokens WHERE length(token) != 64")
 
         # ADR-0016: the scan reads the classic UniFi API with the `unifi` account's API key; the
         # former login-based category was never used and is removed, same steps as delete_account.

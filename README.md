@@ -249,6 +249,10 @@ Docker-Host ist, denn der liest auch die Schlüsseldatei. Die Alternative wäre 
 jedem Containerstart, was einen unbeaufsichtigten Neustart unmöglich machte. Ist die Schlüsseldatei
 ersetzt worden, wird ein nicht lesbares Secret als Fehler gemeldet (Abruf: 409, im Zugriffsprotokoll
 `ok=0`; Scans überspringen den Zugang mit Warnung) statt still mit leerem Passwort weiterzuarbeiten.
+Sitzungs- und MCP-Tokens liegen nur als SHA-256-Hash in der Datenbank, eine abhandengekommene Kopie
+liefert also weder gültige Sitzungen noch MCP-Zugänge. Ältere Datenbank-Backups aus der Zeit davor
+können die Rohwerte noch enthalten. Beim Update auf diese Version werden bestehende Sitzungen ungültig
+(einmal neu anmelden); MCP-Tokens aus älteren Versionen werden entfernt und müssen neu angelegt werden.
 
 **Die KI sieht keine Passwörter.** Das Werkzeug `list_accounts` gibt Bezeichnung, Benutzername
 und Notiz zurück und streicht das Passwort — auch wenn das Modell „vertrauenswürdig" ist. Ein

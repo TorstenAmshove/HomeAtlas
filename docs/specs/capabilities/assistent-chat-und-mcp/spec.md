@@ -523,7 +523,7 @@ Quelle: `backend/app/main.py:450`, `backend/app/main.py:455`, `backend/app/main.
 Siehe [data-model](../../contracts/data-model.md).
 
 - Schreibt `chats` (`id`, `title`, `createdAt`, `updatedAt`) und `chatMessages` (`chatId`, `role` user|assistant|tool, `content`, `toolCalls`, `providerRaw`, `toolCallId`, `name`, `createdAt`, `durationMs`).
-- Schreibt `apiTokens` (`id`, `label`, `token` im Klartext, `createdAt`, `lastUsedAt`).
+- Schreibt `apiTokens` (`id`, `label`, `token` als SHA-256-Hash des Rohwerts, `createdAt`, `lastUsedAt`).
 - Schreibt `accessLog` (Aktion `switch.assistant`).
 - Liest `systems`, `accounts` (ohne Geheimnis; HA-Token nur serverseitig), `docPages`, `scans`, `networkResources`, `settings` (`llmProvider`, Schlüssel/Modelle/Base-URLs des Anbieters, `providerModelCache`, `homeName`, `systemPromptOverride`, `scanSubnets`, `scanControllerNetworkIds`).
 
@@ -561,7 +561,7 @@ UI-Seite(n): `frontend/src/pages/ChatPage.tsx` (Routen `/assistent`, `/assistent
 - Werkzeugdefinitionen sind ein internes Schema (`name`, `description`, `inputSchema`) und werden je Anbieter übersetzt (Anthropic `input_schema`, Gemini mit Schema-Allowlist, OpenAI `function`).
 - Gemini liefert keine Aufruf-IDs; als ID dient der Funktionsname.
 - MCP über das Python-SDK (`StreamableHTTPSessionManager`, `stateless=True`, `json_response=True`), eigene ASGI-Bearer-Prüfung statt SDK-OAuth.
-- Tokens liegen im Klartext in der DB (wie Sitzungstokens); Begründung im Schema-Kommentar.
+- Tokens liegen nur als SHA-256-Hash in der DB (wie Sitzungstokens, #251); die MCP-Authentifizierung hasht den Bearer-Wert vor dem Vergleich. Test: `backend/tests/test_token_hashing.py`.
 - Home-Assistant-Aufrufe ohne TLS-Prüfung (`verify=False`); Timeout 8 s (Verbindung 3 s).
 - UI zeigt unter der Antwort „Dafür geprüft: …“ (deduplizierte `toolsUsed`) und die Dauer.
 

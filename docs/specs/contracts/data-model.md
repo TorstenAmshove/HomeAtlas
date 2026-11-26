@@ -46,15 +46,16 @@ chats ── chatMessages
 | createdAt | |
 
 ### sessions — Login-Sitzungen
-`token` (Primärschlüssel, Cookie-Wert), `userId`, `expiresAt`.
+`token` (Primärschlüssel, SHA-256-Hex des Cookie-Werts, nie der Wert selbst **[Muss]**, #251), `userId`, `expiresAt`.
 
 ### accessLog — Zugriffsprotokoll
 `at`, `userId` (optional), `username`, `action`, `detail`, `ip`, `userAgent`, `ok` (Erfolg/Fehlschlag).
 
 ### apiTokens — Tokens für den externen MCP-Endpunkt
-`label`, `token` (eindeutig), `createdAt`, `lastUsedAt`. Der Rohwert wird nur beim Anlegen einmal
-ausgegeben, Listen liefern ihn nie (`backend/app/db/users.py`) **[Muss]**.
-> OFFEN: Der Token wird im Klartext gespeichert (nicht gehasht). Für eine Alternative Hashing erwägen.
+`label`, `token` (eindeutig, SHA-256-Hex des Rohwerts), `createdAt`, `lastUsedAt`. Der Rohwert wird nur
+beim Anlegen einmal ausgegeben und nie gespeichert, Listen liefern weder Rohwert noch Hash
+(`backend/app/db/users.py`) **[Muss]** (#251). Zeilen im alten Klartextformat (Länge ≠ 64) werden beim
+Start entfernt; ältere Datenbank-Backups können noch Rohwerte enthalten.
 
 ### settings — Einstellungen
 Schlüssel/Wert-Paare. Die Schlüssel und Defaults stehen in

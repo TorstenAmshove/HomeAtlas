@@ -133,7 +133,8 @@
   at rest verschlüsselt; das gilt auch für LLM-API-Schlüssel und ausgelesene Konfigurationsexporte
   (keine Klartext-Kopie beim Gerät). Schutzziel: eine abhandengekommene **Datenbankkopie**,
   ausdrücklich nicht root auf dem Host. ([ADR-0007](../adr/0007-credentials-fernet-schluessel-im-volume.md))
-  > OFFEN: MCP-Tokens und Session-Tokens liegen im Klartext in ihren Tabellen (Hashing erwägen).
+  Sitzungs- und MCP-Tokens liegen nur als SHA-256-Hash in der Datenbank (hohe Entropie, kein
+  Salt/KDF nötig); der Rohwert existiert nur im Cookie bzw. einmalig bei der Anlage (#251).
 - **Z2 [Muss]** Der Dienst startet nach einem Neustart **unbeaufsichtigt** (keine Passphrase beim Start).
   ([ADR-0007](../adr/0007-credentials-fernet-schluessel-im-volume.md))
 - **Z3 [Muss]** Ein Secret verlässt den Server nur **einzeln**, nur für ADMIN, und jedes Anzeigen
