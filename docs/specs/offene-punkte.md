@@ -35,11 +35,10 @@ KI-Name überschreibt keine Selbstauskunft-Namen (UPnP/mDNS) mehr. Offen bleiben
 
 <!-- Ab hier erzeugt von trace_specs.py -->
 
-## Alle Punkte je Fähigkeit (5)
+## Alle Punkte je Fähigkeit (4)
 
-### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (1)
+### [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md) (0)
 
-1. `list_switches` fragt bei jedem Aufruf live alle freigegebenen HA-Instanzen ab (kein Cache). → #121
 
 ### [auth-und-rollen](capabilities/auth-und-rollen/spec.md) (0)
 

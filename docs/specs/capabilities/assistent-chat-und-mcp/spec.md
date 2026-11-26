@@ -281,6 +281,18 @@ werden, dazu `cover`-Entities mit `device_class` blind/shade/shutter/curtain/awn
 Bezeichnung>“) ins Zugriffsprotokoll. `list_switches` liefert höchstens 200
 HA-Entities der Domänen switch/light und erlaubte Rollos. Home-Assistant-Zugänge MÜSSEN das Opt-in „Zum Auslesen verwenden“ (`allowProbe`) haben, sonst werden sie bei `list_switches` übersprungen (nicht kontaktiert; ohne freigegebenen Zugang steht `haHinweis` in der Antwort) und `set_switch` MUSS vor Entschlüsselung, Senden und Protokollieren mit einem Fehler abweisen. **[Muss]** (Produktentscheidung, ADR-0013, ADR-0023, bestätigt in #43, #99; Opt-in #121.)
 
+`list_switches` MUSS bei jedem Aufruf je freigegebenem HA-Zugang den aktuellen Zustand live lesen (ein
+`GET /api/states`, kein Cache); die Antwort enthält den aktuellen `state`. `set_switch` löst Zugang und
+Opt-in je Aufruf frisch aus der Datenbank auf und verlässt sich nicht auf Daten aus `list_switches`.
+Begründung: Der Assistent soll nie einen veralteten Zustand melden („Licht ist an“, obwohl es gerade
+ausgeschaltet wurde), ein Cache brächte zusätzlichen Zustand samt Invalidierung (Opt-in entzogen, Token
+geändert) in die Fähigkeitsgrenze von `tools.py`, und ein `GET /api/states` ist im Heimnetz günstig.
+**[Muss]** (Entscheidung #246.)
+
+#### Szenario: Zustand immer live
+- **WENN** `list_switches` zweimal nacheinander aufgerufen wird und sich der Zustand einer Entity in Home Assistant dazwischen ändert
+- **DANN** kontaktiert der zweite Aufruf Home Assistant erneut und liefert den neuen `state`
+
 #### Szenario: Zugang ohne Opt-in
 - **WENN** `set_switch` mit `kind=ha` und der `accountId` eines Zugangs ohne „Zum Auslesen verwenden“ aufgerufen wird
 - **DANN** kommt `{"error": …}` mit Hinweis auf den Haken, nichts wird gesendet oder protokolliert
@@ -538,4 +550,3 @@ UI-Seite(n): `frontend/src/pages/ChatPage.tsx` (Routen `/assistent`, `/assistent
 
 ## OFFEN
 
-- > OFFEN: `list_switches` fragt bei jedem Aufruf live alle freigegebenen HA-Instanzen ab (kein Cache). → #121
