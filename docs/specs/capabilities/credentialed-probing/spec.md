@@ -287,7 +287,8 @@ Das System MUSS mit API-Token (`Authorization: PVEAPIToken=<id>=<secret>`) nur G
 `Doc:`/`URL:`-Zeile → `docLink`, erste übrige Textzeile → `purpose` (≤200), Gesamttext →
 `descriptionMd` (≤800); Tag `critical` (`;`/`,`-getrennt) → `importance = critical` (nur
 hochstufen). Gäste mit `template: 1` (qemu und lxc) werden nicht übernommen und es erfolgt
-kein `/config`-Abruf für sie. Scheitern alle Gästelisten und wurde nichts gefunden → Fehler mit Hinweis auf
+kein `/config`-Abruf für sie. `extra.proxmox` enthält `node`, `vmid`, `type` (`qemu`|`lxc`, der Gasttyp
+aus der Abfrage), `cpuCores`, `memoryMb`. Scheitern alle Gästelisten und wurde nichts gefunden → Fehler mit Hinweis auf
 Token-Berechtigung (PVEAuditor). **[Muss]**
 
 #### Szenario: Kritischer Gast
@@ -298,7 +299,7 @@ Token-Berechtigung (PVEAuditor). **[Muss]**
 - **WENN** ein Gast `template: 1` hat
 - **DANN** erscheint er nicht in den Funden
 
-Quelle: `backend/app/proxmox_probe.py:115`, Test: `backend/tests/test_proxmox_probe.py::test_probe_sets_critical_importance_docs_and_purpose_from_notes`, `backend/tests/test_proxmox_probe.py::test_probe_skips_templates`, `backend/tests/test_db_systems_templates.py::test_missing_discovered_proxmox_row_is_kept_and_set_offline`, `backend/tests/test_proxmox_probe.py::test_parse_notes_does_not_match_url_mentioned_mid_sentence`
+Quelle: `backend/app/proxmox_probe.py:115`, Test: `backend/tests/test_proxmox_probe.py::test_probe_sets_critical_importance_docs_and_purpose_from_notes`, `backend/tests/test_proxmox_probe.py::test_probe_skips_templates`, `backend/tests/test_proxmox_probe.py::test_probe_sets_guest_type`, `backend/tests/test_db_systems_templates.py::test_missing_discovered_proxmox_row_is_kept_and_set_offline`, `backend/tests/test_proxmox_probe.py::test_parse_notes_does_not_match_url_mentioned_mid_sentence`
 
 ### Requirement: Docker-Host lesen
 Das System MUSS Docker über den Endpunkt aus `DOCKER_HOST` (`unix://…` oder `tcp://` nur auf Loopback), sonst

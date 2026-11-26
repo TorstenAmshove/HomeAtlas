@@ -109,7 +109,9 @@ Das System MUSS Admins über `GET /api/systems/{id}/admin-links` Deep-Links lief
 bei keinem Link eine leere Liste, unbekannte ID 404, Member 403): für ein lokales Docker-Gerät
 (`kind=container`, `extra.docker.containerId`) „In Portainer öffnen“ →
 `<portainerUrl>/#!/<portainerEnvId>/docker/containers/<containerId>`, sofern URL und Umgebungs-ID gesetzt
-sind; für einen Proxmox-Gast (`extra.proxmox.node` und `vmid`; `vm` → `qemu`, `container` → `lxc`)
+sind; für jeden Proxmox-Gast (`extra.proxmox.node` und `vmid`, unabhängig von der Art; der Typ kommt aus
+`extra.proxmox.type` = `qemu`|`lxc`, fehlt er oder ist er ungültig, gilt `kind`: `vm` → `qemu`,
+`container` → `lxc`, andere Arten ohne Typ bekommen keinen Link)
 „In Proxmox öffnen“ → `<basis>/#v1:0:=<qemu|lxc>%2F<vmid>`. Basis ist `proxmoxWebUrl`, sonst die
 auf Schema+Host+Port gekürzte URL des ersten Proxmox-Zugangs am Eltern-System, sonst dessen `url`.
 Entfernte Docker-Hosts bekommen keine Container-Links; das Feld `url` bleibt unverändert. Die Links
@@ -119,11 +121,19 @@ Entfernte Docker-Hosts bekommen keine Container-Links; das Feld `url` bleibt unv
 - **WENN** Portainer-URL und Umgebungs-ID gesetzt sind und ein Admin einen lokalen Container öffnet
 - **DANN** enthält `links` den Portainer-Deep-Link
 
+#### Szenario: Gast mit Funktions-Art
+- **WENN** ein Gast die Art `smarthome` und `extra.proxmox = {node, vmid, type: "qemu"}` hat
+- **DANN** enthält `links` `<basis>/#v1:0:=qemu%2F<vmid>` (mit `type: "lxc"` analog `lxc`)
+
+#### Szenario: Ungültiger Typ
+- **WENN** `extra.proxmox.type` weder `qemu` noch `lxc` ist
+- **DANN** wird er nie in die URL übernommen; es gilt der Rückfall über `kind`
+
 #### Szenario: Nichts konfiguriert
 - **WENN** weder Portainer noch eine Proxmox-Basis auflösbar ist
 - **DANN** ist `links` leer
 
-Quelle: `backend/app/admin_links.py`, `backend/app/routes/systems.py`
+Quelle: `backend/app/admin_links.py`, `backend/app/routes/systems.py`, `backend/app/proxmox_probe.py`, Test: `backend/tests/test_admin_links.py::test_proxmox_type_overrides_kind`, `backend/tests/test_admin_links.py::test_proxmox_invalid_type_falls_back`, `backend/tests/test_db_systems_templates.py::test_upsert_adds_proxmox_type_to_confirmed_system`
 
 ### Requirement: Effektive Überwachungsports
 Das System MUSS die überwachten Ports so bestimmen: von Hand gesetzte `monitorPorts` (erste 3);

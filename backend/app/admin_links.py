@@ -65,8 +65,12 @@ def build(system: dict, settings: dict, parent: dict | None, parent_account_urls
 
     vmid = str(proxmox.get("vmid") or "").strip()
     if proxmox.get("node") and vmid.isascii() and vmid.isdigit() and not docker:
-        kind = {"vm": "qemu", "container": "lxc"}.get(system.get("kind"))
-        base = _proxmox_base(settings, parent, parent_account_urls) if kind else ""
+        # The scan's guest type wins over the device kind (a guest may be kind "smarthome"); the
+        # kind mapping is only the fallback for rows stored before `type` existed.
+        guest_type = proxmox.get("type")
+        if not (isinstance(guest_type, str) and guest_type in ("qemu", "lxc")):
+            guest_type = {"vm": "qemu", "container": "lxc"}.get(system.get("kind"))
+        base = _proxmox_base(settings, parent, parent_account_urls) if guest_type else ""
         if base:
-            links.append({"label": "In Proxmox öffnen", "url": f"{base}/#v1:0:={kind}%2F{vmid}"})
+            links.append({"label": "In Proxmox öffnen", "url": f"{base}/#v1:0:={guest_type}%2F{vmid}"})
     return links
