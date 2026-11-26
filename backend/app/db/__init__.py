@@ -162,7 +162,9 @@ from .docs import (  # noqa: E402
     upsert_doc_page,
 )
 from .error_events import (  # noqa: E402
+    OFFLINE_MESSAGE_PREFIX,
     acknowledge_device_error_events,
+    acknowledge_offline_warnings,
     add_device_error_event,
     count_error_events_by_system,
     list_device_error_events,
@@ -203,6 +205,8 @@ from .chats import (  # noqa: E402
 
 __all__ = [
     "acknowledge_device_error_events",
+    "acknowledge_offline_warnings",
+    "OFFLINE_MESSAGE_PREFIX",
     "DB_PATH",
     "_ERROR_EVENT_KEEP",
     "_MONITOR_EVENT_KEEP",

@@ -207,6 +207,11 @@ class Monitor:
                     continue
             else:
                 self._failures.pop(system["id"], None)
+                # Back online (or still online): the outage warnings are resolved (#254). On every
+                # online result, not only on the transition, so a warning cannot stay open when the
+                # status was already set to online in between (scan upsert). A fresh outage warning
+                # is only written on a confirmed offline transition, never on an online result.
+                db.acknowledge_offline_warnings(system["id"])
             if db.record_monitor_state(system["id"], status, detail):
                 changes.append({"systemId": system["id"], "name": system["name"],
                                 "status": status, "detail": detail})
@@ -214,7 +219,7 @@ class Monitor:
                     # Only the confirmed transition (see _FAILURES_BEFORE_DOWN above), same as the
                     # state change itself -- a single dropped Wi-Fi packet must not show up as a
                     # logged error on the device any more than it shows up as a status flip.
-                    db.add_device_error_event(system["id"], "warning", f"Nicht mehr erreichbar: {detail}")
+                    db.add_device_error_event(system["id"], "warning", f"{db.OFFLINE_MESSAGE_PREFIX}: {detail}")
         self.last_run = time.time()
         return changes
 

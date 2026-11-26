@@ -333,7 +333,8 @@ CREATE TABLE IF NOT EXISTS deviceErrorEvents (
     level TEXT NOT NULL DEFAULT 'error',
     message TEXT NOT NULL,
     createdAt TEXT NOT NULL,
-    -- NULL = open; set by an admin acknowledging it. Only open events count toward the badge.
+    -- NULL = open; set by an admin acknowledging it. Only open events count toward the badges
+    -- (red = level error, yellow = level warning; monitor.py auto-acknowledges its outage warning).
     acknowledgedAt TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_errorevents_system ON deviceErrorEvents(systemId, createdAt DESC);

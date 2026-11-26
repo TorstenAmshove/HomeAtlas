@@ -41,13 +41,33 @@ def list_device_error_events(system_id: str, limit: int = 50) -> list[dict]:
         ))
 
 
-def count_error_events_by_system() -> dict[str, int]:
-    """Every device's error-event count in one query, so the systems list can show a warning
-    badge without an extra round trip per device -- same pattern `/api/systems` already uses for
-    `accountCount`."""
+def count_error_events_by_system() -> dict[str, dict[str, int]]:
+    """Every device's open (unacknowledged) events in one query, split into `error` and `warning`
+    (#254), so the systems list can show a red and a yellow badge without an extra round trip per
+    device -- same pattern `/api/systems` already uses for `accountCount`. Anything that is not
+    `warning` counts as an error (`add_device_error_event` normalises unknown levels to `error`).
+    Devices without open events are absent."""
     with _conn() as conn:
-        rows = conn.execute("SELECT systemId, COUNT(*) AS c FROM deviceErrorEvents WHERE acknowledgedAt IS NULL GROUP BY systemId").fetchall()
-    return {row["systemId"]: row["c"] for row in rows}
+        rows = conn.execute(
+            "SELECT systemId, SUM(level <> 'warning') AS e, SUM(level = 'warning') AS w FROM deviceErrorEvents"
+            " WHERE acknowledgedAt IS NULL GROUP BY systemId").fetchall()
+    return {row["systemId"]: {"error": row["e"] or 0, "warning": row["w"] or 0} for row in rows}
+
+
+# Message prefix of the monitor's outage warning (monitor.py). Shared here so the monitor writes and
+# `acknowledge_offline_warnings` recognises the same text -- also for events written before #254.
+OFFLINE_MESSAGE_PREFIX = "Nicht mehr erreichbar"
+
+
+def acknowledge_offline_warnings(system_id: str) -> int:
+    """Acknowledges the device's open "Nicht mehr erreichbar" warnings once the monitor sees it
+    online again (#254). Errors and other warnings stay open; already acknowledged events keep their
+    first timestamp. Prefix compared with `substr`, not LIKE, so `%`/`_` in a message cannot widen it."""
+    with _conn() as conn:
+        return conn.execute(
+            "UPDATE deviceErrorEvents SET acknowledgedAt = ? WHERE systemId = ? AND acknowledgedAt IS NULL"
+            " AND level = 'warning' AND substr(message, 1, length(?)) = ?",
+            (_now(), system_id, OFFLINE_MESSAGE_PREFIX, OFFLINE_MESSAGE_PREFIX)).rowcount
 
 
 def acknowledge_device_error_events(system_id: str, event_id: str | None = None) -> int:

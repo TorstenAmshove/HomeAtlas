@@ -31,7 +31,8 @@ Rollenprüfung: `backend/app/main.py:509`, `:523`, `:529`, `:536`, `:547`, `:560
 Das System MUSS allen angemeldeten Rollen die Liste aller Geräte liefern, optional gefiltert nach
 exakt einer Art (`kind`), sortiert nach Wichtigkeit (`critical` → `normal` → alles andere) und dann
 Name ohne Groß/Klein; jedes Gerät mit der Anzahl direkt zugeordneter Zugänge (`accountCount`, ohne
-Zuordnungsregeln), der Anzahl offener, d. h. nicht quittierter Fehlerereignisse (`errorCount`) und einer abgeleiteten
+Zuordnungsregeln), der Anzahl offener, d. h. nicht quittierter Fehlerereignisse getrennt nach Stufe (`errorCount` =
+Stufe `error`, `warningCount` = Stufe `warning`, #254) und einer abgeleiteten
 Kurzbeschreibung (`description`); dazu die Anzeigenamen der Arten (`kindLabels`). **[Muss]**
 
 #### Szenario: Filter und Reihenfolge
@@ -39,9 +40,14 @@ Kurzbeschreibung (`description`); dazu die Anzeigenamen der Arten (`kindLabels`)
 - **DANN** enthält die Antwort nur Geräte mit `kind = router`, kritische zuerst, dann alphabetisch
 
 #### Szenario: Fehlerzähler
-- **WENN** Gerät A zwei, Gerät B ein und Gerät C kein offenes Fehlerereignis hat
-- **DANN** ist `errorCount` 2 / 1 / 0
-- Test: `backend/tests/test_db_error_events.py::test_count_error_events_by_system_is_one_query_for_all_devices`
+- **WENN** Gerät A zwei offene Fehler und eine offene Warnung, Gerät B nur eine offene (und eine quittierte) Warnung und Gerät C kein offenes Ereignis hat
+- **DANN** ist `errorCount` 2 / 0 / 0 und `warningCount` 1 / 1 / 0; quittierte Einträge zählen in keinem der beiden Zähler
+- Test: `backend/tests/test_db_error_events.py::test_count_error_events_by_system_splits_levels`, `backend/tests/test_main_error_ack.py::test_systems_list_splits_errors_and_warnings`
+
+#### Szenario: Abzeichen in der Geräteliste (UI)
+- **WENN** ein Gerät offene Fehler und/oder Warnungen hat
+- **DANN** zeigt die Geräteliste bei `errorCount` > 0 ein rotes Abzeichen „⚠ N“ (Tooltip „N unquittierte(r) Fehler – siehe Geräteseite“) und unabhängig davon bei `warningCount` > 0 ein gelbes „⚠ N“ (Tooltip „N unquittierte Warnung(en) – siehe Geräteseite“); ein Gerät mit nur Warnungen hat kein rotes Abzeichen
+- Quelle: `frontend/src/pages/geraete/InventoryPage.tsx`
 
 Quelle: `backend/app/main.py:508`, `backend/app/db.py:626`, `backend/app/db.py:632`, `backend/app/db.py:1774`
 
@@ -392,7 +398,7 @@ message, createdAt, acknowledgedAt`) liefern; unbekanntes Gerät → 404. Gespei
 (älteste fallen weg), Meldungen auf 2000 Zeichen gekürzt, `level` Default `error`. Ereignisse ohne
 Gerätezuordnung werden verworfen. Ein Admin MUSS Ereignisse
 quittieren können (`acknowledgedAt`, `NULL` = offen), einzeln oder alle eines Geräts; quittierte
-Ereignisse bleiben als Verlauf erhalten (keine Löschfunktion), zählen aber nicht mehr in `errorCount`.
+Ereignisse bleiben als Verlauf erhalten (keine Löschfunktion), zählen aber nicht mehr in `errorCount`/`warningCount`.
 Erneutes Quittieren ändert den ersten Zeitstempel nicht (200); ein Ereignis eines anderen Geräts
 oder unbekannte Ids → 404. Ein neu auftretender Fehler ist wieder offen. Die Kappung
 trimmt unabhängig vom Quittierstatus. **[Muss]** (Grenzen **[Impl]**)
@@ -408,7 +414,7 @@ Erzeuger: `backend/app/pipeline.py:92`, `backend/app/monitor.py:172`
 
 #### Szenario: Quittieren
 - **WENN** ein Admin ein Ereignis oder alle Ereignisse eines Geräts quittiert
-- **DANN** verschwinden sie aus `errorCount` (Badge), bleiben aber in der Liste mit `acknowledgedAt`; MEMBER erhält 403
+- **DANN** verschwinden sie aus `errorCount`/`warningCount` (Abzeichen), bleiben aber in der Liste mit `acknowledgedAt`; MEMBER erhält 403
 - Test: `backend/tests/test_db_error_events.py::test_acknowledge_single_event_sets_timestamp`,
   `::test_acknowledge_is_idempotent_and_keeps_first_timestamp`, `::test_acknowledge_all_only_touches_that_device`,
   `::test_count_ignores_acknowledged_and_new_event_counts_again`, `::test_cap_trims_regardless_of_acknowledged`,
@@ -580,7 +586,7 @@ Aus [data-model](../../contracts/data-model.md):
 
 | Methode | Pfad | Rolle | Zweck |
 |---|---|---|---|
-| GET | /api/systems | MEMBER | Geräteliste (+`accountCount`, `errorCount`, `description`, `kindLabels`), Query `kind` |
+| GET | /api/systems | MEMBER | Geräteliste (+`accountCount`, `errorCount`, `warningCount`, `description`, `kindLabels`), Query `kind` |
 | POST | /api/systems | ADMIN | Gerät anlegen → `{system}` |
 | GET | /api/systems/duplicates | ADMIN | Duplikat-Vorschläge → `{candidates}` |
 | GET | /api/systems/{system_id} | MEMBER | Detail → `{system, accounts, description, monitorPortsEffective}` |

@@ -124,9 +124,10 @@ async def list_systems(kind: str | None = None, _: dict = Depends(current_user))
     for account in db.list_accounts():
         if account["systemId"]:
             accounts_by_system[account["systemId"]] = accounts_by_system.get(account["systemId"], 0) + 1
-    error_counts = db.count_error_events_by_system()
+    open_events = db.count_error_events_by_system()
     return {"systems": [{**s, "accountCount": accounts_by_system.get(s["id"], 0),
-                         "errorCount": error_counts.get(s["id"], 0),
+                         "errorCount": open_events.get(s["id"], {}).get("error", 0),
+                         "warningCount": open_events.get(s["id"], {}).get("warning", 0),
                          "description": docs.describe_device(s)} for s in systems],
             "kindLabels": docs.KIND_LABELS}
 

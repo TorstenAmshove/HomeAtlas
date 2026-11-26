@@ -170,6 +170,7 @@ export interface System {
   /** Number of logged scan-time failures for this device (SSH timeout, Proxmox auth error, a
    * monitored device going down, ...) -- see GET /api/systems/{id}/errors for the full list. */
   errorCount?: number;
+  warningCount?: number;
   /** Server-derived "what is this for" sentence; falls back to the kind when nothing is stored. */
   description?: string;
 }
