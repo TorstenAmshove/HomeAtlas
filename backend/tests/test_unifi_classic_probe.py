@@ -305,7 +305,7 @@ def test_only_usw_devices_and_bad_port_idx_ignored(monkeypatch):
     switch = {"type": "usw", "mac": "aa:bb:cc:00:00:01", "port_table": [
         {"port_idx": 0}, {"port_idx": "1"}, {"port_idx": True}, {"port_idx": 1}, {"port_idx": 1, "name": "dup"}, "x"]}
     nomac = {"type": "usw", "port_table": [{"port_idx": 1}]}
-    result, ports = _ports([switch, nomac, {"type": "udm", "mac": "aa:bb:cc:00:00:09", "port_table": [{"port_idx": 1}]}],
+    result, ports = _ports([switch, nomac, {"type": "uap", "mac": "aa:bb:cc:00:00:09", "port_table": [{"port_idx": 1}]}],
                            monkeypatch)
     assert list(ports) == [1] and len(result["switches"]) == 1
 
@@ -342,3 +342,97 @@ def test_switch_ports_default_vlan(monkeypatch):
     nets_without_default = [n for n in NETS if n["_id"] != "n10"]
     _, ports = _ports([switch], monkeypatch, networks=nets_without_default)
     assert ports[1]["defaultVlan"] is None
+
+
+def _dev(name, kind, mac, uplink=None, **extra):
+    device = {"name": name, "type": kind, "mac": mac, **extra}
+    if uplink is not _MISSING:
+        device["uplink"] = uplink
+    return device
+
+
+_MISSING = object()
+
+
+def _topology():
+    """The data posted in issue #259 (counters, IPs and MACs inside `uplink` included)."""
+    noise = {"ip": "192.168.100.120", "rx_bytes": 5, "tx_bytes-r": 1.5, "uplink_mac": "de:ad:be:ef:00:01",
+             "gateways": ["192.168.178.1"], "uplink_source": "lldp_uplink"}
+    return [
+        _dev("U6+-OG", "uap", "aa:00:00:00:00:01", {"uplink_device_name": "Switch", "uplink_remote_port": 1,
+                                                    "port_idx": 1, "type": "wire", **noise}),
+        _dev("UAP-Outdoor", "uap", "aa:00:00:00:00:02",
+             {"uplink_device_name": "Switch", "uplink_remote_port": 3, "port_idx": 1, "type": "wire"}),
+        _dev("UAP-EG", "uap", "aa:00:00:00:00:03",
+             {"uplink_device_name": "Switch", "uplink_remote_port": 2, "port_idx": 1, "type": "wire"}),
+        _dev("UAP-AC-Lite", "uap", "aa:00:00:00:00:04", {"port_idx": -1, "type": "wireless"}),
+        _dev("Switch", "usw", "aa:00:00:00:00:05",
+             {"uplink_device_name": "UCG Ultra", "uplink_remote_port": 1, "port_idx": 16, "type": "wire", **noise},
+             port_table=[{"port_idx": 1, "name": "Port 1"}, {"port_idx": 16, "name": "Uplink"}]),
+        _dev("UCG Ultra", "udm", "aa:00:00:00:00:06",
+             {"comment": "WAN", "port_idx": 5, "type": "wire", "ip": "192.168.178.20", "gateways": ["x"]},
+             port_table=[{"port_idx": i, "name": f"Port {i}", "is_uplink": i == 5} for i in range(1, 6)]),
+    ]
+
+
+def test_probe_device_uplinks_allowlisted(monkeypatch):
+    result, _ = _ports(_topology(), monkeypatch)
+    assert result["uplinks"] == [
+        {"site": "default", "mac": "aa:00:00:00:00:01", "deviceMac": "aa:00:00:00:00:05", "remotePort": 1},
+        {"site": "default", "mac": "aa:00:00:00:00:02", "deviceMac": "aa:00:00:00:00:05", "remotePort": 3},
+        {"site": "default", "mac": "aa:00:00:00:00:03", "deviceMac": "aa:00:00:00:00:05", "remotePort": 2},
+        {"site": "default", "mac": "aa:00:00:00:00:05", "deviceMac": "aa:00:00:00:00:06", "remotePort": 1}]
+    text = str(result["uplinks"]) + str(result["switches"])
+    for leaked in ("192.168", "de:ad", "rx_bytes", "lldp", "gateways"):
+        assert leaked not in text
+
+
+def test_probe_gateway_ports_without_wan(monkeypatch):
+    result, _ = _ports(_topology(), monkeypatch)
+    gateway = next(sw for sw in result["switches"] if sw["mac"] == "aa:00:00:00:00:06")
+    assert [p["port"] for p in gateway["ports"]] == [1, 2, 3, 4]
+
+
+def test_probe_switch_uplink_port_flagged(monkeypatch):
+    result, _ = _ports(_topology(), monkeypatch)
+    switch = next(sw for sw in result["switches"] if sw["mac"] == "aa:00:00:00:00:05")
+    assert {p["port"]: p.get("uplink") for p in switch["ports"]} == {1: None, 16: True}
+
+
+def test_probe_wireless_uplink_ignored(monkeypatch):
+    result, _ = _ports(_topology(), monkeypatch)
+    assert "aa:00:00:00:00:04" not in [u["mac"] for u in result["uplinks"]]
+
+
+def test_probe_ambiguous_uplink_name_dropped(monkeypatch):
+    ap = _dev("AP", "uap", "aa:00:00:00:00:01", {"uplink_device_name": "Switch", "uplink_remote_port": 1,
+                                                 "type": "wire"})
+    sw = lambda mac: _dev("Switch", "usw", mac, _MISSING)  # noqa: E731
+    result, _ = _ports([ap, sw("aa:00:00:00:00:05"), sw("aa:00:00:00:00:06")], monkeypatch)
+    assert result["uplinks"] == []
+    unknown = {**ap, "uplink": {"uplink_device_name": "Nope", "uplink_remote_port": 1, "type": "wire"}}
+    result, _ = _ports([unknown, sw("aa:00:00:00:00:05")], monkeypatch)
+    assert result["uplinks"] == []
+
+
+def test_probe_same_name_in_two_sites_resolves_per_site(monkeypatch):
+    def devices(site_mac):
+        return [_dev("AP", "uap", "aa:00:00:00:00:01", {"uplink_device_name": "Switch", "uplink_remote_port": 2,
+                                                        "type": "wire"}),
+                _dev("Switch", "usw", site_mac, _MISSING)]
+    result = _run(_handler([], [], devices("aa:00:00:00:00:05"), sites=[{"name": "default"}, {"name": "b2"}]),
+                  monkeypatch)
+    assert [u["site"] for u in result["uplinks"]] == ["default", "b2"]
+
+
+@pytest.mark.parametrize("uplink", [_MISSING, None, [], "x",
+                                    {"type": "wire", "uplink_device_name": "Switch", "uplink_remote_port": "1"},
+                                    {"type": "wire", "uplink_device_name": "Switch", "uplink_remote_port": True},
+                                    {"type": "wire", "uplink_device_name": "Switch", "uplink_remote_port": 0},
+                                    {"type": "wire", "uplink_device_name": "Switch", "uplink_remote_port": -1},
+                                    {"type": "wire", "uplink_device_name": ["Switch"], "uplink_remote_port": 1},
+                                    {"type": "wire", "uplink_device_name": "AP", "uplink_remote_port": 1}])
+def test_probe_uplink_malformed_ignored(monkeypatch, uplink):
+    result, _ = _ports([_dev("AP", "uap", "aa:00:00:00:00:01", uplink),
+                        _dev("Switch", "usw", "aa:00:00:00:00:05", _MISSING)], monkeypatch)
+    assert result["uplinks"] == []

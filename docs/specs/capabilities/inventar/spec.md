@@ -100,6 +100,11 @@ und Netznamen, nie Netz-IDs, MACs oder Zähler. Der Wert wird bei jedem Scan ers
 `stat/device`, `rest/portconf` und `rest/networkconf` aller Sites gelesen wurden; bei Fehler bleibt der
 alte Stand. Ein Switch dieses Zugangs, der nicht mehr gemeldet wird, verliert die Ports, ein anderer
 Zugang wird nie angefasst. Es entsteht nie ein Gerät, mehrdeutige MACs werden nicht zugeordnet. Das
+Gleiche gilt für Gateways (ohne WAN-Port). Wired-Uplinks von UniFi-Geräten (AP an Switch, Switch an Gateway) setzt das
+System aus `uplinks` in dieselbe `extra.unifi.connection` wie bei Clients (Port am Gegenüber; ein Client-Eintrag hat
+Vorrang; sind die Uplinks nicht lesbar, wird nichts entfernt;
+[ADR-0027](../../../adr/0027-unifi-geraete-uplink-und-gateway-ports.md)); der eigene Uplink-Port trägt `uplink: true`
+und liest sich „Uplink → <Name>“, ohne bekanntes Gegenüber „Uplink“. Das
 Gerätedetail (Tab „Technik“) zeigt die Tabelle Port | Name | Nativ | Tagged | Angeschlossenes Gerät;
 `all` liest sich „alle“ (ggf. „alle außer …“), `none` „keine“, eine nicht auflösbare Netz-ID
 „unbekanntes Netz“. **[Muss]**
@@ -107,7 +112,11 @@ Gerätedetail (Tab „Technik“) zeigt die Tabelle Port | Name | Nativ | Tagged
 Quelle: `backend/app/pipeline.py`, `frontend/src/pages/device/TechnikTab.tsx`,
 Test: `backend/tests/test_pipeline_unifi_classic.py::test_switch_ports_stored`,
 `::test_switch_ports_replaced_each_scan`, `::test_switch_ports_kept_on_partial_failure`,
-`::test_switch_ports_removed_when_switch_gone_after_full_read`
+`::test_switch_ports_removed_when_switch_gone_after_full_read`, `::test_device_uplink_connection`,
+`::test_client_connection_wins_over_device_uplink`, `::test_uplink_target_not_in_inventory`,
+`::test_device_uplink_removed_when_gone`, `::test_uplink_source_switch_client_and_back`,
+`::test_uplink_other_account_untouched`, `::test_device_uplink_connection_has_only_allowlisted_keys`,
+`::test_scan_links_device_uplinks_and_stores_gateway_ports`
 
 ### Requirement: Absprung-Links zur Verwaltung
 Das System MUSS Admins über `GET /api/systems/{id}/admin-links` Deep-Links liefern (`{"links": [{label, url}]}`,

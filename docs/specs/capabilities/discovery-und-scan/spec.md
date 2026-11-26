@@ -518,7 +518,7 @@ speichert `extra.unifi.connection` (siehe `inventar`). **[Muss]**
 
 ### Requirement: UniFi-Port-VLANs je Switch
 Das System MUSS bei aktivem klassischen UniFi-Scan je Site zusätzlich per GET `rest/portconf` und
-`stat/device` (`type == "usw"`) je Port nur Nummer, Name, Profilname, natives Netz und Tagged-Modus
+`stat/device` (`type == "usw"` oder Gateway-Typ `udm`/`ugw`/`uxg`; beim Gateway fehlt der WAN-Port) je Port nur Nummer, Name, Profilname, natives Netz und Tagged-Modus
 lesen ([ADR-0026](../../../adr/0026-unifi-port-vlans-netzaufloesung.md)). Je Feld gilt: Override
 (`port_overrides`) vor Profil vor Direktfeld des Ports. Netz-IDs werden je Site über `rest/networkconf`
 (`_id`, `vlan`; Standardnetz ohne `vlan` zählt als VLAN 1) zu VLAN-ID und Name aufgelöst; das erste
@@ -528,6 +528,19 @@ bleibt als „unbekannt“ markiert; `auto` ist „alle“ (mit `excluded_networ
 alles andere „custom“ ohne Liste. Höchstens 128 Ports je Gerät und 200 Profile je Site (je eine Warnung).
 Scheitert eine der Quellen, entsteht die Warnung „Port-VLANs nicht lesbar“, `portsOk` ist falsch und
 Portweiterleitungen, WAN-Status und Clients bleiben. **[Muss]**
+
+Aus `uplink` jedes Geräts liest das System zusätzlich nur `type`, `uplink_device_name`, `uplink_remote_port` und
+`port_idx` ([ADR-0027](../../../adr/0027-unifi-geraete-uplink-und-gateway-ports.md)). Ein kabelgebundener Uplink,
+dessen Name je Site genau ein Gerät trifft, ergibt `uplinks[]` mit `site`, `mac`, `deviceMac`, `remotePort`
+(höchstens 500, eine Warnung); der Name selbst wird nicht zurückgegeben. Funk-Uplinks, fehlerhafte Werte,
+Selbstverweise sowie unbekannte oder mehrdeutige Namen ergeben nichts. Der eigene Uplink-Port eines Switches trägt
+`uplink: true`. **[Muss]**
+
+#### Szenario: AP am Switch
+- **WENN** `stat/device` für einen AP `uplink.type: wire`, `uplink_device_name: Switch` und `uplink_remote_port: 3` meldet
+- **DANN** steht in `uplinks` der AP mit der Switch-MAC und Port 3, ohne Namen, Zähler oder IPs
+
+Test: `backend/tests/test_unifi_classic_probe.py::test_probe_device_uplinks_allowlisted`, `backend/tests/test_unifi_classic_probe.py::test_probe_gateway_ports_without_wan`, `backend/tests/test_unifi_classic_probe.py::test_probe_wireless_uplink_ignored`, `backend/tests/test_unifi_classic_probe.py::test_probe_ambiguous_uplink_name_dropped`
 
 #### Szenario: Port mit Profil und Override
 - **WENN** ein Port ein Profil trägt und ein Override nur den Tagged-Modus setzt

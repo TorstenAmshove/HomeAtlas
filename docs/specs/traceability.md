@@ -155,7 +155,7 @@ Lücken: **0**
 | `DocsPage` | [dokumentation](capabilities/dokumentation/spec.md) |
 | `SettingsPage` | [assistent-chat-und-mcp](capabilities/assistent-chat-und-mcp/spec.md), [auth-und-rollen](capabilities/auth-und-rollen/spec.md), [diagnose](capabilities/diagnose/spec.md), [discovery-und-scan](capabilities/discovery-und-scan/spec.md), [einstellungen-und-llm-provider](capabilities/einstellungen-und-llm-provider/spec.md), [firewall](capabilities/firewall/spec.md), [monitoring](capabilities/monitoring/spec.md), [netzwerkressourcen-vlans](capabilities/netzwerkressourcen-vlans/spec.md) |
 
-## ADRs in der Constitution (26)
+## ADRs in der Constitution (27)
 
 Quelle links sind die Dateien in `docs/adr/`, rechts die Regeln in [constitution.md](constitution.md),
 die auf das ADR verlinken.
@@ -188,3 +188,4 @@ die auf das ADR verlinken.
 | [ADR-0024](../adr/0024-docker-socket-proxy.md) | Akzeptiert, ergänzt ADR-0023 | B5 |  |
 | [ADR-0025](../adr/0025-unifi-scan-client-port-und-port-vlans.md) | Akzeptiert, ersetzt ADR-0023 | P1, L1, L2, L4, L5, L6, L8, L9, K1, K2, K3 |  |
 | [ADR-0026](../adr/0026-unifi-port-vlans-netzaufloesung.md) | Akzeptiert, ergänzt ADR-0025 | L2 |  |
+| [ADR-0027](../adr/0027-unifi-geraete-uplink-und-gateway-ports.md) | Akzeptiert, ergänzt ADR-0025 und ADR-0026 | L2 |  |

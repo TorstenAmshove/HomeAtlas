@@ -6,6 +6,7 @@ type PortNet = { vlan: number | null; name: string; known?: boolean };
 type SwitchPort = {
   port: number; name: string; profile: string; native: PortNet;
   tagged: { mode: string; excluded?: PortNet[] };
+  uplink?: boolean;
 };
 
 /** `VLAN 10 Default`; an ID the scan could not resolve reads "unbekanntes Netz" (ADR-0026). */
@@ -58,8 +59,10 @@ export default function TechnikTab({ system, monitorPorts, aliases, canProbe, pr
     ? storedPorts.filter((p: any) => p && Number.isInteger(p.port))
     : [];
   const [attached, setAttached] = useState<Record<number, string[]>>({});
+  const [uplinkName, setUplinkName] = useState("");
   useEffect(() => {
     setAttached({});
+    setUplinkName("");
     if (ports.length === 0) return;
     let live = true;
     api.listSystems().then((r) => {
@@ -70,7 +73,14 @@ export default function TechnikTab({ system, monitorPorts, aliases, canProbe, pr
           (byPort[conn.port] ??= []).push(other.name);
         }
       }
-      if (live) setAttached(byPort);
+      // The switch's own uplink port reads "Uplink -> <neighbour>" (ADR-0027); the neighbour is the
+      // device of this device's own extra.unifi.connection.
+      const ownConn = (system.extra as any)?.unifi?.connection;
+      const neighbour = ownConn?.systemId ? r.systems.find((o) => o.id === ownConn.systemId) : undefined;
+      if (live) {
+        setAttached(byPort);
+        setUplinkName(neighbour?.name ?? "");
+      }
     }).catch(() => {});
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -113,7 +123,8 @@ export default function TechnikTab({ system, monitorPorts, aliases, canProbe, pr
                   <td>{p.name || "–"}</td>
                   <td>{netLabel(p.native)}</td>
                   <td>{taggedLabel(p.tagged)}</td>
-                  <td>{(attached[p.port] ?? []).join(", ") || "–"}</td>
+                  <td>{[...(p.uplink ? [uplinkName ? `Uplink → ${uplinkName}` : "Uplink"] : []),
+                    ...(attached[p.port] ?? [])].join(", ") || "–"}</td>
                 </tr>
               ))}
             </tbody>

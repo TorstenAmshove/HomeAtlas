@@ -82,3 +82,37 @@ def test_docs_switch_without_ports_renders_no_table():
     legacy = _sys("sw", "Switch", "switch")
     legacy["extra"] = {"unifi": {"ports": "kaputt"}}
     assert "Ports und VLANs" not in _render(legacy)
+
+
+def _with_ports(system, *ports):
+    system["extra"].setdefault("unifi", {})["ports"] = _ports(*ports)
+    return system
+
+
+def test_port_table_shows_devices_and_uplink():
+    gw = _sys("gw", "UCG Ultra", "router")
+    sw = _with_ports(_sys("sw", "Switch", "switch", conn=_wired("gw", 1)),
+                     _port(1), _port(2), _port(3), {**_port(16), "uplink": True})
+    aps = [_sys(f"ap{i}", n, "accesspoint", conn=_wired("sw", i)) for i, n in ((1, "U6+-OG"), (2, "UAP-EG"))]
+    pc = _sys("pc", "PC | Büro", conn=_wired("sw", 1))
+    text = _render(gw, sw, *aps, pc)
+    assert "| 1 | – | – | – | PC \\| Büro, U6+-OG |" in text
+    assert "| 2 | – | – | – | UAP-EG |" in text
+    assert "| 16 | – | – | – | Uplink → UCG Ultra |" in text
+
+
+def test_port_table_uplink_without_known_neighbour():
+    sw = _with_ports(_sys("sw", "Switch", "switch"), {**_port(16), "uplink": True})
+    assert "| 16 | – | – | – | Uplink |" in _render(sw)
+
+
+def test_gateway_port_table():
+    gw = _with_ports(_sys("gw", "UCG Ultra", "router"), _port(1, "to Switch"), _port(2), _port(3), _port(4))
+    sw = _sys("sw", "Switch", "switch", conn=_wired("gw", 1))
+    text = _render(gw, sw)
+    assert "| 1 | to Switch | – | – | Switch |" in text and "| 4 |" in text and "| 5 |" not in text
+
+
+def test_vlan_ports_ignores_gateway_without_vlans():
+    gw = _with_ports(_sys("gw", "UCG Ultra", "router"), _port(1), _port(2))
+    assert docs._vlan_ports([gw], 10) == "-"
