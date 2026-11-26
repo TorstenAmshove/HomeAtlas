@@ -24,7 +24,7 @@ def test_note_without_link_is_reported_with_file_and_line(tmp_path):
 
 def test_linked_notes_pass(tmp_path):
     files = {"capabilities/a/spec.md": "> OFFEN: Eins. → #251\n\n- > OFFEN: Zwei → #7\n",
-             "contracts/data-model.md": "übernehmen. > OFFEN: Datenübernahme gewünscht? → #252\n"}
+             "x.md": "Satz davor. > OFFEN: ok → #252\n"}
     assert _tree(tmp_path, files) == []
 
 
