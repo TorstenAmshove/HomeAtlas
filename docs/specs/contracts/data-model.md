@@ -143,5 +143,3 @@ signierte Thinking-Blöcke beim nächsten Zug exakt zurückgespielt werden könn
 
 - Secrets (`accounts.secretEnc`, `accounts.passphraseEnc`, `users.totpSecretEnc`) liegen nur
   verschlüsselt vor; der Schlüssel liegt getrennt von der Datenbank-Datei **[Muss]**.
-- Eine Alternative braucht keine Migrationskompatibilität mit dieser Datenbank, es sei denn, sie
-  soll bestehende Installationen übernehmen. > OFFEN: Datenübernahme gewünscht? → #252
