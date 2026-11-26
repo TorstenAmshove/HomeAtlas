@@ -332,8 +332,6 @@ erreichbar, MUSS eine feste, verständliche Meldung statt eines Fehlers kommen.
 
 Nur Zugänge mit Opt-in „Zum Auslesen verwenden“ werden benutzt; ohne Haken kommt ein Fehler mit Hinweis.
 
-> OFFEN: Die Client-Filterung der Ereignisse nutzt MAC, IP und Name aus Anfrage und Inventar, nicht die Live-Werte aus `stat/sta`.
-
 Weitere UniFi-Live-Werkzeuge mit denselben Regeln (Positivliste, Key nur als `X-API-Key`, feste
 Meldungen, nichts gespeichert; nur `site` ist als validierter Pfadteil frei):
 `get_unifi_device` (GET `stat/device`; ein Gerät per MAC/IP/Name mit Status, Last, Uplink, reduzierter
@@ -347,7 +345,18 @@ Filter `client` und `severity`, Admin-Aktivität ausgeblendet; je Parameter nur 
 Ergebnis nennt, wie viele Ereignisse durchsucht wurden, und dass „kein Treffer“ nicht „keine Probleme“
 heißt; der Ereignisschlüssel erscheint als `kennung`).
 
-Quelle: `backend/app/tools.py` (`_dispatch_unifi_live`, `_pick_unifi_account`, `_client_identifiers`), `backend/app/unifi_live.py` (`_request`, `client_status`, `CLIENT_FIELDS`, `redact`, `_bounded`), Tests: `backend/tests/test_unifi_live.py`, `backend/tests/test_tools_unifi_live.py`
+Ist bei `get_unifi_events` ein `client` angegeben, MUSS das System vor den Ereignisseiten einmal den
+GET-Pfad `stat/sta` lesen (kein neuer Pfad, ADR-0017 unverändert) und die Kennungen aus Anfrage und
+Inventar mit den aktuellen Werten des Clients ergänzen: Gesucht wird über MAC oder Name (nur wenn keins
+von beiden bekannt ist, über die IP). Passt genau ein verbundener Client, kommt dessen aktuelle MAC zu den
+bekannten hinzu und dessen aktuelle IP ersetzt die bekannten IPs, weil eine veraltete Inventar-IP nach
+einem DHCP-Wechsel schon einem anderen Gerät gehören kann. Schlägt `stat/sta` fehl, ist der Client nicht
+verbunden oder passen mehrere, wird wie bisher mit den Inventarwerten gefiltert, und der `hinweis` nennt
+mit festem Text, dass die Live-Ergänzung nicht möglich war (nie ein harter Fehler, nie der Fehlertext des
+Controllers). Nichts aus `stat/sta` erscheint im Ergebnis, nichts wird gespeichert; ohne `client` gibt es
+keinen Zusatzaufruf. **[Muss]** (Entscheidung #248.)
+
+Quelle: `backend/app/tools.py` (`_dispatch_unifi_live`, `_pick_unifi_account`, `_client_identifiers`), `backend/app/unifi_live.py` (`_request`, `client_status`, `_live_client_identifiers`, `events`, `CLIENT_FIELDS`, `redact`, `_bounded`), Tests: `backend/tests/test_unifi_live.py`, `backend/tests/test_tools_unifi_live.py`
 
 #### Szenario: Verbundener WLAN-Client
 - **WENN** der Assistent `get_unifi_client` mit der MAC eines WLAN-Clients aufruft
@@ -364,6 +373,14 @@ Quelle: `backend/app/tools.py` (`_dispatch_unifi_live`, `_pick_unifi_account`, `
 #### Szenario: Ereignisse eines Clients
 - **WENN** der Assistent `get_unifi_events` mit `client` und `hours` 500 aufruft
 - **DANN** wird das Fenster auf 168 Stunden begrenzt und das Ergebnis nennt die Zahl der durchsuchten Ereignisse
+
+#### Szenario: Client mit neuer IP
+- **WENN** der Assistent `get_unifi_events` für einen Client aufruft, dessen IP im Inventar veraltet ist, und `stat/sta` ihn eindeutig mit neuer IP zeigt
+- **DANN** werden seine Ereignisse über die neue IP und MAC gefunden, Ereignisse des Geräts mit der alten IP nicht
+
+#### Szenario: Live-Ergänzung nicht möglich
+- **WENN** `stat/sta` fehlschlägt, den Client nicht zeigt oder mehrere Clients passen
+- **DANN** wird mit den Inventarwerten gefiltert und der `hinweis` nennt, dass die Live-Ergänzung nicht möglich war
 
 ### Requirement: Live-Lesen von Proxmox-Gästen und -Hosts
 Das System MUSS dem Assistenten (jede Rolle, jeder MCP-Client) mit `get_proxmox_guest` den Live-Zustand einer

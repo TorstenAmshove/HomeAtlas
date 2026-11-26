@@ -185,6 +185,30 @@ def test_events_tool_client_resolved_via_inventory(temp_db):
     assert "Text" in _call_tool("get_unifi_events", {"client": 5})["error"]
 
 
+def test_get_unifi_events_client_uses_live_values(temp_db):
+    # #248 end to end: inventory IP is stale, stat/sta knows the current one; the device that took the
+    # old IP over must not show up.
+    _account()
+    db.create_system({"name": "Papas Handy", "kind": "phone", "ip": "10.0.0.99", "mac": "AA:BB:CC:DD:EE:01"})
+    mine = {"key": "K1", "timestamp": 2, "category": "CLIENT_DEVICES", "severity": "LOW", "message_raw": "x",
+            "parameters": {"CLIENT": {"id": "aa:bb:cc:dd:ee:77", "ip": "10.0.0.42"}}}
+    foreign = {**mine, "key": "K2", "parameters": {"CLIENT": {"id": "aa:bb:cc:dd:ee:02", "ip": "10.0.0.99"}}}
+    gets = []
+
+    def handler(request):
+        if request.method == "GET":
+            gets.append(request.url.path)
+            return httpx.Response(200, json={"data": [
+                {"mac": "aa:bb:cc:dd:ee:77", "ip": "10.0.0.42", "name": "Papas Handy"}]})
+        return httpx.Response(200, json={"data": [mine, foreign], "total_element_count": 2, "total_page_count": 1})
+
+    unifi_live._transport = httpx.MockTransport(handler)
+    result = json.loads(asyncio.run(tools.dispatch("get_unifi_events", {"client": "papas handy"})))
+    assert [e["kennung"] for e in result["ereignisse"]] == ["K1"]
+    assert gets == ["/proxy/network/api/s/default/stat/sta"]
+    assert unifi_live.LIVE_CLIENT_FALLBACK not in result.get("hinweis", "")
+
+
 def test_tools_do_not_import_write_modules_except_switch_admin():
     import ast
     from pathlib import Path
