@@ -2,8 +2,9 @@
 
 This exposes exactly `tools.TOOL_DEFINITIONS`/`tools.dispatch`: the same tools the in-app chat
 assistant already has (see `tools.py`'s own module docstring) -- read-only facts/diagnostics, plus
-the one deliberate write exception, `set_switch` (turn a Shelly relay or a Home Assistant switch/
-light entity on or off, or open/close/stop a shutter-class cover; ADR-0013). Nothing here widens that surface; it only adds a second way to reach it,
+the one deliberate write exception, `set_switch` (turn a Home Assistant `switch`/`light` entity on
+or off, or open/close/stop a shutter-class `cover` from the allowlist; ADR-0013. Shelly relays are
+no longer switched directly, ADR-0023). Nothing here widens that surface; it only adds a second way to reach it,
 for clients like Claude Desktop that speak the Model Context Protocol instead of HomeAtlas's own
 chat API -- which also means any holder of an admin-issued Bearer token can flip a switch this
 way, same as any household member already can from in-app chat. `apiTokens` carries no role/scope
