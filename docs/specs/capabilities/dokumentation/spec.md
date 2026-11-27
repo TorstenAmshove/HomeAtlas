@@ -138,10 +138,12 @@ gesehen (Format `TT.MM.JJJJ HH:MM`); ferner falls vorhanden: direkt vom Gerät a
 (höchstens 14, mehrzeilige als Codeblock), Docker-Fakten (Image, Compose-Projekt, Port-Zuordnungen (Docker),
 höchstens 6 Volumes), Proxmox-Fakten (Node, VM-ID, CPU-Kerne, RAM in MB), Tabelle der Kindgeräte
 („Läuft auf diesem Gerät“, Funktion auf 140 Zeichen gekürzt), höchstens 15 erreichbare Dienste
-(Port | Dienst | Bedeutung), bei einem UniFi-Switch mit `extra.unifi.ports` die Tabelle „Ports und VLANs“
+(Port | Dienst | Bedeutung), bei einem UniFi-Switch oder -Gateway mit `extra.unifi.ports` die Tabelle „Ports und VLANs“
 (Port | Name | Nativ | Tagged | Angeschlossenes Gerät; „alle“, „keine“, „unbekanntes Netz“; ohne Daten
-nichts; [ADR-0026](../../../adr/0026-unifi-port-vlans-netzaufloesung.md)), PoE-Hinweis bei einem Tag mit „poe“ und die Gerätenotiz. **[Muss]**
+nichts; am eigenen Uplink-Port „Uplink → <Name>“, angeschlossene UniFi-Geräte mit Namen;
+[ADR-0026](../../../adr/0026-unifi-port-vlans-netzaufloesung.md), [ADR-0027](../../../adr/0027-unifi-geraete-uplink-und-gateway-ports.md)), PoE-Hinweis bei einem Tag mit „poe“ und die Gerätenotiz. **[Muss]**
 Die genauen Obergrenzen sind **[Impl]**.
+Test: `backend/tests/test_docs_unifi_connections.py::test_port_table_shows_devices_and_uplink`, `::test_port_table_uplink_without_known_neighbour`, `::test_gateway_port_table`, `::test_vlan_ports_ignores_gateway_without_vlans`
 
 #### Szenario: Container auf Host
 - **WENN** ein Container das Elterngerät „NAS“ hat

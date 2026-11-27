@@ -286,13 +286,18 @@ def _link_unifi_topology() -> int:
     return linked
 
 
-def _link_unifi_connections(account_id: str, clients: list[dict]) -> int:
+def _link_unifi_connections(account_id: str, clients: list[dict], uplinks: list[dict] | None = ()) -> int:
     """Stores `extra.unifi.connection` (switch + port or AP + SSID) on known devices (ADR-0025).
 
     Clients are matched to *existing* devices by MAC only, nothing is ever created, and `parentId`
     is not touched. Called only after an account was read successfully: a device whose connection
     came from this account and is no longer reported loses it. Ambiguous MACs (several devices) are
-    never matched. Returns the number of connections now set for this account."""
+    never matched. Returns the number of connections now set for this account.
+
+    `uplinks` (ADR-0027) are wired device-to-device links from `stat/device` (`mac` is the downstream
+    device, `deviceMac` the neighbour, `remotePort` the port on the neighbour). They use the same
+    structure and are entered after the clients, so a client entry is never overwritten. `None` means the
+    uplinks could not be read: entries are then only added or updated, never removed."""
     systems = db.list_systems()
     by_mac: dict[str, str | None] = {}
     for system in systems:
@@ -321,13 +326,22 @@ def _link_unifi_connections(account_id: str, clients: list[dict]) -> int:
             if device_id:
                 conn["systemId"] = device_id
         wanted[system_id] = {**conn, "site": client.get("site") or "", "accountId": account_id}
+    for uplink in uplinks or ():
+        system_id = by_mac.get(unifi_classic_probe.normalize_mac(uplink.get("mac")))
+        device_mac = unifi_classic_probe.normalize_mac(uplink.get("deviceMac"))
+        device_id, port = by_mac.get(device_mac), uplink.get("remotePort")
+        if (not system_id or system_id in wanted or not device_id or device_id == system_id
+                or not isinstance(port, int) or isinstance(port, bool)):
+            continue
+        wanted[system_id] = {"type": "wired", "systemId": device_id, "deviceMac": device_mac, "port": port,
+                             "site": uplink.get("site") or "", "accountId": account_id}
     for system in systems:
         extra = system.get("extra") or {}
         unifi = extra.get("unifi") or {}
         current = unifi.get("connection")
         new = wanted.get(system["id"])
         if new is None:
-            if not (isinstance(current, dict) and current.get("accountId") == account_id):
+            if uplinks is None or not (isinstance(current, dict) and current.get("accountId") == account_id):
                 continue
             unifi = {k: v for k, v in unifi.items() if k != "connection"}
         elif current == new:
@@ -569,7 +583,7 @@ async def run_full_scan(scan_id: str) -> None:
                         db.add_device_error_event(account["systemId"], "error", proxmox_result["error"])
 
         classic_wans: list[tuple[str, list[dict]]] = []
-        classic_clients: list[tuple[str, list[dict]]] = []
+        classic_clients: list[tuple[str, list[dict], list[dict] | None]] = []
         classic_ports: list[tuple[str, list[dict]]] = []
         if settings.get("scanEnableUnifiClassic", True):
             # Same accounts as the integration-API scan above: one UniFi API key serves both (ADR-0016).
@@ -589,7 +603,8 @@ async def run_full_scan(scan_id: str) -> None:
                                               classic["forwards"] + (classic.get("wanFacts") or []))
                     classic_wans.append((account["id"], classic.get("wans") or []))
                     if not any("Client-Zuordnung nicht lesbar" in w for w in classic.get("warnings") or []):
-                        classic_clients.append((account["id"], classic.get("clients") or []))
+                        classic_clients.append((account["id"], classic.get("clients") or [],
+                                                (classic.get("uplinks") or []) if classic.get("portsOk") else None))
                     if classic.get("portsOk"):
                         classic_ports.append((account["id"], classic.get("switches") or []))
                     warnings += [f"UniFi klassisch ({account['label']}): {w}" for w in classic.get("warnings") or []]
@@ -814,10 +829,10 @@ async def run_full_scan(scan_id: str) -> None:
         if linked_unifi:
             log(f"{linked_unifi} UniFi-Gerät(e)/Client(s) im Netzplan mit ihrem Uplink verknüpft")
 
-        for account_id, clients in classic_clients:
-            connected = _link_unifi_connections(account_id, clients)
+        for account_id, clients, uplinks in classic_clients:
+            connected = _link_unifi_connections(account_id, clients, uplinks)
             if connected:
-                log(f"{connected} UniFi-Client(s) mit Switch-Port bzw. Access Point verknüpft")
+                log(f"{connected} UniFi-Client(s)/-Gerät(e) mit Switch-Port bzw. Access Point verknüpft")
 
         for account_id, switches in classic_ports:
             stored = _store_switch_ports(account_id, switches)

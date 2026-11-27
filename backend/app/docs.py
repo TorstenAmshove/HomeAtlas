@@ -350,19 +350,25 @@ def _switch_ports(system: dict) -> list[dict]:
 
 
 def _port_table(device_id: str, ports: list[dict], by_id: dict[str, dict]) -> str:
-    """Port | Name | Nativ | Tagged | Angeschlossenes Gerät for a UniFi switch."""
+    """Port | Name | Nativ | Tagged | Angeschlossenes Gerät for a UniFi switch or gateway (ADR-0026, ADR-0027)."""
     attached: dict[int, list[str]] = {}
     for client in by_id.values():
         conn = ((client.get("extra") or {}).get("unifi") or {}).get("connection")
         if (isinstance(conn, dict) and conn.get("type") == "wired" and conn.get("systemId") == device_id
                 and isinstance(conn.get("port"), int) and client["id"] != device_id):
             attached.setdefault(conn["port"], []).append(_escape(client["name"]))
+    own = (((by_id.get(device_id) or {}).get("extra") or {}).get("unifi") or {}).get("connection")
+    neighbour = by_id.get(own.get("systemId") or "") if isinstance(own, dict) else None
+    uplink_cell = f"Uplink → {_escape(neighbour['name'])}" if neighbour else "Uplink"
     lines = ["| Port | Name | Nativ | Tagged | Angeschlossenes Gerät |", "| --- | --- | --- | --- | --- |"]
     for port in ports:
+        cell = sorted(attached.get(port["port"], []), key=str.lower)
+        if port.get("uplink") is True:  # the switch's own uplink port (ADR-0027)
+            cell.insert(0, uplink_cell)
         lines.append("| " + " | ".join((
             str(port["port"]), _escape(str(port.get("name") or "")) or "–",
             _net_label(port.get("native") or {}), _tagged_label(port.get("tagged") or {}),
-            ", ".join(sorted(attached.get(port["port"], []), key=str.lower)) or "–")) + " |")
+            ", ".join(cell) or "–")) + " |")
     return "\n".join(lines)
 
 

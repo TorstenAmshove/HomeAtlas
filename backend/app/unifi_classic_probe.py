@@ -25,13 +25,21 @@ Client attachment (ADR-0025): `stat/sta` yields per client only the MAC, wired o
 and port or the AP MAC and SSID. Name, IP, hostname and every ``x_*`` field are never copied. Failing
 to read it only costs a warning; forwards and WAN status stay.
 
-Port VLANs (ADR-0025, ADR-0026): per switch (`type == "usw"`) and port only number, name, profile name,
+Port VLANs (ADR-0025, ADR-0026, ADR-0027): per switch (`type == "usw"`) or gateway (`_GATEWAY_TYPES`, WAN port
+left out) and port only number, name, profile name,
 native network and tagged mode are kept. Network IDs come from `networkconf` (`_id`, `vlan`) and are
 resolved *here* to VLAN ID and name per site; no ID is ever returned. Precedence per field: port override,
 then the port profile, then the direct field of the port. The tagged list of mode `custom` is not read.
 The site's default network (no `vlan` key) is flagged `default: true` where it appears, and every port
 carries `defaultVlan` (its VLAN ID or `None`): UniFi never tags the default network, so mode `all` does
 not include it (#260).
+
+Device uplinks (ADR-0027): from the `uplink` object of each device only `type`, `uplink_device_name`,
+`uplink_remote_port` and `port_idx` are read. A wired uplink whose `uplink_device_name` matches exactly one
+device *of the same site* becomes `{site, mac, deviceMac, remotePort}` (the port is the one on the
+neighbour); the name itself is never returned. Wireless, malformed, unresolvable or ambiguous uplinks yield
+nothing. The switch port that is the device's own uplink is flagged `uplink: True`. Counters, IPs, MACs and
+WAN data inside `uplink` are dropped.
 """
 from __future__ import annotations
 
@@ -48,6 +56,7 @@ _PORT = re.compile(r"^\d{1,5}(-\d{1,5})?(,\d{1,5}(-\d{1,5})?)*$")
 
 _MAX_CLIENTS = 2000
 _MAX_PORTS = 128
+_MAX_UPLINKS = 500
 _MAX_PROFILES = 200
 _MAC = re.compile(r"^[0-9a-f]{2}(:[0-9a-f]{2}){5}$")
 
@@ -232,8 +241,44 @@ def _resolve_network(net_id: object, networks: dict[str, dict]) -> dict:
     return resolved
 
 
+def _own_uplink_port(device: dict) -> int | None:
+    """`uplink.port_idx` of a wired uplink, the port of this device that leads to its neighbour."""
+    uplink = _mapping(device.get("uplink"))
+    return _port_index({"port_idx": uplink.get("port_idx")}) if uplink.get("type") == "wire" else None
+
+
+def _remote_port(value: object) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) and 1 <= value <= 999 else None
+
+
+def _uplinks(site: str, devices: list[dict]) -> list[dict]:
+    """Wired device-to-device uplinks of one site (ADR-0027); the neighbour is resolved by exact, unique name."""
+    names: dict[str, list[str]] = {}
+    for device in devices:
+        name, mac = device.get("name"), normalize_mac(device.get("mac"))
+        if isinstance(name, str) and name and mac:
+            names.setdefault(name, []).append(mac)
+    result = []
+    for device in devices:
+        mac, uplink = normalize_mac(device.get("mac")), _mapping(device.get("uplink"))
+        target, port = uplink.get("uplink_device_name"), _remote_port(uplink.get("uplink_remote_port"))
+        if not mac or uplink.get("type") != "wire" or port is None or not isinstance(target, str):
+            continue
+        found = names.get(target, [])
+        if len(found) == 1 and found[0] != mac:
+            result.append({"site": site, "mac": mac, "deviceMac": found[0], "remotePort": port})
+    return result
+
+
 def _switch_ports(device: dict, profiles: dict[str, dict], networks: dict[str, dict]) -> list[dict]:
-    """Effective VLAN setup per port: override > profile > direct port field (ADR-0026)."""
+    """Effective VLAN setup per port: override > profile > direct port field (ADR-0026).
+
+    Gateways leave out their WAN port (`is_uplink` or the own uplink port); a switch flags the port that
+    leads to its uplink neighbour with `uplink: True` (ADR-0027)."""
+    gateway = device.get("type") in _GATEWAY_TYPES
+    own_uplink = _own_uplink_port(device)
+    uplink_named = isinstance(_mapping(device.get("uplink")).get("uplink_device_name"), str) and bool(
+        _mapping(device.get("uplink")).get("uplink_device_name"))
     overrides = {i: e for e in device.get("port_overrides") or [] if isinstance(e, dict)
                  and (i := _port_index(e)) is not None}
     ports = []
@@ -244,6 +289,8 @@ def _switch_ports(device: dict, profiles: dict[str, dict], networks: dict[str, d
         if idx is None or idx in seen:
             continue
         seen.add(idx)
+        if gateway and (entry.get("is_uplink") is True or idx == own_uplink):
+            continue
         if len(ports) >= _MAX_PORTS:
             break
         override = overrides.get(idx, {})
@@ -269,6 +316,8 @@ def _switch_ports(device: dict, profiles: dict[str, dict], networks: dict[str, d
             "tagged": {"mode": mode, "vlans": [],
                        "excluded": [{k: v for k, v in _resolve_network(i, networks).items() if k != "known"}
                                     for i in excluded[:_MAX_PORTS] if mode == "all"]}})
+        if not gateway and uplink_named and idx == own_uplink:
+            ports[-1]["uplink"] = True
     return sorted(ports, key=lambda p: p["port"])
 
 
@@ -276,16 +325,16 @@ def _switches(site: str, devices: list[dict], profiles: dict[str, dict], network
     result = []
     for device in devices:
         mac = normalize_mac(device.get("mac"))
-        if device.get("type") == "usw" and mac:
+        if device.get("type") in ("usw", *_GATEWAY_TYPES) and mac:
             result.append({"site": site, "mac": mac, "ports": _switch_ports(device, profiles, networks)})
     return result
 
 
 async def probe(base_url: str, api_key: str, account_id: str,
                 controller_system_id: str | None) -> dict:
-    """`{ok, error, forwards, wans, wanFacts, clients, switches, portsOk, warnings}`; read-only, API key only."""
+    """`{ok, error, forwards, wans, wanFacts, clients, switches, uplinks, portsOk, warnings}`; read-only, API key only."""
     fail = {"ok": False, "forwards": [], "wans": [], "wanFacts": [], "clients": [],
-            "switches": [], "portsOk": False, "warnings": []}
+            "switches": [], "uplinks": [], "portsOk": False, "warnings": []}
     base = (base_url or "").strip().rstrip("/")
     if not base:
         return {**fail, "error": "Keine Adresse für die klassische UniFi-API hinterlegt."}
@@ -299,6 +348,8 @@ async def probe(base_url: str, api_key: str, account_id: str,
     clients: list[dict] = []
     warnings: list[str] = []
     switches: list[dict] = []
+    uplinks: list[dict] = []
+    capped_uplinks = False
     ports_ok = True
     capped = False
     capped_profiles = False
@@ -349,6 +400,11 @@ async def probe(base_url: str, api_key: str, account_id: str,
                     profiles, profiles_capped = _profiles(raw["profiles"])
                     capped_profiles = capped_profiles or profiles_capped
                     switches += _switches(name, raw["devices"], profiles, _networks(raw["networks"]))
+                    for found in _uplinks(name, raw["devices"]):
+                        if len(uplinks) < _MAX_UPLINKS:
+                            uplinks.append(found)
+                        else:
+                            capped_uplinks = True
     except PermissionError as exc:
         return {**fail, "error": str(exc)}
     except ValueError as exc:  # fixed German texts from _get_data only
@@ -359,8 +415,10 @@ async def probe(base_url: str, api_key: str, account_id: str,
         warnings.append(f"Mehr als {_MAX_CLIENTS} Clients, der Rest wird nicht zugeordnet.")
     if capped_profiles:
         warnings.append(f"Mehr als {_MAX_PROFILES} Port-Profile, der Rest wird nicht aufgelöst.")
+    if capped_uplinks:
+        warnings.append(f"Mehr als {_MAX_UPLINKS} Geräte-Uplinks, der Rest wird nicht zugeordnet.")
     if any(len(sw["ports"]) >= _MAX_PORTS for sw in switches):
         warnings.append(f"Mehr als {_MAX_PORTS} Ports an einem Switch, der Rest wird nicht gelesen.")
     forwards.append({"kind": "portforward_scan", "key": "scan", "data": {"count": len(forwards)}})
     return {"ok": True, "error": "", "forwards": forwards, "wans": wans, "wanFacts": wan_facts,
-            "clients": clients, "switches": switches, "portsOk": ports_ok, "warnings": warnings}
+            "clients": clients, "switches": switches, "uplinks": uplinks, "portsOk": ports_ok, "warnings": warnings}

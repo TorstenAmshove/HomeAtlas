@@ -103,7 +103,7 @@ def _scan_with(db, monkeypatch, clients_ref, warnings=None):
         result = await _ok([])(url, key, account_id, system_id)
         if clients_ref is None:
             return {"ok": False, "error": "x", "forwards": [], "warnings": []}
-        return {**result, "clients": clients_ref, "warnings": warnings or []}
+        return {**result, "clients": clients_ref, "warnings": warnings or [], "portsOk": True, "uplinks": []}
 
     monkeypatch.setattr(pipeline.unifi_classic_probe, "probe", probe)
     monkeypatch.setattr(pipeline.unifi_probe, "probe", lambda *a, **k: asyncio.sleep(0, {
@@ -283,3 +283,85 @@ def test_switch_without_inventory_device_creates_nothing(temp_db):
     before = len(temp_db.list_systems())
     assert pipeline._store_switch_ports("a", [_sw_ports("aa:bb:cc:99:99:99")]) == 0
     assert len(temp_db.list_systems()) == before
+
+
+def _uplink(mac=AP, device=SW, port=2, site="default"):
+    return {"site": site, "mac": mac, "deviceMac": device, "remotePort": port}
+
+
+def test_device_uplink_connection(temp_db):
+    sw, ap, _, _ = _devices(temp_db)
+    assert pipeline._link_unifi_connections("a", [], [_uplink()]) == 1
+    conn = _conn(temp_db, ap)
+    assert conn == {"type": "wired", "systemId": sw["id"], "deviceMac": SW, "port": 2, "site": "default",
+                    "accountId": "a"}
+
+
+def test_device_uplink_connection_has_only_allowlisted_keys(temp_db):
+    _, ap, _, _ = _devices(temp_db)
+    pipeline._link_unifi_connections("a", [], [{**_uplink(), "ip": "1.2.3.4", "name": "Geheim"}])
+    assert set(_conn(temp_db, ap)) <= {"type", "systemId", "deviceMac", "port", "ssid", "site", "accountId"}
+    assert "Geheim" not in str(temp_db.get_system(ap["id"])["extra"])
+
+
+def test_client_connection_wins_over_device_uplink(temp_db):
+    sw, ap, _, _ = _devices(temp_db)
+    pipeline._link_unifi_connections("a", [_client(AP, wired=True, swMac=SW, swPort=7)], [_uplink(port=2)])
+    assert _conn(temp_db, ap)["port"] == 7 and _conn(temp_db, ap)["systemId"] == sw["id"]
+
+
+def test_uplink_target_not_in_inventory(temp_db):
+    _, ap, _, _ = _devices(temp_db)
+    assert pipeline._link_unifi_connections("a", [], [_uplink(device="aa:bb:cc:99:99:99")]) == 0
+    assert _conn(temp_db, ap) is None
+    temp_db.create_system({"name": "Doppelt", "ip": "192.0.2.9", "kind": "switch", "mac": SW})
+    assert pipeline._link_unifi_connections("a", [], [_uplink()]) == 0  # ambiguous MAC
+    assert pipeline._link_unifi_connections("a", [], [_uplink(device=AP)]) == 0  # self reference
+
+
+def test_device_uplink_removed_when_gone(temp_db):
+    _, ap, _, _ = _devices(temp_db)
+    pipeline._link_unifi_connections("a", [], [_uplink()])
+    pipeline._link_unifi_connections("a", [], [])
+    assert _conn(temp_db, ap) is None
+
+
+def test_uplinks_unreadable_keeps_existing_uplinks(temp_db):
+    _, ap, _, _ = _devices(temp_db)
+    pipeline._link_unifi_connections("a", [], [_uplink()])
+    pipeline._link_unifi_connections("a", [], None)
+    assert _conn(temp_db, ap)["port"] == 2
+
+
+def test_uplink_source_switch_client_and_back(temp_db):
+    _, ap, _, _ = _devices(temp_db)
+    pipeline._link_unifi_connections("a", [], [_uplink(port=2)])
+    pipeline._link_unifi_connections("a", [_client(AP, wired=True, swMac=SW, swPort=7)], [_uplink(port=2)])
+    assert _conn(temp_db, ap)["port"] == 7
+    pipeline._link_unifi_connections("a", [], [_uplink(port=2)])
+    assert _conn(temp_db, ap)["port"] == 2
+
+
+def test_uplink_other_account_untouched(temp_db):
+    _, ap, _, _ = _devices(temp_db)
+    pipeline._link_unifi_connections("a", [], [_uplink()])
+    pipeline._link_unifi_connections("b", [], [])
+    assert _conn(temp_db, ap)["accountId"] == "a"
+
+
+def test_scan_links_device_uplinks_and_stores_gateway_ports(temp_db, monkeypatch):
+    _account(temp_db)
+    sw, ap, _, _ = _devices(temp_db)
+    gateway = temp_db.create_system({"name": "UCG Ultra", "ip": "192.0.2.50", "kind": "router",
+                                     "mac": "aa:bb:cc:00:00:30"})
+
+    async def probe(url, key, account_id, system_id):
+        result = await _ok([])(url, key, account_id, system_id)
+        return {**result, "clients": [], "warnings": [], "portsOk": True, "uplinks": [_uplink()],
+                "switches": [_sw_ports("aa:bb:cc:00:00:30")]}
+
+    monkeypatch.setattr(pipeline.unifi_classic_probe, "probe", probe)
+    monkeypatch.setattr(pipeline.unifi_probe, "probe", lambda *a, **k: asyncio.sleep(0, {
+        "ok": True, "error": "", "warnings": [], "systems": [], "resources": [], "completeScopes": []}))
+    _scan(temp_db, monkeypatch)
+    assert _conn(temp_db, ap)["port"] == 2 and _ports(temp_db, gateway)["ports"][0]["port"] == 1

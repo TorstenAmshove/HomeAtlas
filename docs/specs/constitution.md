@@ -71,10 +71,11 @@
   Dienststeuerung, keine schreibende Umleitung in Dateien; Pipes zu Lesewerkzeugen wie `base64` und
   `2>/dev/null` sind erlaubt);
   Ausnahme: Dateilesen per SSH-Forced-Command aus festen Befehlskonstanten je Quelltyp (kein Pfad,
-  kein Parameter; Erreichbarkeits- und Firewall-Quellen); HTTP nur GET (der UniFi-Scan liest per ADR-0025 zusätzlich `stat/sta` und `rest/portconf`, Netz-IDs aus `networkconf` nach ADR-0026; Ausnahme: im Live-Zugriff `unifi_live.py` höchstens ein lesender POST für Events, L8; Proxmox-Live, L9, nur GET); TR-064/IGD nur `Get*`-Aktionen (die öffentliche Adresse der FRITZ!Box ohne Zugangsdaten); Docker-API nur GET; Home-Assistant-WebSocket nur
+  kein Parameter; Erreichbarkeits- und Firewall-Quellen); HTTP nur GET (der UniFi-Scan liest per ADR-0025 zusätzlich `stat/sta` und `rest/portconf`, Netz-IDs aus `networkconf` nach ADR-0026, Geräte-Uplinks und Gateway-Ports aus `stat/device` nach ADR-0027; Ausnahme: im Live-Zugriff `unifi_live.py` höchstens ein lesender POST für Events, L8; Proxmox-Live, L9, nur GET); TR-064/IGD nur `Get*`-Aktionen (die öffentliche Adresse der FRITZ!Box ohne Zugangsdaten); Docker-API nur GET; Home-Assistant-WebSocket nur
   `trace/list`, `trace/get` und `system_log/list`.
   ([ADR-0025](../adr/0025-unifi-scan-client-port-und-port-vlans.md),
-  [ADR-0026](../adr/0026-unifi-port-vlans-netzaufloesung.md))
+  [ADR-0026](../adr/0026-unifi-port-vlans-netzaufloesung.md),
+  [ADR-0027](../adr/0027-unifi-geraete-uplink-und-gateway-ports.md))
 - **L3 [Muss]** Ein Zugang wird nur benutzt, wenn er **ausdrücklich zum Auslesen freigegeben**
   ist (Opt-in je Zugang, Default aus). Das Auslesen pro Gerät lässt sich global abschalten
   (`scanUseCredentials`); Controller-Abfragen (UniFi, Proxmox) haben eigene Schalter.
